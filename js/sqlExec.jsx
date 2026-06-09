@@ -70,6 +70,7 @@ function SqlExecCard({
   confirmMessage = "",
   confirmKind = "warning",
   executeSql,
+  allowRun = true,
   disabled = false,
 }) {
   const [approved, setApproved] = useState(false);
@@ -171,13 +172,15 @@ function SqlExecCard({
         <Stack direction="row" spacing={0.25} alignItems="center">
           <ButtonIconify icon="mdi:content-copy" title="Copiar SQL" onClick={copySql} disabled={!sql} />
           <ButtonIconify icon="mdi:eye-outline" title="Abrir SQL" onClick={() => setModalOpen(true)} disabled={!sql} />
-          <RunButton
-            unlocked={approved}
-            onToggle={setApproved}
-            onRun={onRunClick}
-            busy={busy}
-            disabled={disabled || !sql?.trim()}
-          />
+          {allowRun && executeSql && (
+            <RunButton
+              unlocked={approved}
+              onToggle={setApproved}
+              onRun={onRunClick}
+              busy={busy}
+              disabled={disabled || !sql?.trim()}
+            />
+          )}
         </Stack>
       </div>
       {desc && <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{desc}</Typography>}

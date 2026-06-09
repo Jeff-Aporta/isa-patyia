@@ -113,18 +113,10 @@
   }
 
   async function pgLanglabExec(sql) {
-    try {
-      return await labFetchWithCap("guardar_langlab", "/pg/langlab/exec", {
-        method: "POST",
-        body: JSON.stringify({ sql }),
-      });
-    } catch (e1) {
-      if (e1?.code === "FORBIDDEN" || e1?.code === "NO_SESSION") throw e1;
-      return labFetchWithCap("guardar_langlab", "/patyia/prompts/upsert-sql", {
-        method: "POST",
-        body: JSON.stringify({ sql, target: "langlab" }),
-      });
-    }
+    return labFetchWithCap("guardar_langlab", "/patyia/prompts/upsert-sql", {
+      method: "POST",
+      body: JSON.stringify({ sql, target: "langlab" }),
+    });
   }
 
   async function savePromptsToLanglab(sql) {

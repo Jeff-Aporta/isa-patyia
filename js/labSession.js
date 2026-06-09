@@ -19,8 +19,9 @@
   };
 
   /** Excepciones por usuario (espejo de lab-permissions.json → user_exceptions). */
+  /** Viviana (VRESTREPO): solo Guardar en langlab; sin ejecutar SQL staging. */
   const USER_CAPS = {
-    VRESTREPO: ["ejecutar_mssql_instrucciones"],
+    VRESTREPO: ["guardar_langlab"],
   };
 
   const CAP_LABELS = {
@@ -31,7 +32,7 @@
   };
 
   const CAP_ENDPOINTS = {
-    guardar_langlab: { method: "POST", path: "/pg/langlab/exec" },
+    guardar_langlab: { method: "POST", path: "/patyia/prompts/upsert-sql" },
     ejecutar_mssql: { method: "POST", path: "/mssql/paty/exec" },
     ejecutar_mssql_instrucciones: { method: "POST", path: "/mssql/paty/exec" },
     signalr: { method: "POST", path: "/signalr/negotiate" },
@@ -138,7 +139,7 @@
     }
     if (res.status === 404) {
       throw new Error(
-        "El servidor lab no expone guardado (falta desplegar lab-langgraph con /auth/service-token y /pg/langlab/exec).",
+        "El servidor lab no expone guardado (falta desplegar lab-langgraph con /auth/service-token y /patyia/prompts/upsert-sql).",
       );
     }
     if (!res.ok || !data.token) {
@@ -168,7 +169,8 @@
       data = { ok: false, error: text || res.statusText };
     }
     if (!res.ok || !data.token) {
-      throw new Error(data.error ?? res.statusText ?? "Inicio de sesión fallido");
+      const parts = [data.error, data.hint, data.detail].filter(Boolean);
+      throw new Error(parts.join(" · ") || res.statusText || "Inicio de sesión fallido");
     }
     serviceToken = null;
     serviceExpMs = 0;

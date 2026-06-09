@@ -1,68 +1,14 @@
-# patyia-tools — Utilidades PatyIA (GH Pages)
+# patyia-tools
 
-App estática con layout tipo ISA-DOC (header + herramientas; **el body no hace scroll**, solo cada panel).
+Utilidades web para apoyo operativo de PatyIA.
 
-Copia de despliegue en el monorepo: `ISS-AyudasCPIA/apptools/patyia-apptools`.
+**https://jeff-aporta.github.io/patyia-tools/**
 
-## Herramientas
-
-### Visor de log
-- Recuperar por `iconversacion` (query `CONVERSACION_LOG` vía **lab** Azure).
-- Pegar JSON de `conv-*.json` o respuesta `/api/patyia/conversacion/{id}/log`.
-- Hilo como en ISA-DOC: user → operativas → assistant.
-
-### Prompts → SQL
-- **13 tabs** (una por instrucción `PROMPT_<TIPO>.md`).
-- **Drag & drop** o selector de archivos `.md` → actualiza tabs al instante (solo en memoria).
-- Mapeo automático a `INSTRUCCION` + `TDCONSULTAXINSTRUCCION`.
-- SQL MSSQL (Paty staging) y SQL PostgreSQL (BD_LANGLAB / langlab) generados en vivo.
-- **Guardar** → langlab vía sesión + token INTEGRACIONES.
-- **Fusión PatyIA staging (MSSQL)** con candado + play → `/api/mssql/paty/exec`.
-- Botones compactos con **Iconify** (`ButtonIconify`).
-
-## Backend lab (Azure)
-
-**URL online:** `https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net` (Function App `rag-lab`).
-
-1. Switch **local / online** en el header: `local` → `http://localhost:5500`; `online` → Azure.
-2. Estado en URL: query **`?s=`** (JSON en base64url) — herramienta activa, local/online, log, prompts.
-3. **Prompts → SQL** carga al abrir las instrucciones desde `INSTRUCCION` vía `/api/mssql/paty/query` (sin auth).
-4. **Iniciar sesión** → sesión por rol; mutaciones usan servicio INTEGRACIONES.
-
-## Uso local
-
-```bash
-npx --yes serve .
-```
-
-## Despliegue GitHub Pages
-
-- **Repo GH Pages:** `Jeff-Aporta/patyia-tools`
-- **URL en línea:** https://jeff-aporta.github.io/patyia-tools/
-- **Copia en monorepo:** `Dev-InSoft/ISS-AyudasCPIA` → `apptools/patyia-apptools`
-
-### Publicar (repo patyia-tools)
-
-```bash
-cd apptools/patyia-apptools
-git add .
-git commit -m "Actualiza PatyIA AppTools"
-git push origin main
-```
-
-En GitHub: **Settings → Pages → Deploy from a branch** → `main` / `/ (root)`.  
-El archivo `.nojekyll` evita que Jekyll ignore rutas con `_`.
-
-## Stack
-
-- React 18 + ReactDOM (UMD)
-- Babel Standalone (JSX en el navegador)
-- Emotion + MUI 5 (UMD)
-- Iconify (`iconify-icon` CDN)
-- marked (markdown en mensajes)
-
-Sin build ni dependencias npm.
-
-## Privacidad
-
-El parseo de logs ocurre en el cliente. Las consultas/exec van al backend **lab** en Azure cuando el usuario autentica.
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/patyia-tools/)
+[![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev/)
+[![MUI](https://img.shields.io/badge/MUI-5-007FFF?logo=mui&logoColor=white)](https://mui.com/)
+[![Babel](https://img.shields.io/badge/Babel-Standalone-F9DC3E?logo=babel&logoColor=black)](https://babeljs.io/)
+[![Iconify](https://img.shields.io/badge/Iconify-iconify--icon-1769AA?logo=iconify&logoColor=white)](https://iconify.design/)
+[![marked](https://img.shields.io/badge/marked-Markdown-000000?logo=markdown&logoColor=white)](https://marked.js.org/)
+[![CodeMirror](https://img.shields.io/badge/CodeMirror-5-D30707?logo=codemirror&logoColor=white)](https://codemirror.net/)
+[![SignalR](https://img.shields.io/badge/SignalR-8-512BD4?logo=.net&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet/signalr)

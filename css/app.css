@@ -204,6 +204,10 @@ body {
   grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr);
 }
 
+.tool-grid-prompts--solo {
+  grid-template-columns: 1fr;
+}
+
 .tool-stack-right {
   min-height: 0;
   display: flex;

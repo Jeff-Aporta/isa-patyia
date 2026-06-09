@@ -109,6 +109,14 @@ function ensureMssqlExecCap(onNeedLogin) {
 }
 
 function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
+  const [authTick, setAuthTick] = useState(0);
+  useEffect(() => {
+    const onAuth = () => setAuthTick((n) => n + 1);
+    window.addEventListener("patyia-apptools:auth", onAuth);
+    return () => window.removeEventListener("patyia-apptools:auth", onAuth);
+  }, []);
+
+  const canExecMssql = useMemo(() => Boolean(PatyLabSession.mssqlExecCap()), [authTick]);
 
   const tipos = PatyPromptsSql.PATY_PROMPT_TIPOS;
 
@@ -486,7 +494,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   return (
 
-    <div className="tool-grid tool-grid-prompts">
+    <div className={`tool-grid tool-grid-prompts${canExecMssql ? "" : " tool-grid-prompts--solo"}`}>
 
       <Paper className="tool-panel scroll-panel" elevation={0}>
 
@@ -739,37 +747,41 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
 
 
-      <Paper className="tool-panel scroll-panel" elevation={0}>
+      {canExecMssql && (
+        <Paper className="tool-panel scroll-panel" elevation={0}>
 
-        <div className="panel-head">
+          <div className="panel-head">
 
-          <Typography variant="subtitle1" fontWeight={600}>SQL</Typography>
+            <Typography variant="subtitle1" fontWeight={600}>SQL</Typography>
 
-        </div>
+          </div>
 
-        <div className="panel-body panel-body-sql-stack">
+          <div className="panel-body panel-body-sql-stack">
 
-          <SqlExecCard
+            <SqlExecCard
 
-            title="Fusión PatyIA staging (MSSQL)"
+              title="Fusión PatyIA staging (MSSQL)"
 
-            sql={sqlMssql}
+              sql={sqlMssql}
 
-            desc="AYUDASCP_IA_STAGING · INSTRUCCION + TDCONSULTAXINSTRUCCION"
+              desc="AYUDASCP_IA_STAGING · INSTRUCCION + TDCONSULTAXINSTRUCCION"
 
-            height="180px"
+              height="180px"
 
-            confirmMessage="Ejecutar fusión en PatyIA staging. ¿Continuar?"
+              confirmMessage="Ejecutar fusión en PatyIA staging. ¿Continuar?"
 
-            executeSql={execMssql}
+              executeSql={execMssql}
 
-            disabled={!sqlMssql.trim()}
+              allowRun
 
-          />
+              disabled={!sqlMssql.trim()}
 
-        </div>
+            />
 
-      </Paper>
+          </div>
+
+        </Paper>
+      )}
 
     </div>
 
