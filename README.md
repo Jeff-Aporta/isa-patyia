@@ -35,21 +35,19 @@ Copia de despliegue en el monorepo: `ISS-AyudasCPIA/apptools/patyia-apptools`.
 npx --yes serve .
 ```
 
-## Despliegue GitHub Pages (Dev-InSoft)
+## Despliegue GitHub Pages
 
-- **Repo:** `Dev-InSoft/patyia-tools`
-- **URL:** https://dev-insoft.github.io/patyia-tools/
+- **Repo GH Pages:** `Jeff-Aporta/patyia-tools`
+- **URL en línea:** https://jeff-aporta.github.io/patyia-tools/
+- **Copia en monorepo:** `Dev-InSoft/ISS-AyudasCPIA` → `apptools/patyia-apptools`
 
-### Publicar
+### Publicar (repo patyia-tools)
 
 ```bash
 cd apptools/patyia-apptools
-git init
 git add .
-git commit -m "PatyIA AppTools estático para GH Pages"
-git branch -M main
-git remote add origin https://github.com/Dev-InSoft/patyia-tools.git
-git push -u origin main
+git commit -m "Actualiza PatyIA AppTools"
+git push origin main
 ```
 
 En GitHub: **Settings → Pages → Deploy from a branch** → `main` / `/ (root)`.  
