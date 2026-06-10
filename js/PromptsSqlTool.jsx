@@ -117,6 +117,11 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   }, []);
 
   const canExecMssql = useMemo(() => Boolean(PatyLabSession.mssqlExecCap()), [authTick]);
+  const canGuardar = useMemo(() => PatyLabSession.can("guardar_langlab"), [authTick]);
+  const guardarTitle = useMemo(() => {
+    if (canGuardar) return "Guardar cambios pendientes en langlab";
+    return PatyLabSession.blockReason("guardar_langlab") || "Sin permiso para guardar";
+  }, [authTick, canGuardar]);
 
   const tipos = PatyPromptsSql.PATY_PROMPT_TIPOS;
 
@@ -512,9 +517,9 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
               variant="primary"
               icon="mdi:content-save"
               label={actionBusy ? "Guardando…" : "Guardar"}
-              title="Guardar cambios pendientes en langlab"
+              title={guardarTitle}
               onClick={saveAll}
-              disabled={actionBusy || loadBusy || !draftTipos.length}
+              disabled={actionBusy || loadBusy || !draftTipos.length || !canGuardar}
               busy={actionBusy}
             />
             <ButtonIconify

@@ -46,9 +46,6 @@ function LabAuthModal({ open, onClose, onLoggedIn }) {
       <DialogContent>
         <form onSubmit={submit}>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <p className="hint-text">
-              Acceso por rol en BD_LANGLAB. Las operaciones especiales usan el servicio INTEGRACIONES.
-            </p>
             <TextField label="Usuario" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth autoFocus />
             <TextField label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
             {error && <p className="error-text">{error}</p>}

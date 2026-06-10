@@ -8,7 +8,7 @@
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.startsWith("isa-patyia:")) localStorage.removeItem(k);
+      if (k && k.startsWith("patyia-apptools:")) localStorage.removeItem(k);
     }
   } catch (_) { /* migración desde prefijo patyia-apptools */ }
 
