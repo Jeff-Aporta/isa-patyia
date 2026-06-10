@@ -89,6 +89,18 @@ function draftBodiesFromPrompts(prompts) {
   return bodies;
 }
 
+function draftTiposFromPrompts(prompts) {
+  return Object.keys(draftBodiesFromPrompts(prompts));
+}
+
+function urlDraftTipoSet(bootPrompts) {
+  const bodies = bootPrompts?.bodies || {};
+  const listed = Array.isArray(bootPrompts?.draftTipos)
+    ? bootPrompts.draftTipos.map((t) => String(t).toUpperCase()).filter(Boolean)
+    : Object.keys(bodies).map((t) => String(t).toUpperCase());
+  return new Set(listed);
+}
+
 
 
 function ensureCap(cap, onNeedLogin) {
@@ -126,12 +138,15 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const tipos = PatyPromptsSql.PATY_PROMPT_TIPOS;
 
   const urlBodies = bootPrompts.bodies || {};
+  const urlDraftTipos = useMemo(() => urlDraftTipoSet(bootPrompts), [bootPrompts]);
 
   const [prompts, setPrompts] = useState(() => {
 
     const base = PatyPromptsSql.emptyPromptState();
 
     for (const [tipo, body] of Object.entries(urlBodies)) {
+
+      if (!urlDraftTipoSet(bootPrompts).has(String(tipo).toUpperCase())) continue;
 
       if (!base[tipo] || !String(body).trim()) continue;
 
@@ -181,7 +196,8 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
         if (scope && !scope.has(tipo)) continue;
         touched.add(tipo);
         const urlBody = ignoreUrl ? "" : urlBodies[tipo]?.trim();
-        if (!ignoreUrl && urlBody) {
+        const urlIsDraft = !ignoreUrl && urlDraftTipos.has(tipo) && Boolean(urlBody);
+        if (urlIsDraft) {
           if (body && urlBody === body) {
             next[tipo] = { ...next[tipo], body, dirty: false, source: "bd" };
           } else {
@@ -199,13 +215,17 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       }
       return next;
     });
-  }, [urlBodies]);
+  }, [urlBodies, urlDraftTipos]);
 
   const clearUrlBodies = useCallback((tiposToClear) => {
     const snap = PatyUrlState.getSnapshot();
     const bodies = { ...(snap.prompts?.bodies || {}) };
+    const draftTipos = (snap.prompts?.draftTipos || [])
+      .map((t) => String(t).toUpperCase())
+      .filter((t) => !tiposToClear.map((x) => String(x).toUpperCase()).includes(t));
     for (const t of tiposToClear) delete bodies[t];
-    PatyUrlState.mergePartial({ prompts: { activeTab, bodies } });
+    PatyUrlState.mergePartial({ prompts: { activeTab, bodies, draftTipos } });
+    PatyUrlState.flushToUrl();
   }, [activeTab]);
 
 
@@ -344,15 +364,11 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     setLoadErr("");
     try {
       await PatyLabApi.savePromptsToLanglab(sqlLanglab);
-      setPrompts((prev) => {
-        const next = { ...prev };
-        for (const t of draftTipos) {
-          if (next[t]) next[t] = { ...next[t], dirty: false, source: "bd" };
-        }
-        return next;
-      });
-      clearUrlBodies(draftTipos);
-      PatyNotify.toastSuccess(`${draftTipos.length} instrucción(es) guardada(s) en langlab`);
+      const savedTipos = [...draftTipos];
+      clearUrlBodies(savedTipos);
+      const rows = await PatyLabApi.fetchInstruccionesPaty();
+      applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
+      PatyNotify.toastSuccess(`${savedTipos.length} instrucción(es) guardada(s) en langlab`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
@@ -364,7 +380,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     } finally {
       setActionBusy(false);
     }
-  }, [clearUrlBodies, draftTipos, onNeedLogin, prompts]);
+  }, [applyCloudRows, clearUrlBodies, draftTipos, onNeedLogin, prompts]);
 
 
 
@@ -382,7 +398,10 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     urlSyncRef.current = setTimeout(() => {
 
-      PatyUrlState.mergePartial({ prompts: { activeTab, bodies: draftBodiesFromPrompts(prompts) } });
+      const bodies = draftBodiesFromPrompts(prompts);
+      PatyUrlState.mergePartial({
+        prompts: { activeTab, bodies, draftTipos: Object.keys(bodies) },
+      });
 
     }, 500);
 

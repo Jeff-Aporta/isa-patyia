@@ -24,12 +24,14 @@
 </head>
 <body>
   <div id="root"></div>
-  <script src="js/config.js"></script>
-  <script src="js/urlState.js"></script>
-  <script src="js/convLog.js"></script>
-  <script src="js/labSession.js"></script>
-  <script src="js/labApi.js"></script>
-  <script src="js/promptsSql.js"></script>
-  <script src="js/loader.js"></script>
+  <script>
+    window.__ISA_PATYIA_BUILD = "20260601-qa-f5";
+    (function () {
+      var b = window.__ISA_PATYIA_BUILD;
+      ["js/config.js", "js/urlState.js", "js/convLog.js", "js/labSession.js", "js/labApi.js", "js/promptsSql.js", "js/loader.js"].forEach(function (src) {
+        document.write('<script src="' + src + "?v=" + b + '"><\/script>');
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -17,8 +17,11 @@
     "js/App.jsx",
   ];
 
+  const build = global.__ISA_PATYIA_BUILD || global.PatyAppConfig?.APP_BUILD || "";
+
   async function loadOne(path) {
-    const res = await fetch(path, { cache: "no-store" });
+    const url = build ? `${path}?v=${encodeURIComponent(build)}` : path;
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`No se pudo cargar ${path} (${res.status})`);
     const src = await res.text();
     const out = Babel.transform(src, { presets: ["react"] }).code;
