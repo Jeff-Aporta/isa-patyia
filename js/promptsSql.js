@@ -87,7 +87,7 @@
     if (!valid.length) return { sql: "", rows: valid, error: "No hay prompts PROMPT_*.md válidos." };
 
     const head = `-- =====================================================================
--- Carga de prompts especificos por tipo de consulta (generado por patyia-apptools)
+-- Carga de prompts especificos por tipo de consulta (generado por isa-patyia)
 -- BD: AYUDASCP_IA_STAGING
 -- Fuente: PROMPT_<TIPO>.md
 -- =====================================================================
@@ -152,7 +152,7 @@ ORDER BY i.iinstruccion;
 
     const head = `-- =====================================================================
 -- Upsert prompts en BD_LANGLAB (langlab PostgreSQL)
--- Generado por patyia-apptools
+-- Generado por isa-patyia
 -- =====================================================================
 BEGIN;
 `;

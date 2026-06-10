@@ -86,8 +86,8 @@ function SessionActions({ onLoginClick }) {
   useEffect(() => {
     refresh();
     const onAuth = () => refresh();
-    window.addEventListener("patyia-apptools:auth", onAuth);
-    return () => window.removeEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    return () => window.removeEventListener("isa-patyia:auth", onAuth);
   }, [refresh]);
 
   function logout() {

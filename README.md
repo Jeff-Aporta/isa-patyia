@@ -1,7 +1,10 @@
+<p align="center">
+  <img src="https://i.ibb.co/Kjg04Hb9/isa-patyia-avatar.png" alt="ISA PatyIA" width="180" />
+</p>
+
 # isa-patyia
 
 Utilidades web para apoyo operativo de PatyIA (ISA).
-
 **https://jeff-aporta.github.io/isa-patyia/**
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/isa-patyia/)

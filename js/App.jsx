@@ -34,9 +34,9 @@ function LabTargetSwitch() {
 
   useEffect(() => {
 
-    window.addEventListener("patyia-apptools:lab-target", refresh);
+    window.addEventListener("isa-patyia:lab-target", refresh);
 
-    return () => window.removeEventListener("patyia-apptools:lab-target", refresh);
+    return () => window.removeEventListener("isa-patyia:lab-target", refresh);
 
   }, [refresh]);
 
@@ -130,15 +130,15 @@ function App() {
 
     const onTarget = () => setTargetLabel(PatyAppConfig.getLabTargetLabel());
 
-    window.addEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
 
-    window.addEventListener("patyia-apptools:lab-target", onTarget);
+    window.addEventListener("isa-patyia:lab-target", onTarget);
 
     return () => {
 
-      window.removeEventListener("patyia-apptools:auth", onAuth);
+      window.removeEventListener("isa-patyia:auth", onAuth);
 
-      window.removeEventListener("patyia-apptools:lab-target", onTarget);
+      window.removeEventListener("isa-patyia:lab-target", onTarget);
 
     };
 
@@ -158,7 +158,7 @@ function App() {
 
   function onLoggedIn() {
 
-    window.dispatchEvent(new Event("patyia-apptools:auth"));
+    window.dispatchEvent(new Event("isa-patyia:auth"));
 
   }
 
@@ -186,7 +186,16 @@ function App() {
 
           <div className="isa-header-top">
 
-            <span className="isa-logo">PatyIA</span>
+            <span className="isa-logo">
+              <img
+                className="isa-logo-img"
+                src="https://i.ibb.co/Kjg04Hb9/isa-patyia-avatar.png"
+                alt=""
+                width="36"
+                height="36"
+              />
+              ISA PatyIA
+            </span>
 
             <span className="isa-sep">|</span>
 
@@ -236,7 +245,7 @@ function App() {
 
             <Typography variant="caption" color="text.secondary">
 
-              AppTools · lab · <code>{targetLabel}</code>
+              ISA PatyIA · lab · <code>{targetLabel}</code>
 
             </Typography>
 

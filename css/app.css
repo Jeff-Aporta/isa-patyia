@@ -59,9 +59,18 @@ body {
 }
 
 .isa-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.isa-logo-img {
+  border-radius: 50%;
+  object-fit: cover;
   flex: 0 0 auto;
 }
 

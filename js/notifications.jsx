@@ -20,7 +20,7 @@ function pushToast(type, text, timeout = DEFAULT_TIMEOUT) {
 
 function toastError(text, timeout) {
   pushToast("error", text, timeout);
-  if (typeof console !== "undefined") console.error("[PatyIA AppTools]", text);
+  if (typeof console !== "undefined") console.error("[ISA PatyIA]", text);
 }
 
 function toastSuccess(text, timeout) {
@@ -38,7 +38,7 @@ function toastWarning(text, timeout) {
 function requestConfirm({ title = "Confirmar", message = "", confirmLabel = "Continuar", cancelLabel = "Cancelar" } = {}) {
   return new Promise((resolve) => {
     confirmResolver = resolve;
-    window.dispatchEvent(new CustomEvent("patyia-apptools:confirm", {
+    window.dispatchEvent(new CustomEvent("isa-patyia:confirm", {
       detail: { title, message, confirmLabel, cancelLabel },
     }));
   });
@@ -135,8 +135,8 @@ function NotificationProvider({ children }) {
     function onConfirm(e) {
       setConfirmState({ open: true, ...e.detail });
     }
-    window.addEventListener("patyia-apptools:confirm", onConfirm);
-    return () => window.removeEventListener("patyia-apptools:confirm", onConfirm);
+    window.addEventListener("isa-patyia:confirm", onConfirm);
+    return () => window.removeEventListener("isa-patyia:confirm", onConfirm);
   }, []);
 
   function answerConfirm(ok) {

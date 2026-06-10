@@ -112,8 +112,8 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [authTick, setAuthTick] = useState(0);
   useEffect(() => {
     const onAuth = () => setAuthTick((n) => n + 1);
-    window.addEventListener("patyia-apptools:auth", onAuth);
-    return () => window.removeEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    return () => window.removeEventListener("isa-patyia:auth", onAuth);
   }, []);
 
   const canExecMssql = useMemo(() => Boolean(PatyLabSession.mssqlExecCap()), [authTick]);
@@ -209,9 +209,9 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     const onTarget = () => setLabTarget(PatyAppConfig.getLabTargetLabel());
 
-    window.addEventListener("patyia-apptools:lab-target", onTarget);
+    window.addEventListener("isa-patyia:lab-target", onTarget);
 
-    return () => window.removeEventListener("patyia-apptools:lab-target", onTarget);
+    return () => window.removeEventListener("isa-patyia:lab-target", onTarget);
 
   }, []);
 

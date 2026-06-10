@@ -10,7 +10,7 @@
 
 
 
-  const LS_LOCAL = "patyia-apptools:lab-local";
+  const LS_LOCAL = "isa-patyia:lab-local";
 
   const LAB_LOCAL = "http://localhost:5500";
 
@@ -42,7 +42,7 @@
 
     } catch (_) { /* ignore */ }
 
-    global.dispatchEvent(new Event("patyia-apptools:lab-target"));
+    global.dispatchEvent(new Event("isa-patyia:lab-target"));
 
     return enabled;
 

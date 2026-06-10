@@ -6,11 +6,13 @@
   "use strict";
 
   try {
-    localStorage.removeItem("patyia-apptools:lab-jwt");
-    localStorage.removeItem("patyia-apptools:lab-jwt-exp");
-  } catch (_) { /* migración desde JWT en localStorage */ }
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("isa-patyia:")) localStorage.removeItem(k);
+    }
+  } catch (_) { /* migración desde prefijo patyia-apptools */ }
 
-  const SS_KEY = "patyia-apptools:lab-session";
+  const SS_KEY = "isa-patyia:lab-session";
 
   /** Capacidades por rol (espejo de lab-permissions.json). */
   const ROLE_CAPS = {
@@ -58,7 +60,7 @@
     try {
       sessionStorage.setItem(SS_KEY, JSON.stringify(s));
     } catch (_) { /* ignore */ }
-    global.dispatchEvent(new Event("patyia-apptools:auth"));
+    global.dispatchEvent(new Event("isa-patyia:auth"));
   }
 
   function clearSession() {
@@ -67,7 +69,7 @@
     } catch (_) { /* ignore */ }
     serviceToken = null;
     serviceExpMs = 0;
-    global.dispatchEvent(new Event("patyia-apptools:auth"));
+    global.dispatchEvent(new Event("isa-patyia:auth"));
   }
 
   function capsForRole(role) {

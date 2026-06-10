@@ -32,7 +32,7 @@
     } catch (err) {
       const root = document.getElementById("root");
       if (root) {
-        root.innerHTML = `<pre style="color:#f87171;padding:1rem;">Error cargando AppTools: ${err instanceof Error ? err.message : String(err)}</pre>`;
+        root.innerHTML = `<pre style="color:#f87171;padding:1rem;">Error cargando ISA PatyIA: ${err instanceof Error ? err.message : String(err)}</pre>`;
       }
       console.error(err);
     }
