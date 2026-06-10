@@ -9,7 +9,7 @@
   "use strict";
 
   /** Bump al publicar para evitar JS cacheado en GitHub Pages. */
-  const APP_BUILD = "20260601-copy";
+  const APP_BUILD = "20260601-loader";
 
   const LS_LOCAL = "isa-patyia:lab-local";
 

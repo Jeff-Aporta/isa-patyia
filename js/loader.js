@@ -17,7 +17,7 @@
     "js/App.jsx",
   ];
 
-  const build = global.__ISA_PATYIA_BUILD || global.PatyAppConfig?.APP_BUILD || "";
+  const build = window.__ISA_PATYIA_BUILD || window.PatyAppConfig?.APP_BUILD || "";
 
   async function loadOne(path) {
     const url = build ? `${path}?v=${encodeURIComponent(build)}` : path;
