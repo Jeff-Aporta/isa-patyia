@@ -566,7 +566,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
             <Typography variant="caption" color="text.secondary">
 
-              Carga desde BD (lab).
+              Carga desde BD_LANGLAB (langlab).
 
             </Typography>
 

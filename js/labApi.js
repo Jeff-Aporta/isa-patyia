@@ -133,14 +133,21 @@
     return null;
   }
 
-  const SQL_INSTRUCCIONES = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO]
+  /** Lectura alineada con Guardar → BD_LANGLAB (PostgreSQL), no PatyIA staging MSSQL. */
+  async function fetchInstruccionesPaty() {
+    try {
+      const data = await labFetch("/patyia/instrucciones", { method: "GET" });
+      return data.rows ?? [];
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/Ruta no encontrada|HTTP 404/i.test(msg)) throw e;
+      const sql = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO]
 FROM [dbo].[INSTRUCCION]
 WHERE [BACTIVO] = 1
 ORDER BY [IINSTRUCCION]`;
-
-  async function fetchInstruccionesPaty() {
-    const { rows } = await mssqlQuery(SQL_INSTRUCCIONES);
-    return rows ?? [];
+      const { rows } = await mssqlQuery(sql);
+      return rows ?? [];
+    }
   }
 
   async function fetchConvLogById(iconversacion) {
