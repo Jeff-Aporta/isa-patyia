@@ -1,10 +1,10 @@
-# patyia-tools
+# isa-patyia
 
-Utilidades web para apoyo operativo de PatyIA.
+Utilidades web para apoyo operativo de PatyIA (ISA).
 
-**https://jeff-aporta.github.io/patyia-tools/**
+**https://jeff-aporta.github.io/isa-patyia/**
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/patyia-tools/)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/isa-patyia/)
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev/)
 [![MUI](https://img.shields.io/badge/MUI-5-007FFF?logo=mui&logoColor=white)](https://mui.com/)
 [![Babel](https://img.shields.io/badge/Babel-Standalone-F9DC3E?logo=babel&logoColor=black)](https://babeljs.io/)
