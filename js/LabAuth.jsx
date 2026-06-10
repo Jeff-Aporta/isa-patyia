@@ -40,7 +40,7 @@ function LabAuthModal({ open, onClose, onLoggedIn }) {
       <DialogTitle>
         <Stack direction="row" spacing={0.5} alignItems="center">
           <iconify-icon icon="mdi:account-key-outline" width="1.1em" height="1.1em" />
-          <span>Sesión lab</span>
+          <span>Iniciar sesión</span>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -98,8 +98,8 @@ function SessionActions({ onLoginClick }) {
       <button
         type="button"
         className="btn-iconify btn-iconify--primary btn-iconify--labeled header-session-btn"
-        title="Iniciar sesión lab"
-        aria-label="Iniciar sesión lab"
+        title="Iniciar sesión"
+        aria-label="Iniciar sesión"
         onClick={() => onLoginClick?.()}
       >
         <SignalRStatusDot tone={tone} tip={tip} onReconnect={connect} />

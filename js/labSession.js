@@ -27,9 +27,9 @@
   };
 
   const CAP_LABELS = {
-    guardar_langlab: "guardar instrucciones en langlab",
-    ejecutar_mssql: "ejecutar SQL en PatyIA staging",
-    ejecutar_mssql_instrucciones: "actualizar INSTRUCCION en PatyIA staging",
+    guardar_langlab: "guardar instrucciones",
+    ejecutar_mssql: "ejecutar fusión SQL en PatyIA",
+    ejecutar_mssql_instrucciones: "actualizar instrucciones en PatyIA",
     signalr: "conectar SignalR",
   };
 
@@ -141,7 +141,7 @@
     }
     if (res.status === 404) {
       throw new Error(
-        "El servidor lab no expone guardado (falta desplegar lab-langgraph con /auth/service-token y /patyia/prompts/upsert-sql).",
+        "El servidor no expone guardado de instrucciones. Contacta al administrador.",
       );
     }
     if (!res.ok || !data.token) {

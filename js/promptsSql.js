@@ -88,7 +88,6 @@
 
     const head = `-- =====================================================================
 -- Carga de prompts especificos por tipo de consulta (generado por isa-patyia)
--- BD: AYUDASCP_IA_STAGING
 -- Fuente: PROMPT_<TIPO>.md
 -- =====================================================================
 SET NOCOUNT ON;
@@ -148,11 +147,10 @@ ORDER BY i.iinstruccion;
   /** BD_LANGLAB (langlab / Render) — no PatyIA MSSQL. */
   function buildLanglabPgSql(rows) {
     const valid = rows.filter((r) => r.tipo && r.body);
-    if (!valid.length) return { sql: "", rows: valid, error: "No hay prompts válidos para langlab." };
+    if (!valid.length) return { sql: "", rows: valid, error: "No hay prompts válidos para guardar." };
 
     const head = `-- =====================================================================
--- Upsert prompts en BD_LANGLAB (langlab PostgreSQL)
--- Generado por isa-patyia
+-- Upsert de instrucciones (generado por isa-patyia)
 -- =====================================================================
 BEGIN;
 `;

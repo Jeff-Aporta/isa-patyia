@@ -58,9 +58,9 @@ function LabTargetSwitch() {
 
   const title = local
 
-    ? `Peticiones a lab local (${PatyAppConfig.LAB_LOCAL})`
+    ? `Servidor local (${PatyAppConfig.LAB_LOCAL})`
 
-    : `Peticiones a lab en línea (${PatyAppConfig.LAB_ONLINE})`;
+    : `Servidor en línea (${PatyAppConfig.LAB_ONLINE})`;
 
 
 
@@ -245,7 +245,7 @@ function App() {
 
             <Typography variant="caption" color="text.secondary">
 
-              ISA PatyIA · lab · <code>{targetLabel}</code>
+              ISA PatyIA · <code>{targetLabel}</code>
 
             </Typography>
 

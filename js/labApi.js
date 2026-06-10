@@ -6,7 +6,7 @@
 
   function requireBase() {
     const base = global.PatyAppConfig?.getLabBase?.() ?? "";
-    if (!base) throw new Error("URL de lab no configurada.");
+    if (!base) throw new Error("URL del servidor no configurada.");
     return base.replace(/\/$/, "");
   }
 
@@ -19,7 +19,7 @@
   function wrapFetchError(err, url) {
     if (err instanceof TypeError && /failed to fetch/i.test(String(err.message))) {
       return new Error(
-        `No se pudo conectar con lab (${url}). Comprueba el switch local/en línea, ` +
+        `No se pudo conectar con el servidor (${url}). Comprueba el switch local/en línea, ` +
           "que config.js tenga el host correcto y que /api/health responda.",
       );
     }
@@ -62,7 +62,7 @@
     }
     if (res.status === 404) {
       throw new Error(
-        `Ruta no encontrada en lab (${path}). Despliega la última versión de lab-langgraph.`,
+        `Ruta no encontrada en el servidor (${path}). Contacta al administrador.`,
       );
     }
     if (!res.ok || data.ok === false) {

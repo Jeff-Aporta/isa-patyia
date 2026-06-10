@@ -131,7 +131,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const canExecMssql = useMemo(() => Boolean(PatyLabSession.mssqlExecCap()), [authTick]);
   const canGuardar = useMemo(() => PatyLabSession.can("guardar_langlab"), [authTick]);
   const guardarTitle = useMemo(() => {
-    if (canGuardar) return "Guardar cambios pendientes en langlab";
+    if (canGuardar) return "Guardar cambios pendientes en la base de instrucciones";
     return PatyLabSession.blockReason("guardar_langlab") || "Sin permiso para guardar";
   }, [authTick, canGuardar]);
 
@@ -295,7 +295,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
         if (!cancelled) {
           const msg = e instanceof Error ? e.message : String(e);
           setLoadErr(msg);
-          PatyNotify.toastWarning(`Carga desde lab: ${msg}`);
+          PatyNotify.toastWarning(`Carga de instrucciones: ${msg}`);
         }
 
       } finally {
@@ -334,7 +334,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       const rows = await PatyLabApi.fetchInstruccionesPaty();
       applyCloudRows(rows, { onlyTipos: toReset, ignoreUrl: true });
       clearUrlBodies(toReset);
-      PatyNotify.toastInfo(`${toReset.length} instrucción(es) restaurada(s) desde BD`);
+      PatyNotify.toastInfo(`${toReset.length} instrucción(es) restaurada(s) desde la base`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
@@ -368,7 +368,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       clearUrlBodies(savedTipos);
       const rows = await PatyLabApi.fetchInstruccionesPaty();
       applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
-      PatyNotify.toastSuccess(`${savedTipos.length} instrucción(es) guardada(s) en langlab`);
+      PatyNotify.toastSuccess(`${savedTipos.length} instrucción(es) guardada(s)`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
@@ -544,7 +544,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
             <ButtonIconify
               icon="mdi:delete-outline"
               label="Descartar"
-              title="Descartar todos los borradores y restaurar desde BD"
+              title="Descartar todos los borradores y restaurar desde la base"
               onClick={discardAll}
               disabled={actionBusy || loadBusy || !hasLocalChanges}
             />
@@ -585,7 +585,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
             <Typography variant="caption" color="text.secondary">
 
-              Carga desde BD_LANGLAB (langlab).
+              Carga desde la base de instrucciones.
 
             </Typography>
 
@@ -784,15 +784,15 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
             <SqlExecCard
 
-              title="Fusión PatyIA staging (MSSQL)"
+              title="Fusión de instrucciones (PatyIA)"
 
               sql={sqlMssql}
 
-              desc="AYUDASCP_IA_STAGING · INSTRUCCION + TDCONSULTAXINSTRUCCION"
+              desc="INSTRUCCION + TDCONSULTAXINSTRUCCION"
 
               height="180px"
 
-              confirmMessage="Ejecutar fusión en PatyIA staging. ¿Continuar?"
+              confirmMessage="Ejecutar fusión de instrucciones en PatyIA. ¿Continuar?"
 
               executeSql={execMssql}
 

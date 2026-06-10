@@ -31,7 +31,7 @@ async function fetchNegotiateInfo(userId) {
   }
   const info = data.url && data.accessToken ? data : data.connectionInfo;
   if (!info?.url || !info?.accessToken) {
-    throw new Error(data.error ?? data.hint ?? "Negotiate sin url/accessToken (¿SignalR provisionado en lab?)");
+    throw new Error(data.error ?? data.hint ?? "Negotiate sin url/accessToken (¿SignalR provisionado en el servidor?)");
   }
   return info;
 }
@@ -132,7 +132,7 @@ function useSignalRLab() {
       const health = await PatyLabApi.pingLab();
       if (health?.signalR?.configured === false) {
         setState("error");
-        setLastErr("Azure SignalR no configurado en lab");
+        setLastErr("Azure SignalR no configurado en el servidor");
         PatyNotify.toastWarning("SignalR: AzureSignalRConnectionString no está en la Function App");
         return;
       }
