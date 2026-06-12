@@ -1,6 +1,5 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { Config } from "../core/platform.ts";
-import { getLabTargetLabel } from "../core/config.ts";
 import * as LabSession from "../api/labSession.ts";
 import * as LabApi from "../api/labApi.ts";
 import { notifyFromSignalR, toastWarning } from "../ui/notifications.jsx";
@@ -37,7 +36,7 @@ async function fetchNegotiateInfo(userId) {
   }
   const info = data.url && data.accessToken ? data : data.connectionInfo;
   if (!info?.url || !info?.accessToken) {
-    throw new Error(data.error ?? data.hint ?? "Negotiate sin url/accessToken (¿SignalR provisionado en lab?)");
+    throw new Error(userRealtimeError(data.error ?? data.hint ?? "No se pudo conectar en tiempo real"));
   }
   return info;
 }
@@ -84,27 +83,37 @@ export async function connectLabSignalR({ userId, onStatus, onNotify }) {
   };
 }
 
-function statusTitle(state, lastErr, target) {
+function userRealtimeError(raw) {
+  const msg = String(raw || "").trim();
+  if (!msg) return "Error de conexión en tiempo real";
+  if (/azure|function app|negotiate|accesstoken|workers\.dev|localhost:\d+/i.test(msg)) {
+    return "No se pudo establecer la conexión en tiempo real";
+  }
+  if (/permiso|denegad|forbidden/i.test(msg)) return msg;
+  if (/401|sesión|expirad|no autorizado/i.test(msg)) return "Sesión no válida o expirada";
+  return msg.length > 120 ? "Error de conexión en tiempo real" : msg;
+}
+
+function statusTitle(state, lastErr) {
   let title;
   switch (state) {
     case "connected":
-      title = "SignalR conectado";
+      title = "Notificaciones en tiempo real activas";
       break;
     case "connecting":
-      title = "SignalR conectando…";
+      title = "Conectando notificaciones…";
       break;
     case "reconnecting":
-      title = "SignalR reconectando…";
+      title = "Reconectando notificaciones…";
       break;
     case "error":
-      title = "SignalR error";
+      title = "Notificaciones no disponibles";
       break;
     default:
-      title = "SignalR desconectado";
+      title = "Notificaciones desconectadas";
   }
-  const parts = [title, target];
-  if (lastErr) parts.push(lastErr);
-  return parts.filter(Boolean).join(" · ");
+  if (lastErr) return `${title} · ${userRealtimeError(lastErr)}`;
+  return title;
 }
 
 function signalDotTone(state) {
@@ -116,7 +125,6 @@ function signalDotTone(state) {
 export function useSignalRLab() {
   const [state, setState] = useState("disconnected");
   const [lastErr, setLastErr] = useState("");
-  const [target, setTarget] = useState(getLabTargetLabel());
   const clientRef = useRef(null);
   const genRef = useRef(0);
 
@@ -127,6 +135,12 @@ export function useSignalRLab() {
   }, []);
 
   const connect = useCallback(async () => {
+    if (!LabSession.isLoggedIn()) {
+      setState("disconnected");
+      setLastErr("");
+      return;
+    }
+
     if (!LabSession.can("signalr")) {
       const reason = LabSession.blockReason("signalr");
       setState("disconnected");
@@ -138,8 +152,8 @@ export function useSignalRLab() {
       const health = await LabApi.pingLab();
       if (health?.signalR?.configured === false) {
         setState("error");
-        setLastErr("Azure SignalR no configurado en lab");
-        toastWarning("SignalR: AzureSignalRConnectionString no está en la Function App");
+        setLastErr("Servicio de notificaciones no disponible");
+        toastWarning("Las notificaciones en tiempo real no están habilitadas");
         return;
       }
     } catch (_) { /* health opcional */ }
@@ -162,25 +176,21 @@ export function useSignalRLab() {
       clientRef.current = client;
     } catch (err) {
       if (genRef.current !== gen) return;
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = LabSession.humanPermissionError(err, "signalr");
       setLastErr(msg);
       setState("error");
-      if (err?.code !== "FORBIDDEN" && err?.code !== "NO_SESSION") {
-        toastWarning(`SignalR: ${msg}`);
-      } else {
-        LabSession.handleApiError(err, "signalr");
-      }
+      // Conexión automática: solo indicador en el punto; sin toast intrusivo.
     }
   }, [disconnect]);
 
   useEffect(() => {
     connect();
     return () => { disconnect(); };
-  }, [connect, target]);
+  }, [connect]);
 
   useEffect(() => {
     const onAuth = () => connect();
-    const onTarget = () => setTarget(getLabTargetLabel());
+    const onTarget = () => connect();
     window.addEventListener("isa-patyia:auth", onAuth);
     window.addEventListener("jeff:gateway-target", onTarget);
     window.addEventListener("patyia-apptools:lab-target", onTarget);
@@ -191,10 +201,10 @@ export function useSignalRLab() {
     };
   }, [connect]);
 
-  const tip = statusTitle(state, lastErr, target);
+  const tip = statusTitle(state, lastErr);
   const tone = signalDotTone(state);
 
-  return { state, lastErr, target, tip, tone, connect };
+  return { state, lastErr, tip, tone, connect };
 }
 
 export function SignalRStatusDot({ tone, tip, onReconnect }) {
