@@ -1,15 +1,155 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
-import { ButtonIconify } from "../ui/iconify.jsx";
+import { UI, Session } from "../core/platform.ts";
 import * as LabSession from "../api/labSession.ts";
 import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
 import { useSignalRLab, SignalRStatusDot } from "../realtime/signalrLab.jsx";
 
-const { useState, useEffect, useCallback } = getReact();
+const { useState, useEffect } = getReact();
 const {
-  Dialog, DialogTitle, DialogContent, TextField, Stack, Tooltip, Typography,
+  Stack, Tooltip, Chip, IconButton, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, Typography, Alert, TextField,
 } = getMaterialUI();
 
+function sanitizeLoginError(raw) {
+  const msg = String(raw || "").trim();
+  if (!msg) return "No se pudo iniciar sesión";
+  if (/main-orchestrator|workers\.dev|localhost:\d+|878\d|azure|orquestador|gateway/i.test(msg)) {
+    return "No se pudo iniciar sesión";
+  }
+  if (/^Login falló \(\d+\)$/.test(msg)) return "Usuario o contraseña incorrectos";
+  return msg;
+}
+
+/** Botón de sesión + modal login (MUI, homogéneo con jagudeloe). */
+export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
+  const { Icon } = UI;
+  const [openInternal, setOpenInternal] = useState(false);
+  const open = loginOpen != null ? loginOpen : openInternal;
+  const setOpen = onLoginOpenChange || setOpenInternal;
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [, tick] = useState(0);
+  const { tip, tone, connect } = useSignalRLab();
+
+  useEffect(() => {
+    const onAuth = () => tick((n) => n + 1);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    window.addEventListener(Session.EVENT, onAuth);
+    return () => {
+      window.removeEventListener("isa-patyia:auth", onAuth);
+      window.removeEventListener(Session.EVENT, onAuth);
+    };
+  }, []);
+
+  async function submit() {
+    if (!user.trim() || !pass) {
+      setErr("Usuario y contraseña requeridos");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      const session = await LabSession.login(user.trim(), pass);
+      setPass("");
+      setOpen(false);
+      toastSuccess(`Sesión iniciada · ${session.username}${session.role ? ` (${session.role})` : ""}`);
+      onLoggedIn?.(session);
+    } catch (e) {
+      const msg = sanitizeLoginError(e instanceof Error ? e.message : String(e));
+      setErr(msg);
+      toastError(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function logout() {
+    LabSession.logout();
+    tick((n) => n + 1);
+    toastInfo("Sesión cerrada");
+  }
+
+  const session = LabSession.getSession();
+  const signalDot = <SignalRStatusDot tone={tone} tip={tip} onReconnect={connect} />;
+
+  if (session) {
+    const roleTip = session.role ? ` · rol ${session.role}` : "";
+    return (
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+        {signalDot}
+        <Tooltip title={`${session.username}${roleTip}`} arrow>
+          <Chip
+            size="small"
+            color="success"
+            variant="outlined"
+            icon={<Icon icon="mdi:account-check" size={16} />}
+            label={session.username}
+          />
+        </Tooltip>
+        <Tooltip title="Cerrar sesión" arrow>
+          <IconButton size="small" color="inherit" onClick={logout} aria-label="Cerrar sesión">
+            <Icon icon="mdi:logout" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    );
+  }
+
+  return (
+    <>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+        {signalDot}
+        <Button
+          size="small"
+          variant="outlined"
+          color="inherit"
+          startIcon={<Icon icon="mdi:login" size={18} />}
+          onClick={() => setOpen(true)}
+        >
+          Iniciar sesión
+        </Button>
+      </Stack>
+      <Dialog open={open} onClose={busy ? undefined : () => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5 }}>
+          <Icon icon="mdi:account-key-outline" size={20} />
+          <span>Iniciar sesión</span>
+        </DialogTitle>
+        <DialogContent>
+          {err ? <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert> : null}
+          <Stack spacing={2}>
+            <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} fullWidth autoFocus size="small" />
+            <TextField
+              label="Contraseña"
+              type="password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              fullWidth
+              size="small"
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)} disabled={busy}>Cancelar</Button>
+          <Button variant="contained" disabled={busy || !user.trim()} onClick={submit}>
+            {busy ? "Entrando…" : "Entrar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}
+
+/** @deprecated usar LoginButton */
+export function SessionActions({ onLoginClick }) {
+  return <LoginButton onLoggedIn={onLoginClick} />;
+}
+
+/** @deprecated modal integrado en LoginButton */
 export function LabAuthModal({ open, onClose, onLoggedIn }) {
+  const { Icon } = UI;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,13 +166,11 @@ export function LabAuthModal({ open, onClose, onLoggedIn }) {
     try {
       const session = await LabSession.login(username.trim(), password);
       setPassword("");
-      toastSuccess(
-        `Sesión iniciada · ${session.username}${session.role ? ` (${session.role})` : ""}`,
-      );
+      toastSuccess(`Sesión iniciada · ${session.username}${session.role ? ` (${session.role})` : ""}`);
       onLoggedIn?.(session);
       onClose?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = sanitizeLoginError(err instanceof Error ? err.message : String(err));
       setError(msg);
       toastError(msg);
     } finally {
@@ -42,96 +180,23 @@ export function LabAuthModal({ open, onClose, onLoggedIn }) {
 
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <iconify-icon icon="mdi:account-key-outline" width="1.1em" height="1.1em" />
-          <span>Iniciar sesión</span>
-        </Stack>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5 }}>
+        <Icon icon="mdi:account-key-outline" size={20} />
+        <span>Iniciar sesión</span>
       </DialogTitle>
       <DialogContent>
         <form onSubmit={submit}>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField label="Usuario" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth autoFocus />
             <TextField label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
-            {error && <p className="error-text">{error}</p>}
+            {error && <Alert severity="error">{error}</Alert>}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <ButtonIconify
-                icon="mdi:close"
-                label="Cancelar"
-                title="Cancelar"
-                onClick={onClose}
-                disabled={loading}
-              />
-              <ButtonIconify
-                variant="primary"
-                icon="mdi:login"
-                label={loading ? "Entrando…" : "Iniciar sesión"}
-                title="Iniciar sesión"
-                type="submit"
-                busy={loading}
-              />
+              <Button onClick={onClose} disabled={loading}>Cancelar</Button>
+              <Button type="submit" variant="contained" disabled={loading}>{loading ? "Entrando…" : "Entrar"}</Button>
             </Stack>
           </Stack>
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-export function SessionActions({ onLoginClick }) {
-  const { tip, tone, connect } = useSignalRLab();
-  const [session, setSession] = useState(() => LabSession.getSession());
-
-  const refresh = useCallback(() => setSession(LabSession.getSession()), []);
-
-  useEffect(() => {
-    refresh();
-    const onAuth = () => refresh();
-    window.addEventListener("isa-patyia:auth", onAuth);
-    return () => window.removeEventListener("isa-patyia:auth", onAuth);
-  }, [refresh]);
-
-  function logout() {
-    LabSession.logout();
-    refresh();
-    toastInfo("Sesión cerrada");
-  }
-
-  if (!session) {
-    return (
-      <button
-        type="button"
-        className="btn-iconify btn-iconify--primary btn-iconify--labeled header-session-btn"
-        title="Iniciar sesión"
-        aria-label="Iniciar sesión"
-        onClick={() => onLoginClick?.()}
-      >
-        <SignalRStatusDot tone={tone} tip={tip} onReconnect={connect} />
-        <iconify-icon icon="mdi:login" width="1.15em" height="1.15em" />
-        <span className="btn-iconify__lbl">Iniciar sesión</span>
-      </button>
-    );
-  }
-
-  const roleTip = session.role ? ` · rol ${session.role}` : "";
-
-  return (
-    <Stack direction="row" spacing={0.5} alignItems="center" className="header-session">
-      <Tooltip title={`${session.username}${roleTip}`} arrow>
-        <div className="btn-iconify btn-iconify--labeled header-session-btn header-session-badge">
-          <SignalRStatusDot tone={tone} tip={tip} onReconnect={connect} />
-          <Typography component="span" variant="caption" className="btn-iconify__lbl header-session-user">
-            {session.username}
-          </Typography>
-        </div>
-      </Tooltip>
-      <ButtonIconify
-        icon="mdi:logout"
-        label="Cerrar sesión"
-        title="Cerrar sesión"
-        onClick={logout}
-        className="btn-iconify--sm"
-      />
-    </Stack>
   );
 }
