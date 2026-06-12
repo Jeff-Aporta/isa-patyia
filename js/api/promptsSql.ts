@@ -2,10 +2,7 @@
  * Mapeo PROMPT_<TIPO>.md → INSTRUCCION + TDCONSULTAXINSTRUCCION (staging).
  * Portado de scripts/patyia/prompts/build-paty-prompts-sql.mjs
  */
-(function (global) {
-  "use strict";
-
-  const PATY_PROMPT_TIPOS = [
+const PATY_PROMPT_TIPOS = [
     "SALUDO_OTRO",
     "FUERA_DE_ALCANCE_TECNICO",
     "SOLICITUD_NO_PERMITIDA",
@@ -235,17 +232,16 @@ ORDER BY "IINSTRUCCION";
     return updates;
   }
 
-  global.PatyPromptsSql = {
-    PATY_PROMPT_TIPOS,
-    fileToTipo,
-    parseMdBundle,
-    mergePromptEntries,
-    mapEntryToInstruccion,
-    buildMergeSql,
-    buildLanglabPgSql,
-    analyzeFromEntries,
-    analyzePrompts,
-    emptyPromptState,
-    ingestMdFiles,
-  };
-})(window);
+export {
+  PATY_PROMPT_TIPOS,
+  fileToTipo,
+  parseMdBundle,
+  mergePromptEntries,
+  mapEntryToInstruccion,
+  buildMergeSql,
+  buildLanglabPgSql,
+  analyzeFromEntries,
+  analyzePrompts,
+  emptyPromptState,
+  ingestMdFiles,
+};

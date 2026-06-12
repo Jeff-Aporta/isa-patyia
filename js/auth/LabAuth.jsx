@@ -1,10 +1,15 @@
-const { useState, useEffect, useCallback } = React;
+import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { ButtonIconify } from "../ui/iconify.jsx";
+import * as LabSession from "../api/labSession.ts";
+import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
+import { useSignalRLab, SignalRStatusDot } from "../realtime/signalrLab.jsx";
+
+const { useState, useEffect, useCallback } = getReact();
 const {
   Dialog, DialogTitle, DialogContent, TextField, Stack, Tooltip, Typography,
-} = MaterialUI;
-const { ButtonIconify } = PatyIconify;
+} = getMaterialUI();
 
-function LabAuthModal({ open, onClose, onLoggedIn }) {
+export function LabAuthModal({ open, onClose, onLoggedIn }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,9 +24,9 @@ function LabAuthModal({ open, onClose, onLoggedIn }) {
     setLoading(true);
     setError("");
     try {
-      const session = await PatyLabSession.login(username.trim(), password);
+      const session = await LabSession.login(username.trim(), password);
       setPassword("");
-      PatyNotify.toastSuccess(
+      toastSuccess(
         `Sesión iniciada · ${session.username}${session.role ? ` (${session.role})` : ""}`,
       );
       onLoggedIn?.(session);
@@ -29,7 +34,7 @@ function LabAuthModal({ open, onClose, onLoggedIn }) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
-      PatyNotify.toastError(msg);
+      toastError(msg);
     } finally {
       setLoading(false);
     }
@@ -76,12 +81,11 @@ function LabAuthModal({ open, onClose, onLoggedIn }) {
   );
 }
 
-function SessionActions({ onLoginClick }) {
-  const { useSignalRLab, SignalRStatusDot } = PatySignalRLab;
+export function SessionActions({ onLoginClick }) {
   const { tip, tone, connect } = useSignalRLab();
-  const [session, setSession] = useState(() => PatyLabSession.getSession());
+  const [session, setSession] = useState(() => LabSession.getSession());
 
-  const refresh = useCallback(() => setSession(PatyLabSession.getSession()), []);
+  const refresh = useCallback(() => setSession(LabSession.getSession()), []);
 
   useEffect(() => {
     refresh();
@@ -91,9 +95,9 @@ function SessionActions({ onLoginClick }) {
   }, [refresh]);
 
   function logout() {
-    PatyLabSession.logout();
+    LabSession.logout();
     refresh();
-    PatyNotify.toastInfo("Sesión cerrada");
+    toastInfo("Sesión cerrada");
   }
 
   if (!session) {
@@ -134,5 +138,3 @@ function SessionActions({ onLoginClick }) {
     </Stack>
   );
 }
-
-window.PatyLabAuth = { LabAuthModal, SessionActions };

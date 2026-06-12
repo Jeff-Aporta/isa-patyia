@@ -2,10 +2,7 @@
  * Parser de conv-*.json / CONVERSACION_LOG — portado de ISA-DOC readConvLog + convLogContent.
  * Uso offline en GH Pages; sin llamadas a PatyIA.
  */
-(function (global) {
-  "use strict";
-
-  function pushImage(images, ref) {
+function pushImage(images: string[], ref: unknown) {
     const n = String(ref ?? "").trim();
     if (n) images.push(n);
   }
@@ -298,12 +295,11 @@
     return ordenados.map(convLogToMsgVista);
   }
 
-  global.PatyConvLog = {
-    parseLogInput,
-    logToMensajesVista,
-    ordenarMensajesConvLog,
-    convLogToMsgVista,
-    tokensFromUsage,
-    normalizeMeta,
-  };
-})(window);
+export {
+  parseLogInput,
+  logToMensajesVista,
+  ordenarMensajesConvLog,
+  convLogToMsgVista,
+  tokensFromUsage,
+  normalizeMeta,
+};

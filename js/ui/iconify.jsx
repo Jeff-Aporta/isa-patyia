@@ -1,7 +1,5 @@
-const { useEffect, useRef } = React;
-
 /** Botón con icono Iconify (mismo patrón que ISP ButtonIconify). */
-function ButtonIconify({
+export function ButtonIconify({
   icon,
   title = "",
   label = "",
@@ -33,8 +31,6 @@ function ButtonIconify({
   );
 }
 
-function Iconify({ icon, width = "1em", height = "1em", className = "" }) {
+export function Iconify({ icon, width = "1em", height = "1em", className = "" }) {
   return <iconify-icon class={className} icon={icon} width={width} height={height} />;
 }
-
-window.PatyIconify = { ButtonIconify, Iconify };

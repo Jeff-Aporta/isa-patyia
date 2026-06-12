@@ -1,8 +1,10 @@
-const {
-  Dialog, DialogTitle, DialogContent,
-} = MaterialUI;
+import { getMaterialUI } from "../core/runtime.ts";
+import { tokensFromUsage } from "../core/convLog.ts";
+import { ButtonIconify } from "./iconify.jsx";
 
-const theme = MaterialUI.createTheme({
+const { createTheme, Dialog, DialogTitle, DialogContent } = getMaterialUI();
+
+export const theme = createTheme({
   palette: {
     mode: "dark",
     primary: { main: "#3b82f6" },
@@ -10,14 +12,19 @@ const theme = MaterialUI.createTheme({
     background: { default: "#0f172a", paper: "#1e293b" },
   },
   typography: { fontFamily: '"IBM Plex Sans", system-ui, sans-serif' },
+  components: {
+    MuiButton: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiTab: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiToggleButton: { styleOverrides: { root: { textTransform: "none" } } },
+  },
 });
 
-function shortId(s, head = 10, tail = 4) {
+export function shortId(s, head = 10, tail = 4) {
   if (!s) return "";
   return s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`;
 }
 
-function mdToHtml(src) {
+export function mdToHtml(src) {
   if (!src) return "";
   try {
     if (typeof marked !== "undefined") {
@@ -32,9 +39,9 @@ function mdToHtml(src) {
     .replace(/\n/g, "<br />");
 }
 
-function MetaBadges({ meta, onInfo }) {
+export function MetaBadges({ meta, onInfo }) {
   if (!meta) return null;
-  const tk = meta.tokens?.total ? meta.tokens : PatyConvLog.tokensFromUsage(meta.usage);
+  const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
   return (
     <span className="msg-badges">
       {meta.extra?.operativa_key && (
@@ -72,14 +79,14 @@ function MetaBadges({ meta, onInfo }) {
       {meta.stream_ok === false && (
         <span className="badge badge-warn" title={meta.stream_error || "stream_ok: false"}>error stream</span>
       )}
-      <PatyIconify.ButtonIconify icon="mdi:information-outline" title="Ver trazabilidad" onClick={onInfo} className="btn-iconify--sm" />
+      <ButtonIconify icon="mdi:information-outline" title="Ver trazabilidad" onClick={onInfo} className="btn-iconify--sm" />
     </span>
   );
 }
 
-function MetaDialog({ open, onClose, meta, title }) {
+export function MetaDialog({ open, onClose, meta, title }) {
   if (!meta) return null;
-  const tk = meta.tokens?.total ? meta.tokens : PatyConvLog.tokensFromUsage(meta.usage);
+  const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{title}</DialogTitle>
@@ -123,5 +130,3 @@ function MetaDialog({ open, onClose, meta, title }) {
     </Dialog>
   );
 }
-
-window.PatyShared = { theme, shortId, mdToHtml, MetaBadges, MetaDialog };
