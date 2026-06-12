@@ -62,9 +62,69 @@ const PATY_PROMPT_TIPOS = [
     return [...merged.values()];
   }
 
+  const DEFAULT_JCONFIG = {
+    provider: "openai",
+    model: "gpt-5-nano",
+    temperature: 0,
+    top_p: 0.85,
+  };
+
+  /** Modelos sin sufijo de fecha (la fecha se infiere en runtime OpenAI). */
+  const PATY_MODEL_OPTIONS = [
+    "gpt-5-nano",
+    "gpt-5-mini",
+    "gpt-5-codex",
+    "gpt-5-chat-latest",
+    "gpt-5",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+  ];
+
+  function normalizeModelOption(model) {
+    const m = String(model ?? "").trim();
+    if (!m) return DEFAULT_JCONFIG.model;
+    if (PATY_MODEL_OPTIONS.includes(m)) return m;
+    const byLen = [...PATY_MODEL_OPTIONS].sort((a, b) => b.length - a.length);
+    for (const opt of byLen) {
+      if (m === opt || m.startsWith(`${opt}-`)) return opt;
+    }
+    return DEFAULT_JCONFIG.model;
+  }
+
+  function parseJconfig(raw, fallbackModel) {
+    const fb = normalizeModelOption(fallbackModel || DEFAULT_JCONFIG.model);
+    if (raw == null || !String(raw).trim()) {
+      return { ...DEFAULT_JCONFIG, model: fb };
+    }
+    try {
+      const o = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return {
+        provider: String(o.provider || DEFAULT_JCONFIG.provider),
+        model: normalizeModelOption(o.model || fb),
+        temperature: Number(o.temperature ?? DEFAULT_JCONFIG.temperature),
+        top_p: Number(o.top_p ?? DEFAULT_JCONFIG.top_p),
+      };
+    } catch {
+      return { ...DEFAULT_JCONFIG, model: fb };
+    }
+  }
+
+  function serializeJconfig(jc) {
+    const out = {
+      provider: jc?.provider || DEFAULT_JCONFIG.provider,
+      model: normalizeModelOption(jc?.model || DEFAULT_JCONFIG.model),
+      temperature: Number(jc?.temperature ?? DEFAULT_JCONFIG.temperature),
+      top_p: Number(jc?.top_p ?? DEFAULT_JCONFIG.top_p),
+    };
+    return JSON.stringify(out);
+  }
+
   function mapEntryToInstruccion(entry) {
     const tipo = fileToTipo(entry.archivo);
     const known = tipo ? PATY_PROMPT_TIPOS.includes(tipo) : false;
+    const fallbackModel = entry.modelo || DEFAULT_JCONFIG.model;
+    const jconfig = entry.jconfig || parseJconfig(entry.jconfigRaw, fallbackModel);
     return {
       archivo: entry.archivo,
       tipo,
@@ -75,6 +135,8 @@ const PATY_PROMPT_TIPOS = [
       known,
       source: entry.source,
       body: entry.body,
+      jconfig,
+      modelo: jconfig.model,
       status: !tipo ? "sin_mapeo" : known ? "ok" : "tipo_desconocido",
     };
   }
@@ -92,7 +154,11 @@ SET XACT_ABORT ON;
 BEGIN TRAN;
 `;
 
-    const stmts = valid.map((r) => `
+    const stmts = valid.map((r) => {
+      const jc = r.jconfig || parseJconfig(null, r.modelo);
+      const jconfigJson = sqlEscapeLiteral(serializeJconfig(jc));
+      const modelo = sqlEscapeLiteral(jc.model);
+      return `
 -- ----- ${r.tipo} (${r.archivo}) -----
 MERGE INSTRUCCION AS t
 USING (VALUES (
@@ -101,17 +167,21 @@ USING (VALUES (
 \t${sqlEscapeLiteral(r.body)},
 \tN'Prompt especifico para tipo de consulta ${r.tipo}',
 \tN'1.0',
-\t1
-)) AS s (iinstruccion, ninstruccion, instruccion, descripcion, version, bactivo)
+\t1,
+\t${modelo},
+\t${jconfigJson}
+)) AS s (iinstruccion, ninstruccion, instruccion, descripcion, version, bactivo, modelo, jconfig)
 ON t.iinstruccion = s.iinstruccion
 WHEN MATCHED THEN UPDATE SET
 \tt.ninstruccion = s.ninstruccion,
 \tt.instruccion  = s.instruccion,
 \tt.descripcion  = s.descripcion,
 \tt.version      = s.version,
-\tt.bactivo      = s.bactivo
-WHEN NOT MATCHED THEN INSERT (iinstruccion, ninstruccion, instruccion, descripcion, version, bactivo, fhini)
-\tVALUES (s.iinstruccion, s.ninstruccion, s.instruccion, s.descripcion, s.version, s.bactivo, SYSUTCDATETIME());
+\tt.bactivo      = s.bactivo,
+\tt.modelo       = s.modelo,
+\tt.jconfig      = s.jconfig
+WHEN NOT MATCHED THEN INSERT (iinstruccion, ninstruccion, instruccion, descripcion, version, bactivo, modelo, jconfig, fhini)
+\tVALUES (s.iinstruccion, s.ninstruccion, s.instruccion, s.descripcion, s.version, s.bactivo, s.modelo, s.jconfig, SYSUTCDATETIME());
 
 MERGE TDCONSULTAXINSTRUCCION AS t
 USING (
@@ -123,12 +193,13 @@ ON t.itdconsulta = s.itdconsulta AND t.iinstruccion = s.iinstruccion
 WHEN MATCHED THEN UPDATE SET t.orden = s.orden
 WHEN NOT MATCHED THEN INSERT (itdconsulta, iinstruccion, orden)
 \tVALUES (s.itdconsulta, s.iinstruccion, s.orden);
-`).join("\n");
+`;
+    }).join("\n");
 
     const tail = `
 COMMIT;
 
-SELECT i.iinstruccion, i.ninstruccion, i.version, LEN(i.instruccion) AS len_instruccion
+SELECT i.iinstruccion, i.ninstruccion, i.version, i.modelo, i.jconfig, LEN(i.instruccion) AS len_instruccion
 FROM INSTRUCCION i
 WHERE i.iinstruccion IN (${valid.map((r) => `N'${r.tipo}'`).join(", ")})
 ORDER BY i.iinstruccion;
@@ -187,6 +258,9 @@ ORDER BY "IINSTRUCCION";
       archivo: e.archivo,
       body: e.body,
       source: e.source || "editor",
+      jconfig: e.jconfig,
+      jconfigRaw: e.jconfigRaw,
+      modelo: e.modelo,
     }));
     const mssql = buildMergeSql(mapped);
     const pg = buildLanglabPgSql(mapped);
@@ -208,7 +282,16 @@ ORDER BY "IINSTRUCCION";
     const out = {};
     for (const tipo of PATY_PROMPT_TIPOS) {
       const archivo = `PROMPT_${tipo}.md`;
-      out[tipo] = { archivo, tipo, body: "", source: "plantilla", dirty: false };
+      out[tipo] = {
+        archivo,
+        tipo,
+        body: "",
+        source: "plantilla",
+        dirty: false,
+        configDirty: false,
+        jconfig: { ...DEFAULT_JCONFIG },
+        jconfigBaseline: null,
+      };
     }
     return out;
   }
@@ -232,10 +315,15 @@ ORDER BY "IINSTRUCCION";
 
 export {
   PATY_PROMPT_TIPOS,
+  PATY_MODEL_OPTIONS,
+  DEFAULT_JCONFIG,
   fileToTipo,
   parseMdBundle,
   mergePromptEntries,
   mapEntryToInstruccion,
+  parseJconfig,
+  normalizeModelOption,
+  serializeJconfig,
   buildMergeSql,
   buildLanglabPgSql,
   analyzeFromEntries,
