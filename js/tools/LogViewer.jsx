@@ -9,7 +9,7 @@ import { toastWarning, toastSuccess, toastError } from "../ui/notifications.jsx"
 
 const { useState, useCallback, useMemo, useEffect } = getReact();
 const {
-  Paper, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip,
+  Paper, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip, InputAdornment,
 } = getMaterialUI();
 
 function MensajeCard({ msg, onMeta }) {
@@ -92,6 +92,7 @@ export function LogViewer({ bootLog = {} }) {
   }, [jsonInput, aplicarLog]);
 
   const recuperarPorId = useCallback(async () => {
+    if (!String(convId ?? "").trim()) return;
     setError("");
     setLoading(true);
     try {
@@ -106,6 +107,13 @@ export function LogViewer({ bootLog = {} }) {
       setLoading(false);
     }
   }, [convId, aplicarLog]);
+
+  const onConvIdKeyDown = useCallback((e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (!String(convId ?? "").trim() || loading) return;
+    recuperarPorId();
+  }, [convId, loading, recuperarPorId]);
 
   const limpiar = useCallback(() => {
     setJsonInput("");
@@ -123,28 +131,38 @@ export function LogViewer({ bootLog = {} }) {
         </div>
         <div className="panel-body panel-body-log-input">
           <div className="log-input-toolbar">
-            <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-              <TextField
-                size="small"
-                label="iconversacion"
-                type="number"
-                value={convId}
-                onChange={(e) => setConvId(e.target.value)}
-                sx={{ width: 140 }}
-              />
-              <Tooltip title="Recuperar por ID (CONVERSACION_LOG)" arrow>
-                <span>
-                  <ButtonIconify
-                    variant="primary"
-                    icon="mdi:cloud-download-outline"
-                    title="Recuperar por ID"
-                    onClick={recuperarPorId}
-                    disabled={!convId}
-                    busy={loading}
-                  />
-                </span>
-              </Tooltip>
-            </Stack>
+            <TextField
+              className="log-conv-load"
+              size="small"
+              label="iconversacion"
+              type="number"
+              value={convId}
+              disabled={loading}
+              onChange={(e) => setConvId(e.target.value)}
+              onKeyDown={onConvIdKeyDown}
+              slotProps={{
+                htmlInput: { min: 1 },
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Recuperar por ID (Enter)" arrow>
+                        <span>
+                          <ButtonIconify
+                            className="log-conv-load__btn"
+                            variant="primary"
+                            icon="mdi:cloud-download-outline"
+                            title="Recuperar por ID"
+                            onClick={recuperarPorId}
+                            disabled={!String(convId ?? "").trim()}
+                            busy={loading}
+                          />
+                        </span>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
             <Divider sx={{ mt: 1 }} />
           </div>
 
