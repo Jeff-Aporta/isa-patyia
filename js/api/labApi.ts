@@ -2,8 +2,8 @@
  * Cliente HTTP — local vía main-orchestrator; en línea legacy lab Azure.
  * Tickets JAGUDELOE-TKS: GET /api/tk/{space}/tickets[/{iticket}]
  */
-import { Config } from "../core/platform.ts";
-import { isLocalMode } from "../core/config.ts";
+import { Config, Session } from "../core/platform.ts";
+import { isLocalMode, ORCH_ONLINE } from "../core/config.ts";
 import * as LabSession from "./labSession.ts";
 import { toastWarning } from "../ui/notifications.jsx";
 
@@ -39,15 +39,27 @@ export function apiUrl(path: string, baseOverride?: string) {
 
 function gatewayHint() {
   if (!isLocalMode()) return "";
-  return " En local: main-orchestrator (:8780), jagudeloe-tks (:8786).";
+  return " Comprueba que el entorno local esté activo.";
 }
 
-function wrapFetchError(err: unknown, url: string) {
+const TECHNICAL_ERR =
+  /main-orchestrator|workers\.dev|localhost:\d+|878\d|azure|orquestador|gateway|negotiate|accesstoken|cf-ai\.|system-login\./i;
+
+function sanitizeApiError(raw: unknown, fallback = "No se pudo completar la operación") {
+  const msg = String(raw ?? "").trim();
+  if (!msg) return fallback;
+  if (TECHNICAL_ERR.test(msg)) return fallback;
+  if (/^HTTP \d{3}$/.test(msg)) return fallback;
+  if (/verificaci[oó]n de permisos fallida|verify-access|servicio de auth no disponible/i.test(msg)) {
+    return fallback;
+  }
+  return msg.length > 200 ? msg.slice(0, 197) + "…" : msg;
+}
+
+function wrapFetchError(err: unknown) {
   if (err instanceof TypeError && /failed to fetch/i.test(String((err as Error).message))) {
     return new Error(
-      `No se pudo conectar (${url}). Comprueba el switch local/en línea` +
-        gatewayHint() +
-        " y que /api/health responda.",
+      "No se pudo conectar con el servidor." + gatewayHint() + " Revisa el entorno (Local/Producción).",
     );
   }
   return err instanceof Error ? err : new Error(String(err));
@@ -57,7 +69,7 @@ async function labFetchRaw(url: string, init: RequestInit = {}) {
   try {
     return await fetch(url, init);
   } catch (err) {
-    throw wrapFetchError(err, url);
+    throw wrapFetchError(err);
   }
 }
 
@@ -66,14 +78,23 @@ async function parseJsonResponse(res: Response) {
   try {
     return text ? JSON.parse(text) : {};
   } catch (_) {
-    throw new Error(text || res.statusText);
+    throw new Error(sanitizeApiError(text || res.statusText, "Respuesta no válida del servidor"));
   }
 }
 
-export async function labFetch(path: string, init: RequestInit = {}, cap: string | null = null) {
+function basesFor(path: string): string[] {
   const bases = [requireBase()];
   const direct = directBaseFor(path);
   if (direct && bases.indexOf(direct) < 0) bases.push(direct);
+  if (isDevHost() && isLocalMode()) {
+    const prod = ORCH_ONLINE.replace(/\/$/, "");
+    if (bases.indexOf(prod) < 0) bases.push(prod);
+  }
+  return bases;
+}
+
+export async function labFetch(path: string, init: RequestInit = {}, cap: string | null = null) {
+  const bases = basesFor(path);
 
   let lastErr: Error | null = null;
 
@@ -84,31 +105,36 @@ export async function labFetch(path: string, init: RequestInit = {}, cap: string
     const data = await parseJsonResponse(res);
 
     if (res.status === 403) {
-      const err = new Error(String(data.error ?? "Permiso denegado")) as Error & { code?: string };
+      const err = new Error(sanitizeApiError(data.error, "Permiso denegado")) as Error & { code?: string };
       err.code = "FORBIDDEN";
       if (cap) LabSession.handleApiError(err, cap);
       throw err;
     }
     if (res.status === 401) {
       LabSession.clearSession();
-      const err = new Error(String(data.error ?? data.hint ?? "Sesión no válida"));
+      const err = new Error(sanitizeApiError(data.error ?? data.hint, "Sesión no válida"));
       if (cap) toastWarning("Sesión expirada. Vuelve a iniciar sesión.");
       throw err;
     }
     if (res.status === 404) {
-      lastErr = new Error(`Ruta no encontrada (${path}).${gatewayHint()}`);
+      const serverErr = String(data?.error ?? "").trim();
+      if (/not found|verify-access|autorizaci|verificaci/i.test(serverErr)) {
+        lastErr = new Error("No se pudo autorizar la escritura. Vuelve a iniciar sesión o comprueba permisos MSSQL.");
+      } else {
+        lastErr = new Error(`Recurso no encontrado.${gatewayHint()}`);
+      }
       if (bi < bases.length - 1) continue;
       throw lastErr;
     }
     if (!res.ok || data.ok === false) {
-      lastErr = new Error(String(data.error ?? data.output ?? res.statusText ?? `HTTP ${res.status}`));
-      if (bi < bases.length - 1 && (res.status === 502 || res.status === 503)) continue;
+      lastErr = new Error(sanitizeApiError(data.error ?? data.output ?? res.statusText, `Error HTTP ${res.status}`));
+      if (bi < bases.length - 1 && (res.status === 404 || res.status === 502 || res.status === 503)) continue;
       throw lastErr;
     }
     return data;
   }
 
-  throw lastErr || new Error("No se pudo conectar con la API." + gatewayHint());
+  throw lastErr || new Error("No se pudo conectar con el servidor." + gatewayHint());
 }
 
 async function labFetchWithCap(cap: string, path: string, init: RequestInit = {}) {
@@ -120,13 +146,25 @@ async function labFetchWithCap(cap: string, path: string, init: RequestInit = {}
     throw err;
   }
   const auth = await LabSession.serviceAuthHeaders(cap);
-  return labFetch(path, { ...init, headers: { ...auth, ...(init.headers || {}) } }, cap);
+  return labFetch(path, {
+    ...init,
+    headers: { ...Session.appHeader(), ...auth, ...(init.headers || {}) },
+  }, cap);
+}
+
+function encodeSqlQueryParam(sql: string) {
+  const trimmed = String(sql ?? "").trim();
+  const bytes = new TextEncoder().encode(trimmed);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
 export async function mssqlQuery(sql: string) {
   const trimmed = String(sql ?? "").trim();
   if (!trimmed) throw new Error("SQL vacío");
-  const data = await labFetch(`/mssql/paty/query?sql=${encodeURIComponent(trimmed)}`, {
+  const q = encodeSqlQueryParam(trimmed);
+  const data = await labFetch(`/mssql/paty/query?q=${encodeURIComponent(q)}`, {
     method: "GET",
   });
   const rows = data.rows ?? data.recordset ?? data.recordsets?.[0] ?? [];
@@ -190,7 +228,7 @@ export function rowVal(row: Record<string, unknown>, key: string) {
   return null;
 }
 
-const SQL_INSTRUCCIONES = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO]
+const SQL_INSTRUCCIONES = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO],[MODELO],[JCONFIG]
 FROM [dbo].[INSTRUCCION]
 WHERE [BACTIVO] = 1
 ORDER BY [IINSTRUCCION]`;
