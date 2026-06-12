@@ -5,7 +5,7 @@
     ns: "ISA",
     app: "isa-patyia",
     theme: { lsKey: "isa-patyia:theme" },
-    widgets: { targetStyle: "switch" },
+    widgets: { targetStyle: "chip" },
     session: true,
     auth: false,
     realtime: false,
@@ -13,9 +13,6 @@
   });
 
   if (!window.ISA?.Session) {
-    throw new Error(
-      "ISA.Session no registrado — recargue sin caché (Ctrl+Shift+R). " +
-        "Verifique front-shared en js/boot/loader.ts.",
-    );
+    throw new Error("No se pudo iniciar la aplicación. Recargue sin caché (Ctrl+Shift+R).");
   }
 })();
