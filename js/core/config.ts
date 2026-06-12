@@ -51,7 +51,11 @@ export function getApiBase() {
 }
 
 export function getLabTargetLabel() {
-  return isLocalMode() ? "orquestador :8780" : "main-orchestrator";
+  try {
+    return Config.label?.() ?? (isLocalMode() ? "Local" : "Producción");
+  } catch {
+    return isLocalMode() ? "Local" : "Producción";
+  }
 }
 
 /** @deprecated */
