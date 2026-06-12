@@ -1,9 +1,7 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
-import {
-  isLocalMode, setLocalMode, ORCH_LOCAL, LAB_LEGACY_ONLINE, getLabTargetLabel,
-} from "../core/config.ts";
-import { bootState, mergePartial } from "../core/urlState.ts";
-import { theme } from "../ui/shared.jsx";
+import { getReact, getReactDOM, getMaterialUI } from "../core/runtime.ts";
+import { getLabTargetLabel } from "../core/config.ts";
+import { mergePartial, bootState } from "../core/urlState.ts";
+import { UI } from "../core/platform.ts";
 import { NotificationProvider } from "../ui/notifications.jsx";
 import { LabAuthModal, SessionActions } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
@@ -14,57 +12,34 @@ const TOOLS = [
   { id: "prompts", title: "Prompts → SQL", icon: "mdi:database-export" },
 ];
 
-function LabTargetSwitch() {
-  const { useState, useEffect, useCallback } = getReact();
-  const { Tooltip, Switch, FormControlLabel } = getMaterialUI();
-  const [local, setLocal] = useState(isLocalMode());
-
-  const refresh = useCallback(() => {
-    setLocal(isLocalMode());
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("patyia-apptools:lab-target", refresh);
-    return () => window.removeEventListener("patyia-apptools:lab-target", refresh);
-  }, [refresh]);
-
-  function onChange(e) {
-    const checked = e.target.checked;
-    setLocalMode(checked);
-    mergePartial({ local: checked });
-    setLocal(checked);
-  }
-
-  const title = local
-    ? `Peticiones al orquestador local (${ORCH_LOCAL})`
-    : `Peticiones a lab Azure legacy (${LAB_LEGACY_ONLINE})`;
-
+function ToolTabs({ tool, onSelect }) {
+  const { Stack, Tooltip, ToggleButton, ToggleButtonGroup } = getMaterialUI();
+  const { Icon } = UI;
   return (
-    <Tooltip title={title} arrow>
-      <FormControlLabel
-        className="lab-target-switch"
-        control={
-          <Switch
-            size="small"
-            checked={local}
-            onChange={onChange}
-            inputProps={{ "aria-label": title }}
-          />
-        }
-        label={(
-          <span className="lab-target-label">
-            <iconify-icon icon={local ? "mdi:lan-connect" : "mdi:cloud-outline"} width="0.95em" height="0.95em" />
-            <span>{local ? "orquestador" : "legacy"}</span>
-          </span>
-        )}
-      />
-    </Tooltip>
+    <ToggleButtonGroup
+      size="small"
+      exclusive
+      value={tool}
+      onChange={(_e, v) => { if (v) onSelect(v); }}
+      sx={{ mr: 1 }}
+    >
+      {TOOLS.map((t) => (
+        <ToggleButton key={t.id} value={t.id} aria-label={t.title} sx={{ px: 1.25, gap: 0.5 }}>
+          <Tooltip title={t.title} arrow>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Icon icon={t.icon} size={18} />
+              <span className="isa-tool-tab-label">{t.title}</span>
+            </span>
+          </Tooltip>
+        </ToggleButton>
+      ))}
+    </ToggleButtonGroup>
   );
 }
 
 export function App() {
   const { useState, useEffect } = getReact();
-  const { ThemeProvider, CssBaseline, Stack, Typography, Tooltip } = getMaterialUI();
+  const { Box, Typography } = getMaterialUI();
   const boot = bootState;
   const [tool, setTool] = useState(boot.tool || "log");
   const [authOpen, setAuthOpen] = useState(false);
@@ -74,10 +49,12 @@ export function App() {
   useEffect(() => {
     const onAuth = () => tickSession((n) => n + 1);
     const onTarget = () => setTargetLabel(getLabTargetLabel());
-    window.addEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    window.addEventListener("jeff:gateway-target", onTarget);
     window.addEventListener("patyia-apptools:lab-target", onTarget);
     return () => {
-      window.removeEventListener("patyia-apptools:auth", onAuth);
+      window.removeEventListener("isa-patyia:auth", onAuth);
+      window.removeEventListener("jeff:gateway-target", onTarget);
       window.removeEventListener("patyia-apptools:lab-target", onTarget);
     };
   }, []);
@@ -87,55 +64,44 @@ export function App() {
     mergePartial({ tool: id });
   }
 
-  function onLoggedIn() {
-    window.dispatchEvent(new Event("patyia-apptools:auth"));
-  }
+  const Shell = window.ISAFront?.Layout?.AppShell;
+  if (!Shell) throw new Error("AppShell no cargado — revisar loader.ts y front-shared");
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <NotificationProvider>
-        <div className="isa-app">
-          <header className="isa-header">
-            <div className="isa-header-top">
-              <span className="isa-logo">PatyIA</span>
-              <span className="isa-sep">|</span>
-              <nav className="isa-nav isa-nav-tools">
-                {TOOLS.map((t) => (
-                  <Tooltip key={t.id} title={t.title} arrow>
-                    <button
-                      type="button"
-                      className={`isa-nav-link isa-nav-link--icon${tool === t.id ? " active" : ""}`}
-                      onClick={() => selectTool(t.id)}
-                      aria-label={t.title}
-                    >
-                      <iconify-icon icon={t.icon} width="1.2em" height="1.2em" />
-                    </button>
-                  </Tooltip>
-                ))}
-              </nav>
-              <div className="isa-header-actions">
-                <Stack direction="row" spacing={0.5} alignItems="center" className="header-auth-wrap">
-                  <LabTargetSwitch />
-                  <SessionActions onLoginClick={() => setAuthOpen(true)} />
-                </Stack>
-              </div>
-            </div>
-            <nav className="isa-nav isa-nav-sub">
-              <Typography variant="caption" color="text.secondary">
-                AppTools · API · <code>{targetLabel}</code>
-              </Typography>
-            </nav>
-          </header>
-
-          <main className="isa-main">
-            {tool === "log" && <LogViewer bootLog={boot.log} />}
-            {tool === "prompts" && <PromptsSqlTool bootPrompts={boot.prompts} onNeedLogin={() => setAuthOpen(true)} />}
-          </main>
-
-          <LabAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onLoggedIn={onLoggedIn} />
-        </div>
-      </NotificationProvider>
-    </ThemeProvider>
+    <NotificationProvider>
+      <Shell
+        ns="ISA"
+        title="PatyIA AppTools"
+        icon="mdi:flask-outline"
+        showAuthChip={false}
+        showLogout={false}
+        toolbarExtra={(
+          <>
+            <ToolTabs tool={tool} onSelect={selectTool} />
+            <SessionActions onLoginClick={() => setAuthOpen(true)} />
+          </>
+        )}
+      >
+        <Box sx={{ px: { xs: 1, sm: 2 }, py: 1, borderBottom: 1, borderColor: "divider" }}>
+          <Typography variant="caption" color="text.secondary">
+            API · <code>{targetLabel}</code>
+          </Typography>
+        </Box>
+        <Box className="isa-main" sx={{ p: { xs: 1, sm: 2 }, flex: 1, minHeight: 0, overflow: "auto" }}>
+          {tool === "log" && <LogViewer bootLog={boot.log} />}
+          {tool === "prompts" && (
+            <PromptsSqlTool bootPrompts={boot.prompts} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+        </Box>
+      </Shell>
+      <LabAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onLoggedIn={() => tickSession((n) => n + 1)} />
+    </NotificationProvider>
   );
+}
+
+export function mountApp() {
+  const { createRoot } = getReactDOM();
+  const rootEl = document.getElementById("root");
+  if (!rootEl) throw new Error("No se encontró #root");
+  createRoot(rootEl).render(getReact().createElement(App));
 }

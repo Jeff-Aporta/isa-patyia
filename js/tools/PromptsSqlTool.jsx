@@ -113,8 +113,8 @@ function ensureCap(cap, onNeedLogin) {
 function ensureMssqlExecCap(onNeedLogin) {
   const cap = LabSession.mssqlExecCap();
   if (cap) return true;
-  const reason = LabSession.blockReason("ejecutar_mssql_instrucciones")
-    || LabSession.blockReason("ejecutar_mssql");
+  const reason = LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
+    || LabSession.blockReason("sql.exec.mssql.paty");
   toastWarning(reason);
   if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;
@@ -129,11 +129,22 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   }, []);
 
   const canExecMssql = useMemo(() => Boolean(LabSession.mssqlExecCap()), [authTick]);
-  const canGuardar = useMemo(() => LabSession.can("guardar_langlab"), [authTick]);
+  const canGuardar = useMemo(() => LabSession.can("langlab.guardar"), [authTick]);
   const guardarTitle = useMemo(() => {
     if (canGuardar) return "Guardar cambios pendientes en la base de instrucciones";
-    return LabSession.blockReason("guardar_langlab") || "Sin permiso para guardar";
+    return LabSession.blockReason("langlab.guardar") || "Sin permiso para guardar";
   }, [authTick, canGuardar]);
+  const mssqlExecCapId = useMemo(() => LabSession.mssqlExecCap(), [authTick]);
+  const mssqlRunTitle = useMemo(() => {
+    if (mssqlExecCapId) return "Ejecutar fusión de instrucciones en PatyIA staging";
+    return LabSession.blockReason("sql.exec.mssql.paty")
+      || LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
+      || "Sin permiso de ejecución SQL";
+  }, [authTick, mssqlExecCapId]);
+  const mssqlLockTitle = useMemo(() => {
+    if (!mssqlExecCapId) return mssqlRunTitle;
+    return "Desbloquear ejecución (candado de seguridad)";
+  }, [mssqlExecCapId, mssqlRunTitle]);
 
   const tipos = PromptsSql.PATY_PROMPT_TIPOS;
 
@@ -233,9 +244,12 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     const onTarget = () => setLabTarget(getLabTargetLabel());
 
-    window.addEventListener("isa-patyia:lab-target", onTarget);
-
-    return () => window.removeEventListener("isa-patyia:lab-target", onTarget);
+    window.addEventListener("jeff:gateway-target", onTarget);
+    window.addEventListener("patyia-apptools:lab-target", onTarget);
+    return () => {
+      window.removeEventListener("jeff:gateway-target", onTarget);
+      window.removeEventListener("patyia-apptools:lab-target", onTarget);
+    };
 
   }, []);
 
@@ -348,7 +362,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       toastWarning("No hay cambios pendientes para guardar");
       return;
     }
-    if (!ensureCap("guardar_langlab", onNeedLogin)) return;
+    if (!ensureCap("langlab.guardar", onNeedLogin)) return;
     const entries = draftTipos.map((t) => ({
       archivo: prompts[t].archivo,
       body: prompts[t].body,
@@ -372,7 +386,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
       if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
-        LabSession.handleApiError(e, "guardar_langlab");
+        LabSession.handleApiError(e, "langlab.guardar");
       } else {
         toastError(msg);
       }
@@ -504,8 +518,8 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     if (!ensureMssqlExecCap(onNeedLogin)) {
       throw new Error(
-        LabSession.blockReason("ejecutar_mssql_instrucciones")
-          || LabSession.blockReason("ejecutar_mssql"),
+        LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
+          || LabSession.blockReason("sql.exec.mssql.paty"),
       );
     }
 
@@ -795,9 +809,13 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
               executeSql={execMssql}
 
-              allowRun
+              allowRun={Boolean(mssqlExecCapId)}
 
-              disabled={!sqlMssql.trim()}
+              disabled={!sqlMssql.trim() || !mssqlExecCapId}
+
+              runTitle={mssqlRunTitle}
+
+              lockTitle={mssqlLockTitle}
 
             />
 

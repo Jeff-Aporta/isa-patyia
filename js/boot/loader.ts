@@ -2,19 +2,22 @@
   "use strict";
 
   const BOOT_HELPER =
-    "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@1dbb9fa/cdn/boot-helper.mjs?v=1dbb9fa";
+    "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@d2ae9b7/cdn/boot-helper.mjs?v=d2ae9b7";
 
   const MODULE_LOADER = "./js/boot/module-graph.mjs";
   const ENTRY = "js/main.jsx";
 
   async function boot() {
-    const { importShared, assertStack } = await import(BOOT_HELPER);
+    const { importShared, assertStack, loadIsaFront, loadSharedUi, transpileFiles } = await import(BOOT_HELPER);
     const { importAppEntry } = await import(MODULE_LOADER);
 
     const stackMod = await importShared("stack.mjs");
     await stackMod.stackReady;
     assertStack();
 
+    await loadIsaFront();
+    await loadSharedUi(Babel);
+    await transpileFiles(["js/core/isa-setup.ts"], Babel);
     await importAppEntry(ENTRY, Babel);
   }
 

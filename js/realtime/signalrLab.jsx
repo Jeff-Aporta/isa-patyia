@@ -1,5 +1,6 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
-import { getApiBase, getLabBase, getLabTargetLabel } from "../core/config.ts";
+import { Config } from "../core/platform.ts";
+import { getLabTargetLabel } from "../core/config.ts";
 import * as LabSession from "../api/labSession.ts";
 import * as LabApi from "../api/labApi.ts";
 import { notifyFromSignalR, toastWarning } from "../ui/notifications.jsx";
@@ -10,8 +11,7 @@ const { Tooltip } = getMaterialUI();
 export const DEFAULT_EVENT = "lab:notify";
 
 function negotiateUrl() {
-  const base = (getApiBase?.() || getLabBase()).replace(/\/$/, "");
-  return `${base}/api/signalr/negotiate`;
+  return Config.apiUrl("/api/signalr/negotiate");
 }
 
 async function fetchNegotiateInfo(userId) {
@@ -181,10 +181,12 @@ export function useSignalRLab() {
   useEffect(() => {
     const onAuth = () => connect();
     const onTarget = () => setTarget(getLabTargetLabel());
-    window.addEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    window.addEventListener("jeff:gateway-target", onTarget);
     window.addEventListener("patyia-apptools:lab-target", onTarget);
     return () => {
-      window.removeEventListener("patyia-apptools:auth", onAuth);
+      window.removeEventListener("isa-patyia:auth", onAuth);
+      window.removeEventListener("jeff:gateway-target", onTarget);
       window.removeEventListener("patyia-apptools:lab-target", onTarget);
     };
   }, [connect]);

@@ -30,25 +30,35 @@ export function RunButton({
   busy = false,
   disabled = false,
   runTitle = "Ejecutar",
-  lockTitle = "Desbloquear ejecución",
+  lockTitle = "Desbloquear ejecución (candado de seguridad)",
   unlockTitle = "Bloquear ejecución",
 }) {
+  const { Tooltip } = getMaterialUI();
   return (
     <div className="run-group">
-      <ButtonIconify
-        icon={unlocked ? "mdi:lock-open-variant-outline" : "mdi:lock-outline"}
-        title={unlocked ? unlockTitle : lockTitle}
-        onClick={() => onToggle(!unlocked)}
-      />
-      <ButtonIconify
-        color="success"
-        icon={busy ? "mdi:loading" : "mdi:play"}
-        title={runTitle}
-        disabled={!unlocked || busy || disabled}
-        onClick={() => {
-          if (unlocked && !busy && !disabled) onRun?.();
-        }}
-      />
+      <Tooltip title={unlocked ? unlockTitle : lockTitle}>
+        <span>
+          <ButtonIconify
+            icon={unlocked ? "mdi:lock-open-variant-outline" : "mdi:lock-outline"}
+            title={unlocked ? unlockTitle : lockTitle}
+            onClick={() => onToggle(!unlocked)}
+            disabled={disabled}
+          />
+        </span>
+      </Tooltip>
+      <Tooltip title={runTitle}>
+        <span>
+          <ButtonIconify
+            color="success"
+            icon={busy ? "mdi:loading" : "mdi:play"}
+            title={runTitle}
+            disabled={!unlocked || busy || disabled}
+            onClick={() => {
+              if (unlocked && !busy && !disabled) onRun?.();
+            }}
+          />
+        </span>
+      </Tooltip>
     </div>
   );
 }
@@ -70,6 +80,9 @@ export function SqlExecCard({
   executeSql,
   allowRun = true,
   disabled = false,
+  runTitle = "Ejecutar",
+  lockTitle,
+  unlockTitle,
 }) {
   const [approved, setApproved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -177,6 +190,9 @@ export function SqlExecCard({
               onRun={onRunClick}
               busy={busy}
               disabled={disabled || !sql?.trim()}
+              runTitle={runTitle}
+              lockTitle={lockTitle || runTitle}
+              unlockTitle={unlockTitle}
             />
           )}
         </Stack>

@@ -2,7 +2,8 @@
  * Cliente HTTP — local vía main-orchestrator; en línea legacy lab Azure.
  * Tickets JAGUDELOE-TKS: GET /api/tk/{space}/tickets[/{iticket}]
  */
-import { getApiBase, getLabBase, usesOrchestrator } from "../core/config.ts";
+import { Config } from "../core/platform.ts";
+import { isLocalMode } from "../core/config.ts";
 import * as LabSession from "./labSession.ts";
 import { toastWarning } from "../ui/notifications.jsx";
 
@@ -18,7 +19,7 @@ function isDevHost() {
 }
 
 function directBaseFor(path: string) {
-  if (!isDevHost() || !usesOrchestrator?.()) return null;
+  if (!isDevHost() || !isLocalMode()) return null;
   for (const entry of LOCAL_DIRECT) {
     if (entry.test(path)) return entry.base.replace(/\/$/, "");
   }
@@ -26,19 +27,18 @@ function directBaseFor(path: string) {
 }
 
 export function requireBase() {
-  const base = getApiBase?.() ?? getLabBase?.() ?? "";
-  if (!base) throw new Error("URL de API no configurada.");
-  return base.replace(/\/$/, "");
+  return Config.base();
 }
 
 export function apiUrl(path: string, baseOverride?: string) {
-  const base = (baseOverride || requireBase()).replace(/\/$/, "");
   const p = path.startsWith("/") ? path : `/${path}`;
-  return `${base}/api${p}`;
+  const full = p.startsWith("/api") ? p : `/api${p}`;
+  if (baseOverride) return baseOverride.replace(/\/$/, "") + full;
+  return Config.apiUrl(full);
 }
 
 function gatewayHint() {
-  if (!usesOrchestrator?.()) return "";
+  if (!isLocalMode()) return "";
   return " En local: main-orchestrator (:8780), jagudeloe-tks (:8786).";
 }
 
@@ -124,9 +124,10 @@ async function labFetchWithCap(cap: string, path: string, init: RequestInit = {}
 }
 
 export async function mssqlQuery(sql: string) {
-  const data = await labFetch("/mssql/paty/query", {
-    method: "POST",
-    body: JSON.stringify({ sql }),
+  const trimmed = String(sql ?? "").trim();
+  if (!trimmed) throw new Error("SQL vacío");
+  const data = await labFetch(`/mssql/paty/query?sql=${encodeURIComponent(trimmed)}`, {
+    method: "GET",
   });
   const rows = data.rows ?? data.recordset ?? data.recordsets?.[0] ?? [];
   return { ...data, rows };
@@ -135,8 +136,8 @@ export async function mssqlQuery(sql: string) {
 export async function mssqlExec(sql: string) {
   const cap = LabSession.mssqlExecCap();
   if (!cap) {
-    const msg = LabSession.blockReason("ejecutar_mssql_instrucciones")
-      || LabSession.blockReason("ejecutar_mssql");
+    const msg = LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
+      || LabSession.blockReason("sql.exec.mssql.paty");
     toastWarning(msg);
     const err = new Error(msg) as Error & { code?: string };
     err.code = "NO_SESSION";
@@ -153,7 +154,7 @@ export async function pingLab() {
 }
 
 async function pgLanglabExec(sql: string) {
-  return labFetchWithCap("guardar_langlab", "/patyia/prompts/upsert-sql", {
+  return labFetchWithCap("langlab.guardar", "/patyia/prompts/upsert-sql", {
     method: "POST",
     body: JSON.stringify({ sql, target: "langlab" }),
   });

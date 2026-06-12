@@ -4,7 +4,7 @@ import { ButtonIconify } from "../ui/iconify.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as LabApi from "../api/labApi.ts";
-import { mergePartial } from "../core/urlState.ts";
+import { persistLogMeta } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../ui/notifications.jsx";
 
 const { useState, useCallback, useMemo, useEffect } = getReact();
@@ -62,9 +62,11 @@ export function LogViewer({ bootLog = {} }) {
     } catch (_) { /* ignore restore errors */ }
   }, []);
 
+  // Solo iconversacion en URL (debounced). El JSON no se auto-guarda — evita bucle de replaceState.
   useEffect(() => {
-    mergePartial({ log: { convId, jsonInput } });
-  }, [convId, jsonInput]);
+    const t = setTimeout(() => persistLogMeta(convId), 800);
+    return () => clearTimeout(t);
+  }, [convId]);
 
   const resumenChips = useMemo(() => {
     if (!logInfo) return [];

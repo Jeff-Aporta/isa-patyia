@@ -151,6 +151,12 @@ body {
   cursor: default;
 }
 
+@media (max-width: 720px) {
+  .isa-tool-tab-label {
+    display: none;
+  }
+}
+
 .lab-target-switch {
   margin: 0 !important;
   gap: 0.15rem;

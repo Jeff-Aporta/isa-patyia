@@ -81,14 +81,32 @@ function scheduleWrite() {
 }
 
 export function mergePartial(partial: Record<string, unknown>) {
+  const nextLog = { ...state.log, ...((partial.log as object) || {}) };
+  // Nunca persistir JSON grande del visor de log en ?s= (degrada el equipo).
+  if ("jsonInput" in nextLog) delete nextLog.jsonInput;
+
   state = {
     ...state,
     ...partial,
-    log: { ...state.log, ...((partial.log as object) || {}) },
+    log: nextLog,
     prompts: { ...state.prompts, ...((partial.prompts as object) || {}) },
   };
   scheduleWrite();
   return getSnapshot();
+}
+
+/** Solo metadatos ligeros del visor de log (iconversacion), no el JSON completo. */
+export function persistLogMeta(convId: string) {
+  const id = convId || "";
+  if (String(state.log?.convId ?? "") === id) return getSnapshot();
+  return mergePartial({ log: { convId: id } });
+}
+
+function syncLocalFromGateway() {
+  const local = isLocalMode();
+  if (state.local === local) return;
+  state = { ...state, local };
+  scheduleWrite();
 }
 
 function init() {
@@ -101,6 +119,8 @@ function init() {
   if (state.local !== isLocalMode()) {
     setLocalMode(state.local);
   }
+  window.addEventListener("jeff:gateway-target", syncLocalFromGateway);
+  window.addEventListener("patyia-apptools:lab-target", syncLocalFromGateway);
   return getSnapshot();
 }
 

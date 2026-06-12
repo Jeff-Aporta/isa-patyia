@@ -1,8 +1,6 @@
-/** Punto de entrada — monta la app React. */
-import { getReact, getReactDOM } from "./core/runtime.ts";
-import { App } from "./app/App.jsx";
+/** Punto de entrada — monta la app tras ISAFront + AppShell. */
+import { mountApp } from "./app/App.jsx";
 
-const { createRoot } = getReactDOM();
-const rootEl = document.getElementById("root");
-if (!rootEl) throw new Error("No se encontró #root");
-createRoot(rootEl).render(getReact().createElement(App));
+window.ISA = window.ISA || {};
+window.ISA.mount = mountApp;
+mountApp();
