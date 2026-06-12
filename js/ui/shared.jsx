@@ -1,6 +1,7 @@
 import { getMaterialUI } from "../core/runtime.ts";
 import { tokensFromUsage } from "../core/convLog.ts";
 import { ButtonIconify } from "./iconify.jsx";
+import { CodeMirrorPanel } from "./codeMirrorPanel.jsx";
 
 const { createTheme, Dialog, DialogTitle, DialogContent } = getMaterialUI();
 
@@ -123,7 +124,18 @@ export function MetaDialog({ open, onClose, meta, title }) {
             </div>
           )}
           {meta.usage && (
-            <div className="meta-row"><span className="meta-k">usage</span><span className="meta-v"><pre>{JSON.stringify(meta.usage, null, 2)}</pre></span></div>
+            <div className="meta-row meta-row--block">
+              <span className="meta-k">usage</span>
+              <span className="meta-v meta-v--full">
+                <CodeMirrorPanel
+                  value={JSON.stringify(meta.usage, null, 2)}
+                  readOnly
+                  json
+                  minHeight="5rem"
+                  maxHeight="10rem"
+                />
+              </span>
+            </div>
           )}
         </div>
       </DialogContent>
