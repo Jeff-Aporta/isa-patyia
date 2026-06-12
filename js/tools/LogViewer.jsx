@@ -107,27 +107,6 @@ export function LogViewer({ bootLog = {} }) {
     }
   }, [convId, aplicarLog]);
 
-  const cargarEjemplo = useCallback(() => {
-    const sample = {
-      iconversacion: 1961,
-      mensajes: [
-        { ts: "2026-06-09T12:40:31.908Z", role: "user", turno: 1, seq: 1, others: { nombre_usuario: "Integraciones" }, send: { input: "Hola" } },
-        {
-          ts: "2026-06-09T12:40:30.282Z", role: "operativa", turno: 1, seq: 2, latency_ms: 614,
-          receive: { choices: [{ message: { content: "Consulta General" } }], usage: { prompt_tokens: 45, completion_tokens: 2, total_tokens: 47 } },
-          others: { operativa_key: "generarTitulo", operativa_engine: "chat_completions" },
-        },
-        {
-          ts: "2026-06-09T12:40:31.908Z", role: "assistant", turno: 1, seq: 3, latency_ms: 940,
-          others: { response_text: "Hola, ¿en qué puedo ayudarte?", stream_ok: true, nombre_usuario: "Integraciones" },
-        },
-      ],
-    };
-    setConvId("1961");
-    setJsonInput(JSON.stringify(sample, null, 2));
-    aplicarLog(sample);
-  }, [aplicarLog]);
-
   const limpiar = useCallback(() => {
     setJsonInput("");
     setConvId("");
@@ -191,7 +170,6 @@ export function LogViewer({ bootLog = {} }) {
                 </span>
               </Tooltip>
               <ButtonIconify icon="mdi:delete-outline" title="Limpiar" onClick={limpiar} />
-              <ButtonIconify icon="mdi:flask-outline" title="Cargar ejemplo" onClick={cargarEjemplo} />
             </Stack>
             {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
           </div>
