@@ -324,6 +324,24 @@ body {
   flex: 0 0 auto;
 }
 
+.log-conv-load {
+  width: min(100%, 220px);
+}
+
+.log-conv-load .MuiInputAdornment-root {
+  margin-left: 0;
+}
+
+.log-conv-load__btn {
+  margin-right: -6px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  min-height: 30px;
+  min-width: 36px;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+}
+
 .log-json-editor-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -337,38 +355,27 @@ body {
   padding-top: 0.25rem;
 }
 
-.json-cm-host {
+/* CodeMirror — estilos canónicos en front-shared (isa/css/code-mirror.css) */
+.log-json-editor-wrap {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.json-cm-host .CodeMirror {
-  height: 100% !important;
-  font-family: ui-monospace, Consolas, "Cascadia Code", monospace;
-  font-size: 0.8rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+.log-json-editor-wrap .isa-cm-panel--fill {
+  min-height: 12rem;
 }
 
-.json-cm-host .CodeMirror-scroll {
-  overflow: auto !important;
+.isa-cm-host .CodeMirror-foldgutter {
+  width: 0.85em;
 }
 
-.json-cm-fallback {
-  width: 100%;
-  height: 100%;
-  min-height: 8rem;
-  resize: none;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.8rem;
-  background: rgba(15, 23, 42, 0.6);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.5rem;
-  overflow: auto;
+.isa-cm-host .CodeMirror-foldmarker {
+  color: #888;
+  cursor: pointer;
+  line-height: 0.3;
+  padding-top: 0.25em;
 }
 
 .panel-body-sql {
@@ -537,6 +544,16 @@ body {
   background: rgba(15, 23, 42, 0.6);
   padding: 0.5rem;
   border-radius: 6px;
+}
+
+.meta-row--block {
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.meta-v--full {
+  display: block;
+  width: 100%;
 }
 
 .tokens-grid {
@@ -731,6 +748,10 @@ code {
   color: var(--text-secondary, rgba(255, 255, 255, 0.65));
 }
 
+.prompt-mapeo-metric-sep {
+  color: #888;
+}
+
 .prompt-mapeo-actions {
   width: 3.25rem;
   padding-left: 0.35rem;
@@ -741,6 +762,48 @@ code {
   flex: 0 0 auto;
   min-height: 42px;
   border-bottom: 1px solid var(--border);
+}
+
+.prompt-tabs-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  min-height: 18rem;
+  max-height: 24rem;
+}
+
+.prompt-tabs--vertical {
+  flex: 0 0 auto;
+  width: 12.5rem;
+  min-width: 11rem;
+  max-width: 14rem;
+  min-height: 18rem;
+  max-height: 24rem;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.prompt-tabs--vertical .MuiTabs-scroller {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.prompt-tabs--vertical .MuiTab-root {
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  max-width: 100%;
+}
+
+.prompt-tabs-layout .tab-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  padding-left: 0.65rem;
 }
 
 .prompt-tabs .MuiTab-root {
@@ -754,6 +817,14 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.tab-label > span:not(.tab-dot) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tab-dot {
