@@ -5,7 +5,16 @@
 # isa-patyia
 
 Utilidades web para apoyo operativo de PatyIA (ISA).
-**https://jeff-aporta.github.io/isa-patyia/**
+**https://jeff-aporta.github.io/isa-patyia/** (antes patyia-tools)
+
+## API
+
+| Modo | Destino | Uso |
+|------|---------|-----|
+| **Local** (switch «orquestador») | `http://localhost:8780` — [main-orchestrator](https://main-orchestrator.jeffaporta.workers.dev) | Desarrollo: auth vía system-login, tickets `/api/tk/*` (JAGUDELOE-TKS), MSSQL/prompts vía proxy legacy |
+| **En línea** (legacy) | lab-langgraph Azure | Producción isa-patyia sin migrar hasta pruebas |
+
+Documentación tickets: [Swagger orquestador — JAGUDELOE-TKS](https://main-orchestrator.jeffaporta.workers.dev/api/ui#/JAGUDELOE-TKS/get_api_tk__space__tickets__iticket_).
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/isa-patyia/)
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev/)

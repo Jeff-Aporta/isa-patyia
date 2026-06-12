@@ -1,18 +1,18 @@
-const { useState, useEffect, useCallback, useMemo, useRef } = React;
+import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getLabTargetLabel } from "../core/config.ts";
+import { getSnapshot, mergePartial } from "../core/urlState.ts";
+import * as PromptsSql from "../api/promptsSql.ts";
+import * as LabApi from "../api/labApi.ts";
+import * as LabSession from "../api/labSession.ts";
+import { SqlExecCard } from "../editors/sqlExec.jsx";
+import { ButtonIconify } from "../ui/iconify.jsx";
+import { toastWarning, toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
 
+const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
 const {
-
   Paper, Typography, TextField, Stack, Alert, Chip,
-
   Tabs, Tab, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, CircularProgress,
-
-} = MaterialUI;
-
-const { SqlExecCard } = PatySqlExec;
-
-const { ButtonIconify } = PatyIconify;
-
-
+} = getMaterialUI();
 
 const ICON_BY_TIPO = {
 
@@ -104,23 +104,23 @@ function urlDraftTipoSet(bootPrompts) {
 
 
 function ensureCap(cap, onNeedLogin) {
-  if (PatyLabSession.can(cap)) return true;
-  PatyNotify.toastWarning(PatyLabSession.blockReason(cap));
-  if (!PatyLabSession.isLoggedIn()) onNeedLogin?.();
+  if (LabSession.can(cap)) return true;
+  toastWarning(LabSession.blockReason(cap));
+  if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;
 }
 
 function ensureMssqlExecCap(onNeedLogin) {
-  const cap = PatyLabSession.mssqlExecCap();
+  const cap = LabSession.mssqlExecCap();
   if (cap) return true;
-  const reason = PatyLabSession.blockReason("ejecutar_mssql_instrucciones")
-    || PatyLabSession.blockReason("ejecutar_mssql");
-  PatyNotify.toastWarning(reason);
-  if (!PatyLabSession.isLoggedIn()) onNeedLogin?.();
+  const reason = LabSession.blockReason("ejecutar_mssql_instrucciones")
+    || LabSession.blockReason("ejecutar_mssql");
+  toastWarning(reason);
+  if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;
 }
 
-function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
+export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [authTick, setAuthTick] = useState(0);
   useEffect(() => {
     const onAuth = () => setAuthTick((n) => n + 1);
@@ -128,21 +128,21 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     return () => window.removeEventListener("isa-patyia:auth", onAuth);
   }, []);
 
-  const canExecMssql = useMemo(() => Boolean(PatyLabSession.mssqlExecCap()), [authTick]);
-  const canGuardar = useMemo(() => PatyLabSession.can("guardar_langlab"), [authTick]);
+  const canExecMssql = useMemo(() => Boolean(LabSession.mssqlExecCap()), [authTick]);
+  const canGuardar = useMemo(() => LabSession.can("guardar_langlab"), [authTick]);
   const guardarTitle = useMemo(() => {
     if (canGuardar) return "Guardar cambios pendientes en la base de instrucciones";
-    return PatyLabSession.blockReason("guardar_langlab") || "Sin permiso para guardar";
+    return LabSession.blockReason("guardar_langlab") || "Sin permiso para guardar";
   }, [authTick, canGuardar]);
 
-  const tipos = PatyPromptsSql.PATY_PROMPT_TIPOS;
+  const tipos = PromptsSql.PATY_PROMPT_TIPOS;
 
   const urlBodies = bootPrompts.bodies || {};
   const urlDraftTipos = useMemo(() => urlDraftTipoSet(bootPrompts), [bootPrompts]);
 
   const [prompts, setPrompts] = useState(() => {
 
-    const base = PatyPromptsSql.emptyPromptState();
+    const base = PromptsSql.emptyPromptState();
 
     for (const [tipo, body] of Object.entries(urlBodies)) {
 
@@ -176,7 +176,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   const [actionBusy, setActionBusy] = useState(false);
 
-  const [labTarget, setLabTarget] = useState(PatyAppConfig.getLabTargetLabel());
+  const [labTarget, setLabTarget] = useState(getLabTargetLabel());
 
   const urlSyncRef = useRef(null);
 
@@ -190,8 +190,8 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       const next = { ...prev };
       const touched = new Set();
       for (const row of rows) {
-        const tipo = String(PatyLabApi.rowVal(row, "IINSTRUCCION") ?? "").trim().toUpperCase();
-        const body = String(PatyLabApi.rowVal(row, "INSTRUCCION") ?? "").trim();
+        const tipo = String(LabApi.rowVal(row, "IINSTRUCCION") ?? "").trim().toUpperCase();
+        const body = String(LabApi.rowVal(row, "INSTRUCCION") ?? "").trim();
         if (!next[tipo]) continue;
         if (scope && !scope.has(tipo)) continue;
         touched.add(tipo);
@@ -218,21 +218,20 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   }, [urlBodies, urlDraftTipos]);
 
   const clearUrlBodies = useCallback((tiposToClear) => {
-    const snap = PatyUrlState.getSnapshot();
+    const snap = getSnapshot();
     const bodies = { ...(snap.prompts?.bodies || {}) };
     const draftTipos = (snap.prompts?.draftTipos || [])
       .map((t) => String(t).toUpperCase())
       .filter((t) => !tiposToClear.map((x) => String(x).toUpperCase()).includes(t));
     for (const t of tiposToClear) delete bodies[t];
-    PatyUrlState.mergePartial({ prompts: { activeTab, bodies, draftTipos } });
-    PatyUrlState.flushToUrl();
+    mergePartial({ prompts: { activeTab, bodies, draftTipos } });
   }, [activeTab]);
 
 
 
   useEffect(() => {
 
-    const onTarget = () => setLabTarget(PatyAppConfig.getLabTargetLabel());
+    const onTarget = () => setLabTarget(getLabTargetLabel());
 
     window.addEventListener("isa-patyia:lab-target", onTarget);
 
@@ -252,7 +251,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     const entries = Object.values(state).filter((p) => p.body?.trim());
 
-    const { mapped: m, sqlMssql: sm, error } = PatyPromptsSql.analyzeFromEntries(entries);
+    const { mapped: m, sqlMssql: sm, error } = PromptsSql.analyzeFromEntries(entries);
 
     setMapped(m);
 
@@ -284,7 +283,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
       try {
 
-        const rows = await PatyLabApi.fetchInstruccionesPaty();
+        const rows = await LabApi.fetchInstruccionesPaty();
 
         if (cancelled) return;
 
@@ -295,7 +294,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
         if (!cancelled) {
           const msg = e instanceof Error ? e.message : String(e);
           setLoadErr(msg);
-          PatyNotify.toastWarning(`Carga de instrucciones: ${msg}`);
+          toastWarning(`Carga de instrucciones: ${msg}`);
         }
 
       } finally {
@@ -325,20 +324,20 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const discardAll = useCallback(async () => {
     const toReset = tipos.filter((t) => isDraftPrompt(prompts[t]));
     if (!toReset.length) {
-      PatyNotify.toastInfo("No hay cambios locales que descartar");
+      toastInfo("No hay cambios locales que descartar");
       return;
     }
     setActionBusy(true);
     setLoadErr("");
     try {
-      const rows = await PatyLabApi.fetchInstruccionesPaty();
+      const rows = await LabApi.fetchInstruccionesPaty();
       applyCloudRows(rows, { onlyTipos: toReset, ignoreUrl: true });
       clearUrlBodies(toReset);
-      PatyNotify.toastInfo(`${toReset.length} instrucción(es) restaurada(s) desde la base`);
+      toastInfo(`${toReset.length} instrucción(es) restaurada(s) desde la base`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
-      PatyNotify.toastError(msg);
+      toastError(msg);
     } finally {
       setActionBusy(false);
     }
@@ -346,7 +345,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   const saveAll = useCallback(async () => {
     if (!draftTipos.length) {
-      PatyNotify.toastWarning("No hay cambios pendientes para guardar");
+      toastWarning("No hay cambios pendientes para guardar");
       return;
     }
     if (!ensureCap("guardar_langlab", onNeedLogin)) return;
@@ -355,27 +354,27 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       body: prompts[t].body,
       source: prompts[t].source,
     }));
-    const { sqlLanglab, error } = PatyPromptsSql.analyzeFromEntries(entries);
+    const { sqlLanglab, error } = PromptsSql.analyzeFromEntries(entries);
     if (error || !sqlLanglab?.trim()) {
-      PatyNotify.toastError(error || "No se pudo generar SQL");
+      toastError(error || "No se pudo generar SQL");
       return;
     }
     setActionBusy(true);
     setLoadErr("");
     try {
-      await PatyLabApi.savePromptsToLanglab(sqlLanglab);
+      await LabApi.savePromptsToLanglab(sqlLanglab);
       const savedTipos = [...draftTipos];
       clearUrlBodies(savedTipos);
-      const rows = await PatyLabApi.fetchInstruccionesPaty();
+      const rows = await LabApi.fetchInstruccionesPaty();
       applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
-      PatyNotify.toastSuccess(`${savedTipos.length} instrucción(es) guardada(s)`);
+      toastSuccess(`${savedTipos.length} instrucción(es) guardada(s)`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
       if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
-        PatyLabSession.handleApiError(e, "guardar_langlab");
+        LabSession.handleApiError(e, "guardar_langlab");
       } else {
-        PatyNotify.toastError(msg);
+        toastError(msg);
       }
     } finally {
       setActionBusy(false);
@@ -386,7 +385,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   useEffect(() => {
 
-    PatyUrlState.mergePartial({ prompts: { activeTab } });
+    mergePartial({ prompts: { activeTab } });
 
   }, [activeTab]);
 
@@ -399,7 +398,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     urlSyncRef.current = setTimeout(() => {
 
       const bodies = draftBodiesFromPrompts(prompts);
-      PatyUrlState.mergePartial({
+      mergePartial({
         prompts: { activeTab, bodies, draftTipos: Object.keys(bodies) },
       });
 
@@ -429,13 +428,13 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     const files = await readFilesAsText(fileList);
 
-    const updates = PatyPromptsSql.ingestMdFiles(files);
+    const updates = PromptsSql.ingestMdFiles(files);
 
     if (!Object.keys(updates).length) {
-      PatyNotify.toastWarning("Ningún PROMPT_*.md reconocido en los archivos");
+      toastWarning("Ningún PROMPT_*.md reconocido en los archivos");
       return;
     }
-    PatyNotify.toastSuccess(`${Object.keys(updates).length} instrucción(es) importada(s)`);
+    toastSuccess(`${Object.keys(updates).length} instrucción(es) importada(s)`);
 
     setPrompts((prev) => {
 
@@ -505,12 +504,12 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
     if (!ensureMssqlExecCap(onNeedLogin)) {
       throw new Error(
-        PatyLabSession.blockReason("ejecutar_mssql_instrucciones")
-          || PatyLabSession.blockReason("ejecutar_mssql"),
+        LabSession.blockReason("ejecutar_mssql_instrucciones")
+          || LabSession.blockReason("ejecutar_mssql"),
       );
     }
 
-    return PatyLabApi.mssqlExec(sql);
+    return LabApi.mssqlExec(sql);
 
   }
 
@@ -812,9 +811,4 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   );
 
 }
-
-
-
-window.PatyPromptsSqlTool = { PromptsSqlTool };
-
 

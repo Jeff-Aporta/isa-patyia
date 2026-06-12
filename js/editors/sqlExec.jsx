@@ -1,8 +1,11 @@
-const { useState, useEffect, useRef } = React;
+import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { ButtonIconify } from "../ui/iconify.jsx";
+import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
+
+const { useState, useEffect, useRef } = getReact();
 const {
   Paper, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Stack,
-} = MaterialUI;
-const { ButtonIconify } = PatyIconify;
+} = getMaterialUI();
 
 const PROGRESS_STEPS = [
   { at: 0, msg: "Enviando SQL al servidor…" },
@@ -20,8 +23,7 @@ function fmtElapsed(ms) {
   return m > 0 ? `${m}m ${r.toString().padStart(2, "0")}s` : `${r}s`;
 }
 
-/** Candado + play (réplica RunButton.svelte). */
-function RunButton({
+export function RunButton({
   unlocked,
   onToggle,
   onRun,
@@ -51,7 +53,7 @@ function RunButton({
   );
 }
 
-function SqlViewer({ value, height = "240px" }) {
+export function SqlViewer({ value, height = "240px" }) {
   return (
     <pre className="sql-viewer custom-scrollbar" style={{ maxHeight: height, minHeight: height }}>
       {value || "-- SQL vacío"}
@@ -59,16 +61,12 @@ function SqlViewer({ value, height = "240px" }) {
   );
 }
 
-/**
- * Tarjeta SQL como SqlExecCard.svelte: candado, copiar, ver, ejecutar.
- */
-function SqlExecCard({
+export function SqlExecCard({
   title,
   sql,
   desc = "",
   height = "240px",
   confirmMessage = "",
-  confirmKind = "warning",
   executeSql,
   allowRun = true,
   disabled = false,
@@ -123,16 +121,16 @@ function SqlExecCard({
           : (res.output ? ` · ${res.output}` : "");
         const okMsg = `${title}${detail} (${fmtElapsed(elapsedMs)})`;
         setMsg(okMsg);
-        PatyNotify.toastSuccess(okMsg);
+        toastSuccess(okMsg);
       } else {
         const errMsg = res.error ?? res.output ?? "Error desconocido";
         setErr(errMsg);
-        PatyNotify.toastError(errMsg);
+        toastError(errMsg);
       }
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       setErr(errMsg);
-      PatyNotify.toastError(errMsg);
+      toastError(errMsg);
     } finally {
       stopTicker();
       setBusy(false);
@@ -156,12 +154,12 @@ function SqlExecCard({
     try {
       await navigator.clipboard.writeText(sql);
       setMsg("SQL copiado");
-      PatyNotify.toastInfo("SQL copiado al portapapeles");
+      toastInfo("SQL copiado al portapapeles");
       setTimeout(() => setMsg(""), 1600);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       setErr(errMsg);
-      PatyNotify.toastError(errMsg);
+      toastError(errMsg);
     }
   }
 
@@ -229,5 +227,3 @@ function SqlExecCard({
     </Paper>
   );
 }
-
-window.PatySqlExec = { RunButton, SqlExecCard, SqlViewer };

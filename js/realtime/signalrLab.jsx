@@ -1,17 +1,23 @@
-const { useState, useEffect, useRef, useCallback } = React;
-const { Tooltip } = MaterialUI;
+import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getApiBase, getLabBase, getLabTargetLabel } from "../core/config.ts";
+import * as LabSession from "../api/labSession.ts";
+import * as LabApi from "../api/labApi.ts";
+import { notifyFromSignalR, toastWarning } from "../ui/notifications.jsx";
 
-const DEFAULT_EVENT = "lab:notify";
+const { useState, useEffect, useRef, useCallback } = getReact();
+const { Tooltip } = getMaterialUI();
+
+export const DEFAULT_EVENT = "lab:notify";
 
 function negotiateUrl() {
-  const base = PatyAppConfig.getLabBase().replace(/\/$/, "");
+  const base = (getApiBase?.() || getLabBase()).replace(/\/$/, "");
   return `${base}/api/signalr/negotiate`;
 }
 
 async function fetchNegotiateInfo(userId) {
   const q = userId ? `?userId=${encodeURIComponent(userId)}` : "";
   const url = `${negotiateUrl()}${q}`;
-  const auth = await PatyLabSession.serviceAuthHeaders("signalr");
+  const auth = await LabSession.serviceAuthHeaders("signalr");
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -31,12 +37,12 @@ async function fetchNegotiateInfo(userId) {
   }
   const info = data.url && data.accessToken ? data : data.connectionInfo;
   if (!info?.url || !info?.accessToken) {
-    throw new Error(data.error ?? data.hint ?? "Negotiate sin url/accessToken (¿SignalR provisionado en el servidor?)");
+    throw new Error(data.error ?? data.hint ?? "Negotiate sin url/accessToken (¿SignalR provisionado en lab?)");
   }
   return info;
 }
 
-async function connectLabSignalR({ userId, onStatus, onNotify }) {
+export async function connectLabSignalR({ userId, onStatus, onNotify }) {
   const signalR = window.signalR;
   if (!signalR?.HubConnectionBuilder) {
     throw new Error("SDK @microsoft/signalr no cargado");
@@ -57,7 +63,7 @@ async function connectLabSignalR({ userId, onStatus, onNotify }) {
 
   connection.on(DEFAULT_EVENT, (payload) => {
     onNotify?.(payload);
-    window.dispatchEvent(new CustomEvent("isa-patyia:signalr-notify", { detail: payload }));
+    window.dispatchEvent(new CustomEvent("patyia-apptools:signalr-notify", { detail: payload }));
   });
 
   connection.onreconnecting(() => onStatus?.("reconnecting"));
@@ -107,10 +113,10 @@ function signalDotTone(state) {
   return "gray";
 }
 
-function useSignalRLab() {
+export function useSignalRLab() {
   const [state, setState] = useState("disconnected");
   const [lastErr, setLastErr] = useState("");
-  const [target, setTarget] = useState(PatyAppConfig.getLabTargetLabel());
+  const [target, setTarget] = useState(getLabTargetLabel());
   const clientRef = useRef(null);
   const genRef = useRef(0);
 
@@ -121,19 +127,19 @@ function useSignalRLab() {
   }, []);
 
   const connect = useCallback(async () => {
-    if (!PatyLabSession.can("signalr")) {
-      const reason = PatyLabSession.blockReason("signalr");
+    if (!LabSession.can("signalr")) {
+      const reason = LabSession.blockReason("signalr");
       setState("disconnected");
       setLastErr(reason);
       return;
     }
 
     try {
-      const health = await PatyLabApi.pingLab();
+      const health = await LabApi.pingLab();
       if (health?.signalR?.configured === false) {
         setState("error");
-        setLastErr("Azure SignalR no configurado en el servidor");
-        PatyNotify.toastWarning("SignalR: AzureSignalRConnectionString no está en la Function App");
+        setLastErr("Azure SignalR no configurado en lab");
+        toastWarning("SignalR: AzureSignalRConnectionString no está en la Function App");
         return;
       }
     } catch (_) { /* health opcional */ }
@@ -143,11 +149,11 @@ function useSignalRLab() {
     setLastErr("");
 
     try {
-      const userId = PatyLabSession.getSession()?.username || "isa-patyia";
+      const userId = LabSession.getSession()?.username || "apptools";
       const client = await connectLabSignalR({
         userId,
         onStatus: (s) => { if (genRef.current === gen) setState(s); },
-        onNotify: (payload) => PatyNotify.notifyFromSignalR(payload),
+        onNotify: (payload) => notifyFromSignalR(payload),
       });
       if (genRef.current !== gen) {
         await client.disconnect();
@@ -160,9 +166,9 @@ function useSignalRLab() {
       setLastErr(msg);
       setState("error");
       if (err?.code !== "FORBIDDEN" && err?.code !== "NO_SESSION") {
-        PatyNotify.toastWarning(`SignalR: ${msg}`);
+        toastWarning(`SignalR: ${msg}`);
       } else {
-        PatyLabSession.handleApiError(err, "signalr");
+        LabSession.handleApiError(err, "signalr");
       }
     }
   }, [disconnect]);
@@ -174,12 +180,12 @@ function useSignalRLab() {
 
   useEffect(() => {
     const onAuth = () => connect();
-    const onTarget = () => setTarget(PatyAppConfig.getLabTargetLabel());
-    window.addEventListener("isa-patyia:auth", onAuth);
-    window.addEventListener("isa-patyia:lab-target", onTarget);
+    const onTarget = () => setTarget(getLabTargetLabel());
+    window.addEventListener("patyia-apptools:auth", onAuth);
+    window.addEventListener("patyia-apptools:lab-target", onTarget);
     return () => {
-      window.removeEventListener("isa-patyia:auth", onAuth);
-      window.removeEventListener("isa-patyia:lab-target", onTarget);
+      window.removeEventListener("patyia-apptools:auth", onAuth);
+      window.removeEventListener("patyia-apptools:lab-target", onTarget);
     };
   }, [connect]);
 
@@ -189,7 +195,7 @@ function useSignalRLab() {
   return { state, lastErr, target, tip, tone, connect };
 }
 
-function SignalRStatusDot({ tone, tip, onReconnect }) {
+export function SignalRStatusDot({ tone, tip, onReconnect }) {
   function onDotClick(e) {
     e.stopPropagation();
     onReconnect?.();
@@ -214,11 +220,3 @@ function SignalRStatusDot({ tone, tip, onReconnect }) {
     </Tooltip>
   );
 }
-
-window.PatySignalRLab = {
-  useSignalRLab,
-  SignalRStatusDot,
-  connectLabSignalR,
-  DEFAULT_EVENT,
-};
-

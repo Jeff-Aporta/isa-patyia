@@ -1,8 +1,10 @@
-const { useState, useEffect, useCallback, createContext, useContext } = React;
+import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { ButtonIconify } from "./iconify.jsx";
+
+const { useState, useEffect, useCallback, createContext, useContext } = getReact();
 const {
   Snackbar, Alert, AlertTitle, Dialog, DialogTitle, DialogContent, DialogActions, Stack,
-} = MaterialUI;
-const { ButtonIconify } = PatyIconify;
+} = getMaterialUI();
 
 const DEFAULT_TIMEOUT = 4500;
 const listeners = new Set();
@@ -18,20 +20,20 @@ function pushToast(type, text, timeout = DEFAULT_TIMEOUT) {
   return emitToast({ type, text, timeout });
 }
 
-function toastError(text, timeout) {
+export function toastError(text, timeout) {
   pushToast("error", text, timeout);
   if (typeof console !== "undefined") console.error("[ISA PatyIA]", text);
 }
 
-function toastSuccess(text, timeout) {
+export function toastSuccess(text, timeout) {
   pushToast("success", text, timeout);
 }
 
-function toastInfo(text, timeout) {
+export function toastInfo(text, timeout) {
   pushToast("info", text, timeout);
 }
 
-function toastWarning(text, timeout) {
+export function toastWarning(text, timeout) {
   pushToast("warning", text, timeout);
 }
 
@@ -46,7 +48,7 @@ function requestConfirm({ title = "Confirmar", message = "", confirmLabel = "Con
 
 const NotifyContext = createContext(null);
 
-function useNotify() {
+export function useNotify() {
   const ctx = useContext(NotifyContext);
   return ctx || {
     toastError,
@@ -110,7 +112,7 @@ function ConfirmDialog({ state, onAnswer }) {
   );
 }
 
-function NotificationProvider({ children }) {
+export function NotificationProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
 
@@ -165,7 +167,7 @@ function NotificationProvider({ children }) {
 }
 
 /** Mapea payload lab:notify → toast */
-function notifyFromSignalR(payload) {
+export function notifyFromSignalR(payload) {
   if (!payload || typeof payload !== "object") {
     toastInfo(typeof payload === "string" ? payload : JSON.stringify(payload ?? {}));
     return;
@@ -184,13 +186,4 @@ function notifyFromSignalR(payload) {
   }
 }
 
-window.PatyNotify = {
-  toastError,
-  toastSuccess,
-  toastInfo,
-  toastWarning,
-  confirm: requestConfirm,
-  notifyFromSignalR,
-};
-
-window.PatyNotifications = { NotificationProvider, useNotify };
+export const confirm = requestConfirm;
