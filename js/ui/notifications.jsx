@@ -1,6 +1,6 @@
 /**
  * Puente isa-patyia → feedback compartido (front-shared / ISAFront.Feedback).
- * Requiere loadIsaFront() antes de renderizar App.
+ * AppShell ya monta UI.FeedbackProvider dentro de ThemeProvider; no envolver de nuevo aquí.
  */
 import { getReact } from "../core/runtime.ts";
 
