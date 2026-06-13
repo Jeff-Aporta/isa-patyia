@@ -3,7 +3,7 @@ import { mdToHtml, MetaBadges, MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
-import * as LabApi from "../api/labApi.ts";
+import * as Api from "../api/apiClient.ts";
 import { persistLogMeta } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../ui/notifications.jsx";
 
@@ -33,7 +33,7 @@ function MensajeCard({ msg, onMeta }) {
 
 export function LogViewer({ bootLog = {} }) {
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
-  const [convId, setConvId] = useState(bootLog.convId || "");
+  const [convId, setConvId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [logInfo, setLogInfo] = useState(null);
@@ -96,7 +96,7 @@ export function LogViewer({ bootLog = {} }) {
     setError("");
     setLoading(true);
     try {
-      const log = await LabApi.fetchConvLogById(convId);
+      const log = await Api.fetchConvLogById(convId);
       setJsonInput(JSON.stringify(log, null, 2));
       aplicarLog(log);
     } catch (err) {
