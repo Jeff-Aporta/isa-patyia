@@ -12,6 +12,16 @@ interface IsaNs {
 interface Window {
   ISA: IsaNs;
   ISAFront: IsaFrontApi;
+  AppMeta?: {
+    apply: (cfg: Record<string, unknown>) => void;
+    initFromDocument: () => Record<string, unknown>;
+    cfg?: { theme?: { lsKey?: string } };
+  };
+  ThemeInit?: {
+    lsKey: string;
+    readMode: (key: string) => string;
+    applyMode: (mode: string) => void;
+  };
 }
 
 declare const React: ReactHooks;
@@ -102,5 +112,39 @@ interface AppShellProps {
 
 interface IsaFrontApi {
   registerApp(opts: Record<string, unknown>): void;
+  registerCodeMirror?(react: unknown, mui: unknown): void;
+  registerRealtime?(ns: string, opts: Record<string, unknown>): void;
+  getReact(): ReactHooks;
+  getReactDOM(): ReactDOMApi;
+  getMaterialUI(): Record<string, unknown>;
+  createCapFetch(opts: Record<string, unknown>): {
+    capFetch(path: string, init?: RequestInit, cap?: string | null): Promise<unknown>;
+    apiUrl(path: string, baseOverride?: string): string;
+    encodeSqlQueryParam(sql: string): string;
+    rowVal(row: unknown, key: string): unknown;
+  };
+  createServiceSession(opts: Record<string, unknown>): Record<string, unknown>;
+  humanPermissionError(err: unknown, cap: string, blockReason?: (cap: string) => string): string;
+  handleApiError(err: Error & { code?: string }, cap: string, deps?: Record<string, unknown>): void;
+  sanitizeApiError(raw: unknown, fallback?: string): string;
+  createUrlState(opts: Record<string, unknown>): {
+    boot: Record<string, unknown>;
+    get: () => Record<string, unknown>;
+    getSnapshot: () => Record<string, unknown>;
+    merge: (partial: Record<string, unknown>) => Record<string, unknown>;
+    mergePartial: (partial: Record<string, unknown>) => Record<string, unknown>;
+    subscribe: (fn: (s: Record<string, unknown>) => void) => () => void;
+    PARAM: string;
+    MAX_VALUE?: number;
+  };
+  createPlatformBridge(ns: string, opts?: Record<string, unknown>): {
+    UI: IsaUi & { LoginButton?: unknown; useRealtimeStatus?: unknown; RealtimeStatusDot?: unknown };
+    Session: IsaSession;
+    Config: IsaConfig;
+    Toast: { show(opts: Record<string, unknown>): unknown };
+    Feedback?: Record<string, unknown>;
+    Realtime?: Record<string, unknown>;
+  };
+  migrateLegacyGatewayKeys(keys: Record<string, string>): void;
   Layout: { AppShell: (props: AppShellProps) => unknown };
 }
