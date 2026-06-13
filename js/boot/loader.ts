@@ -2,7 +2,7 @@
   "use strict";
 
   const BOOT_HELPER =
-    "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@05509e7/cdn/boot-helper.mjs?v=05509e7";
+    "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@9f0ec53/cdn/boot-helper.mjs?v=05509e7";
 
   const MODULE_LOADER = "./js/boot/module-graph.mjs";
   const ENTRY = "js/main.jsx";
@@ -17,7 +17,8 @@
 
     await loadIsaFront();
     await loadSharedUi(Babel);
-    await transpileFiles(["js/core/isa-setup.ts", "js/ui/AppShell.jsx"], Babel);
+    await transpileFiles(["js/ui/AppShell.jsx"], Babel);
+    await importAppEntry("js/core/isa-setup.ts", Babel);
     await importAppEntry(ENTRY, Babel);
   }
 
