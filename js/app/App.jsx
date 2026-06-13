@@ -1,6 +1,6 @@
 import { getReact, getReactDOM } from "../core/runtime.ts";
 import { mergePartial, bootState } from "../core/urlState.ts";
-import { LoginButton } from "../auth/LabAuth.jsx";
+import { UI } from "../core/platform.ts";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 
@@ -22,7 +22,7 @@ export function App() {
   }
 
   const Shell = window.ISAFront?.Layout?.AppShell;
-  if (!Shell) throw new Error("AppShell no cargado — revisar loader.ts");
+  if (!Shell) throw new Error("AppShell no cargado — revisar loader.mjs");
 
   return (
     <Shell
