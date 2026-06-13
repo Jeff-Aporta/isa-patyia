@@ -1,10 +1,10 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { getSnapshot, mergePartial } from "../core/urlState.ts";
 import * as PromptsSql from "../api/promptsSql.ts";
-import * as LabApi from "../api/labApi.ts";
-import * as LabSession from "../api/labSession.ts";
+import * as Api from "../api/labApi.ts";
+import * as Session from "../api/labSession.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
-import { CodeMirrorPanel } from "../ui/codeMirrorPanel.jsx";
+import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { mdToHtml } from "../ui/shared.jsx";
 import { toastWarning, toastSuccess, toastError, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 
@@ -197,7 +197,12 @@ function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
   );
 }
 
-function urlDraftTipoSet(bootPrompts) {
+function estimatePromptTokensFromCdn(text) {
+  const fn = window.ISAFront?.estimatePromptTokens;
+  if (typeof fn === "function") return fn(text);
+  const s = String(text ?? "");
+  return s.trim() ? Math.ceil(s.length / 4) : 0;
+}
   const bodies = bootPrompts?.bodies || {};
   const listed = Array.isArray(bootPrompts?.draftTipos)
     ? bootPrompts.draftTipos.map((t) => String(t).toUpperCase()).filter(Boolean)
@@ -293,6 +298,8 @@ function ensureMssqlExecCap(onNeedLogin) {
 
 const EMPTY_BODIES = Object.freeze({});
 
+const EMPTY_BODIES = Object.freeze({});
+
 export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [authTick, setAuthTick] = useState(0);
   useEffect(() => {
@@ -357,6 +364,8 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   );
 
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const [jconfigDlg, setJconfigDlg] = useState({ open: false, tipo: null });
 
   const [jconfigDlg, setJconfigDlg] = useState({ open: false, tipo: null });
 
@@ -732,6 +741,19 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   }, [applyFiles]);
 
 
+
+  const updateBody = useCallback((tipo, body) => {
+    setPrompts((prev) => ({
+      ...prev,
+      [tipo]: {
+        ...prev[tipo],
+        body,
+        dirty: true,
+        source: "editor",
+        jconfig: PromptsSql.syncJconfigMetrics(prev[tipo].jconfig, body),
+      },
+    }));
+  }, []);
 
   const updateBody = useCallback((tipo, body) => {
     setPrompts((prev) => ({
@@ -1219,6 +1241,15 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           )}
         </DialogContent>
       </Dialog>
+
+      <FileImportMapDialog
+        open={importDlg.open}
+        onClose={() => setImportDlg({ open: false, rows: [] })}
+        rows={importDlg.rows}
+        instructionKeys={instruccionKeys}
+        onChangeRow={onImportRowChange}
+        onConfirm={confirmFileImport}
+      />
 
       <FileImportMapDialog
         open={importDlg.open}
