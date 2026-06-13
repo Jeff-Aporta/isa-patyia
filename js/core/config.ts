@@ -1,32 +1,21 @@
 /**
- * API base vía main-orchestrator (front-shared/constants.js).
- * Compat: migra claves legacy patyia-apptools:* → jeff:gateway-local.
+ * Gateway local/prod — delega en ISAFront.Config + migración legacy isa-patyia.
  */
 import { Config } from "./platform.ts";
 
-const LS_LEGACY = "patyia-apptools:gateway-local";
-const LS_LEGACY2 = "patyia-apptools:lab-local";
+window.ISAFront.migrateLegacyGatewayKeys({
+  "jeff:gateway-local": "",
+  "patyia-apptools:gateway-local": "",
+  "patyia-apptools:lab-local": "",
+});
 
 /** @deprecated usar Config.base() */
 export const ORCH_LOCAL = "http://localhost:8780";
 /** @deprecated usar Config.base() */
 export const ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
-/** @deprecated ya no se usa Azure directo */
 export const LAB_LEGACY_ONLINE = ORCH_ONLINE;
-
-try {
-  const host = location.hostname;
-  const isDev = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
-  const hasJeff = localStorage.getItem("jeff:gateway-local") != null;
-  const legacy = localStorage.getItem(LS_LEGACY) ?? localStorage.getItem(LS_LEGACY2);
-  if (!hasJeff && legacy != null) {
-    localStorage.setItem("jeff:gateway-local", legacy === "1" ? "1" : "0");
-    localStorage.removeItem(LS_LEGACY);
-    localStorage.removeItem(LS_LEGACY2);
-  } else if (isDev && !hasJeff && legacy == null) {
-    localStorage.setItem("jeff:gateway-local", "1");
-  }
-} catch { /* ignore */ }
+export const LAB_LOCAL = ORCH_LOCAL;
+export const LAB_ONLINE = ORCH_ONLINE;
 
 export function isLocalMode() {
   try {
@@ -62,6 +51,3 @@ export function getLabTargetLabel() {
 export function getLabBase() {
   return getApiBase();
 }
-
-export const LAB_LOCAL = ORCH_LOCAL;
-export const LAB_ONLINE = ORCH_ONLINE;
