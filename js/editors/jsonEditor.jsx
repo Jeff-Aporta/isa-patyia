@@ -1,7 +1,7 @@
-import { CodeMirrorPanel } from "../ui/codeMirrorPanel.jsx";
+import { CodeMirrorPanel } from "../core/codeMirror.ts";
 
-/** Editor JSON editable (CodeMirror compartido + copiar). */
-export function JsonCodeEditor({ value = "", onChange, placeholder = "" }) {
+/** Editor JSON editable (CodeMirror compartido + copiar + pantalla completa). */
+export function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra = null }) {
   return (
     <CodeMirrorPanel
       value={value}
@@ -9,8 +9,11 @@ export function JsonCodeEditor({ value = "", onChange, placeholder = "" }) {
       json
       readOnly={false}
       fill
+      enableFullPage
+      fullPageTitle="Log JSON"
       placeholder={placeholder}
       lineWrapping={false}
+      toolbarExtra={toolbarExtra}
     />
   );
 }
