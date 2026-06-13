@@ -2,11 +2,10 @@ import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { UI, Session } from "../core/platform.ts";
 import * as LabSession from "../api/labSession.ts";
 import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
-import { useSignalRLab, SignalRStatusDot } from "../realtime/signalrLab.jsx";
 
 const { useState, useEffect } = getReact();
 const {
-  Stack, Tooltip, Chip, IconButton, Button,
+  Box, Stack, Tooltip, Chip, IconButton, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, Typography, Alert, TextField,
 } = getMaterialUI();
 
@@ -31,7 +30,8 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
-  const { tip, tone, connect } = useSignalRLab();
+  const { useRealtimeStatus, RealtimeStatusDot } = UI;
+  const { tip, tone, reconnect } = useRealtimeStatus();
 
   useEffect(() => {
     const onAuth = () => tick((n) => n + 1);
@@ -72,12 +72,13 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   }
 
   const session = LabSession.getSession();
-  const signalDot = <SignalRStatusDot tone={tone} tip={tip} onReconnect={connect} />;
+  const signalDot = <RealtimeStatusDot tone={tone} tip={tip} onReconnect={reconnect} />;
 
   if (session) {
     const roleTip = session.role ? ` · rol ${session.role}` : "";
     return (
-      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+      <Box component="span" className="header-session-wrap" sx={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" className="header-session-btn">
         {signalDot}
         <Tooltip title={`${session.username}${roleTip}`} arrow>
           <Chip
@@ -94,12 +95,13 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
           </IconButton>
         </Tooltip>
       </Stack>
+      </Box>
     );
   }
 
   return (
-    <>
-      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0 }}>
+    <Box component="span" className="header-session-wrap" sx={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" className="header-session-btn">
         {signalDot}
         <Button
           size="small"
@@ -138,7 +140,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }
 
