@@ -1,43 +1,42 @@
 /** Puente al runtime ISAFront (window.ISA). */
-function isa() {
-  const bag = window.ISA;
-  if (!bag?.UI) throw new Error("ISA no registrado — ejecutar isa-setup.ts antes que platform");
-  return bag;
-}
+const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
 export const UI = {
-  get Icon() { return isa().UI.Icon; },
-  get TargetSwitch() { return isa().UI.TargetSwitch; },
-  get ThemeSwitch() { return isa().UI.ThemeSwitch; },
-  get Loading() { return isa().UI.Loading; },
-  get ErrorBox() { return isa().UI.ErrorBox; },
-  get LoginGate() { return isa().UI.LoginGate; },
+  get Icon() { return bridge().UI.Icon; },
+  get TargetSwitch() { return bridge().UI.TargetSwitch; },
+  get ThemeSwitch() { return bridge().UI.ThemeSwitch; },
+  get useRealtimeStatus() { return bridge().UI.useRealtimeStatus; },
+  get RealtimeStatusDot() { return bridge().UI.RealtimeStatusDot; },
+  get Loading() { return bridge().UI.Loading; },
+  get ErrorBox() { return bridge().UI.ErrorBox; },
+  get LoginGate() { return bridge().UI.LoginGate; },
+  get LoginButton() { return bridge().UI.LoginButton; },
 };
 
 export const Session = {
-  current: () => isa().Session.current(),
-  isLoggedIn: () => isa().Session.isLoggedIn(),
-  username: () => isa().Session.username(),
-  authHeader: () => isa().Session.authHeader(),
-  appHeader: () => isa().Session.appHeader(),
-  appId: () => isa().Session.appId(),
-  login: (u: string, p: string) => isa().Session.login(u, p),
-  logout: () => isa().Session.logout(),
-  refreshProfile: () => isa().Session.refreshProfile(),
-  capabilities: () => isa().Session.capabilities(),
-  can: (cap: string) => isa().Session.can(cap),
-  blockReason: (cap: string) => isa().Session.blockReason(cap),
-  get EVENT() { return isa().Session.EVENT; },
+  current: () => bridge().Session.current(),
+  isLoggedIn: () => bridge().Session.isLoggedIn(),
+  username: () => bridge().Session.username(),
+  authHeader: () => bridge().Session.authHeader(),
+  appHeader: () => bridge().Session.appHeader(),
+  appId: () => bridge().Session.appId(),
+  login: (u: string, p: string) => bridge().Session.login(u, p),
+  logout: () => bridge().Session.logout(),
+  refreshProfile: () => bridge().Session.refreshProfile(),
+  capabilities: () => bridge().Session.capabilities(),
+  can: (cap: string) => bridge().Session.can(cap),
+  blockReason: (cap: string) => bridge().Session.blockReason(cap),
+  get EVENT() { return bridge().Session.EVENT; },
 };
 
 export const Toast = {
-  show: (opts: { message: string; severity?: string; durationMs?: number }) => isa().Toast?.show?.(opts),
+  show: (opts: { message: string; severity?: string; durationMs?: number }) => bridge().Toast.show(opts),
 };
 
 export const Config = {
-  base: () => isa().Config.base(),
-  apiUrl: (path: string) => isa().Config.apiUrl(path),
-  isLocal: () => isa().Config.isLocal(),
-  setLocal: (on: boolean) => isa().Config.setLocal(on),
-  get EVENT() { return isa().Config.EVENT; },
+  base: () => bridge().Config.base(),
+  apiUrl: (path: string) => bridge().Config.apiUrl(path),
+  isLocal: () => bridge().Config.isLocal(),
+  setLocal: (on: boolean) => bridge().Config.setLocal(on),
+  get EVENT() { return bridge().Config.EVENT; },
 };
