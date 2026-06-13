@@ -134,8 +134,10 @@ export function LogViewer({ bootLog = {} }) {
             <TextField
               className="log-conv-load"
               size="small"
-              label="iconversacion"
               type="number"
+              hiddenLabel
+              placeholder="iconversacion"
+              aria-label="iconversacion"
               value={convId}
               disabled={loading}
               onChange={(e) => setConvId(e.target.value)}

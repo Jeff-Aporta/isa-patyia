@@ -55,7 +55,17 @@ export async function fetchInstruccionesPaty() {
 export async function fetchConvLogById(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
-  const data = await capFetch(`/patyia/conversacion/${convId}/log`, { method: "GET" });
-  if (!data.log) throw new Error(String(data.error || "Log no encontrado"));
-  return data.log;
+  const sql = `SELECT CONTENT FROM dbo.CONVERSACION_LOG WHERE ICONVERSACION = ${convId}`;
+  const { rows } = await mssqlQuery(sql);
+  const row = rows[0] as Record<string, unknown> | undefined;
+  const raw = rowVal(row, "CONTENT");
+  if (!raw || typeof raw !== "string") {
+    throw new Error(`Log conv-${convId} no encontrado en CONVERSACION_LOG`);
+  }
+  const parsed = JSON.parse(raw.trim()) as Record<string, unknown>;
+  if (!parsed || !Array.isArray(parsed.mensajes)) {
+    throw new Error("CONTENT no es un log de conversación válido");
+  }
+  parsed.iconversacion = parsed.iconversacion || convId;
+  return parsed;
 }
