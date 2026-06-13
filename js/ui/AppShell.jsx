@@ -1,6 +1,6 @@
 /**
  * Layout compartido (copia de front-shared hasta publicar pin CDN actualizado).
- * Sobrescribe ISAFront.Layout tras loadSharedUi en loader.ts.
+ * Sobrescribe ISAFront.Layout tras loadSharedUi en loader.mjs.
  */
 (function () {
   "use strict";
