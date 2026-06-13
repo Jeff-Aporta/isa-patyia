@@ -33,7 +33,7 @@ function MensajeCard({ msg, onMeta }) {
 
 export function LogViewer({ bootLog = {} }) {
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
-  const [convId, setConvId] = useState("");
+  const [convId, setConvId] = useState(bootLog.convId || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [logInfo, setLogInfo] = useState(null);

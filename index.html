@@ -50,7 +50,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8/dist/browser/signalr.min.js"></script>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="isa-app-boot">
+      <iconify-icon icon="mdi:loading" class="isa-spin" width="1.5em" height="1.5em"></iconify-icon>
+      <span>Cargando…</span>
+    </div>
+  </div>
   <script>
   (async function () {
     try {

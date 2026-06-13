@@ -1,6 +1,7 @@
 import { getReact, getReactDOM } from "../core/runtime.ts";
 import { mergePartial, bootState } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
+import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 
