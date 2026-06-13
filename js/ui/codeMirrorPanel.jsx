@@ -29,14 +29,57 @@ function useCodeMirrorReady() {
   return ready;
 }
 
+function jsonFoldAvailable() {
+  const CM = window.CodeMirror;
+  return !!(CM?.fold?.brace && typeof CM.prototype?.foldCode === "function");
+}
+
 function registerJsonFoldHelper() {
   const CM = window.CodeMirror;
   if (!CM?.registerHelper || !CM?.fold?.brace) return;
+  const foldFn = CM.fold.auto || CM.fold.brace;
   try {
-    CM.registerHelper("fold", "javascript", CM.fold.brace);
+    CM.registerHelper("fold", "javascript", foldFn);
   } catch {
     /* ya registrado */
   }
+}
+
+function unfoldAllJson(cm) {
+  if (!cm) return;
+  if (typeof cm.unfoldAll === "function") {
+    cm.unfoldAll();
+    return;
+  }
+  window.CodeMirror?.commands?.unfoldAll?.(cm);
+}
+
+/** Iconify en gutter fold (CodeMirror 5 no admite HTML en indicadores nativos). */
+const FOLD_GUTTER_ICONS = { open: "mdi:chevron-down", folded: "mdi:chevron-right", size: 16 };
+
+function decorateFoldGutterIcons(cm) {
+  const root = cm?.getWrapperElement?.();
+  if (!root) return;
+  root.querySelectorAll(".CodeMirror-foldgutter-open, .CodeMirror-foldgutter-folded").forEach((el) => {
+    const iconName = el.classList.contains("CodeMirror-foldgutter-open")
+      ? FOLD_GUTTER_ICONS.open
+      : FOLD_GUTTER_ICONS.folded;
+    let node = el.querySelector("iconify-icon");
+    if (!node) {
+      el.textContent = "";
+      node = document.createElement("iconify-icon");
+      node.setAttribute("width", String(FOLD_GUTTER_ICONS.size));
+      node.setAttribute("height", String(FOLD_GUTTER_ICONS.size));
+      el.appendChild(node);
+    }
+    if (node.getAttribute("icon") !== iconName) node.setAttribute("icon", iconName);
+  });
+}
+
+function attachFoldGutterIcons(cm) {
+  decorateFoldGutterIcons(cm);
+  cm.on("viewportChange", decorateFoldGutterIcons);
+  cm.on("update", decorateFoldGutterIcons);
 }
 
 function buildCmOptions({ value, json, mode, readOnly, lineWrapping, lineNumbers }) {
@@ -58,18 +101,28 @@ function buildCmOptions({ value, json, mode, readOnly, lineWrapping, lineNumbers
     extraKeys,
   };
 
-  if (json && window.CodeMirror?.fold?.gutter) {
+  if (json && jsonFoldAvailable()) {
+    const CM = window.CodeMirror;
     registerJsonFoldHelper();
     opts.gutters = ["CodeMirror-linenumbers", "CodeMirror-foldgutter"];
-    opts.foldGutter = true;
+    opts.foldGutter = { rangeFinder: CM.fold.brace };
     opts.extraKeys = {
       ...extraKeys,
       "Ctrl-Q": (cm) => cm.foldCode(cm.getCursor()),
-      "Ctrl-Shift-Q": (cm) => cm.unfoldAll(),
+      "Ctrl-Shift-Q": (cm) => unfoldAllJson(cm),
     };
   }
 
   return opts;
+}
+
+function syncCmFillSize(cm, host) {
+  if (!cm || !host) return;
+  const h = host.clientHeight;
+  if (h > 0) {
+    cm.setSize(null, h);
+    cm.refresh();
+  }
 }
 
 async function copyText(text) {
@@ -111,16 +164,22 @@ function LocalCodeMirrorPanel({
   fill = false,
   className = "",
   copyTitle = "Copiar",
+  fullPageTitle = "Editor",
+  enableFullPage = false,
   placeholder = "",
   lineWrapping = false,
   lineNumbers = true,
+  toolbarExtra = null,
 }) {
-  const { Tooltip, IconButton } = getMaterialUI();
+  const { Tooltip, IconButton, Dialog, DialogTitle, DialogContent, Box } = getMaterialUI();
   const cmReady = useCodeMirrorReady();
+  const [fullOpen, setFullOpen] = useState(false);
   const hostRef = useRef(null);
   const cmRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const syncingRef = useRef(false);
+  const showJsonFold = json && jsonFoldAvailable();
+  const showFloatingToolbar = enableFullPage || showJsonFold || copyTitle || !!toolbarExtra;
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -148,20 +207,29 @@ function LocalCodeMirrorPanel({
     }
 
     cmRef.current = cm;
-    const onResize = () => cm.refresh?.();
+    if (json && jsonFoldAvailable()) {
+      attachFoldGutterIcons(cm);
+      requestAnimationFrame(() => cm.refresh());
+    }
+    const onResize = () => {
+      if (fill) syncCmFillSize(cm, host);
+      else cm.refresh?.();
+    };
     window.addEventListener("resize", onResize);
     const t = setTimeout(onResize, 0);
     const t2 = setTimeout(onResize, 120);
+    const t3 = setTimeout(onResize, 320);
 
     return () => {
       clearTimeout(t);
       clearTimeout(t2);
+      clearTimeout(t3);
       window.removeEventListener("resize", onResize);
       const wrapper = cm.getWrapperElement?.();
       wrapper?.parentNode?.removeChild(wrapper);
       cmRef.current = null;
     };
-  }, [cmReady, json, mode, readOnly, lineWrapping, lineNumbers]);
+  }, [cmReady, json, mode, readOnly, lineWrapping, lineNumbers, fill]);
 
   useEffect(() => {
     const cm = cmRef.current;
@@ -179,30 +247,97 @@ function LocalCodeMirrorPanel({
 
   useEffect(() => {
     const cm = cmRef.current;
-    if (!cm) return;
-    const t = setTimeout(() => cm.refresh(), 0);
-    const t2 = setTimeout(() => cm.refresh(), 150);
+    const host = hostRef.current;
+    if (!cm || !host) return undefined;
+
+    const sync = () => {
+      if (fill) syncCmFillSize(cm, host);
+      else cm.refresh();
+    };
+
+    sync();
+    const t = setTimeout(sync, 0);
+    const t2 = setTimeout(sync, 150);
+
+    if (!fill || typeof ResizeObserver === "undefined") {
+      return () => {
+        clearTimeout(t);
+        clearTimeout(t2);
+      };
+    }
+
+    const ro = new ResizeObserver(() => sync());
+    ro.observe(host);
+    const panel = host.closest?.(".isa-cm-panel--fill");
+    if (panel && panel !== host) ro.observe(panel);
+
     return () => {
       clearTimeout(t);
       clearTimeout(t2);
+      ro.disconnect();
     };
-  }, [minHeight, maxHeight, fill, cmReady]);
+  }, [minHeight, maxHeight, fill, cmReady, value]);
 
-  const panelClass = ["isa-cm-panel", fill ? "isa-cm-panel--fill" : "", className].filter(Boolean).join(" ");
-  const hostStyle = { minHeight };
+  const panelClass = [
+    "isa-cm-panel",
+    fill ? "isa-cm-panel--fill" : "",
+    showFloatingToolbar ? "isa-cm-panel--toolbar" : "",
+    className,
+  ].filter(Boolean).join(" ");
+  const hostStyle = fill
+    ? { minHeight: 0, height: "100%", flex: "1 1 auto" }
+    : { minHeight };
   if (maxHeight) hostStyle.maxHeight = maxHeight;
+  const panelStyle = fill ? { minHeight: 0, height: "100%", flex: "1 1 auto" } : { minHeight };
 
-  if (!cmReady || typeof window.CodeMirror === "undefined") {
-    if (cmReady) {
+  function renderFloatingToolbar(getValue) {
+    if (!showFloatingToolbar) return null;
+    return (
+      <div className="isa-cm-panel__toolbar" aria-label="Acciones del editor">
+        {toolbarExtra}
+        {enableFullPage && (
+          <Tooltip title="Ver a pantalla completa">
+            <IconButton
+              size="small"
+              className="isa-cm-panel__fab"
+              aria-label="Pantalla completa"
+              onClick={() => setFullOpen(true)}
+            >
+              <iconify-icon icon="mdi:fullscreen" width="14" height="14" />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Tooltip title={copyTitle}>
+          <IconButton
+            size="small"
+            className="isa-cm-panel__fab"
+            aria-label={copyTitle}
+            onClick={() => copyText(getValue())}
+          >
+            <iconify-icon icon="mdi:content-copy" width="14" height="14" />
+          </IconButton>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  function renderEditorSurface({ fallback = false } = {}) {
+    const surfaceClass = "isa-cm-editor-surface";
+    const hostClass = "isa-cm-host" + (showJsonFold ? " isa-cm-host--fold" : "");
+    const surfaceStyle = fill ? { flex: "1 1 auto", minHeight: 0, height: "100%" } : undefined;
+    const getValue = () => (fallback ? value : (cmRef.current?.getValue?.() ?? value));
+
+    if (fallback) {
       const fallbackClass = readOnly ? "isa-cm-fallback" : "isa-cm-fallback json-cm-fallback";
       return (
-        <div className={panelClass} style={{ minHeight }}>
+        <div className={surfaceClass} style={surfaceStyle || hostStyle}>
+          {renderFloatingToolbar(getValue)}
           {readOnly ? (
-            <pre className={fallbackClass} style={{ margin: 0, ...hostStyle }}>{value || placeholder}</pre>
+            <pre className={fallbackClass} style={{ margin: 0, flex: 1, minHeight: 0, overflow: "auto" }}>{value || placeholder}</pre>
           ) : (
             <textarea
               className={fallbackClass}
-              style={{ ...hostStyle, width: "100%" }}
+              style={{ flex: 1, minHeight: 0, width: "100%" }}
               value={value}
               placeholder={placeholder}
               spellCheck={false}
@@ -212,25 +347,89 @@ function LocalCodeMirrorPanel({
         </div>
       );
     }
-    return <div className={panelClass} style={{ minHeight, ...hostStyle }} aria-hidden />;
+
+    return (
+      <div className={surfaceClass} style={surfaceStyle}>
+        {renderFloatingToolbar(getValue)}
+        <div className={hostClass} ref={hostRef} style={hostStyle} />
+      </div>
+    );
+  }
+
+  function renderFullPageDialog() {
+    if (!enableFullPage) return null;
+    return (
+      <Dialog open={fullOpen} onClose={() => setFullOpen(false)} fullScreen scroll="paper">
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            py: 1,
+            px: 2,
+          }}
+        >
+          <Box component="span" sx={{ fontWeight: 600, fontSize: "1rem" }}>{fullPageTitle}</Box>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            <Tooltip title={copyTitle}>
+              <IconButton
+                size="small"
+                aria-label={copyTitle}
+                onClick={() => copyText(cmRef.current?.getValue?.() ?? value)}
+              >
+                <iconify-icon icon="mdi:content-copy" width="1.1em" height="1.1em" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Cerrar">
+              <IconButton size="small" aria-label="Cerrar" onClick={() => setFullOpen(false)}>
+                <iconify-icon icon="mdi:close" width="14" height="14" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 1, display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+          <LocalCodeMirrorPanel
+            value={value}
+            onChange={onChange}
+            json={json}
+            mode={mode}
+            readOnly={readOnly}
+            fill
+            lineWrapping={lineWrapping}
+            lineNumbers={lineNumbers}
+            copyTitle={copyTitle}
+            enableFullPage={false}
+            placeholder={placeholder}
+            toolbarExtra={toolbarExtra}
+            className="isa-cm-panel--dialog"
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!cmReady || typeof window.CodeMirror === "undefined") {
+    if (cmReady) {
+      return (
+        <>
+          <div className={panelClass} style={panelStyle}>
+            {renderEditorSurface({ fallback: true })}
+          </div>
+          {renderFullPageDialog()}
+        </>
+      );
+    }
+    return <div className={panelClass} style={panelStyle} aria-hidden />;
   }
 
   return (
-    <div className={panelClass}>
-      <div className="isa-cm-panel__toolbar">
-        <Tooltip title={copyTitle}>
-          <IconButton
-            size="small"
-            className="isa-cm-panel__copy"
-            aria-label={copyTitle}
-            onClick={() => copyText(cmRef.current?.getValue?.() ?? value)}
-          >
-            <iconify-icon icon="mdi:content-copy" width="1.1em" height="1.1em" />
-          </IconButton>
-        </Tooltip>
+    <>
+      <div className={panelClass} style={panelStyle}>
+        {renderEditorSurface()}
       </div>
-      <div className="isa-cm-host" ref={hostRef} style={hostStyle} />
-    </div>
+      {renderFullPageDialog()}
+    </>
   );
 }
 
