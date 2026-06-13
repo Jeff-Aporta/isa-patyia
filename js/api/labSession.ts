@@ -8,7 +8,6 @@ const CAP_ENDPOINTS: Record<string, { method: string; path: string }> = {
   "langlab.guardar": { method: "POST", path: "/api/patyia/prompts/upsert-sql" },
   "sql.exec.mssql.paty": { method: "POST", path: "/api/mssql/paty/exec" },
   "sql.exec.mssql.paty.instrucciones": { method: "POST", path: "/api/mssql/paty/exec" },
-  signalr: { method: "POST", path: "/api/signalr/negotiate" },
 };
 
 let serviceTokens = new Map<string, { token: string; expMs: number }>();
