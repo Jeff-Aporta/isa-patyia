@@ -1,0 +1,39 @@
+const LOCAL_CANDIDATES = [
+  "../../../../Personal/apps/front-shared/cdn",
+  "../../../Personal/apps/front-shared/cdn",
+  "../../Personal/apps/front-shared/cdn",
+];
+const CDN_BOOT = "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@9f0ec53/cdn/boot-loader.mjs";
+
+async function importBootLoader() {
+  let lastErr;
+  for (const base of LOCAL_CANDIDATES) {
+    try {
+      const mod = await import(`${base}/boot-loader.mjs`);
+      return { mod, localFs: base };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  try {
+    const mod = await import(CDN_BOOT);
+    return { mod, localFs: LOCAL_CANDIDATES[0] };
+  } catch (e) {
+    throw lastErr || e;
+  }
+}
+
+importBootLoader().then(({ mod, localFs }) => {
+  const { mountBoot, runIsaBoot } = mod;
+  mountBoot(() => runIsaBoot({
+    localFs,
+    modules: ["js/core/isa-setup.ts", "js/api/sessionApi.ts", "js/main.jsx"],
+  }));
+}).catch((err) => {
+  const root = document.getElementById("root");
+  const msg = err instanceof Error ? err.stack || err.message : String(err);
+  if (root) {
+    root.innerHTML = '<pre style="color:#ff8a80;padding:24px;font-family:monospace">Error de arranque:\n' + msg + "</pre>";
+  }
+  console.error(err);
+});
