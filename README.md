@@ -1,26 +1,34 @@
 <p align="center">
-  <img src="https://i.ibb.co/Kjg04Hb9/isa-patyia-avatar.png" alt="ISA PatyIA" width="180" />
+  <img src="https://api.iconify.design/mdi/flask-outline.svg?color=%231e90ff&width=160&height=160" alt="PatyIA AppTools" width="160" />
 </p>
 
-# isa-patyia
+<h1 align="center">PatyIA AppTools</h1>
 
-Utilidades web para apoyo operativo de PatyIA (ISA).
-**https://jeff-aporta.github.io/isa-patyia/** (antes patyia-tools)
+<p align="center">
+  <a href="https://jeff-aporta.github.io/isa-patyia/"><img src="https://img.shields.io/badge/GitHub%20Pages-isa--patyia-2ea44f?logo=github&logoColor=white" alt="GitHub Pages" /></a>
+  <a href="https://github.com/Jeff-Aporta/isa-patyia"><img src="https://img.shields.io/badge/repo-isa--patyia-181717?logo=github&logoColor=white" alt="Repositorio" /></a>
+  <img src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white" alt="React 18" />
+  <img src="https://img.shields.io/badge/MUI-9-007FFF?logo=mui&logoColor=white" alt="MUI 9" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Babel-Standalone-F9DC3E?logo=babel&logoColor=black" alt="Babel Standalone" />
+  <img src="https://img.shields.io/badge/CodeMirror-5-D30707?logo=codemirror&logoColor=white" alt="CodeMirror 5" />
+</p>
 
-## API
+<p align="center">
+  <strong><a href="https://jeff-aporta.github.io/isa-patyia/">https://jeff-aporta.github.io/isa-patyia/</a></strong>
+</p>
 
-| Modo | Destino | Uso |
-|------|---------|-----|
-| **Local** (switch «orquestador») | `http://localhost:8780` — [main-orchestrator](https://main-orchestrator.jeffaporta.workers.dev) | Desarrollo: auth vía system-login, tickets `/api/tk/*` (JAGUDELOE-TKS), MSSQL/prompts vía proxy legacy |
-| **En línea** (legacy) | lab-langgraph Azure | Producción isa-patyia sin migrar hasta pruebas |
+## Descripción
 
-Documentación tickets: [Swagger orquestador — JAGUDELOE-TKS](https://main-orchestrator.jeffaporta.workers.dev/api/ui#/JAGUDELOE-TKS/get_api_tk__space__tickets__iticket_).
+Aplicación web publicada en GitHub Pages para apoyo operativo de **PatyIA**: utilidades de laboratorio orientadas a revisión de conversaciones y mantenimiento de instrucciones en staging.
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-en%20línea-2ea44f?logo=github)](https://jeff-aporta.github.io/isa-patyia/)
-[![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white)](https://react.dev/)
-[![MUI](https://img.shields.io/badge/MUI-5-007FFF?logo=mui&logoColor=white)](https://mui.com/)
-[![Babel](https://img.shields.io/badge/Babel-Standalone-F9DC3E?logo=babel&logoColor=black)](https://babeljs.io/)
-[![Iconify](https://img.shields.io/badge/Iconify-iconify--icon-1769AA?logo=iconify&logoColor=white)](https://iconify.design/)
-[![marked](https://img.shields.io/badge/marked-Markdown-000000?logo=markdown&logoColor=white)](https://marked.js.org/)
-[![CodeMirror](https://img.shields.io/badge/CodeMirror-5-D30707?logo=codemirror&logoColor=white)](https://codemirror.net/)
-[![SignalR](https://img.shields.io/badge/SignalR-8-512BD4?logo=.net&logoColor=white)](https://dotnet.microsoft.com/apps/aspnet/signalr)
+| Herramienta | Para qué sirve |
+|-------------|----------------|
+| **Visor de log** | Consulta trazas y mensajes de conversaciones PatyIA con formato legible y estado en tiempo real. |
+| **Prompts → SQL** | Carga, edición e importación de las 13 instrucciones por tipo; generación de scripts de publicación hacia staging sin editar la base de datos a mano. |
+
+Interfaz React + Material UI, sin paso de compilación: el navegador transpila TypeScript/JSX en caliente con Babel Standalone y consume el stack compartido [front-shared](https://github.com/Jeff-Aporta/front-shared).
+
+<p align="center">
+  <sub>Jeff-Aporta · PatyIA · <a href="https://github.com/Jeff-Aporta/isa-patyia">isa-patyia</a></sub>
+</p>
