@@ -5,7 +5,7 @@ import * as LabApi from "../api/labApi.ts";
 import { notifyFromSignalR, toastWarning } from "../ui/notifications.jsx";
 
 const { useState, useEffect, useRef, useCallback } = getReact();
-const { Tooltip } = getMaterialUI();
+const { Tooltip, IconButton } = getMaterialUI();
 
 export const DEFAULT_EVENT = "lab:notify";
 
