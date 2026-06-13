@@ -170,6 +170,19 @@ body {
   align-items: center;
 }
 
+.MuiAppBar-root .MuiToolbar-root {
+  align-items: center;
+}
+
+.MuiAppBar-root .MuiToolbar-root .MuiTabs-list {
+  align-items: center;
+}
+
+.MuiAppBar-root .MuiToolbar-root iconify-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
 .lab-target-switch {
   margin: 0 !important;
   gap: 0.15rem;
