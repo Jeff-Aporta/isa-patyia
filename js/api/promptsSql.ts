@@ -476,51 +476,6 @@ ORDER BY i.iinstruccion;
     return { sql: head + stmts + tail, rows: valid, error: null };
   }
 
-  function pgEscapeLiteral(text) {
-    return `'${String(text).replace(/'/g, "''")}'`;
-  }
-
-  /** BD_LANGLAB (langlab / Render) — no PatyIA MSSQL. */
-  function buildLanglabPgSql(rows) {
-    const valid = rows.filter((r) => r.tipo && r.body);
-    if (!valid.length) return { sql: "", rows: valid, error: "No hay prompts válidos para guardar." };
-
-    const head = `-- =====================================================================
--- Upsert de instrucciones (generado por isa-patyia)
--- =====================================================================
-BEGIN;
-`;
-
-    const stmts = valid.map((r) => `
--- ${r.archivo} → ${r.tipo}
-INSERT INTO "BD_LANGLAB"."INSTRUCCION" ("IINSTRUCCION", "NINSTRUCCION", "MODELO", "INSTRUCCION", "DESCRIPCION", "VERSION", "FHULTACT")
-VALUES (${pgEscapeLiteral(r.tipo)}, ${pgEscapeLiteral(`PROMPT_${r.tipo}`)}, '', ${pgEscapeLiteral(r.body)}, ${pgEscapeLiteral(`Prompt · ${r.tipo}`)}, '1.0', NOW())
-ON CONFLICT ("IINSTRUCCION") DO UPDATE SET
-  "NINSTRUCCION" = EXCLUDED."NINSTRUCCION",
-  "INSTRUCCION" = EXCLUDED."INSTRUCCION",
-  "DESCRIPCION" = EXCLUDED."DESCRIPCION",
-  "VERSION" = EXCLUDED."VERSION",
-  "FHULTACT" = NOW();
-
-INSERT INTO "BD_LANGLAB"."CONVERSACION_TIPOCONSULTA" ("ITIPOCONSULTA", "NCONSULTA", "DESCRIPCION", "INSTRUCCIONES")
-VALUES (${pgEscapeLiteral(r.tipo)}, ${pgEscapeLiteral(`PROMPT_${r.tipo}`)}, ${pgEscapeLiteral(`PROMPT_${r.tipo}`)}, jsonb_build_array(jsonb_build_object('IINSTRUCCION', ${pgEscapeLiteral(r.tipo)}, 'IORDEN', 1)))
-ON CONFLICT ("ITIPOCONSULTA") DO UPDATE SET
-  "NCONSULTA" = EXCLUDED."NCONSULTA",
-  "INSTRUCCIONES" = EXCLUDED."INSTRUCCIONES";
-`).join("\n");
-
-    const tail = `
-COMMIT;
-
-SELECT "IINSTRUCCION", "NINSTRUCCION", "VERSION", LENGTH("INSTRUCCION") AS len_instruccion
-FROM "BD_LANGLAB"."INSTRUCCION"
-WHERE "IINSTRUCCION" IN (${valid.map((r) => pgEscapeLiteral(r.tipo)).join(", ")})
-ORDER BY "IINSTRUCCION";
-`;
-
-    return { sql: head + stmts + tail, rows: valid, error: null };
-  }
-
   function analyzeFromEntries(entries) {
     const mapped = (entries || []).map((e) => mapEntryToInstruccion({
       archivo: e.archivo,
@@ -531,13 +486,11 @@ ORDER BY "IINSTRUCCION";
       jconfigRaw: e.jconfigRaw,
     }));
     const mssql = buildMergeSql(mapped);
-    const pg = buildLanglabPgSql(mapped);
     return {
       mapped,
       sqlMssql: mssql.sql,
-      sqlLanglab: pg.sql,
       validRows: mssql.rows,
-      error: mssql.error || pg.error,
+      error: mssql.error,
     };
   }
 
@@ -586,7 +539,6 @@ export {
   syncJconfigMetrics,
   enrichJconfigForSave,
   buildMergeSql,
-  buildLanglabPgSql,
   analyzeFromEntries,
   analyzePrompts,
   emptyPromptState,
