@@ -2,7 +2,7 @@ import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { getSnapshot, mergePartial } from "../core/urlState.ts";
 import * as PromptsSql from "../api/promptsSql.ts";
 import * as LabApi from "../api/labApi.ts";
-import * as LabSession from "../api/labSession.ts";
+import * as LabSession from "../api/sessionApi.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { mdToHtml } from "../ui/shared.jsx";
