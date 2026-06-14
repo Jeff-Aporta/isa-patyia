@@ -1,6 +1,6 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { UI, Session } from "../core/platform.ts";
-import * as LabSession from "../api/labSession.ts";
+import * as LabSession from "../api/sessionApi.ts";
 import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
 
 const { useState, useEffect } = getReact();
