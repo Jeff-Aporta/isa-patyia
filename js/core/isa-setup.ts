@@ -6,8 +6,10 @@ window.ISAFront.registerApp({
   widgets: { targetStyle: "chip" },
   session: true,
   auth: false,
+  /** Indicador en header sí; socket no hasta el módulo de chat. */
   realtime: {
-    enabled: () => window.ISA?.Session?.isLoggedIn?.() ?? false,
+    enabled: () => false,
+    autoStart: false,
   },
   toast: true,
 });
