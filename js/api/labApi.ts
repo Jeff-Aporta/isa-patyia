@@ -3,7 +3,7 @@
  */
 import { Config, Session } from "../core/platform.ts";
 import { isLocalMode, ORCH_ONLINE } from "../core/config.ts";
-import * as LabSession from "./labSession.ts";
+import * as LabSession from "./sessionApi.ts";
 import { toastWarning } from "../ui/notifications.jsx";
 
 const LOCAL_DIRECT = [
