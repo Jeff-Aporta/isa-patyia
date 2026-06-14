@@ -6,8 +6,52 @@ import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
 const { useState, useEffect } = getReact();
 const {
   Box, Stack, Tooltip, Chip, IconButton, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, Typography, Alert, TextField,
+  Dialog, DialogTitle, DialogContent, DialogActions, Typography, Alert, TextField, InputAdornment,
 } = getMaterialUI();
+
+/** Mismo criterio que chips del AppBar en app.css (TargetSwitch incluido). */
+const HEADER_CHIP_SX = {
+  height: "auto",
+  minHeight: 28,
+  py: 0.375,
+  "& .MuiChip-label": { pl: 1.25, pr: 1.25, py: 0.25 },
+  "& .MuiChip-icon": { ml: 1.25, mr: 0.5 },
+};
+
+function PasswordField({ Icon, label, value, onChange, onEnter, size = "small", autoFocus = false }) {
+  const [showPass, setShowPass] = useState(false);
+  return (
+    <TextField
+      label={label}
+      type={showPass ? "text" : "password"}
+      value={value}
+      onChange={onChange}
+      fullWidth
+      size={size}
+      autoFocus={autoFocus}
+      onKeyDown={(e) => { if (e.key === "Enter") onEnter?.(); }}
+      slotProps={{
+        input: {
+          endAdornment: (
+            <InputAdornment position="end">
+              <Tooltip title={showPass ? "Ocultar contraseña" : "Mostrar contraseña"} arrow>
+                <IconButton
+                  size="small"
+                  edge="end"
+                  aria-label={showPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  onClick={() => setShowPass((v) => !v)}
+                  tabIndex={-1}
+                >
+                  <Icon icon={showPass ? "mdi:eye-off-outline" : "mdi:eye-outline"} size={20} />
+                </IconButton>
+              </Tooltip>
+            </InputAdornment>
+          ),
+        },
+      }}
+    />
+  );
+}
 
 function sanitizeLoginError(raw) {
   const msg = String(raw || "").trim();
@@ -87,6 +131,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
             variant="outlined"
             icon={<Icon icon="mdi:account-check" size={16} />}
             label={session.username}
+            sx={HEADER_CHIP_SX}
           />
         </Tooltip>
         <Tooltip title="Cerrar sesión" arrow>
@@ -120,16 +165,14 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
         </DialogTitle>
         <DialogContent>
           {err ? <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert> : null}
-          <Stack spacing={2}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} fullWidth autoFocus size="small" />
-            <TextField
+            <PasswordField
+              Icon={Icon}
               label="Contraseña"
-              type="password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              fullWidth
-              size="small"
-              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              onEnter={submit}
             />
           </Stack>
         </DialogContent>
@@ -188,9 +231,15 @@ export function LabAuthModal({ open, onClose, onLoggedIn }) {
       </DialogTitle>
       <DialogContent>
         <form onSubmit={submit}>
-          <Stack spacing={2} sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField label="Usuario" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth autoFocus />
-            <TextField label="Contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
+            <PasswordField
+              Icon={Icon}
+              label="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onEnter={() => submit()}
+            />
             {error && <Alert severity="error">{error}</Alert>}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button onClick={onClose} disabled={loading}>Cancelar</Button>
