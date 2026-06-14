@@ -4,8 +4,6 @@ import { toastError, toastWarning } from "../ui/notifications.jsx";
 
 const CAP_ENDPOINTS: Record<string, { method: string; path: string }> = {
   "patyia.instrucciones.publish": { method: "POST", path: "/api/patyia/instrucciones/publish" },
-  "langlab.guardar": { method: "POST", path: "/api/patyia/prompts/upsert-sql" },
-  signalr: { method: "POST", path: "/api/signalr/negotiate" },
 };
 
 function notifyAuth() {
