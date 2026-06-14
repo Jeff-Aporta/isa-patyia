@@ -281,11 +281,11 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
   );
 }
 
-function ensureMssqlExecCap(onNeedLogin) {
-  const cap = LabSession.mssqlExecCap();
+function ensurePublishCap(onNeedLogin) {
+  const cap = LabSession.instruccionesPublishCap();
   if (cap) return true;
-  const reason = LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
-    || LabSession.blockReason("sql.exec.mssql.paty");
+  const reason = LabSession.blockReason("patyia.instrucciones.publish")
+    || LabSession.blockReason("langlab.guardar");
   toastWarning(reason);
   if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;
@@ -301,22 +301,22 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     return () => window.removeEventListener("isa-patyia:auth", onAuth);
   }, []);
 
-  const canExecMssql = useMemo(() => Boolean(LabSession.mssqlExecCap()), [authTick]);
+  const canPublish = useMemo(() => Boolean(LabSession.instruccionesPublishCap()), [authTick]);
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);
-  const canEdit = canExecMssql;
+  const canEdit = canPublish;
   const editBlockReason = useMemo(() => {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesión para editar instrucciones";
-    return LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
-      || LabSession.blockReason("sql.exec.mssql.paty")
+    return LabSession.blockReason("patyia.instrucciones.publish")
+      || LabSession.blockReason("langlab.guardar")
       || "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo(() => {
-    if (canExecMssql) return "Guardar instrucciones y configuración en Paty (MSSQL)";
-    return LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
-      || LabSession.blockReason("sql.exec.mssql.paty")
+    if (canPublish) return "Guardar instrucciones y configuración en Paty (MSSQL)";
+    return LabSession.blockReason("patyia.instrucciones.publish")
+      || LabSession.blockReason("langlab.guardar")
       || "Sin permiso para guardar en Paty";
-  }, [authTick, canExecMssql]);
+  }, [authTick, canPublish]);
   const [extraInstructionKeys, setExtraInstructionKeys] = useState([]);
   const instruccionKeys = useMemo(
     () => PromptsSql.allInstructionKeys(extraInstructionKeys),
@@ -580,7 +580,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       toastWarning("No hay cambios pendientes para guardar");
       return;
     }
-    if (!ensureMssqlExecCap(onNeedLogin)) return;
+    if (!ensurePublishCap(onNeedLogin)) return;
     const session = LabSession.getSession();
     const author = session?.username || "";
     const entries = pendingTipos.map((t) => ({
@@ -602,7 +602,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     setActionBusy(true);
     setLoadErr("");
     try {
-      await LabApi.mssqlExec(sqlMssql);
+      await LabApi.publishInstruccionesPaty(sqlMssql);
       const savedTipos = [...pendingTipos];
       clearUrlBodies(savedTipos);
       const rows = await LabApi.fetchInstruccionesPaty();
@@ -612,9 +612,9 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
       if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
-        LabSession.handleApiError(e, LabSession.mssqlExecCap() || "sql.exec.mssql.paty");
+        LabSession.handleApiError(e, LabSession.instruccionesPublishCap() || "patyia.instrucciones.publish");
       } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-        toastWarning(LabSession.humanPermissionError(e, LabSession.mssqlExecCap() || "sql.exec.mssql.paty.instrucciones"));
+        toastWarning(LabSession.humanPermissionError(e, LabSession.instruccionesPublishCap() || "patyia.instrucciones.publish"));
       } else {
         toastError(msg);
       }
@@ -880,7 +880,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
               label={actionBusy ? "Guardando…" : "Guardar"}
               title={saveTitle}
               onClick={saveAll}
-              disabled={actionBusy || loadBusy || !pendingTipos.length || !canExecMssql}
+              disabled={actionBusy || loadBusy || !pendingTipos.length || !canPublish}
               busy={actionBusy}
             />
             <ButtonIconify
