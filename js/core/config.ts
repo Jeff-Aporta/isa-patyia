@@ -3,7 +3,7 @@
  */
 import { Config } from "./platform.ts";
 
-window.ISAFront.migrateLegacyGatewayKeys({
+window.ISAFront.migrateLegacyGatewayKeys?.({
   "jeff:gateway-local": "",
   "patyia-apptools:gateway-local": "",
   "patyia-apptools:lab-local": "",
