@@ -30,6 +30,7 @@ export function App() {
       ns="ISA"
       icon="mdi:flask-outline"
       showTitle={false}
+      showTarget={false}
       navRows={[
         { id: "tool", value: tool, onChange: selectTool, tabs: TOOLS },
       ]}
