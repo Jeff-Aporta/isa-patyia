@@ -285,7 +285,7 @@ function ensurePublishCap(onNeedLogin) {
   const cap = LabSession.instruccionesPublishCap();
   if (cap) return true;
   const reason = LabSession.blockReason("patyia.instrucciones.publish")
-    || LabSession.blockReason("langlab.guardar");
+    || "Sin permiso para publicar instrucciones";
   toastWarning(reason);
   if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;
@@ -308,13 +308,11 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesión para editar instrucciones";
     return LabSession.blockReason("patyia.instrucciones.publish")
-      || LabSession.blockReason("langlab.guardar")
       || "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo(() => {
     if (canPublish) return "Guardar instrucciones y configuración en Paty (MSSQL)";
     return LabSession.blockReason("patyia.instrucciones.publish")
-      || LabSession.blockReason("langlab.guardar")
       || "Sin permiso para guardar en Paty";
   }, [authTick, canPublish]);
   const [extraInstructionKeys, setExtraInstructionKeys] = useState([]);
