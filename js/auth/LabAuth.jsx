@@ -1,6 +1,7 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { UI, Session } from "../core/platform.ts";
 import * as LabSession from "../api/sessionApi.ts";
+import { patyiaBridgeBase } from "../core/config.ts";
 import { toastSuccess, toastError, toastInfo } from "../ui/notifications.jsx";
 
 const { useState, useEffect } = getReact();
@@ -14,8 +15,10 @@ const HEADER_CHIP_SX = {
   height: "auto",
   minHeight: 28,
   py: 0.375,
-  "& .MuiChip-label": { pl: 1.25, pr: 1.25, py: 0.25 },
-  "& .MuiChip-icon": { ml: 1.25, mr: 0.5 },
+  pl: 1.25,
+  pr: 0.75,
+  "& .MuiChip-label": { pl: 0.75, pr: 1.25, py: 0.25 },
+  "& .MuiChip-icon": { ml: 0.25, mr: 0.75 },
 };
 
 function PasswordField({ Icon, label, value, onChange, onEnter, size = "small", autoFocus = false }) {
@@ -119,6 +122,25 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   const signalDot = <RealtimeStatusDot tone={tone} tip={tip} onReconnect={reconnect} />;
 
   if (session) {
+    const UserSessionMenu = window.ISAFront?.UI?.UserSessionMenu;
+    if (UserSessionMenu) {
+      return (
+        <UserSessionMenu
+          ns="ISA"
+          username={session.username}
+          role={session.role || ""}
+          signalDot={signalDot}
+          chipSx={HEADER_CHIP_SX}
+          onLogout={logout}
+          runUnitTestUrl={() => `${patyiaBridgeBase()}/api/run-unit-test`}
+          getAuthHeaders={() => {
+            const tok = session.sessionToken || Session.current()?.token;
+            return tok ? { Authorization: `Bearer ${tok}` } : {};
+          }}
+          unitTestTitle="Test unitario — iss-patyia-bridge"
+        />
+      );
+    }
     const roleTip = session.role ? ` · rol ${session.role}` : "";
     return (
       <Box component="span" className="header-session-wrap" sx={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
