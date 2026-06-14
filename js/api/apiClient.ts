@@ -1,26 +1,38 @@
-/** Endpoints PatyIA — HTTP compartido vía ISAFront.createCapFetch. */
+/** Endpoints PatyIA — lecturas al puente Azure; publish vía main-orchestrator (gateway). */
 import { Session, Config } from "../core/platform.ts";
-import { ORCH_ONLINE, isLocalMode } from "../core/config.ts";
+import {
+  ORCH_ONLINE,
+  isLocalMode,
+  isPatyiaApiPath,
+  patyiaBridgeBase,
+} from "../core/config.ts";
 import * as SessionApi from "./sessionApi.ts";
 
-const LOCAL_DIRECT = [
-  { test: (p: string) => p.startsWith("/tk/"), base: "http://127.0.0.1:8786" },
-];
-
-const http = window.ISAFront.createCapFetch({
+const bridgeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
-  localDirect: LOCAL_DIRECT,
-  orchOnline: ORCH_ONLINE,
+  getApiBase: patyiaBridgeBase,
+  localDirect: [
+    { test: isPatyiaApiPath, base: "http://127.0.0.1:4500" },
+  ],
+  orchOnlineInLocal: false,
+  isLocal: isLocalMode,
+});
+
+const orchHttp = window.ISAFront.createCapFetch({
+  Session,
+  Config,
+  getApiBase: () => ORCH_ONLINE.replace(/\/$/, ""),
+  orchOnlineInLocal: false,
   isLocal: isLocalMode,
   serviceAuthHeaders: SessionApi.serviceAuthHeaders,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
 
-export const capFetch = http.capFetch;
-export const apiUrl = http.apiUrl;
-export const rowVal = http.rowVal;
+export const capFetch = bridgeHttp.capFetch;
+export const apiUrl = bridgeHttp.apiUrl;
+export const rowVal = bridgeHttp.rowVal;
 
 export async function fetchInstruccionesPaty() {
   const data = await capFetch("/patyia/instrucciones", { method: "GET" });
@@ -35,7 +47,7 @@ export async function publishInstruccionesPaty(sql: string) {
       || "Sin permiso para publicar instrucciones",
     );
   }
-  return capFetch(
+  return orchHttp.capFetch(
     "/patyia/instrucciones/publish",
     {
       method: "POST",
