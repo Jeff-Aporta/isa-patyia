@@ -24,17 +24,17 @@ function roleTitle(msg) {
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips }) {
+function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left" }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
+  const isRight = align === "right";
 
   return (
     <Paper
       id={id}
       elevation={0}
       sx={{
-        mb: 2.5,
         borderRadius: 2.5,
         overflow: "hidden",
         border: 1,
@@ -63,14 +63,31 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips }) {
           borderColor: "divider",
           background: (t) =>
             t.palette.mode === "dark"
-              ? `linear-gradient(90deg, ${color}22, transparent 70%)`
-              : `linear-gradient(90deg, ${color}14, transparent 70%)`,
-          borderLeft: 4,
-          borderLeftColor: color,
+              ? isRight
+                ? `linear-gradient(270deg, ${color}22, transparent 70%)`
+                : `linear-gradient(90deg, ${color}22, transparent 70%)`
+              : isRight
+                ? `linear-gradient(270deg, ${color}14, transparent 70%)`
+                : `linear-gradient(90deg, ${color}14, transparent 70%)`,
+          ...(isRight
+            ? { borderRight: 4, borderRightColor: color }
+            : { borderLeft: 4, borderLeftColor: color }),
         }}
       >
-        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={1.25}
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ flexDirection: isRight ? "row-reverse" : "row" }}
+        >
+          <Stack
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ flex: 1, minWidth: 0, flexDirection: isRight ? "row-reverse" : "row" }}
+          >
             <Box
               sx={{
                 width: 32,
@@ -191,27 +208,40 @@ function MsgBody({ text }) {
 }
 
 function MensajeSection({ msg, onMeta }) {
-  const { Alert } = getMaterialUI();
+  const { Alert, Box } = getMaterialUI();
   const rk = roleKey(msg);
   const meta = ROLE_META[rk] || ROLE_META.assistant;
   const head = `${roleTitle(msg)}${msg.fecha ? ` · ${msg.fecha}` : ""}`;
+  const isUser = msg.esUsuario;
 
   return (
-    <SectionCard
-      id={`conv-msg-${msg.idMsg}`}
-      icon={meta.icon}
-      title={head}
-      accent={meta.accent}
-      onMeta={msg.meta ? () => onMeta(msg) : undefined}
-      metaChips={<MetaChipRow meta={msg.meta} />}
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: isUser ? "flex-end" : "flex-start",
+        width: "100%",
+        mb: 2.5,
+      }}
     >
-      {msg.streamFailed && msg.streamError && (
-        <Alert severity="warning" sx={{ mb: 1.5, py: 0.25, fontSize: "0.78rem" }}>
-          {msg.streamError}
-        </Alert>
-      )}
-      <MsgBody text={msg.contenido} />
-    </SectionCard>
+      <Box sx={{ maxWidth: "90%", minWidth: 0, display: "inline-block", verticalAlign: "top" }}>
+        <SectionCard
+          id={`conv-msg-${msg.idMsg}`}
+          icon={meta.icon}
+          title={head}
+          accent={meta.accent}
+          align={isUser ? "right" : "left"}
+          onMeta={msg.meta ? () => onMeta(msg) : undefined}
+          metaChips={<MetaChipRow meta={msg.meta} />}
+        >
+          {msg.streamFailed && msg.streamError && (
+            <Alert severity="warning" sx={{ mb: 1.5, py: 0.25, fontSize: "0.78rem" }}>
+              {msg.streamError}
+            </Alert>
+          )}
+          <MsgBody text={msg.contenido} />
+        </SectionCard>
+      </Box>
+    </Box>
   );
 }
 
@@ -227,7 +257,7 @@ export function ConvLogWebView({ mensajes, onMeta }) {
   }
 
   return (
-    <Box sx={{ maxWidth: 920, mx: "auto" }}>
+    <Box sx={{ width: "100%", maxWidth: "100%" }}>
       {mensajes.map((m) => (
         <MensajeSection key={m.idMsg} msg={m} onMeta={onMeta} />
       ))}
