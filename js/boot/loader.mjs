@@ -1,4 +1,4 @@
-const FRONT_SHARED_PIN = "1bbfbc6";
+const FRONT_SHARED_PIN = "0d8527f";
 const CDN_BOOT = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${FRONT_SHARED_PIN}/cdn/boot-loader.mjs?v=${FRONT_SHARED_PIN}`;
 const LOCAL_CANDIDATES = [
   "../../../../front-shared/cdn",
