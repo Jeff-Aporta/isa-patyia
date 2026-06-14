@@ -20,46 +20,47 @@ const http = window.ISAFront.createCapFetch({
 
 export const capFetch = http.capFetch;
 export const apiUrl = http.apiUrl;
-export const encodeSqlQueryParam = http.encodeSqlQueryParam;
 export const rowVal = http.rowVal;
 
-const SQL_INSTRUCCIONES = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO],[JCONFIG]
-FROM [dbo].[INSTRUCCION]
-WHERE [BACTIVO] = 1
-ORDER BY [IINSTRUCCION]`;
-
-export async function mssqlQuery(sql: string) {
-  const trimmed = String(sql ?? "").trim();
-  if (!trimmed) throw new Error("SQL vacío");
-  const q = encodeSqlQueryParam(trimmed);
-  const data = await capFetch(`/mssql/paty/query?q=${encodeURIComponent(q)}`, { method: "GET" });
-  const rows = data.rows ?? data.recordset ?? data.recordsets?.[0] ?? [];
-  return { ...data, rows };
-}
-
-export async function mssqlExec(sql: string) {
-  const cap = SessionApi.mssqlExecCap();
-  if (!cap) throw new Error(SessionApi.blockReason("sql.exec.mssql.paty.instrucciones") || SessionApi.blockReason("sql.exec.mssql.paty") || "Sin permiso MSSQL");
-  return capFetch("/mssql/paty/exec", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sql }),
-  }, cap);
-}
-
 export async function fetchInstruccionesPaty() {
-  const data = await mssqlQuery(SQL_INSTRUCCIONES);
-  return data.rows ?? [];
+  const data = await capFetch("/patyia/instrucciones", { method: "GET" });
+  return (data.rows ?? []) as Record<string, unknown>[];
+}
+
+export async function publishInstruccionesPaty(sql: string) {
+  const cap = SessionApi.instruccionesPublishCap();
+  if (!cap) {
+    throw new Error(
+      SessionApi.blockReason("patyia.instrucciones.publish")
+      || "Sin permiso para publicar instrucciones",
+    );
+  }
+  return capFetch(
+    "/patyia/instrucciones/publish",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sql }),
+    },
+    cap,
+  );
 }
 
 export async function fetchConvLogById(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
-  const data = await capFetch(`/patyia/conversacion/${convId}/log`, { method: "GET" });
-  const log = (data.log ?? data.body?.log) as Record<string, unknown> | undefined;
-  if (!log || !Array.isArray(log.mensajes)) {
-    throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
+  try {
+    const data = await capFetch(`/patyia/conversacion/${convId}/log`, { method: "GET" });
+    const log = (data.log ?? data.body?.log) as Record<string, unknown> | undefined;
+    if (!log || !Array.isArray(log.mensajes)) {
+      throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
+    }
+    log.iconversacion = log.iconversacion || convId;
+    return log;
+  } catch (e) {
+    const err = e as Error & { status?: number; data?: { error?: string } };
+    const detail = err.data?.error?.trim();
+    if (detail) throw new Error(detail);
+    throw e;
   }
-  log.iconversacion = log.iconversacion || convId;
-  return log;
 }
