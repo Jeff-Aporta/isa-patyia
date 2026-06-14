@@ -1,37 +1,211 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
-import { mdToHtml, MetaBadges, MetaDialog } from "../ui/shared.jsx";
+import { UI } from "../core/platform.ts";
+import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
+import { ConvLogWebView, convLogNavItems } from "../ui/ConvLogWebView.jsx";
+import { convLogSurfaceSx } from "../ui/convLogSurface.ts";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
 import { persistLogMeta } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../ui/notifications.jsx";
 
-const { useState, useCallback, useMemo, useEffect } = getReact();
+const { useState, useCallback, useMemo, useEffect, useRef } = getReact();
 const {
-  Paper, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip, InputAdornment,
+  Box, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip,
+  List, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions,
 } = getMaterialUI();
 
-function MensajeCard({ msg, onMeta }) {
-  const rowClass = msg.esOperativa ? "operativa" : msg.esUsuario ? "user" : "assistant";
-  const cardClass = ["msg-card", rowClass, msg.streamFailed ? "stream-error" : ""].filter(Boolean).join(" ");
+const SIDEBAR_WIDTH_KEY = "isa-patyia:log-sidebar-width";
+const SIDEBAR_DEFAULT = 380;
+const SIDEBAR_MIN = 220;
+const SIDEBAR_MAX = 560;
+
+function readSidebarWidth() {
+  try {
+    const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    if (Number.isFinite(n) && n >= SIDEBAR_MIN && n <= SIDEBAR_MAX) return Math.round(n);
+  } catch (_) { /* ignore */ }
+  return SIDEBAR_DEFAULT;
+}
+
+function clampSidebarWidth(w) {
+  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
+}
+
+function useResizableSidebarWidth() {
+  const [width, setWidth] = useState(readSidebarWidth);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ startX: 0, startW: SIDEBAR_DEFAULT });
+
+  const onResizeStart = useCallback((e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startW: width };
+    setDragging(true);
+  }, [width]);
+
+  useEffect(() => {
+    if (!dragging) return undefined;
+    document.body.classList.add("conv-log-resize-active");
+
+    function onMove(ev) {
+      const dx = ev.clientX - dragRef.current.startX;
+      setWidth(clampSidebarWidth(dragRef.current.startW + dx));
+    }
+
+    function onUp() {
+      setDragging(false);
+      setWidth((w) => {
+        try {
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
+        } catch (_) { /* ignore */ }
+        return w;
+      });
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      document.body.classList.remove("conv-log-resize-active");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  return { width, dragging, onResizeStart };
+}
+
+function MsgNavList({ items, selectedId, onSelect }) {
+  const { Icon } = UI;
+  if (!items.length) {
+    return (
+      <Typography variant="caption" color="text.secondary" sx={{ py: 1, display: "block" }}>
+        Sin mensajes en el hilo.
+      </Typography>
+    );
+  }
   return (
-    <div className={`msg-row ${rowClass}`}>
-      <div className={cardClass}>
-        <div className={`msg-head ${msg.esOperativa ? "operativa" : ""}`}>
-          <span>#{msg.idMsg} · {msg.rol}{msg.fecha ? ` · ${msg.fecha}` : ""}</span>
-          <MetaBadges meta={msg.meta} onInfo={() => onMeta(msg)} />
-        </div>
-        {msg.streamFailed && msg.streamError && (
-          <Alert severity="warning" sx={{ mb: 1, py: 0.25, fontSize: "0.78rem" }}>{msg.streamError}</Alert>
+    <List dense disablePadding sx={{ py: 0.5 }}>
+      {items.map((it) => (
+        <Tooltip key={it.id} title={it.secondary} placement="right" enterDelay={400}>
+          <ListItemButton
+            selected={selectedId === it.id}
+            onClick={() => onSelect(it.id)}
+            sx={{
+              py: 0.5,
+              pl: 1.5,
+              pr: 1,
+              minHeight: 36,
+              "&.Mui-selected": { bgcolor: "action.selected" },
+            }}
+          >
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                flexShrink: 0,
+                mr: 1,
+                bgcolor: it.accent,
+                boxShadow: `0 0 0 2px ${it.accent}33`,
+              }}
+            />
+            <Icon icon={it.icon} size={15} style={{ opacity: 0.75, flexShrink: 0, marginRight: 6 }} />
+            <ListItemText
+              primary={it.label}
+              secondary={it.secondary}
+              primaryTypographyProps={{ variant: "body2", noWrap: true, sx: { fontWeight: 600 } }}
+              secondaryTypographyProps={{ variant: "caption", noWrap: true }}
+            />
+          </ListItemButton>
+        </Tooltip>
+      ))}
+    </List>
+  );
+}
+
+function ResumenDialog({ open, onClose, logInfo, navItems, selectedId, onSelectMsg }) {
+  const resumen = logInfo?.resumen;
+  const tk = resumen?.tokens;
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>
+        Resumen
+        {logInfo?.iconversacion ? ` · conv #${logInfo.iconversacion}` : ""}
+      </DialogTitle>
+      <DialogContent dividers sx={{ pt: 1.5 }}>
+        {resumen && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              Métricas
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
+              {resumen.totalMensajes != null && (
+                <Chip size="small" variant="outlined" label={`${resumen.totalMensajes} mensajes`} />
+              )}
+              {resumen.totalTurnos != null && (
+                <Chip size="small" variant="outlined" label={`${resumen.totalTurnos} turnos`} />
+              )}
+              {resumen.totalOperativas != null && (
+                <Chip size="small" variant="outlined" label={`${resumen.totalOperativas} operativas`} />
+              )}
+              {tk?.total != null && (
+                <Chip size="small" variant="outlined" color="secondary" label={`${tk.total} tokens`} />
+              )}
+            </Stack>
+            {(resumen.ultimoModelo || resumen.ultimoPromptId || resumen.ultimaItdconsulta || resumen.ultimoNombreUsuario) && (
+              <Stack spacing={0.75} sx={{ typography: "body2", color: "text.secondary" }}>
+                {resumen.ultimoNombreUsuario && (
+                  <Typography variant="body2"><strong>Usuario:</strong> {resumen.ultimoNombreUsuario}</Typography>
+                )}
+                {resumen.ultimaItdconsulta && (
+                  <Typography variant="body2"><strong>itdconsulta:</strong> {resumen.ultimaItdconsulta}</Typography>
+                )}
+                {resumen.ultimoModelo && (
+                  <Typography variant="body2"><strong>Modelo:</strong> {resumen.ultimoModelo}</Typography>
+                )}
+                {resumen.ultimoPromptId && (
+                  <Typography variant="body2" noWrap title={resumen.ultimoPromptId}>
+                    <strong>Prompt:</strong> {resumen.ultimoPromptId}
+                  </Typography>
+                )}
+              </Stack>
+            )}
+          </Box>
         )}
-        <div className={`msg-body ${msg.esOperativa ? "operativa" : ""}`} dangerouslySetInnerHTML={{ __html: mdToHtml(msg.contenido) }} />
-      </div>
-    </div>
+        {!resumen && logInfo?.iconversacion && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Sin bloque resumen en el log; usa el índice para saltar a un mensaje.
+          </Typography>
+        )}
+        <Divider sx={{ my: 1.5 }} />
+        <Typography variant="overline" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+          Índice ({navItems.length})
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          Vista compacta; el detalle completo está en el panel derecho.
+        </Typography>
+        <MsgNavList
+          items={navItems}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            onSelectMsg(id);
+            onClose();
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <ButtonIconify icon="mdi:close" title="Cerrar" onClick={onClose} />
+      </DialogActions>
+    </Dialog>
   );
 }
 
 export function LogViewer({ bootLog = {} }) {
+  const { Icon } = UI;
+  const { width: sidebarWidth, dragging, onResizeStart } = useResizableSidebarWidth();
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
   const [convId, setConvId] = useState(bootLog.convId || "");
   const [error, setError] = useState("");
@@ -40,11 +214,16 @@ export function LogViewer({ bootLog = {} }) {
   const [mensajes, setMensajes] = useState([]);
   const [metaOpen, setMetaOpen] = useState(false);
   const [metaMsg, setMetaMsg] = useState(null);
+  const [resumenOpen, setResumenOpen] = useState(false);
+  const [selectedMsgId, setSelectedMsgId] = useState(null);
+
+  const navItems = useMemo(() => convLogNavItems(mensajes), [mensajes]);
 
   const aplicarLog = useCallback((log, { silent = false } = {}) => {
     const vista = logToMensajesVista(log);
     setLogInfo(log);
     setMensajes(vista);
+    setSelectedMsgId(vista[0]?.idMsg ?? null);
     if (!vista.length) {
       const msg = "El log no tiene mensajes.";
       setError(msg);
@@ -62,7 +241,6 @@ export function LogViewer({ bootLog = {} }) {
     } catch (_) { /* ignore restore errors */ }
   }, []);
 
-  // Solo iconversacion en URL (debounced). El JSON no se auto-guarda — evita bucle de replaceState.
   useEffect(() => {
     const t = setTimeout(() => persistLogMeta(convId), 800);
     return () => clearTimeout(t);
@@ -74,8 +252,21 @@ export function LogViewer({ bootLog = {} }) {
     if (logInfo.iconversacion) chips.push({ label: `conv #${logInfo.iconversacion}`, color: "primary" });
     if (logInfo.resumen?.totalMensajes != null) chips.push({ label: `${logInfo.resumen.totalMensajes} mensajes`, color: "default" });
     if (logInfo.resumen?.tokens?.total) chips.push({ label: `${logInfo.resumen.tokens.total} tokens`, color: "secondary" });
+    if (mensajes.length) chips.push({ label: `${mensajes.length} en hilo`, color: "info" });
     return chips;
-  }, [logInfo]);
+  }, [logInfo, mensajes.length]);
+
+  const canClear = useMemo(
+    () =>
+      Boolean(
+        String(convId ?? "").trim()
+        || jsonInput.trim()
+        || logInfo
+        || mensajes.length
+        || error,
+      ),
+    [convId, jsonInput, logInfo, mensajes.length, error],
+  );
 
   const parsearPegado = useCallback(() => {
     setError("");
@@ -120,19 +311,57 @@ export function LogViewer({ bootLog = {} }) {
     setConvId("");
     setLogInfo(null);
     setMensajes([]);
+    setSelectedMsgId(null);
     setError("");
   }, []);
 
+  const scrollToMsg = useCallback((id) => {
+    setSelectedMsgId(id);
+    const el = document.getElementById(`conv-msg-${id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const onMeta = useCallback((msg) => {
+    setMetaMsg(msg);
+    setMetaOpen(true);
+  }, []);
+
   return (
-    <div className="tool-grid tool-grid-2">
-      <Paper className="tool-panel scroll-panel" elevation={0}>
-        <div className="panel-head">
-          <Typography variant="subtitle1" fontWeight={600}>Entrada</Typography>
-        </div>
-        <div className="panel-body panel-body-log-input">
-          <div className="log-input-toolbar">
+    <Box className="conv-log-shell" sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: { xs: "column", md: "row" } }}>
+      {/* Panel entrada — navegador lateral (estilo tickets) */}
+      <Box
+        className="conv-log-sidebar"
+        sx={{
+          position: "relative",
+          width: { xs: "100%", md: sidebarWidth },
+          flexShrink: 0,
+          borderRight: { md: 0 },
+          borderBottom: { xs: 1, md: 0 },
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          maxHeight: { xs: "42vh", md: "none" },
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          className="conv-log-sidebar-block"
+          sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+        >
+          <Icon icon="mdi:database-import-outline" size={20} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
+            Entrada
+          </Typography>
+        </Stack>
+
+        <Box className="conv-log-sidebar-block" sx={{ pt: 1.5, flexShrink: 0 }}>
+          <Box className="conv-log-action-grp" role="group" aria-label="Acciones de entrada de log">
             <TextField
-              className="log-conv-load"
+              className="conv-log-action-grp__input"
               size="small"
               type="number"
               hiddenLabel
@@ -142,42 +371,21 @@ export function LogViewer({ bootLog = {} }) {
               disabled={loading}
               onChange={(e) => setConvId(e.target.value)}
               onKeyDown={onConvIdKeyDown}
-              slotProps={{
-                htmlInput: { min: 1 },
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="Recuperar por ID (Enter)" arrow>
-                        <span>
-                          <ButtonIconify
-                            className="log-conv-load__btn"
-                            variant="primary"
-                            icon="mdi:cloud-download-outline"
-                            title="Recuperar por ID"
-                            onClick={recuperarPorId}
-                            disabled={!String(convId ?? "").trim()}
-                            busy={loading}
-                          />
-                        </span>
-                      </Tooltip>
-                    </InputAdornment>
-                  ),
-                },
-              }}
+              slotProps={{ htmlInput: { min: 1 } }}
             />
-            <Divider sx={{ mt: 1 }} />
-          </div>
-
-          <div className="log-json-editor-wrap">
-            <JsonCodeEditor
-              value={jsonInput}
-              onChange={setJsonInput}
-              placeholder='{ "iconversacion": 1234, "mensajes": [ ... ] }'
-            />
-          </div>
-
-          <div className="log-input-footer">
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
+            <Box className="conv-log-action-grp__actions">
+              <Tooltip title="Recuperar por ID (Enter)" arrow>
+                <span>
+                  <ButtonIconify
+                    variant="primary"
+                    icon="mdi:cloud-download-outline"
+                    title="Recuperar por ID"
+                    onClick={recuperarPorId}
+                    disabled={!String(convId ?? "").trim()}
+                    busy={loading}
+                  />
+                </span>
+              </Tooltip>
               <Tooltip title="Parsear JSON" arrow>
                 <span>
                   <ButtonIconify
@@ -189,32 +397,111 @@ export function LogViewer({ bootLog = {} }) {
                   />
                 </span>
               </Tooltip>
-              <ButtonIconify icon="mdi:delete-outline" title="Limpiar" onClick={limpiar} />
-            </Stack>
-            {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
-          </div>
-        </div>
-      </Paper>
+              <Tooltip title="Limpiar" arrow>
+                <span>
+                  <ButtonIconify
+                    icon="mdi:delete-outline"
+                    title="Limpiar"
+                    onClick={limpiar}
+                    disabled={!canClear}
+                  />
+                </span>
+              </Tooltip>
+            </Box>
+          </Box>
+          {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
+        </Box>
 
-      <Paper className="tool-panel scroll-panel" elevation={0}>
-        <div className="panel-head">
-          <Typography variant="subtitle1" fontWeight={600}>Hilo recuperado</Typography>
-          {resumenChips.length > 0 && (
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-              {resumenChips.map((c) => <Chip key={c.label} size="small" label={c.label} color={c.color} variant="outlined" />)}
-            </Stack>
-          )}
-        </div>
-        <div className="panel-body chat-historial">
-          {mensajes.length === 0 ? (
-            <div className="empty-state">Recupera por ID o pega un log para ver el hilo.</div>
-          ) : (
-            mensajes.map((m) => <MensajeCard key={m.idMsg} msg={m} onMeta={(msg) => { setMetaMsg(msg); setMetaOpen(true); }} />)
-          )}
-        </div>
-      </Paper>
+        <Divider sx={{ my: 1 }} />
 
-      <MetaDialog open={metaOpen} onClose={() => setMetaOpen(false)} meta={metaMsg?.meta} title={metaMsg ? `Trazabilidad · #${metaMsg.idMsg}` : ""} />
-    </div>
+        <Box
+          className="conv-log-sidebar-block"
+          sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", pb: 1.5 }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, flexShrink: 0 }}>
+            JSON del log
+          </Typography>
+          <Box sx={{ flex: 1, minHeight: 80, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
+            <JsonCodeEditor
+              value={jsonInput}
+              onChange={setJsonInput}
+              placeholder='{ "iconversacion": 1234, "mensajes": [ ... ] }'
+            />
+          </Box>
+        </Box>
+        <Box
+          className={`conv-log-resize-handle${dragging ? " is-dragging" : ""}`}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar panel Entrada"
+          title="Arrastrar para cambiar ancho"
+          onMouseDown={onResizeStart}
+          sx={{ display: { xs: "none", md: "block" } }}
+        />
+      </Box>
+
+      {/* Hilo recuperado — driver JSX (estilo ticket web) */}
+      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
+        >
+          <Chip
+            size="small"
+            label={
+              <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+                <Icon icon="mdi:clipboard-text-clock-outline" size={16} />
+                Hilo recuperado
+              </Box>
+            }
+            sx={{ bgcolor: "#fff", color: "#111", fontWeight: 700 }}
+          />
+          {resumenChips.map((c) => (
+            <Chip key={c.label} size="small" label={c.label} color={c.color} variant="outlined" />
+          ))}
+          {mensajes.length > 0 && (
+            <Tooltip title="Resumen e índice compacto de mensajes" arrow>
+              <span>
+                <ButtonIconify
+                  variant="primary"
+                  icon="mdi:text-box-outline"
+                  title="Ver resumen"
+                  onClick={() => setResumenOpen(true)}
+                />
+              </span>
+            </Tooltip>
+          )}
+          <Box sx={{ flex: 1 }} />
+          {logInfo?.createdAt && (
+            <Typography variant="caption" color="text.secondary">
+              {String(logInfo.createdAt).slice(0, 19).replace("T", " ")}
+            </Typography>
+          )}
+        </Stack>
+
+        <Box sx={convLogSurfaceSx()}>
+          <ConvLogWebView mensajes={mensajes} onMeta={onMeta} />
+        </Box>
+      </Box>
+
+      <MetaDialog
+        open={metaOpen}
+        onClose={() => setMetaOpen(false)}
+        meta={metaMsg?.meta}
+        title={metaMsg ? `Trazabilidad · ${metaMsg.rol}` : ""}
+      />
+      <ResumenDialog
+        open={resumenOpen}
+        onClose={() => setResumenOpen(false)}
+        logInfo={logInfo}
+        navItems={navItems}
+        selectedId={selectedMsgId}
+        onSelectMsg={scrollToMsg}
+      />
+    </Box>
   );
 }
