@@ -3,9 +3,8 @@ import { Session, Config } from "../core/platform.ts";
 import { toastError, toastWarning } from "../ui/notifications.jsx";
 
 const CAP_ENDPOINTS: Record<string, { method: string; path: string }> = {
+  "patyia.instrucciones.publish": { method: "POST", path: "/api/patyia/instrucciones/publish" },
   "langlab.guardar": { method: "POST", path: "/api/patyia/prompts/upsert-sql" },
-  "sql.exec.mssql.paty": { method: "POST", path: "/api/mssql/paty/exec" },
-  "sql.exec.mssql.paty.instrucciones": { method: "POST", path: "/api/mssql/paty/exec" },
   signalr: { method: "POST", path: "/api/signalr/negotiate" },
 };
 
@@ -39,9 +38,8 @@ export const isLoggedIn = () => Session.isLoggedIn();
 export const can = (cap: string) => Session.can(cap);
 export const blockReason = (cap: string) => Session.blockReason(cap);
 
-export function mssqlExecCap() {
-  if (can("sql.exec.mssql.paty")) return "sql.exec.mssql.paty";
-  if (can("sql.exec.mssql.paty.instrucciones")) return "sql.exec.mssql.paty.instrucciones";
+export function instruccionesPublishCap() {
+  if (can("patyia.instrucciones.publish")) return "patyia.instrucciones.publish";
   return null;
 }
 
