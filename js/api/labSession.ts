@@ -6,7 +6,6 @@ import { toastError, toastWarning } from "../ui/notifications.jsx";
 
 const CAP_ENDPOINTS: Record<string, { method: string; path: string }> = {
   "patyia.instrucciones.publish": { method: "POST", path: "/api/patyia/instrucciones/publish" },
-  "langlab.guardar": { method: "POST", path: "/api/patyia/prompts/upsert-sql" },
 };
 
 let serviceTokens = new Map<string, { token: string; expMs: number }>();
