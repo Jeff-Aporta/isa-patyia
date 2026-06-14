@@ -1,4 +1,5 @@
-const CDN_BOOT = "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@9f0ec53/cdn/boot-loader.mjs";
+const FRONT_SHARED_PIN = "1bbfbc6";
+const CDN_BOOT = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${FRONT_SHARED_PIN}/cdn/boot-loader.mjs?v=${FRONT_SHARED_PIN}`;
 const LOCAL_CANDIDATES = [
   "../../../../front-shared/cdn",
   "../../../front-shared/cdn",
@@ -27,15 +28,16 @@ importBootLoader().then(({ mod, localFs }) => {
   const { mountBoot, getBabel } = mod;
   mountBoot(async () => {
     const helper = await mod.importBootHelper(localFs);
-    const graph = await helper.importShared("boot-module-graph.mjs");
+    const { importShared, assertStack, loadIsaFront, loadSharedUi } = helper;
+    const { importAppEntry } = await import("./module-graph.mjs");
     const Babel = getBabel();
-    const stackMod = await helper.importShared("stack.mjs");
+    const stackMod = await importShared("stack.mjs");
     await stackMod.stackReady;
-    helper.assertStack();
-    await helper.loadIsaFront();
-    await helper.loadSharedUi(Babel);
-    await graph.importAppEntry("js/core/isa-setup.ts", Babel);
-    await graph.importAppEntry("js/main.jsx", Babel);
+    assertStack();
+    await loadIsaFront();
+    await loadSharedUi(Babel);
+    await importAppEntry("js/core/isa-setup.ts", Babel);
+    await importAppEntry("js/main.jsx", Babel);
   });
 }).catch((err) => {
   const root = document.getElementById("root");
