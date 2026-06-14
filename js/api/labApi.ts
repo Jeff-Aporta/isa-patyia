@@ -1,12 +1,10 @@
 /**
- * Cliente HTTP isa-patyia — solo main-orchestrator (Cloudflare Workers). * Tickets JAGUDELOE-TKS: GET /api/tk/{space}/tickets[/{iticket}]
+ * Cliente HTTP isa-patyia — main-orchestrator (conv log + instrucciones PatyIA).
  */
 import { Config, Session } from "../core/platform.ts";
 import { isLocalMode, ORCH_ONLINE } from "../core/config.ts";
 import * as LabSession from "./labSession.ts";
 import { toastWarning } from "../ui/notifications.jsx";
-
-export const TK_SPACE_DEFAULT = "patyia";
 
 const LOCAL_DIRECT = [
   { test: (p: string) => p.startsWith("/tk/"), base: "http://127.0.0.1:8786" },
@@ -193,35 +191,4 @@ export async function fetchConvLogById(iconversacion: string | number) {
   }
   log.iconversacion = log.iconversacion || id;
   return log;
-}
-
-export async function pingLab() {
-  return labFetch("/health", { method: "GET" });
-}
-
-async function pgLanglabExec(sql: string) {
-  return labFetchWithCap("langlab.guardar", "/patyia/prompts/upsert-sql", {
-    method: "POST",
-    body: JSON.stringify({ sql, target: "langlab" }),
-  });
-}
-
-export async function savePromptsToLanglab(sql: string) {
-  return pgLanglabExec(sql);
-}
-
-export async function getTickets(space = TK_SPACE_DEFAULT, opts: { activo?: boolean; estado?: string } = {}) {
-  let qs = "";
-  if (opts.activo === false) qs = "?activo=false";
-  else if (opts.activo === true) qs = "?activo=true";
-  else if (opts.estado === "inactivo") qs = "?activo=false";
-  else if (opts.estado === "activo") qs = "?activo=true";
-  return labFetch(`/tk/${encodeURIComponent(space)}/tickets${qs}`);
-}
-
-export async function getTicket(space: string, iticket: string) {
-  const id = String(iticket || "").trim();
-  if (!id) throw new Error("iticket requerido");
-  const norm = id.toUpperCase().startsWith("TK-") ? id.toUpperCase() : `TK-${id.toUpperCase()}`;
-  return labFetch(`/tk/${encodeURIComponent(space || TK_SPACE_DEFAULT)}/tickets/${encodeURIComponent(norm)}`);
 }
