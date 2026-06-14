@@ -7,7 +7,11 @@ const STATE_VERSION = 1;
 
 function normalizeLog(raw: unknown) {
   if (!raw || typeof raw !== "object") return {};
-  return { ...(raw as Record<string, unknown>) };
+  const o = { ...(raw as Record<string, unknown>) };
+  const w = Number(o.sidebarW);
+  if (Number.isFinite(w)) o.sidebarW = Math.min(560, Math.max(220, Math.round(w)));
+  else delete o.sidebarW;
+  return o;
 }
 
 function initial() {
