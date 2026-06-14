@@ -1,6 +1,5 @@
 /**
- * Cliente HTTP — local vía main-orchestrator; en línea legacy lab Azure.
- * Tickets JAGUDELOE-TKS: GET /api/tk/{space}/tickets[/{iticket}]
+ * Cliente HTTP isa-patyia — solo main-orchestrator (Cloudflare Workers). * Tickets JAGUDELOE-TKS: GET /api/tk/{space}/tickets[/{iticket}]
  */
 import { Config, Session } from "../core/platform.ts";
 import { isLocalMode, ORCH_ONLINE } from "../core/config.ts";
@@ -120,6 +119,8 @@ export async function labFetch(path: string, init: RequestInit = {}, cap: string
       const serverErr = String(data?.error ?? "").trim();
       if (/not found|verify-access|autorizaci|verificaci/i.test(serverErr)) {
         lastErr = new Error("No se pudo autorizar la escritura. Vuelve a iniciar sesión o comprueba permisos MSSQL.");
+      } else if (serverErr) {
+        lastErr = new Error(sanitizeApiError(serverErr, `Recurso no encontrado.${gatewayHint()}`));
       } else {
         lastErr = new Error(`Recurso no encontrado.${gatewayHint()}`);
       }
@@ -152,39 +153,46 @@ async function labFetchWithCap(cap: string, path: string, init: RequestInit = {}
   }, cap);
 }
 
-function encodeSqlQueryParam(sql: string) {
-  const trimmed = String(sql ?? "").trim();
-  const bytes = new TextEncoder().encode(trimmed);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+export function rowVal(row: Record<string, unknown>, key: string) {
+  if (!row || !key) return null;
+  if (row[key] != null) return row[key];
+  const lower = key.toLowerCase();
+  if (row[lower] != null) return row[lower];
+  const upper = key.toUpperCase();
+  if (row[upper] != null) return row[upper];
+  return null;
 }
 
-export async function mssqlQuery(sql: string) {
-  const trimmed = String(sql ?? "").trim();
-  if (!trimmed) throw new Error("SQL vacío");
-  const q = encodeSqlQueryParam(trimmed);
-  const data = await labFetch(`/mssql/paty/query?q=${encodeURIComponent(q)}`, {
-    method: "GET",
-  });
-  const rows = data.rows ?? data.recordset ?? data.recordsets?.[0] ?? [];
-  return { ...data, rows };
+export async function fetchInstruccionesPaty() {
+  const data = await labFetch("/patyia/instrucciones", { method: "GET" });
+  return data.rows ?? [];
 }
 
-export async function mssqlExec(sql: string) {
-  const cap = LabSession.mssqlExecCap();
+export async function publishInstruccionesPaty(sql: string) {
+  const cap = LabSession.instruccionesPublishCap();
   if (!cap) {
-    const msg = LabSession.blockReason("sql.exec.mssql.paty.instrucciones")
-      || LabSession.blockReason("sql.exec.mssql.paty");
+    const msg = LabSession.blockReason("patyia.instrucciones.publish") || "Sin permiso para publicar instrucciones";
     toastWarning(msg);
     const err = new Error(msg) as Error & { code?: string };
     err.code = "NO_SESSION";
     throw err;
   }
-  return labFetchWithCap(cap, "/mssql/paty/exec", {
+  return labFetchWithCap(cap, "/patyia/instrucciones/publish", {
     method: "POST",
     body: JSON.stringify({ sql }),
   });
+}
+
+export async function fetchConvLogById(iconversacion: string | number) {
+  const id = Number(iconversacion);
+  if (!Number.isInteger(id) || id <= 0) throw new Error("iconversacion inválido");
+  const data = await labFetch(`/patyia/conversacion/${id}/log`, { method: "GET" });
+  const log = data.log ?? data.body?.log;
+  if (!log || !Array.isArray(log.mensajes)) {
+    throw new Error(String(data.error || `Log conv-${id} no encontrado`));
+  }
+  log.iconversacion = log.iconversacion || id;
+  return log;
 }
 
 export async function pingLab() {
@@ -216,42 +224,4 @@ export async function getTicket(space: string, iticket: string) {
   if (!id) throw new Error("iticket requerido");
   const norm = id.toUpperCase().startsWith("TK-") ? id.toUpperCase() : `TK-${id.toUpperCase()}`;
   return labFetch(`/tk/${encodeURIComponent(space || TK_SPACE_DEFAULT)}/tickets/${encodeURIComponent(norm)}`);
-}
-
-export function rowVal(row: Record<string, unknown>, key: string) {
-  if (!row || !key) return null;
-  if (row[key] != null) return row[key];
-  const lower = key.toLowerCase();
-  if (row[lower] != null) return row[lower];
-  const upper = key.toUpperCase();
-  if (row[upper] != null) return row[upper];
-  return null;
-}
-
-const SQL_INSTRUCCIONES = `SELECT [IINSTRUCCION],[NINSTRUCCION],[INSTRUCCION],[DESCRIPCION],[BACTIVO],[JCONFIG]
-FROM [dbo].[INSTRUCCION]
-WHERE [BACTIVO] = 1
-ORDER BY [IINSTRUCCION]`;
-
-export async function fetchInstruccionesPaty() {
-  const { rows } = await mssqlQuery(SQL_INSTRUCCIONES);
-  return rows ?? [];
-}
-
-export async function fetchConvLogById(iconversacion: string | number) {
-  const id = Number(iconversacion);
-  if (!Number.isInteger(id) || id <= 0) throw new Error("iconversacion inválido");
-  const sql = `SELECT CONTENT FROM dbo.CONVERSACION_LOG WHERE ICONVERSACION = ${id}`;
-  const { rows } = await mssqlQuery(sql);
-  const row = rows[0];
-  const raw = row?.CONTENT ?? row?.content;
-  if (!raw || typeof raw !== "string") {
-    throw new Error(`Log conv-${id} no encontrado en CONVERSACION_LOG`);
-  }
-  const parsed = JSON.parse(raw.trim());
-  if (!parsed || !Array.isArray(parsed.mensajes)) {
-    throw new Error("CONTENT no es un log de conversación válido");
-  }
-  parsed.iconversacion = parsed.iconversacion || id;
-  return parsed;
 }
