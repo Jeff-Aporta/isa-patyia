@@ -4,7 +4,7 @@
   const isLocalDev = /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
   const BOOT_HELPER = isLocalDev
     ? "../../../../front-shared/cdn/boot-helper.mjs"
-    : "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@9f0ec53/cdn/boot-helper.mjs?v=9f0ec53";
+    : "https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@1bbfbc6/cdn/boot-helper.mjs?v=1bbfbc6";
 
   const MODULE_LOADER = "./js/boot/module-graph.mjs";
   const ENTRY = "js/main.jsx";
