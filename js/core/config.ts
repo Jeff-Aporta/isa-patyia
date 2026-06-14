@@ -13,6 +13,7 @@ window.ISAFront.migrateLegacyGatewayKeys({
 export const ORCH_LOCAL = "http://localhost:8780";
 /** @deprecated usar Config.base() */
 export const ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
+/** @deprecated alias histórico — mismo orquestador CF */
 export const LAB_LEGACY_ONLINE = ORCH_ONLINE;
 export const LAB_LOCAL = ORCH_LOCAL;
 export const LAB_ONLINE = ORCH_ONLINE;
