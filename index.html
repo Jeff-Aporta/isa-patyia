@@ -57,18 +57,6 @@
       <span>Cargando…</span>
     </div>
   </div>
-  <script>
-  (async function () {
-    try {
-      var res = await fetch("js/boot/loader.ts", { cache: "no-store" });
-      if (!res.ok) throw new Error("No se pudo cargar el loader (" + res.status + ")");
-      var out = Babel.transform(await res.text(), { presets: ["typescript"], filename: "loader.ts" }).code;
-      eval(out);
-    } catch (e) {
-      document.getElementById("root").innerHTML =
-        '<pre style="color:#ff8a80;padding:24px;font-family:monospace">Bootstrap error:\n' + (e && e.stack ? e.stack : e) + "</pre>";
-    }
-  })();
-  </script>
+  <script type="module" src="js/boot/loader.mjs"></script>
 </body>
 </html>
