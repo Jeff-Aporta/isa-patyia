@@ -102,6 +102,7 @@ interface AppShellProps {
   title: string;
   children?: unknown;
   icon?: string;
+  onBrandClick?: () => void;
   toolbarExtra?: unknown;
   showTarget?: boolean;
   showTheme?: boolean;
@@ -133,6 +134,7 @@ interface IsaFrontApi {
     getSnapshot: () => Record<string, unknown>;
     merge: (partial: Record<string, unknown>) => Record<string, unknown>;
     mergePartial: (partial: Record<string, unknown>) => Record<string, unknown>;
+    reset: () => Record<string, unknown>;
     subscribe: (fn: (s: Record<string, unknown>) => void) => () => void;
     PARAM: string;
     MAX_VALUE?: number;

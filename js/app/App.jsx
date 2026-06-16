@@ -1,5 +1,5 @@
 import { getReact, getReactDOM } from "../core/runtime.ts";
-import { mergePartial, bootState } from "../core/urlState.ts";
+import { mergePartial, bootState, resetUrlState } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
 import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
@@ -16,9 +16,11 @@ const ALL_TOOLS = [
 export function App() {
   const { useState, useEffect } = getReact();
   const boot = bootState;
+  const [appBoot, setAppBoot] = useState(boot);
   const [tool, setTool] = useState(boot.tool || "log");
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
+  const [homeTick, setHomeTick] = useState(0);
 
   useEffect(() => {
     function onAuth() { setAuthTick((n) => n + 1); }
@@ -37,6 +39,12 @@ export function App() {
     mergePartial({ tool: id });
   }
 
+  function goHome() {
+    setAppBoot(resetUrlState());
+    setTool("log");
+    setHomeTick((n) => n + 1);
+  }
+
   const Shell = window.ISAFront?.Layout?.AppShell;
   if (!Shell) throw new Error("AppShell no cargado — revisar loader.mjs");
 
@@ -45,6 +53,7 @@ export function App() {
       ns="ISA"
       title="ISA PatyIA"
       icon="mdi:robot-happy-outline"
+      onBrandClick={goHome}
       showTarget={false}
       navRows={[
         { id: "tool", value: tool, onChange: selectTool, tabs: tools },
@@ -57,12 +66,12 @@ export function App() {
         />
       )}
     >
-      {tool === "log" && <LogViewer bootLog={boot.log} />}
+      {tool === "log" && <LogViewer key={homeTick} bootLog={appBoot.log || {}} />}
       {tool === "prompts" && (
-        <PromptsSqlTool bootPrompts={boot.prompts} onNeedLogin={() => setAuthOpen(true)} />
+        <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
       {tool === "chat" && (
-        <ChatTool bootChat={boot.chat} onNeedLogin={() => setAuthOpen(true)} />
+        <ChatTool key={homeTick} bootChat={appBoot.chat || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
     </Shell>
   );
