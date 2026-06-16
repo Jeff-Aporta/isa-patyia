@@ -1,14 +1,12 @@
 /** JWT InSoft para AyudasCP-IA staging — BD por usuario + caché de sesión. */
 
 import { fetchPortalJwt, removePortalJwt, savePortalJwt, PATYIA_PORTAL_ID } from "../api/portalJwtApi.ts";
+import { Session } from "./platform.ts";
 
 export const PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
 export { PATYIA_PORTAL_ID };
 export const PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
 export const PATYIA_MCP_URL = "https://ia.contapyme.com/runtime/webhooks/mcp";
-
-/** Usuarios system-login que pueden enviar mensajes (no solo ver). */
-export const PATYIA_CHAT_INTERACT_USERS = new Set(["JAGUDELOE", "VRESTREPO"]);
 
 export type PatyJwtClaims = {
   itercero?: string;
@@ -99,8 +97,18 @@ export function jwtUserShortName(claims: PatyJwtClaims | null | undefined): stri
 }
 
 function cachePatyJwt(rec: PatyJwtRecord): PatyJwtRecord {
+  const prevRaw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+  let prev: PatyJwtRecord | null = null;
+  try {
+    prev = prevRaw ? (JSON.parse(prevRaw) as PatyJwtRecord) : null;
+  } catch {
+    prev = null;
+  }
   sessionStorage.setItem(PATYIA_JWT_STORAGE_KEY, JSON.stringify(rec));
-  window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+  const changed = !prev
+    || prev.token !== rec.token
+    || String(prev.savedBy ?? "").toUpperCase() !== String(rec.savedBy ?? "").toUpperCase();
+  if (changed) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
   return rec;
 }
 
@@ -144,9 +152,10 @@ export async function savePatyJwtAsync(token: string, savedBy: string): Promise<
   return cachePatyJwt(buildPatyJwtRecord(token, savedBy, saved.expiresAt));
 }
 
-export function clearPatyJwtLocal(): void {
+export function clearPatyJwtLocal(options?: { silent?: boolean }): void {
+  const had = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
   sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
-  window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+  if (!options?.silent && had) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
 }
 
 export async function clearPatyJwtAsync(): Promise<void> {
@@ -162,18 +171,18 @@ export async function clearPatyJwtAsync(): Promise<void> {
 export async function hydratePatyJwtFromServer(username: string | null | undefined): Promise<PatyJwtRecord | null> {
   const u = String(username || "").trim().toUpperCase();
   if (!u) {
-    clearPatyJwtLocal();
+    clearPatyJwtLocal({ silent: true });
     return null;
   }
 
   const cached = loadPatyJwt();
   if (cached && cached.savedBy?.toUpperCase() === u) return cached;
-  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal();
+  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
 
   try {
     const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
     if (!data.token || isPatyJwtExpired(data.token)) {
-      clearPatyJwtLocal();
+      clearPatyJwtLocal({ silent: true });
       return null;
     }
     return savePatyJwt(data.token, u, data.expiresAt ?? null);
@@ -187,11 +196,11 @@ export function clearPatyJwt(): void {
   clearPatyJwtLocal();
 }
 
-/** Solo interactúa quien inició sesión, está en la lista y guardó el token bajo su usuario. */
+/** Solo interactúa quien tiene capacidad patyia.chat.interact y guardó el token bajo su usuario. */
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
-  if (!PATYIA_CHAT_INTERACT_USERS.has(u)) return false;
+  if (!Session.can("patyia.chat.interact")) return false;
   return jwt.savedBy?.toUpperCase() === u;
 }
 
