@@ -9,7 +9,7 @@ import { Session } from "../core/platform.ts";
 
 const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
-  { id: "prompts", label: "pmpts", icon: "mdi:database-export" },
+  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
   { id: "chat", label: "Chat", icon: "mdi:chat-outline", requiresLogin: true },
 ];
 
