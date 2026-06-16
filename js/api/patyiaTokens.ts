@@ -23,7 +23,7 @@ export const SERVICE_TOKEN: Record<string, PatyiaTokenKind> = {
   "paty/chat-api": "paty",
 };
 
-/** Cabeceras AppTools (system-login). Orquestador + puente Azure + CRUD portal-jwt. */
+/** Cabeceras ISA PatyIA (system-login). Orquestador + puente Azure + CRUD portal-jwt. */
 export function appAuthHeaders(): Record<string, string> {
   if (!Session.isLoggedIn()) return {};
   return { ...Session.authHeader(), ...Session.appHeader() };
@@ -40,7 +40,7 @@ export function patyAuthHeaders(jwt: PatyJwtRecord, extra: Record<string, string
 
 export function assertAppSession(): void {
   if (!Session.isLoggedIn()) {
-    throw new Error("Inicia sesión en AppTools para continuar");
+    throw new Error("Inicia sesión en ISA PatyIA para continuar");
   }
 }
 
