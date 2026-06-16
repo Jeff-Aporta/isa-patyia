@@ -736,9 +736,21 @@ function pushImage(images: string[], ref: unknown) {
       flat.send = userSendForTurn;
     }
     const meta = normalizeMeta(flat, { isUser: esUsuario });
+    const logImensaje = (() => {
+      const turno = Number(m.turno);
+      const seq = Number(m.seq);
+      if (!Number.isFinite(turno) || turno <= 0 || !Number.isFinite(seq) || seq <= 0) return undefined;
+      return turno * 1000 + seq;
+    })();
+    const logIreferencia = (() => {
+      if (!m.ts) return undefined;
+      const d = Date.parse(String(m.ts).trim());
+      if (Number.isNaN(d)) return undefined;
+      return Math.floor(d / 1000);
+    })();
 
     return {
-      idMsg: `${role}-${String(m.seq ?? i)}-${String(m.turno ?? 0)}`,
+      idMsg: logImensaje ? `msg-${logImensaje}` : `${role}-${String(m.seq ?? i)}-${String(m.turno ?? 0)}`,
       rol: esOperativa ? `OP · ${String(opKey ?? "operativa")}` : esUsuario ? "user" : "assistant",
       contenido: contenido || (esUsuario && !imagenes.length ? "(mensaje usuario sin texto en log)" : contenido),
       imagenes: imagenes.length ? imagenes : undefined,
@@ -748,6 +760,8 @@ function pushImage(images: string[], ref: unknown) {
       meta,
       streamFailed: others.stream_ok === false,
       streamError: others.stream_error,
+      ...(logImensaje ? { imensaje: logImensaje } : {}),
+      ...(!esUsuario && !esOperativa && logIreferencia ? { ireferencia: logIreferencia } : {}),
     };
   }
 

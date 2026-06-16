@@ -94,6 +94,7 @@ const urlState = window.ISAFront.createUrlState({
 export const bootState = urlState.boot;
 export const getSnapshot = urlState.getSnapshot;
 export const mergePartial = urlState.mergePartial;
+export const resetUrlState = urlState.reset;
 export const PARAM = urlState.PARAM;
 
 /** Solo metadatos ligeros del visor de log (iconversacion), no el JSON completo. */
