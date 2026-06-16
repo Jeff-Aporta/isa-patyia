@@ -45,7 +45,7 @@ export async function publishInstruccionesPaty(sql: string) {
   const cap = SessionApi.instruccionesPublishCap();
   if (!cap) {
     throw new Error(
-      SessionApi.blockReason("patyia.instrucciones.publish")
+      SessionApi.blockReason(SessionApi.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para publicar instrucciones",
     );
   }

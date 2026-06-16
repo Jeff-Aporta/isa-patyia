@@ -279,7 +279,7 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
 function ensurePublishCap(onNeedLogin) {
   const cap = LabSession.instruccionesPublishCap();
   if (cap) return true;
-  const reason = LabSession.blockReason("patyia.instrucciones.publish")
+  const reason = LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
     || "Sin permiso para publicar instrucciones";
   toastWarning(reason);
   if (!LabSession.isLoggedIn()) onNeedLogin?.();
@@ -303,19 +303,18 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     };
   }, []);
 
-  const canPublish = useMemo(() => Boolean(LabSession.instruccionesPublishCap()), [authTick]);
+  const canPublish = useMemo(() => LabSession.canEditInstrucciones(), [authTick]);
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);
   const canEdit = canPublish;
   const editBlockReason = useMemo(() => {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesión para editar instrucciones";
-    return LabSession.blockReason("patyia.instrucciones.publish")
-      || LabSession.blockReason("langlab.guardar")
+    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo(() => {
     if (canPublish) return "Guardar instrucciones y configuración en Paty (MSSQL)";
-    return LabSession.blockReason("patyia.instrucciones.publish")
+    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para guardar en Paty";
   }, [authTick, canPublish]);
   const [extraInstructionKeys, setExtraInstructionKeys] = useState([]);
@@ -618,9 +617,9 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadErr(msg);
       if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
-        LabSession.handleApiError(e, LabSession.instruccionesPublishCap() || "patyia.instrucciones.publish");
+        LabSession.handleApiError(e, LabSession.INSTRUCCIONES_WRITE_CAP);
       } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-        toastWarning(LabSession.humanPermissionError(e, LabSession.instruccionesPublishCap() || "patyia.instrucciones.publish"));
+        toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP));
       } else {
         toastError(msg);
       }
@@ -810,11 +809,11 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     return Math.min(1, Math.max(0, n));
   };
 
-  const UNIT_STEP = 0.1;
+  const UNIT_STEP = 0.01;
 
   const bumpUnitInterval = (current, delta, fallback) => {
     const base = clampUnitInterval(current, fallback);
-    const next = Math.round((base + delta) * 10) / 10;
+    const next = Math.round((base + delta) * 100) / 100;
     return clampUnitInterval(next, fallback);
   };
 
@@ -835,7 +834,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     const handleChange = (e) => {
       const prev = clampUnitInterval(value, fallback);
       const next = clampUnitInterval(e.target.value, fallback);
-      const diff = Math.round((next - prev) * 10) / 10;
+      const diff = Math.round((next - prev) * 100) / 100;
       const inputType = e.nativeEvent?.inputType;
       if (!inputType && Math.abs(Math.abs(diff) - 1) < 0.001) {
         onValue(bumpUnitInterval(value, diff > 0 ? UNIT_STEP : -UNIT_STEP, fallback));
@@ -850,7 +849,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       value: value ?? fallback,
       slotProps: {
         htmlInput: {
-          step: "0.1",
+          step: "0.01",
           min: "0",
           max: "1",
           style: { fontSize: "0.72rem", width: "4.5rem" },

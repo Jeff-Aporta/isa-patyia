@@ -24,6 +24,7 @@ export const Session = {
   logout: () => bridge().Session.logout(),
   refreshProfile: () => bridge().Session.refreshProfile(),
   capabilities: () => bridge().Session.capabilities(),
+  capabilityCatalog: () => bridge().Session.capabilityCatalog(),
   can: (cap: string) => bridge().Session.can(cap),
   blockReason: (cap: string) => bridge().Session.blockReason(cap),
   get EVENT() { return bridge().Session.EVENT; },
