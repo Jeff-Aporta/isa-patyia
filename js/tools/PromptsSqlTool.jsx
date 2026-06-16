@@ -7,7 +7,7 @@ import { Session } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { estimatePromptTokensFromCdn } from "../core/promptTokens.ts";
-import { mdToHtml } from "../ui/shared.jsx";
+import { PromptBodyEditor } from "../ui/PromptBodyEditor.jsx";
 import { toastWarning, toastSuccess, toastError, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
@@ -356,8 +356,6 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   );
 
-  const [previewOpen, setPreviewOpen] = useState(false);
-
   const [jconfigDlg, setJconfigDlg] = useState({ open: false, tipo: null });
 
   const [dragOver, setDragOver] = useState(false);
@@ -464,10 +462,6 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const activeTipo = instruccionKeys[activeTab] || instruccionKeys[0];
 
   const activePrompt = prompts[activeTipo];
-  const previewHtml = useMemo(
-    () => mdToHtml(activePrompt?.body || ""),
-    [activePrompt?.body],
-  );
 
 
 
@@ -1004,44 +998,14 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
           <div className="tab-editor">
 
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" className="tab-editor-head" sx={{ mb: 0.5 }}>
-
-              <ButtonIconify
-                icon="mdi:markdown-outline"
-                label="Vista previa"
-                title="Abrir markdown formateado a pantalla completa"
-                onClick={() => setPreviewOpen(true)}
-                disabled={!activePrompt?.body?.trim()}
-              />
-
-            </Stack>
-
-            <TextField
-
-              multiline
-
-              fullWidth
-
-              minRows={10}
-
-              disabled={!canEdit}
-
-              title={!canEdit ? editBlockReason : undefined}
-
+            <PromptBodyEditor
+              body={activePrompt?.body || ""}
+              canEdit={canEdit}
+              editBlockReason={editBlockReason}
+              onChange={(body) => updateBody(activeTipo, body)}
               placeholder={`Contenido de ${activePrompt?.archivo || `PROMPT_${activeTipo}.md`}…`}
-
-              value={activePrompt?.body || ""}
-
-              onChange={(e) => updateBody(activeTipo, e.target.value)}
-
-              inputProps={{
-
-                spellCheck: false,
-
-                style: { fontFamily: "ui-monospace, Consolas, monospace", fontSize: "0.78rem", lineHeight: 1.45 },
-
-              }}
-
+              tipo={activeTipo}
+              title={activeTipo.replace(/_/g, " ")}
             />
 
           </div>
@@ -1206,30 +1170,6 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
         </div>
 
       </Paper>
-
-      <Dialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        fullScreen
-        scroll="paper"
-      >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5 }}>
-          <iconify-icon icon="mdi:markdown-outline" width="1.25em" height="1.25em" />
-          <Box component="span" sx={{ fontWeight: 600 }}>{activeTipo.replace(/_/g, " ")}</Box>
-          <Box sx={{ flex: 1 }} />
-          <ButtonIconify icon="mdi:close" title="Cerrar vista previa" onClick={() => setPreviewOpen(false)} />
-        </DialogTitle>
-        <DialogContent dividers className="prompt-md-dialog custom-scrollbar">
-          {activePrompt?.body?.trim() ? (
-            <div
-              className="prompt-md-preview msg-body"
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
-          ) : (
-            <Alert severity="info">Sin contenido para previsualizar.</Alert>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <FileImportMapDialog
         open={importDlg.open}
