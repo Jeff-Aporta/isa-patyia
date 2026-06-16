@@ -51,8 +51,8 @@ export function App() {
   return (
     <Shell
       ns="ISA"
-      icon="mdi:flask-outline"
-      showTitle={false}
+      title="ISA PatyIA"
+      icon="mdi:robot-happy-outline"
       showTarget={false}
       navRows={[
         { id: "tool", value: tool, onChange: selectTool, tabs: tools },
