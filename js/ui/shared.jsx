@@ -254,13 +254,24 @@ function InstructionPartBox({ name, kind, section, userName }) {
   );
 }
 
+function shouldRenderPromptAsMarkdown(section) {
+  if (section?.isInstructionPart) return true;
+  const label = String(section?.label ?? "").toLowerCase();
+  const key = String(section?.key ?? "").toLowerCase();
+  return (
+    key === "instructions"
+    || label === "instructions"
+    || label === "instrucciones"
+    || key === "system"
+    || label === "system"
+    || label === "sistema"
+  );
+}
+
 function PromptSectionBody({ section, userName }) {
   const text = String(section?.text ?? "");
-  const label = String(section?.label ?? "").toLowerCase();
-  const isInstructions = label === "instructions" || label === "instrucciones" || section?.key === "instructions";
-  const isMarkdownSection = isInstructions || label === "system" || label === "sistema" || section?.key === "system";
 
-  if (isMarkdownSection) {
+  if (shouldRenderPromptAsMarkdown(section)) {
     return (
       <div
         className="prompt-md-preview msg-body meta-prompt-md"
