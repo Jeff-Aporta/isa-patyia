@@ -15,17 +15,20 @@ function normalizeLog(raw: unknown) {
 }
 
 function initial() {
-  return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {} };
+  return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {} };
 }
 
 function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   if (!raw || typeof raw !== "object") return initial();
+  const tool = raw.tool === "prompts" ? "prompts" : raw.tool === "chat" ? "chat" : "log";
+  const chat = raw.chat && typeof raw.chat === "object" ? raw.chat : {};
   return {
     v: raw.v ?? STATE_VERSION,
-    tool: raw.tool === "prompts" ? "prompts" : "log",
+    tool,
     local: !!raw.local,
     log: normalizeLog(raw.log),
     prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
+    chat,
   };
 }
 
@@ -60,6 +63,10 @@ function merge(state: Record<string, unknown>, partial: Record<string, unknown>)
     prompts: {
       ...(state.prompts as Record<string, unknown>),
       ...((partial.prompts as Record<string, unknown>) || {}),
+    },
+    chat: {
+      ...(state.chat as Record<string, unknown>),
+      ...((partial.chat as Record<string, unknown>) || {}),
     },
   };
 }

@@ -82,7 +82,7 @@ function attachFoldGutterIcons(cm) {
   cm.on("update", decorateFoldGutterIcons);
 }
 
-function buildCmOptions({ value, json, mode, readOnly, lineWrapping, lineNumbers }) {
+function buildCmOptions({ value, json, mode, readOnly, lineWrapping, lineNumbers, bounded = false }) {
   const extraKeys = readOnly
     ? {}
     : { Tab: (editor) => editor.replaceSelection("  ", "end") };
@@ -97,7 +97,7 @@ function buildCmOptions({ value, json, mode, readOnly, lineWrapping, lineNumbers
     tabSize: 2,
     indentUnit: 2,
     indentWithTabs: false,
-    viewportMargin: readOnly ? Infinity : 10,
+    viewportMargin: readOnly && !bounded ? Infinity : 10,
     extraKeys,
   };
 
@@ -123,6 +123,55 @@ function syncCmFillSize(cm, host) {
     cm.setSize(null, h);
     cm.refresh();
   }
+}
+
+function parseCssLength(value, fallback = 160) {
+  if (value == null || value === "") return fallback;
+  const s = String(value).trim();
+  if (s.endsWith("rem")) return parseFloat(s) * 16;
+  if (s.endsWith("px")) return parseFloat(s);
+  if (s.endsWith("dvh") || s.endsWith("vh")) return (parseFloat(s) / 100) * window.innerHeight;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function syncCmBoundedSize(cm, maxHeight, host, minHeight) {
+  if (!cm || !maxHeight) return;
+  const minH = parseCssLength(minHeight ?? "5rem", 80);
+  const maxH = parseCssLength(maxHeight, 160);
+  const h = Math.max(maxH, minH);
+  const wrap = cm.getOption?.("lineWrapping") === true;
+
+  const chain = [
+    host?.closest?.(".isa-cm-panel--bounded"),
+    host?.closest?.(".isa-cm-editor-surface--bounded"),
+    host,
+  ].filter(Boolean);
+
+  for (const el of chain) {
+    el.style.height = `${h}px`;
+    el.style.maxHeight = String(maxHeight);
+    if (minHeight) el.style.minHeight = String(minHeight);
+    el.style.overflow = "hidden";
+  }
+
+  const wrapper = cm.getWrapperElement?.();
+  if (wrapper) {
+    wrapper.style.height = `${h}px`;
+    wrapper.style.maxHeight = `${h}px`;
+    wrapper.style.overflow = "hidden";
+  }
+
+  const scroller = cm.getScrollerElement?.();
+  if (scroller) {
+    scroller.style.height = `${h}px`;
+    scroller.style.maxHeight = `${h}px`;
+    scroller.style.overflowY = "auto";
+    scroller.style.overflowX = wrap ? "hidden" : "auto";
+  }
+
+  cm.setSize(null, h);
+  cm.refresh();
 }
 
 async function copyText(text) {
@@ -197,6 +246,7 @@ function LocalCodeMirrorPanel({
       readOnly,
       lineWrapping,
       lineNumbers,
+      bounded: !!maxHeight && !fill,
     }));
 
     if (!readOnly && typeof onChange === "function") {
@@ -213,23 +263,26 @@ function LocalCodeMirrorPanel({
     }
     const onResize = () => {
       if (fill) syncCmFillSize(cm, host);
+      else if (maxHeight) syncCmBoundedSize(cm, maxHeight, host, minHeight);
       else cm.refresh?.();
     };
     window.addEventListener("resize", onResize);
     const t = setTimeout(onResize, 0);
     const t2 = setTimeout(onResize, 120);
     const t3 = setTimeout(onResize, 320);
+    const t4 = maxHeight ? setTimeout(onResize, 520) : undefined;
 
     return () => {
       clearTimeout(t);
       clearTimeout(t2);
       clearTimeout(t3);
+      if (t4) clearTimeout(t4);
       window.removeEventListener("resize", onResize);
       const wrapper = cm.getWrapperElement?.();
       wrapper?.parentNode?.removeChild(wrapper);
       cmRef.current = null;
     };
-  }, [cmReady, json, mode, readOnly, lineWrapping, lineNumbers, fill]);
+  }, [cmReady, json, mode, readOnly, lineWrapping, lineNumbers, fill, maxHeight, minHeight]);
 
   useEffect(() => {
     const cm = cmRef.current;
@@ -243,7 +296,8 @@ function LocalCodeMirrorPanel({
     cm.scrollTo(scroll.left, scroll.top);
     if (next && !readOnly) cm.setCursor(cursor);
     syncingRef.current = false;
-  }, [value, readOnly]);
+    if (maxHeight && !fill) syncCmBoundedSize(cm, maxHeight, hostRef.current, minHeight);
+  }, [value, readOnly, maxHeight, fill]);
 
   useEffect(() => {
     const cm = cmRef.current;
@@ -252,6 +306,7 @@ function LocalCodeMirrorPanel({
 
     const sync = () => {
       if (fill) syncCmFillSize(cm, host);
+      else if (maxHeight) syncCmBoundedSize(cm, maxHeight, host, minHeight);
       else cm.refresh();
     };
 
@@ -281,6 +336,7 @@ function LocalCodeMirrorPanel({
   const panelClass = [
     "isa-cm-panel",
     fill ? "isa-cm-panel--fill" : "",
+    maxHeight ? "isa-cm-panel--bounded" : "",
     showFloatingToolbar ? "isa-cm-panel--toolbar" : "",
     className,
   ].filter(Boolean).join(" ");
@@ -288,7 +344,9 @@ function LocalCodeMirrorPanel({
     ? { minHeight: 0, height: "100%", flex: "1 1 auto" }
     : { minHeight };
   if (maxHeight) hostStyle.maxHeight = maxHeight;
-  const panelStyle = fill ? { minHeight: 0, height: "100%", flex: "1 1 auto" } : { minHeight };
+  const panelStyle = fill
+    ? { minHeight: 0, height: "100%", flex: "1 1 auto" }
+    : { minHeight, ...(maxHeight ? { maxHeight } : {}) };
 
   function renderFloatingToolbar(getValue) {
     if (!showFloatingToolbar) return null;
@@ -322,9 +380,11 @@ function LocalCodeMirrorPanel({
   }
 
   function renderEditorSurface({ fallback = false } = {}) {
-    const surfaceClass = "isa-cm-editor-surface";
+    const surfaceClass = "isa-cm-editor-surface" + (maxHeight ? " isa-cm-editor-surface--bounded" : "");
     const hostClass = "isa-cm-host" + (showJsonFold ? " isa-cm-host--fold" : "");
-    const surfaceStyle = fill ? { flex: "1 1 auto", minHeight: 0, height: "100%" } : undefined;
+    const surfaceStyle = fill
+      ? { flex: "1 1 auto", minHeight: 0, height: "100%" }
+      : (maxHeight ? { maxHeight, minHeight, overflow: "hidden" } : undefined);
     const getValue = () => (fallback ? value : (cmRef.current?.getValue?.() ?? value));
 
     if (fallback) {
@@ -333,7 +393,18 @@ function LocalCodeMirrorPanel({
         <div className={surfaceClass} style={surfaceStyle || hostStyle}>
           {renderFloatingToolbar(getValue)}
           {readOnly ? (
-            <pre className={fallbackClass} style={{ margin: 0, flex: 1, minHeight: 0, overflow: "auto" }}>{value || placeholder}</pre>
+            <pre
+              className={fallbackClass}
+              style={{
+                margin: 0,
+                flex: 1,
+                minHeight: 0,
+                overflow: "auto",
+                ...(maxHeight ? { maxHeight } : {}),
+              }}
+            >
+              {value || placeholder}
+            </pre>
           ) : (
             <textarea
               className={fallbackClass}

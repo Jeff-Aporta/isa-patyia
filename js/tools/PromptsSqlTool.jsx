@@ -5,6 +5,7 @@ import * as LabApi from "../api/labApi.ts";
 import * as LabSession from "../api/sessionApi.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
+import { estimatePromptTokensFromCdn } from "../core/promptTokens.ts";
 import { mdToHtml } from "../ui/shared.jsx";
 import { toastWarning, toastSuccess, toastError, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 
@@ -112,13 +113,6 @@ function draftBodiesFromPrompts(prompts) {
 
 function draftTiposFromPrompts(prompts) {
   return Object.keys(draftBodiesFromPrompts(prompts));
-}
-
-function estimatePromptTokensFromCdn(text) {
-  const fn = window.ISAFront?.estimatePromptTokens;
-  if (typeof fn === "function") return fn(text);
-  const s = String(text ?? "");
-  return s.trim() ? Math.ceil(s.length / 4) : 0;
 }
 
 function formatCharsTokens(body) {
@@ -389,9 +383,14 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           unknownKeys.push(tipo);
           next[tipo] = PromptsSql.createPromptSlot(tipo);
         }
-        const body = String(LabApi.rowVal(row, "INSTRUCCION") ?? "").trim();
-        const rawJconfig = LabApi.rowVal(row, "JCONFIG");
-        const jconfig = PromptsSql.syncJconfigMetrics(PromptsSql.parseJconfig(rawJconfig), body);
+        const body = String(LabApi.rowVal(row, "INSTRUCCION") ?? LabApi.rowVal(row, "instruccion") ?? "").trim();
+        const rawJconfig = LabApi.rowVal(row, "JCONFIG") ?? LabApi.rowVal(row, "jconfig");
+        const jconfig = PromptsSql.syncJconfigMetrics(
+          rawJconfig && typeof rawJconfig === "object" && !Array.isArray(rawJconfig)
+            ? rawJconfig
+            : PromptsSql.parseJconfig(rawJconfig),
+          body,
+        );
         if (scope && !scope.has(tipo)) continue;
         touched.add(tipo);
         const urlBody = ignoreUrl ? "" : urlBodies[tipo]?.trim();

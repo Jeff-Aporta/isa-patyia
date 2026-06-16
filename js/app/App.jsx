@@ -4,20 +4,43 @@ import { UI } from "../core/platform.ts";
 import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
+import { ChatTool } from "../tools/ChatTool.jsx";
+import { Session } from "../core/platform.ts";
 
-const TOOLS = [
-  { id: "log", label: "Visor de log", icon: "mdi:clipboard-text-clock-outline" },
-  { id: "prompts", label: "Prompts → SQL", icon: "mdi:database-export" },
+const ALL_TOOLS = [
+  { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
+  { id: "prompts", label: "pmpts", icon: "mdi:database-export" },
+  { id: "chat", label: "Chat", icon: "mdi:chat-outline", requiresLogin: true },
 ];
 
 export function App() {
-  const { useState } = getReact();
+  const { useState, useEffect } = getReact();
   const boot = bootState;
   const [tool, setTool] = useState(boot.tool || "log");
   const [authOpen, setAuthOpen] = useState(false);
-  const [, tickSession] = useState(0);
+  const [authTick, setAuthTick] = useState(0);
+
+  useEffect(() => {
+    function onAuth() { setAuthTick((n) => n + 1); }
+    window.addEventListener(Session.EVENT, onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    return () => {
+      window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("isa-patyia:auth", onAuth);
+    };
+  }, []);
+
+  const tools = ALL_TOOLS.filter((t) => !t.requiresLogin || Session.isLoggedIn());
+
+  useEffect(() => {
+    if (tool === "chat" && !Session.isLoggedIn()) setTool("log");
+  }, [tool, authTick]);
 
   function selectTool(id) {
+    if (id === "chat" && !Session.isLoggedIn()) {
+      setAuthOpen(true);
+      return;
+    }
     setTool(id);
     mergePartial({ tool: id });
   }
@@ -32,19 +55,22 @@ export function App() {
       showTitle={false}
       showTarget={false}
       navRows={[
-        { id: "tool", value: tool, onChange: selectTool, tabs: TOOLS },
+        { id: "tool", value: tool, onChange: selectTool, tabs: tools },
       ]}
       toolbarEnd={(
         <LoginButton
           loginOpen={authOpen}
           onLoginOpenChange={setAuthOpen}
-          onLoggedIn={() => tickSession((n) => n + 1)}
+          onLoggedIn={() => setAuthTick((n) => n + 1)}
         />
       )}
     >
       {tool === "log" && <LogViewer bootLog={boot.log} />}
       {tool === "prompts" && (
         <PromptsSqlTool bootPrompts={boot.prompts} onNeedLogin={() => setAuthOpen(true)} />
+      )}
+      {tool === "chat" && (
+        <ChatTool bootChat={boot.chat} onNeedLogin={() => setAuthOpen(true)} />
       )}
     </Shell>
   );

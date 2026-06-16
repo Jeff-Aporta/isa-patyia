@@ -17,7 +17,7 @@ const {
 } = getMaterialUI();
 
 const SIDEBAR_WIDTH_KEY = "isa-patyia:log-sidebar-width";
-const SIDEBAR_DEFAULT = 380;
+const SIDEBAR_DEFAULT = 400;
 const SIDEBAR_MIN = 220;
 const SIDEBAR_MAX = 560;
 
@@ -220,7 +220,6 @@ export function LogViewer({ bootLog = {} }) {
   const [metaMsg, setMetaMsg] = useState(null);
   const [resumenOpen, setResumenOpen] = useState(false);
   const [selectedMsgId, setSelectedMsgId] = useState(null);
-  const autoLoadRef = useRef(false);
 
   const navItems = useMemo(() => convLogNavItems(mensajes), [mensajes]);
 
@@ -304,13 +303,14 @@ export function LogViewer({ bootLog = {} }) {
     }
   }, [convId, aplicarLog]);
 
+  /** Solo al montar: restaurar convId de la URL. No auto-consultar mientras el usuario escribe. */
   useEffect(() => {
-    if (autoLoadRef.current || bootLog.jsonInput?.trim()) return;
-    const id = String(bootLog.convId ?? convId ?? "").trim();
+    if (bootLog.jsonInput?.trim()) return;
+    const id = String(bootLog.convId ?? "").trim();
     if (!id) return;
-    autoLoadRef.current = true;
     recuperarPorId({ silent: true });
-  }, [bootLog.convId, bootLog.jsonInput, convId, recuperarPorId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount + bootLog.convId únicamente
+  }, []);
 
   const onConvIdKeyDown = useCallback((e) => {
     if (e.key !== "Enter") return;
@@ -505,7 +505,9 @@ export function LogViewer({ bootLog = {} }) {
         open={metaOpen}
         onClose={() => setMetaOpen(false)}
         meta={metaMsg?.meta}
+        usageStats={metaMsg?.usageStats ?? null}
         title={metaMsg ? `Trazabilidad · ${metaMsg.rol}` : ""}
+        isUserMessage={Boolean(metaMsg?.esUsuario)}
       />
       <ResumenDialog
         open={resumenOpen}

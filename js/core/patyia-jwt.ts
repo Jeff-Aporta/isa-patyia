@@ -1,0 +1,205 @@
+/** JWT InSoft para AyudasCP-IA staging — BD por usuario + caché de sesión. */
+
+import { fetchPortalJwt, removePortalJwt, savePortalJwt, PATYIA_PORTAL_ID } from "../api/portalJwtApi.ts";
+
+export const PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
+export { PATYIA_PORTAL_ID };
+export const PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
+export const PATYIA_MCP_URL = "https://ia.contapyme.com/runtime/webhooks/mcp";
+
+/** Usuarios system-login que pueden enviar mensajes (no solo ver). */
+export const PATYIA_CHAT_INTERACT_USERS = new Set(["JAGUDELOE", "VRESTREPO"]);
+
+export type PatyJwtClaims = {
+  itercero?: string;
+  icontacto?: string;
+  nombres?: string;
+  apellidos?: string;
+  controlkey?: string;
+  iapp?: number;
+  idmaquina?: string;
+};
+
+export type PatyJwtRecord = {
+  token: string;
+  savedBy: string;
+  savedAt: string;
+  expiresAt?: string | null;
+  claims: PatyJwtClaims;
+};
+
+export function parseJwtExp(token: string): number | null {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json) as { exp?: number };
+    return typeof raw.exp === "number" ? raw.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isPatyJwtExpired(token: string, skewSec = 60): boolean {
+  const exp = parseJwtExp(token);
+  if (!exp) return false;
+  return Date.now() / 1000 >= exp - skewSec;
+}
+
+export function parseJwtClaims(token: string): PatyJwtClaims | null {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json) as Record<string, unknown>;
+    return {
+      itercero: raw.itercero != null ? String(raw.itercero) : undefined,
+      icontacto: raw.icontacto != null ? String(raw.icontacto) : undefined,
+      nombres: raw.nombres != null ? String(raw.nombres) : undefined,
+      apellidos: raw.apellidos != null ? String(raw.apellidos) : undefined,
+      controlkey: raw.controlkey != null ? String(raw.controlkey) : undefined,
+      iapp: typeof raw.iapp === "number" ? raw.iapp : undefined,
+      idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function jwtOwnerLabel(claims: PatyJwtClaims | null | undefined): string {
+  if (!claims) return "Sin token";
+  const name = jwtUserDisplayName(claims);
+  const id = claims.itercero ? ` · tercero ${claims.itercero}` : "";
+  return (name || "Usuario JWT") + id;
+}
+
+/** Nombre completo del contacto (sin tercero). */
+export function jwtUserDisplayName(claims: PatyJwtClaims | null | undefined): string {
+  if (!claims) return "";
+  return [claims.nombres, claims.apellidos].filter(Boolean).join(" ").trim();
+}
+
+/** Nombre corto: primer nombre + primer apellido. */
+export function shortDisplayName(full: string | null | undefined): string {
+  const parts = String(full ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
+  return `${parts[0]} ${parts[2]}`;
+}
+
+export function jwtUserShortName(claims: PatyJwtClaims | null | undefined): string {
+  if (!claims) return "";
+  const n = String(claims.nombres ?? "").trim().split(/\s+/).filter(Boolean)[0];
+  const a = String(claims.apellidos ?? "").trim().split(/\s+/).filter(Boolean)[0];
+  if (n && a) return `${n} ${a}`;
+  if (n) return n;
+  if (a) return a;
+  return shortDisplayName(jwtUserDisplayName(claims));
+}
+
+function cachePatyJwt(rec: PatyJwtRecord): PatyJwtRecord {
+  sessionStorage.setItem(PATYIA_JWT_STORAGE_KEY, JSON.stringify(rec));
+  window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+  return rec;
+}
+
+export function loadPatyJwt(): PatyJwtRecord | null {
+  try {
+    const raw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PatyJwtRecord;
+    if (!parsed?.token || typeof parsed.token !== "string") return null;
+    if (isPatyJwtExpired(parsed.token)) {
+      sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+      return null;
+    }
+    parsed.claims = parseJwtClaims(parsed.token) || parsed.claims || {};
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function buildPatyJwtRecord(token: string, savedBy: string, expiresAt?: string | null): PatyJwtRecord {
+  const claims = parseJwtClaims(token);
+  if (!claims?.itercero) throw new Error("Token JWT inválido o sin itercero");
+  const exp = parseJwtExp(token);
+  return {
+    token: token.trim(),
+    savedBy: String(savedBy || "").trim().toUpperCase(),
+    savedAt: new Date().toISOString(),
+    expiresAt: expiresAt ?? (exp ? new Date(exp * 1000).toISOString() : null),
+    claims,
+  };
+}
+
+/** Guarda en caché local (sessionStorage). Preferir savePatyJwtAsync para persistir en BD. */
+export function savePatyJwt(token: string, savedBy: string, expiresAt?: string | null): PatyJwtRecord {
+  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, expiresAt));
+}
+
+export async function savePatyJwtAsync(token: string, savedBy: string): Promise<PatyJwtRecord> {
+  const saved = await savePortalJwt(token.trim(), PATYIA_PORTAL_ID);
+  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, saved.expiresAt));
+}
+
+export function clearPatyJwtLocal(): void {
+  sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+  window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+}
+
+export async function clearPatyJwtAsync(): Promise<void> {
+  try {
+    await removePortalJwt(PATYIA_PORTAL_ID);
+  } catch {
+    /* si falla la BD, igual limpiamos caché local */
+  }
+  clearPatyJwtLocal();
+}
+
+/** Carga JWT desde BD (o caché válida). Solo pide configuración manual si no hay token o expiró. */
+export async function hydratePatyJwtFromServer(username: string | null | undefined): Promise<PatyJwtRecord | null> {
+  const u = String(username || "").trim().toUpperCase();
+  if (!u) {
+    clearPatyJwtLocal();
+    return null;
+  }
+
+  const cached = loadPatyJwt();
+  if (cached && cached.savedBy?.toUpperCase() === u) return cached;
+  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal();
+
+  try {
+    const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
+    if (!data.token || isPatyJwtExpired(data.token)) {
+      clearPatyJwtLocal();
+      return null;
+    }
+    return savePatyJwt(data.token, u, data.expiresAt ?? null);
+  } catch {
+    return loadPatyJwt();
+  }
+}
+
+/** @deprecated usar clearPatyJwtAsync */
+export function clearPatyJwt(): void {
+  clearPatyJwtLocal();
+}
+
+/** Solo interactúa quien inició sesión, está en la lista y guardó el token bajo su usuario. */
+export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
+  const u = String(sessionUser || "").trim().toUpperCase();
+  if (!u || !jwt?.token) return false;
+  if (!PATYIA_CHAT_INTERACT_USERS.has(u)) return false;
+  return jwt.savedBy?.toUpperCase() === u;
+}
+
+export function convBelongsToJwt(
+  conv: { itercero?: string | number; icontacto?: string | number },
+  claims: PatyJwtClaims | null | undefined,
+): boolean {
+  if (!claims?.itercero) return false;
+  return String(conv.itercero ?? "") === String(claims.itercero)
+    && String(conv.icontacto ?? "") === String(claims.icontacto ?? "");
+}
