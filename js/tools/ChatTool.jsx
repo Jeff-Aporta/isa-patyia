@@ -348,7 +348,7 @@ function ChatSessionPanel({ claims, displayScope, sessionUser, canInteract, view
   const fullName = claims ? jwtUserDisplayName(claims) : String(displayScope?.nombre ?? "").trim();
   const name = claims
     ? (jwtUserShortName(claims) || "Usuario JWT")
-    : (displayScope?.nombre || sessionUser || "AppTools");
+    : (displayScope?.nombre || sessionUser || "ISA PatyIA");
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
   const avatarLabel = fullName || name;
@@ -431,7 +431,7 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
   async function submit() {
     try {
       const user = Session.username();
-      if (!user) throw new Error("Inicia sesión en AppTools");
+      if (!user) throw new Error("Inicia sesión en ISA PatyIA");
       setSaving(true);
       const rec = await savePatyJwtAsync(value, user);
       onSave(rec);
@@ -573,7 +573,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   /** null = contacto del JWT activo; otro valor = auditoría de ese tercero/contacto */
   const [auditScope, setAuditScope] = useState(null);
-  /** Contacto resuelto del usuario AppTools (sin JWT). */
+  /** Contacto resuelto del usuario ISA PatyIA (sin JWT). */
   const [sessionBrowseScope, setSessionBrowseScope] = useState(null);
   const [sessionScopeLoading, setSessionScopeLoading] = useState(false);
   const [convListPage, setConvListPage] = useState(1);
