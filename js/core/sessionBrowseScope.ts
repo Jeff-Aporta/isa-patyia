@@ -7,29 +7,11 @@ export type BrowseScope = {
   nombre?: string | null;
 };
 
-export function usernameMatchesNombre(
-  username: string | null | undefined,
-  nombre: string | null | undefined,
-): boolean {
-  const u = String(username ?? "").trim().toUpperCase();
-  const parts = String(nombre ?? "").trim().toUpperCase().split(/\s+/).filter(Boolean);
-  if (!u || !parts.length) return false;
-  const lastName = parts[parts.length - 1];
-  if (lastName.length >= 3 && (u.includes(lastName) || lastName.includes(u))) return true;
-  const firstInitial = parts[0]?.[0] ?? "";
-  if (firstInitial && u.startsWith(firstInitial) && lastName.length >= 3 && u.includes(lastName)) return true;
-  return false;
-}
-
 export function findAuditRowForSessionUser(
   rows: TerceroAuditRow[],
-  sessionUser: string | null | undefined,
+  _sessionUser: string | null | undefined,
 ): TerceroAuditRow | null {
-  const u = String(sessionUser ?? "").trim();
-  if (!u) return null;
-  const flagged = rows.find((r) => r.es_sesion);
-  if (flagged) return flagged;
-  return rows.find((r) => usernameMatchesNombre(u, r.nombre)) ?? null;
+  return rows.find((r) => r.es_sesion) ?? null;
 }
 
 export function auditRowToBrowseScope(row: TerceroAuditRow): BrowseScope {
