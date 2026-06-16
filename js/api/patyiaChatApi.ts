@@ -70,10 +70,26 @@ export type PatyMensaje = {
   };
 };
 
+export type PatyMensajeCalificado = {
+  imensaje?: number;
+  ireferencia?: number;
+  butil?: boolean | number;
+  contenido?: string;
+  iconversacion?: number;
+};
+
 export type PatyConversacionDetalle = PatyConversacionRow & {
   mensajesOpenAI?: PatyMensaje[];
+  mensajesCalificados?: PatyMensajeCalificado[];
   hilo?: string;
   respuesta?: string;
+};
+
+export type PostMensajeCalificadoInput = {
+  iconversacion: number;
+  contenido: string;
+  ireferencia: number;
+  butil: boolean;
 };
 
 export async function listConversaciones(jwt: PatyJwtRecord): Promise<PatyConversacionRow[]> {
@@ -87,6 +103,16 @@ export async function getConversacion(jwt: PatyJwtRecord, id: number): Promise<P
 
 export async function deleteConversacion(jwt: PatyJwtRecord, id: number): Promise<void> {
   await jsonFetch(`/conversacion/${id}`, jwt, { method: "DELETE" });
+}
+
+export async function postMensajeCalificado(
+  jwt: PatyJwtRecord,
+  input: PostMensajeCalificadoInput,
+): Promise<PatyMensajeCalificado> {
+  return jsonFetch<PatyMensajeCalificado>("/mensaje", jwt, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export type SendMessageInput = {
