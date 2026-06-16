@@ -15,7 +15,19 @@ const svc = window.ISAFront.createServiceSession({ Session, Config, capEndpoints
 export const isLoggedIn = () => Session.isLoggedIn();
 export const can = (cap: string) => Session.can(cap);
 export const blockReason = (cap: string) => Session.blockReason(cap);
-export const instruccionesPublishCap = () => (can("patyia.instrucciones.publish") ? "patyia.instrucciones.publish" : null);
+
+export function instruccionesPublishCap(): string | null {
+  return can("patyia.instrucciones.publish") ? "patyia.instrucciones.publish" : null;
+}
+
+export function patyChatInteractCap(): string | null {
+  return can("patyia.chat.interact") ? "patyia.chat.interact" : null;
+}
+
+export function patyChatAuditCap(): string | null {
+  return can("patyia.chat.audit") ? "patyia.chat.audit" : null;
+}
+
 export const serviceAuthHeaders = svc.serviceAuthHeaders;
 export const clearSession = svc.clearSession;
 export const login = svc.login;
