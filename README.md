@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://api.iconify.design/mdi/flask-outline.svg?color=%231e90ff&width=160&height=160" alt="PatyIA AppTools" width="160" />
+  <img src="https://api.iconify.design/mdi/robot-happy-outline.svg?color=%231e90ff&width=160&height=160" alt="ISA PatyIA" width="160" />
 </p>
 
-<h1 align="center">PatyIA AppTools</h1>
+<h1 align="center">ISA PatyIA</h1>
 
 <p align="center">
   <a href="https://jeff-aporta.github.io/isa-patyia/"><img src="https://img.shields.io/badge/GitHub%20Pages-isa--patyia-2ea44f?logo=github&logoColor=white" alt="GitHub Pages" /></a>
