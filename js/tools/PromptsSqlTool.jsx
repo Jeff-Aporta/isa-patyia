@@ -3,6 +3,7 @@ import { getSnapshot, mergePartial } from "../core/urlState.ts";
 import * as PromptsSql from "../api/promptsSql.ts";
 import * as LabApi from "../api/labApi.ts";
 import * as LabSession from "../api/sessionApi.ts";
+import { Session } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { estimatePromptTokensFromCdn } from "../core/promptTokens.ts";
@@ -292,7 +293,14 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   useEffect(() => {
     const onAuth = () => setAuthTick((n) => n + 1);
     window.addEventListener("isa-patyia:auth", onAuth);
-    return () => window.removeEventListener("isa-patyia:auth", onAuth);
+    window.addEventListener(Session.EVENT, onAuth);
+    if (Session.isLoggedIn()) {
+      Session.refreshProfile().finally(onAuth);
+    }
+    return () => {
+      window.removeEventListener("isa-patyia:auth", onAuth);
+      window.removeEventListener(Session.EVENT, onAuth);
+    };
   }, []);
 
   const canPublish = useMemo(() => Boolean(LabSession.instruccionesPublishCap()), [authTick]);
@@ -302,6 +310,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesión para editar instrucciones";
     return LabSession.blockReason("patyia.instrucciones.publish")
+      || LabSession.blockReason("langlab.guardar")
       || "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo(() => {

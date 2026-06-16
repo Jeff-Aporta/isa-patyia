@@ -17,7 +17,9 @@ export const can = (cap: string) => Session.can(cap);
 export const blockReason = (cap: string) => Session.blockReason(cap);
 
 export function instruccionesPublishCap(): string | null {
-  return can("patyia.instrucciones.publish") ? "patyia.instrucciones.publish" : null;
+  if (can("patyia.instrucciones.publish")) return "patyia.instrucciones.publish";
+  if (can("langlab.guardar")) return "langlab.guardar";
+  return null;
 }
 
 export function patyChatInteractCap(): string | null {
