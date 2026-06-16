@@ -174,7 +174,7 @@ function pushImage(images: string[], ref: unknown) {
     }).filter(Boolean).join("\n\n");
   }
 
-  /** Separador legacy cuando el template no tiene {{instruccion_tipo}} (UlPrompts.ts). */
+  /** Separador legacy cuando el template no tiene {{instruccion_tipo}} ni {{instrucion_tipo}} (UlPrompts.ts). */
   const INSTRUCTION_CONCAT_SEP = /\n\n---\n\n/;
 
   function extractUserTextFromConvSend(send) {
