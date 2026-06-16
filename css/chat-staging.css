@@ -175,6 +175,35 @@ html[data-mui-color-scheme="light"] .paty-chat-conv-id-badge {
   color: var(--muted, #94a3b8);
 }
 
+@keyframes conv-operativa-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.paty-chat-shell .conv-msg--operativa-enter {
+  animation: conv-operativa-enter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paty-chat-shell .conv-msg--operativa-enter {
+    animation: conv-operativa-enter-reduced 0.2s ease both;
+  }
+
+  @keyframes conv-operativa-enter-reduced {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
 /* Gate login / JWT */
 .paty-chat-gate {
   height: 100%;
@@ -543,3 +572,64 @@ html[data-mui-color-scheme="light"] .conv-msg-card--streaming {
 
 .conv-stream-typing span:nth-child(2) { animation-delay: 0.15s; }
 .conv-stream-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+/* Calificación útil / no útil (mensajes PatyIA) */
+.conv-msg-side-column {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  min-height: 100%;
+}
+
+.conv-msg-side-column--right {
+  align-items: flex-end;
+}
+
+.conv-msg-side-column--left {
+  align-items: flex-start;
+}
+
+.conv-msg-rating-slot {
+  width: 100%;
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.conv-msg-rating {
+  flex-shrink: 0;
+}
+
+.conv-msg-rating--left {
+  justify-content: flex-start;
+}
+
+.conv-msg-rating__btn {
+  opacity: 0.72;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.conv-msg-rating__btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.conv-msg-rating__btn--up.conv-msg-rating__btn--active {
+  color: #10b981 !important;
+  opacity: 1;
+}
+
+.conv-msg-rating__btn--down.conv-msg-rating__btn--active {
+  color: #ef4444 !important;
+  opacity: 1;
+}
+
+html[data-mui-color-scheme="light"] .conv-msg-rating__btn--up.conv-msg-rating__btn--active {
+  color: #059669 !important;
+}
+
+html[data-mui-color-scheme="light"] .conv-msg-rating__btn--down.conv-msg-rating__btn--active {
+  color: #dc2626 !important;
+}
