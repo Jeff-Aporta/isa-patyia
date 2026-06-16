@@ -44,7 +44,7 @@ function roleTitle(msg, chatUserName) {
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, fecha }) {
+function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, fecha, streaming = false }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
@@ -53,7 +53,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
   return (
     <Paper
       id={id}
-      className="conv-msg-card"
+      className={`conv-msg-card${streaming ? " conv-msg-card--streaming" : ""}`}
       elevation={0}
       sx={{
         borderRadius: "0.5rem",
@@ -256,33 +256,44 @@ function MetaChipRow({ meta, isUser = false }) {
   );
 }
 
-function MsgBody({ text, imagenes, align = "left", onImageClick }) {
+function MsgBody({ text, imagenes, align = "left", onImageClick, streaming = false }) {
   const { Typography, Box } = getMaterialUI();
-  const html = mdToHtml(String(text || ""));
+  const raw = String(text || "");
+  const hasText = Boolean(raw.trim());
+  const html = mdToHtml(raw);
   return (
     <>
-      <Typography
-        component="div"
-        variant="body1"
-        className="conv-msg-body"
-        sx={{
-          lineHeight: 1.65,
-          color: "text.primary",
-          "& p": { m: 0, mb: 1.25 },
-          "& p:last-child": { mb: 0 },
-          "& a": { color: "primary.main", wordBreak: "break-word" },
-          "& img": { maxWidth: "100%", borderRadius: "0.5rem", my: 1 },
-          "& pre, & code": { fontFamily: '"IBM Plex Mono", monospace', fontSize: "0.85em" },
-        }}
-        dangerouslySetInnerHTML={{ __html: html }}
-        onClick={(e) => {
-          const img = e.target?.closest?.("img");
-          if (img?.src && onImageClick) {
-            e.preventDefault();
-            onImageClick(img.src);
-          }
-        }}
-      />
+      {streaming && !hasText ? (
+        <Box className="conv-stream-typing" aria-label="PatyIA está escribiendo" role="status">
+          <span /><span /><span />
+        </Box>
+      ) : (
+        <Box className={`conv-msg-body-wrap${streaming ? " conv-msg-body-wrap--streaming" : ""}`}>
+          <Typography
+            component="div"
+            variant="body1"
+            className={`conv-msg-body${streaming ? " conv-msg-body--streaming" : ""}`}
+            sx={{
+              lineHeight: 1.65,
+              color: "text.primary",
+              "& p": { m: 0, mb: 1.25 },
+              "& p:last-child": { mb: 0 },
+              "& a": { color: "primary.main", wordBreak: "break-word" },
+              "& img": { maxWidth: "100%", borderRadius: "0.5rem", my: 1 },
+              "& pre, & code": { fontFamily: '"IBM Plex Mono", monospace', fontSize: "0.85em" },
+            }}
+            dangerouslySetInnerHTML={{ __html: html }}
+            onClick={(e) => {
+              const img = e.target?.closest?.("img");
+              if (img?.src && onImageClick) {
+                e.preventDefault();
+                onImageClick(img.src);
+              }
+            }}
+          />
+          {streaming && hasText ? <Box component="span" className="conv-stream-cursor" aria-hidden /> : null}
+        </Box>
+      )}
       {imagenes?.length > 0 && (
         <ConvMsgImages items={imagenes} align={align} onImageClick={onImageClick} />
       )}
@@ -553,7 +564,7 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
 }
 
 function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
-  const { Box, Chip, Tooltip, Typography } = getMaterialUI();
+  const { Box, Chip } = getMaterialUI();
   const [open, setOpen] = useState(false);
   if (!stats) return null;
 
@@ -642,16 +653,6 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
             />
           </Box>
         ))}
-        <Tooltip title="Ver input · cache · output" arrow placement={align === "left" ? "left" : "right"}>
-          <Typography
-            component="span"
-            variant="caption"
-            className="conv-msg-usage-stats__hint"
-            sx={{ pointerEvents: "none" }}
-          >
-            clic · detalle
-          </Typography>
-        </Tooltip>
       </Box>
       <UsageStatsDialog
         open={open}
@@ -665,13 +666,14 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   );
 }
 
-function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick }) {
+function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null }) {
   const { Alert, Box } = getMaterialUI();
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, compactMeta ? chatUserName : undefined);
   const fecha = msg.fecha ? String(msg.fecha) : "";
   const isUser = msg.esUsuario;
   const isOperativa = msg.esOperativa;
+  const isStreaming = Boolean(msg.isStreaming || (streamingMsgId && msg.idMsg === streamingMsgId));
   const showMetaBtn = Boolean(onMeta && msg.meta && metaWorthDialog(msg.meta, isUser));
   const statsSide = isUser ? "left" : "right";
 
@@ -707,6 +709,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
             accent={meta.accent}
             align={isUser ? "right" : "left"}
             muted={isOperativa && compactMeta}
+            streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
             metaChips={compactMeta ? null : <MetaChipRow meta={msg.meta} isUser={isUser} />}
           >
@@ -720,6 +723,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
               imagenes={msg.imagenes}
               align={isUser ? "right" : "left"}
               onImageClick={onImageClick}
+              streaming={isStreaming}
             />
           </SectionCard>
         </Box>
@@ -737,7 +741,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
   );
 }
 
-export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true }) {
+export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
 
@@ -767,6 +771,7 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
           chatUserName={chatUserName}
           showUsageStats={hasUsageStats}
           onImageClick={onImageClick}
+          streamingMsgId={streamingMsgId}
         />
       ))}
       <ImageLightboxDialog open={Boolean(lightboxSrc)} src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
