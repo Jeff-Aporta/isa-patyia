@@ -4,7 +4,6 @@ import { UI } from "../core/platform.ts";
 import {
   loadPatyJwt,
   savePatyJwtAsync,
-  clearPatyJwtAsync,
   hydratePatyJwtFromServer,
   canInteractPatyChat,
   convBelongsToJwt,
@@ -12,7 +11,6 @@ import {
   jwtUserShortName,
   shortDisplayName,
   parseJwtClaims,
-  PATYIA_MCP_URL,
   PATYIA_API_BASE,
 } from "../core/patyia-jwt.ts";
 import {
@@ -32,6 +30,8 @@ import { ButtonIconify } from "../ui/iconify.jsx";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 import { mergePartial } from "../core/urlState.ts";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
+import { buildUserAvatarUrl } from "../core/userAvatar.ts";
+import { resolveSessionBrowseScope, browseScopeKey } from "../core/sessionBrowseScope.ts";
 
 const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
 const {
@@ -45,6 +45,33 @@ const CHAT_SIDEBAR_W = 320;
 const MAX_CHAT_IMAGES = 10;
 const TERCEROS_AUDIT_PAGE_SIZE = 15;
 const CONV_LIST_PAGE_SIZE = 100;
+const BROWSE_TERCEROS_LIMIT = 30;
+const BROWSE_TERCEROS_FETCH = 8;
+const BROWSE_CONV_PER_TERCERO = 25;
+
+async function fetchBrowseConversationsAggregated() {
+  const audit = await fetchTercerosAudit({ page: 1, limit: BROWSE_TERCEROS_LIMIT });
+  const candidates = (audit.rows ?? []).filter((r) => r.total_conversaciones > 0).slice(0, BROWSE_TERCEROS_FETCH);
+  const chunks = await Promise.all(
+    candidates.map((r) =>
+      fetchConversacionesBridge({
+        itercero: r.itercero,
+        icontacto: r.icontacto,
+        page: 1,
+        limit: BROWSE_CONV_PER_TERCERO,
+      }).catch(() => ({ conversaciones: [] })),
+    ),
+  );
+  const merged = chunks.flatMap((c) => c.conversaciones || []);
+  merged.sort((a, b) => String(b.fhultact || "").localeCompare(String(a.fhultact || "")));
+  const seen = new Set();
+  return merged.filter((r) => {
+    const id = r.iconversacion;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
 
 function auditScopeKey(scope) {
   if (!scope) return "";
@@ -88,7 +115,7 @@ function formatAuditTs(v) {
   return Number.isNaN(d.getTime()) ? String(v).slice(0, 16) : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
 }
 
-function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
+function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, currentScope }) {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [page, setPage] = useState(1);
@@ -109,13 +136,9 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    if (!jwt?.token) {
-      setData(null);
-      setError("Configura un JWT válido para listar terceros.");
-      setLoading(false);
-      return undefined;
-    }
-    const claims = jwt.claims?.itercero ? jwt.claims : (parseJwtClaims(jwt.token) || {});
+    const claims = jwt?.token
+      ? (jwt.claims?.itercero ? jwt.claims : (parseJwtClaims(jwt.token) || {}))
+      : {};
     let cancelled = false;
     setLoading(true);
     setError("");
@@ -125,7 +148,8 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
       q: qDebounced,
       jwtTercero: claims.itercero,
       jwtContacto: claims.icontacto,
-      jwtNombre: jwtUserDisplayName(claims),
+      jwtNombre: jwt?.token ? jwtUserDisplayName(claims) : undefined,
+      appUser: sessionUser || undefined,
     })
       .then((res) => { if (!cancelled) setData(res); })
       .catch((err) => {
@@ -136,7 +160,7 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [open, page, qDebounced, jwt?.token, jwt?.claims?.itercero, jwt?.claims?.icontacto]);
+  }, [open, page, qDebounced, jwt?.token, jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser]);
 
   const currentKey = auditScopeKey(currentScope);
   const rows = data?.rows ?? [];
@@ -144,7 +168,7 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper" className="paty-chat-terceros-dialog">
       <DialogTitle sx={{ pb: 1.25 }}>
-        Auditoría · terceros / contactos
+        Filtrar por usuario
       </DialogTitle>
       <DialogContent dividers sx={{ pt: 1.5 }}>
         <TextField
@@ -216,6 +240,7 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
                             )}
                           </Box>
                           {row.es_jwt ? <Chip size="small" label="JWT" color="primary" sx={{ height: 20 }} /> : null}
+                          {row.es_sesion ? <Chip size="small" label="Sesión" color="success" sx={{ height: 20 }} /> : null}
                         </Stack>
                       </TableCell>
                       <TableCell>{row.icontacto}</TableCell>
@@ -230,10 +255,11 @@ function TercerosAuditDialog({ open, onClose, jwt, onSelect, currentScope }) {
                             itercero: row.itercero,
                             icontacto: row.icontacto,
                             esJwt: row.es_jwt,
+                            esSesion: row.es_sesion,
                             nombre: row.nombre ? shortDisplayName(row.nombre) : null,
                           })}
                         >
-                          {selected ? "Activo" : "Auditar"}
+                          {selected ? "Activo" : (row.es_sesion ? "Mis convs" : "Ver")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -345,19 +371,25 @@ function appendStreamMsg(mensajes, streamText) {
   ];
 }
 
-function ChatSessionPanel({ claims, canInteract, viewOnly, onOpenAudit }) {
-  const fullName = jwtUserDisplayName(claims);
-  const name = jwtUserShortName(claims) || "Usuario JWT";
-  const tercero = claims?.itercero;
-  const contacto = claims?.icontacto;
+function ChatSessionPanel({ claims, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, onOpenAudit }) {
+  const fullName = claims ? jwtUserDisplayName(claims) : String(displayScope?.nombre ?? "").trim();
+  const name = claims
+    ? (jwtUserShortName(claims) || "Usuario JWT")
+    : (displayScope?.nombre || sessionUser || "AppTools");
+  const tercero = claims?.itercero ?? displayScope?.itercero;
+  const contacto = claims?.icontacto ?? displayScope?.icontacto;
+  const avatarLabel = fullName || name;
+  const avatarUrl = useMemo(() => buildUserAvatarUrl(avatarLabel, 72), [avatarLabel]);
+  const [avatarOk, setAvatarOk] = useState(true);
+  useEffect(() => { setAvatarOk(true); }, [avatarUrl]);
 
   return (
     <Box
       className="paty-chat-session paty-chat-session--clickable"
       role="button"
       tabIndex={0}
-      title="Ver terceros para auditoría"
-      aria-label="Abrir auditoría de terceros y contactos"
+      title="Filtrar conversaciones por usuario"
+      aria-label="Filtrar conversaciones por usuario"
       onClick={() => onOpenAudit?.()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -367,7 +399,20 @@ function ChatSessionPanel({ claims, canInteract, viewOnly, onOpenAudit }) {
       }}
     >
       <Box className="paty-chat-session__avatar" aria-hidden>
-        <Icon icon="mdi:account-circle" size={28} />
+        {avatarOk ? (
+          <img
+            className="paty-chat-session__avatar-img"
+            src={avatarUrl}
+            alt=""
+            width={36}
+            height={36}
+            loading="lazy"
+            decoding="async"
+            onError={() => setAvatarOk(false)}
+          />
+        ) : (
+          <Icon icon="mdi:account-circle" size={28} />
+        )}
       </Box>
       <Box className="paty-chat-session__body">
         <Typography className="paty-chat-session__name" title={fullName || name}>
@@ -393,16 +438,12 @@ function ChatSessionPanel({ claims, canInteract, viewOnly, onOpenAudit }) {
               Solo lectura
             </span>
           )}
-          <Tooltip title={PATYIA_MCP_URL} arrow placement="top">
-            <span className="paty-chat-session__flag paty-chat-session__flag--mcp">
-              <Icon icon="mdi:lan-connect" size={12} />
-              MCP staging
+          {jwtLoading && (
+            <span className="paty-chat-session__flag">
+              <CircularProgress size={10} sx={{ mr: 0.5 }} />
+              Token…
             </span>
-          </Tooltip>
-          <span className="paty-chat-session__flag paty-chat-session__flag--audit">
-            <Icon icon="mdi:account-search-outline" size={12} />
-            Auditoría
-          </span>
+          )}
         </Box>
       </Box>
     </Box>
@@ -430,31 +471,10 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
     }
   }
 
-  async function onDelete() {
-    try {
-      setSaving(true);
-      await clearPatyJwtAsync();
-      onSave(null);
-      onClose();
-      toastInfo("Token eliminado");
-    } catch (e) {
-      toastError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth className="paty-chat-jwt-dialog">
-      <DialogTitle>Token JWT · AyudasCP staging</DialogTitle>
+      <DialogTitle>PatyIA</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Pega el Bearer de InSoft (portal soporte-staging). Solo quien guardó el token puede enviar mensajes.
-          MCP de prueba:{" "}
-          <Typography component="a" href={PATYIA_MCP_URL} target="_blank" rel="noreferrer" variant="caption">
-            {PATYIA_MCP_URL}
-          </Typography>
-        </Typography>
         <TextField
           fullWidth
           multiline
@@ -466,7 +486,6 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onDelete} color="inherit" disabled={saving}>Borrar</Button>
         <Button onClick={onClose} disabled={saving}>Cancelar</Button>
         <Button variant="contained" onClick={submit} disabled={saving}>
           {saving ? <CircularProgress size={20} color="inherit" /> : "Guardar"}
@@ -581,6 +600,9 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   /** null = contacto del JWT activo; otro valor = auditoría de ese tercero/contacto */
   const [auditScope, setAuditScope] = useState(null);
+  /** Contacto resuelto del usuario AppTools (sin JWT). */
+  const [sessionBrowseScope, setSessionBrowseScope] = useState(null);
+  const [sessionScopeLoading, setSessionScopeLoading] = useState(false);
   const [convListPage, setConvListPage] = useState(1);
   const [convListMeta, setConvListMeta] = useState(null);
   const inputRef = useRef(null);
@@ -589,25 +611,36 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
   const canInteract = canInteractPatyChat(sessionUser, jwt);
+  const listScope = auditScope ?? (!jwt?.token ? sessionBrowseScope : null);
   const canSend = canInteract && auditScopeIsOwnJwt(auditScope, jwt?.claims);
-  const viewingAuditOther = Boolean(auditScope && !auditScopeIsOwnJwt(auditScope, jwt?.claims));
-  const viewOnly = loggedIn && !canInteract;
+  const viewingAuditOther = Boolean(
+    auditScope && (
+      jwt?.claims
+        ? !auditScopeIsOwnJwt(auditScope, jwt.claims)
+        : sessionBrowseScope && browseScopeKey(auditScope) !== browseScopeKey(sessionBrowseScope)
+    ),
+  );
+  const viewOnly = loggedIn && !canSend;
+  const needsJwt = loggedIn && !jwt?.token && !jwtLoading;
+  const displayScope = activeConvOwnerScope(listScope, jwt?.claims);
 
   useEffect(() => {
-    function refresh() { setAuthTick((n) => n + 1); setJwt(loadPatyJwt()); }
-    window.addEventListener("isa-patyia:paty-jwt", refresh);
-    window.addEventListener(Session.EVENT, refresh);
-    window.addEventListener("isa-patyia:auth", refresh);
+    function onSessionAuth() { setAuthTick((n) => n + 1); }
+    function onPatyJwt() { setJwt(loadPatyJwt()); }
+    window.addEventListener("isa-patyia:paty-jwt", onPatyJwt);
+    window.addEventListener(Session.EVENT, onSessionAuth);
+    window.addEventListener("isa-patyia:auth", onSessionAuth);
     return () => {
-      window.removeEventListener("isa-patyia:paty-jwt", refresh);
-      window.removeEventListener(Session.EVENT, refresh);
-      window.removeEventListener("isa-patyia:auth", refresh);
+      window.removeEventListener("isa-patyia:paty-jwt", onPatyJwt);
+      window.removeEventListener(Session.EVENT, onSessionAuth);
+      window.removeEventListener("isa-patyia:auth", onSessionAuth);
     };
   }, []);
 
   useEffect(() => {
     if (!loggedIn || !sessionUser) {
       setJwt(null);
+      setJwtLoading(false);
       return;
     }
     let cancelled = false;
@@ -616,23 +649,55 @@ export function ChatTool({ bootChat, onNeedLogin }) {
       .then((rec) => { if (!cancelled) setJwt(rec); })
       .finally(() => { if (!cancelled) setJwtLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, sessionUser, authTick]);
+  }, [loggedIn, sessionUser]);
+
+  useEffect(() => {
+    if (!loggedIn || !sessionUser || jwt?.token) {
+      setSessionBrowseScope(null);
+      setSessionScopeLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setSessionScopeLoading(true);
+    resolveSessionBrowseScope(sessionUser)
+      .then((scope) => { if (!cancelled) setSessionBrowseScope(scope); })
+      .finally(() => { if (!cancelled) setSessionScopeLoading(false); });
+    return () => { cancelled = true; };
+  }, [loggedIn, sessionUser, jwt?.token]);
 
   const reloadList = useCallback(async () => {
-    if (!jwt?.token) return;
+    if (!loggedIn) return;
     setLoadingList(true);
     try {
-      if (auditScope?.itercero && auditScope?.icontacto) {
+      if (jwt?.token) {
+        if (listScope?.itercero && listScope?.icontacto) {
+          const res = await fetchConversacionesBridge({
+            itercero: listScope.itercero,
+            icontacto: listScope.icontacto,
+            page: convListPage,
+            limit: CONV_LIST_PAGE_SIZE,
+          });
+          setRows(res.conversaciones);
+          setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
+        } else {
+          const list = await listConversaciones(jwt);
+          setRows(list);
+          setConvListMeta(null);
+        }
+      } else if (listScope?.itercero && listScope?.icontacto) {
         const res = await fetchConversacionesBridge({
-          itercero: auditScope.itercero,
-          icontacto: auditScope.icontacto,
+          itercero: listScope.itercero,
+          icontacto: listScope.icontacto,
           page: convListPage,
           limit: CONV_LIST_PAGE_SIZE,
         });
         setRows(res.conversaciones);
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
+      } else if (sessionScopeLoading) {
+        setRows([]);
+        setConvListMeta(null);
       } else {
-        const list = await listConversaciones(jwt);
+        const list = await fetchBrowseConversationsAggregated();
         setRows(list);
         setConvListMeta(null);
       }
@@ -641,12 +706,45 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     } finally {
       setLoadingList(false);
     }
-  }, [jwt, auditScope?.itercero, auditScope?.icontacto, convListPage]);
+  }, [loggedIn, jwt, listScope?.itercero, listScope?.icontacto, convListPage, sessionScopeLoading]);
 
   const handleSelectAuditScope = useCallback((row) => {
-    const next = row.esJwt
-      ? null
-      : { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre || null };
+    if (row.esJwt) {
+      if (!jwt?.claims?.itercero) {
+        setAuditDialogOpen(false);
+        toastInfo("Configura JWT para filtrar por tu contacto");
+        return;
+      }
+      setAuditScope(null);
+      setConvListPage(1);
+      setConvListMeta(null);
+      setRows([]);
+      setSelectedId(null);
+      setDetail(null);
+      setLogMensajes([]);
+      setStreamText("");
+      setLogError("");
+      mergePartial({ chat: { convId: null } });
+      setAuditDialogOpen(false);
+      toastInfo("Conversaciones de tu JWT");
+      return;
+    }
+    if (row.esSesion) {
+      setAuditScope(null);
+      setConvListPage(1);
+      setConvListMeta(null);
+      setRows([]);
+      setSelectedId(null);
+      setDetail(null);
+      setLogMensajes([]);
+      setStreamText("");
+      setLogError("");
+      mergePartial({ chat: { convId: null } });
+      setAuditDialogOpen(false);
+      toastInfo(`Conversaciones · ${row.nombre || sessionUser || "sesión"}`);
+      return;
+    }
+    const next = { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre || null };
     setAuditScope(next);
     setConvListPage(1);
     setConvListMeta(null);
@@ -658,12 +756,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     setLogError("");
     mergePartial({ chat: { convId: null } });
     setAuditDialogOpen(false);
-    if (row.esJwt) {
-      toastInfo("Conversaciones de tu JWT");
-    } else {
-      toastInfo(`Auditoría · contacto ${row.icontacto}`);
-    }
-  }, []);
+    toastInfo(`Filtro · ${row.nombre || row.icontacto}`);
+  }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser]);
 
   const applyThreadFromDetail = useCallback((d, log, name) => {
     if (log?.mensajes?.length) {
@@ -678,15 +772,16 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   }, []);
 
   const openConv = useCallback(async (id, { silent = false, keepStream = false } = {}) => {
-    if (!jwt?.token || !id) return;
+    if (!loggedIn || !id) return;
     setSelectedId(id);
     mergePartial({ chat: { convId: id } });
     if (!silent) setLoadingThread(true);
     if (!keepStream) setStreamText("");
     setLogError("");
-    const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(auditScope, jwt.claims));
+    const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims));
+    const useLogOnly = !jwt?.token || viewingAuditOther;
     try {
-      if (viewingAuditOther) {
+      if (useLogOnly) {
         const logResult = await fetchConvLogById(id).catch(() => null);
         const row = rows.find((r) => r.iconversacion === id);
         setDetail(row || { iconversacion: id, titulo: `Conv #${id}` });
@@ -697,7 +792,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         getConversacion(jwt, id),
         fetchConvLogById(id).catch(() => null),
       ]);
-      if (!convBelongsToJwt(d, jwt.claims) && sessionUser !== "JAGUDELOE") {
+      if (!convBelongsToJwt(d, jwt.claims) && !Session.can("patyia.chat.audit")) {
         toastWarning("Esta conversación no pertenece al token activo");
       }
       setDetail(d);
@@ -709,13 +804,13 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     } finally {
       if (!silent) setLoadingThread(false);
     }
-  }, [jwt, sessionUser, viewingAuditOther, auditScope, rows, applyThreadFromDetail]);
+  }, [loggedIn, jwt, sessionUser, viewingAuditOther, listScope, rows, applyThreadFromDetail]);
 
   useEffect(() => { reloadList(); }, [reloadList, authTick]);
 
   useEffect(() => {
-    if (selectedId && jwt?.token) openConv(selectedId);
-  }, [jwt?.token]);
+    if (selectedId && !jwtLoading) openConv(selectedId);
+  }, [selectedId, jwtLoading, jwt?.token]);
 
   async function onNewChat() {
     if (!canSend) { toastWarning("Modo lectura."); return; }
@@ -828,8 +923,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
 
   const showStream = sending && streamText;
   const chatUserName = useMemo(
-    () => convOwnerDisplayLabel(activeConvOwnerScope(auditScope, jwt?.claims)),
-    [auditScope, jwt?.claims],
+    () => convOwnerDisplayLabel(displayScope),
+    [displayScope],
   );
   const displayMensajes = useMemo(
     () => appendStreamMsg(logMensajes, showStream ? streamText : ""),
@@ -851,32 +946,6 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         <Box className="paty-chat-gate__inner">
           <Alert severity="info" sx={{ mb: 2 }}>Inicia sesión para abrir el chat de pruebas Paty IA (staging).</Alert>
           <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
-        </Box>
-      </Box>
-    );
-  }
-
-  if (!jwt?.token) {
-    return (
-      <Box className="paty-chat-gate">
-        <Box className="paty-chat-gate__inner">
-          {jwtLoading ? (
-            <CircularProgress size={28} />
-          ) : (
-            <>
-              <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
-                Configura el token JWT del portal{" "}
-                <Typography component="a" href="https://www.contapyme.com/soporte-staging/" target="_blank" rel="noreferrer">
-                  soporte-staging
-                </Typography>
-                . Se guarda en tu cuenta y solo se vuelve a pedir cuando expire.
-              </Alert>
-              <Button variant="contained" startIcon={<Icon icon="mdi:key-variant" />} onClick={() => setJwtOpen(true)}>
-                Configurar JWT
-              </Button>
-              <JwtModal open={jwtOpen} onClose={() => setJwtOpen(false)} initialToken="" onSave={setJwt} />
-            </>
-          )}
         </Box>
       </Box>
     );
@@ -920,9 +989,12 @@ export function ChatTool({ bootChat, onNeedLogin }) {
 
         <Box className="conv-log-sidebar-block paty-chat-sidebar-meta" sx={{ pt: 0.75, pb: 0.75, flexShrink: 0 }}>
           <ChatSessionPanel
-            claims={jwt.claims}
+            claims={jwt?.claims ?? null}
+            displayScope={displayScope}
+            sessionUser={sessionUser}
             canInteract={canInteract}
             viewOnly={viewOnly}
+            jwtLoading={jwtLoading}
             onOpenAudit={() => setAuditDialogOpen(true)}
           />
         </Box>
@@ -945,6 +1017,15 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         <Box className="conv-log-sidebar-block" sx={{ flex: 1, minHeight: 0, overflow: "auto", pb: 1.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
             Conversaciones
+            {needsJwt ? (
+              <Typography component="span" variant="caption" sx={{ display: "block", color: "info.main", mt: 0.25 }}>
+                {listScope?.nombre
+                  ? `${listScope.nombre} · modo lectura`
+                  : sessionScopeLoading
+                    ? "Buscando tus conversaciones…"
+                    : "Recientes · modo lectura"}
+              </Typography>
+            ) : null}
             {viewingAuditOther ? (
               <Typography component="span" variant="caption" sx={{ display: "block", color: "warning.main", mt: 0.25 }}>
                 Auditoría · {auditScope.itercero} / {auditScope.icontacto}
@@ -1024,18 +1105,45 @@ export function ChatTool({ bootChat, onNeedLogin }) {
       </Box>
 
       <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {needsJwt && (
+          <Alert
+            severity="info"
+            sx={{ mx: 2, mt: 1, flexShrink: 0 }}
+            action={(
+              <Button color="inherit" size="small" onClick={() => setJwtOpen(true)}>
+                Configurar JWT
+              </Button>
+            )}
+          >
+            Modo lectura — puedes explorar conversaciones. Configura el JWT de{" "}
+            <Typography component="a" href="https://www.contapyme.com/soporte-staging/" target="_blank" rel="noreferrer" variant="inherit">
+              soporte-staging
+            </Typography>
+            {" "}para enviar mensajes.
+          </Alert>
+        )}
         {viewingAuditOther && (
           <Alert severity="info" sx={{ mx: 2, mt: 1, flexShrink: 0 }} action={(
             <IconButton
               color="inherit"
               size="small"
-              aria-label="Volver a mi JWT"
-              onClick={() => handleSelectAuditScope({ esJwt: true, itercero: jwt.claims.itercero, icontacto: jwt.claims.icontacto })}
+              aria-label={jwt?.claims?.itercero ? "Volver a mi JWT" : "Ver recientes"}
+              onClick={() => {
+                if (jwt?.claims?.itercero) {
+                  handleSelectAuditScope({ esJwt: true, itercero: jwt.claims.itercero, icontacto: jwt.claims.icontacto });
+                } else {
+                  setAuditScope(null);
+                  setConvListPage(1);
+                  setSelectedId(null);
+                  setDetail(null);
+                  setLogMensajes([]);
+                }
+              }}
             >
               <Icon icon="mdi:close" size={18} />
             </IconButton>
           )}>
-            Modo auditoría — lectura.
+            Viendo conversaciones de otro usuario — lectura.
           </Alert>
         )}
         {(selectedId || detail) && (
@@ -1066,7 +1174,9 @@ export function ChatTool({ bootChat, onNeedLogin }) {
               <Typography variant="body1">
                 {canSend
                   ? "Escribe un mensaje abajo para iniciar una conversación."
-                  : "Selecciona una conversación o crea una nueva."}
+                  : needsJwt
+                    ? "Selecciona una conversación del listado o configura JWT para chatear."
+                    : "Selecciona una conversación o crea una nueva."}
               </Typography>
             </Box>
           </Box>
@@ -1196,7 +1306,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         open={auditDialogOpen}
         onClose={() => setAuditDialogOpen(false)}
         jwt={jwt}
-        currentScope={auditScope ?? (jwt?.claims?.itercero ? { itercero: jwt.claims.itercero, icontacto: jwt.claims.icontacto } : null)}
+        sessionUser={sessionUser}
+        currentScope={listScope ?? (jwt?.claims?.itercero ? { itercero: jwt.claims.itercero, icontacto: jwt.claims.icontacto, nombre: jwtUserShortName(jwt.claims) } : null)}
         onSelect={handleSelectAuditScope}
       />
     </Box>

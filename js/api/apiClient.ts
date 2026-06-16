@@ -87,6 +87,7 @@ export type TerceroAuditRow = {
   total_mensajes: number;
   ultima_actividad: string | null;
   es_jwt: boolean;
+  es_sesion?: boolean;
 };
 
 export type TercerosAuditResponse = {
@@ -106,6 +107,7 @@ export async function fetchTercerosAudit(input: {
   jwtTercero?: string;
   jwtContacto?: string;
   jwtNombre?: string;
+  appUser?: string;
 } = {}): Promise<TercerosAuditResponse> {
   const params = new URLSearchParams();
   params.set("page", String(input.page ?? 1));
@@ -114,6 +116,7 @@ export async function fetchTercerosAudit(input: {
   if (input.jwtTercero?.trim()) params.set("jwtTercero", input.jwtTercero.trim());
   if (input.jwtContacto?.trim()) params.set("jwtContacto", input.jwtContacto.trim());
   if (input.jwtNombre?.trim()) params.set("jwtNombre", input.jwtNombre.trim());
+  if (input.appUser?.trim()) params.set("appUser", input.appUser.trim());
   const raw = await capFetch(`/patyia/auditoria/terceros?${params.toString()}`, { method: "GET" });
   const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
     ? raw.body as TercerosAuditResponse
