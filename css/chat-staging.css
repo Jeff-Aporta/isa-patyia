@@ -295,6 +295,53 @@ html[data-mui-color-scheme="light"] .paty-chat-gate__inner {
   border-top: 1px solid var(--border, rgba(30, 144, 255, 0.18));
 }
 
+html[data-mui-color-scheme="light"] .paty-chat-compose {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-top-color: rgba(148, 163, 184, 0.32);
+  box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.05);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-image-previews img {
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-payload-btn {
+  color: #64748b !important;
+  border-color: rgba(148, 163, 184, 0.38) !important;
+  background: #fff !important;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-payload-btn:hover:not(:disabled) {
+  color: #4338ca !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  background: rgba(99, 102, 241, 0.06) !important;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiOutlinedInput-root {
+  background: #fff;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(30, 144, 255, 0.45);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #3b82f6;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiInputBase-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiButton-contained {
+  box-shadow: 0 1px 3px rgba(30, 144, 255, 0.25);
+}
+
 .paty-chat-payload-preview {
   position: absolute;
   bottom: calc(100% + 0.4rem);
@@ -415,6 +462,12 @@ html[data-mui-color-scheme="light"] .paty-chat-payload-btn--active {
   background: rgba(30, 144, 255, 0.04);
   border-top: 1px solid rgba(30, 144, 255, 0.15);
   font-size: 0.82rem;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-compose-readonly {
+  background: #f8fafc;
+  border-top-color: rgba(148, 163, 184, 0.28);
+  color: #64748b;
 }
 
 .paty-chat-image-previews {
