@@ -22,7 +22,7 @@ import {
   formatConversacionPostBodyPreview,
   postMensajeCalificado,
 } from "../api/patyiaChatApi.ts";
-import { fetchConvLogById, fetchTercerosAudit, fetchConversacionesBridge } from "../api/apiClient.ts";
+import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchTercerosAudit, fetchConversacionesBridge } from "../api/apiClient.ts";
 import { logToMensajesVista, resolveOpenAiMensajeText } from "../core/convLog.ts";
 import { ConvLogWebView } from "../ui/ConvLogWebView.jsx";
 import { convLogSurfaceSx } from "../ui/convLogSurface.ts";
@@ -446,6 +446,16 @@ function attachCalificacionesOnly(vista, calificados) {
   });
 }
 
+function countLogAssistants(log) {
+  return (log?.mensajes || []).filter((m) => String(m.role) === "assistant").length;
+}
+
+function countOpenAiAssistants(detail) {
+  return (detail?.mensajesOpenAI || []).filter(
+    (m) => String(m.autor || "").toLowerCase().includes("asistente"),
+  ).length;
+}
+
 function openAiFallbackVista(mensajes, fallbackUserName) {
   return (mensajes || []).map((m, i) => {
     const isUser = String(m.autor || "").toLowerCase().includes("usuario");
@@ -830,6 +840,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const threadScrollRef = useRef(null);
+  const lastLogApiCountRef = useRef(0);
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
@@ -980,6 +991,37 @@ export function ChatTool({ bootChat, onNeedLogin }) {
 
   const applyThreadFromDetail = useCallback((d, log, name) => {
     const rated = d?.mensajesCalificados || [];
+    const logAssistants = countLogAssistants(log);
+    const openAiAssistants = countOpenAiAssistants(d);
+    const logComplete = log?.mensajes?.length && logAssistants >= openAiAssistants;
+
+    if (log?.mensajes?.length) {
+      lastLogApiCountRef.current = log.mensajes.length;
+    }
+
+    if (logComplete) {
+      let vista = enrichLogVista(logToMensajesVista(log), name);
+      if (d?.mensajesOpenAI?.length) {
+        vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+      } else if (rated.length) {
+        vista = attachCalificacionesOnly(vista, rated);
+      }
+      setLogMensajes(vista);
+      setLogError("");
+      return;
+    }
+
+    if (d?.mensajesOpenAI?.length) {
+      const vista = attachCalificacionesToVista(
+        enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+        d.mensajesOpenAI,
+        rated,
+      );
+      setLogMensajes(vista);
+      setLogError("");
+      return;
+    }
+
     if (log?.mensajes?.length) {
       let vista = enrichLogVista(logToMensajesVista(log), name);
       if (d?.mensajesOpenAI?.length) {
@@ -991,18 +1033,14 @@ export function ChatTool({ bootChat, onNeedLogin }) {
       setLogError("");
       return;
     }
-    const vista = attachCalificacionesToVista(
-      enrichLogVista(openAiFallbackVista(d?.mensajesOpenAI || [], name), name),
-      d?.mensajesOpenAI,
-      rated,
-    );
-    setLogMensajes(vista);
+
+    setLogMensajes([]);
     if (log === null) {
       setLogError("");
     }
   }, []);
 
-  const openConv = useCallback(async (id, { silent = false, keepStream = false } = {}) => {
+  const openConv = useCallback(async (id, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0 } = {}) => {
     if (!loggedIn || !id) return;
     setSelectedId(id);
     mergePartial({ chat: { convId: id } });
@@ -1011,18 +1049,24 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     setLogError("");
     const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims));
     const useLogOnly = !jwt?.token || viewingAuditOther;
+    const minMensajes = freshLog
+      ? Math.max(minLogMensajes, lastLogApiCountRef.current + 2)
+      : 0;
     try {
       if (useLogOnly) {
-        const logResult = await fetchConvLogById(id).catch(() => null);
+        const logResult = freshLog
+          ? await fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
+          : await fetchConvLogById(id).catch(() => null);
         const row = rows.find((r) => r.iconversacion === id);
         setDetail(row || { iconversacion: id, titulo: `Conv #${id}` });
         applyThreadFromDetail(null, logResult, ownerLabel);
         return;
       }
-      const [d, logResult] = await Promise.all([
-        getConversacion(jwt, id),
-        fetchConvLogById(id).catch(() => null),
-      ]);
+      const detailPromise = getConversacion(jwt, id);
+      const logPromise = freshLog
+        ? fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
+        : fetchConvLogById(id).catch(() => null);
+      const [d, logResult] = await Promise.all([detailPromise, logPromise]);
       if (!convBelongsToJwt(d, jwt.claims) && !Session.can("patyia.chat.audit")) {
         toastWarning("Esta conversación no pertenece al token activo");
       }
@@ -1040,8 +1084,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   useEffect(() => { reloadList(); }, [reloadList, authTick]);
 
   useEffect(() => {
-    if (selectedId && !jwtLoading) openConv(selectedId);
-  }, [selectedId, jwtLoading, jwt?.token]);
+    if (selectedId && !jwtLoading && !sending) openConv(selectedId);
+  }, [selectedId, jwtLoading, jwt?.token, sending]);
 
   async function onNewChat() {
     if (!canSend) { toastWarning("Modo lectura."); return; }
@@ -1086,6 +1130,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     const imagenes = images.map((i) => i.dataUrl);
     const convIdBefore = selectedId;
     const userName = convOwnerDisplayLabel(displayScope);
+    const logCountBefore = lastLogApiCountRef.current;
     setLogMensajes((prev) => enrichLogVista(
       [...prev, buildOptimisticUserMsg({ text, imagenes, userName })],
       userName,
@@ -1101,11 +1146,18 @@ export function ChatTool({ bootChat, onNeedLogin }) {
       setImages([]);
       const finalText = String(result.respuesta || "").trim();
       if (finalText) setStreamText(finalText);
+      if (result?.mensajesOpenAI?.length) {
+        applyThreadFromDetail(result, null, userName);
+      }
       if (newId) {
         setSelectedId(newId);
         mergePartial({ chat: { convId: newId } });
         void reloadList();
-        await openConv(newId, { silent: true, keepStream: Boolean(finalText) });
+        await openConv(newId, {
+          silent: true,
+          freshLog: true,
+          minLogMensajes: logCountBefore + 2,
+        });
       }
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
