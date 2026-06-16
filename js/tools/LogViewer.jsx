@@ -220,6 +220,7 @@ export function LogViewer({ bootLog = {} }) {
   const [metaMsg, setMetaMsg] = useState(null);
   const [resumenOpen, setResumenOpen] = useState(false);
   const [selectedMsgId, setSelectedMsgId] = useState(null);
+  const autoLoadRef = useRef(false);
 
   const navItems = useMemo(() => convLogNavItems(mensajes), [mensajes]);
 
@@ -286,14 +287,14 @@ export function LogViewer({ bootLog = {} }) {
     }
   }, [jsonInput, aplicarLog]);
 
-  const recuperarPorId = useCallback(async () => {
+  const recuperarPorId = useCallback(async ({ silent = false } = {}) => {
     if (!String(convId ?? "").trim()) return;
     setError("");
     setLoading(true);
     try {
       const log = await Api.fetchConvLogById(convId);
       setJsonInput(JSON.stringify(log, null, 2));
-      aplicarLog(log);
+      aplicarLog(log, { silent });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
@@ -302,6 +303,14 @@ export function LogViewer({ bootLog = {} }) {
       setLoading(false);
     }
   }, [convId, aplicarLog]);
+
+  useEffect(() => {
+    if (autoLoadRef.current || bootLog.jsonInput?.trim()) return;
+    const id = String(bootLog.convId ?? convId ?? "").trim();
+    if (!id) return;
+    autoLoadRef.current = true;
+    recuperarPorId({ silent: true });
+  }, [bootLog.convId, bootLog.jsonInput, convId, recuperarPorId]);
 
   const onConvIdKeyDown = useCallback((e) => {
     if (e.key !== "Enter") return;
