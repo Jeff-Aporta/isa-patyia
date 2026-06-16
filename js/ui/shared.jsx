@@ -369,9 +369,11 @@ export function MetaDialog({ open, onClose, meta, title, isUserMessage = false, 
             />
           ) : (
             <section key={section.key} className="meta-prompt-section">
-              <Typography variant="overline" sx={{ display: "block", mb: 0.75, opacity: 0.8, letterSpacing: 0.6 }}>
-                {formatSectionLabel(section.label, meta.nombre_usuario)}
-              </Typography>
+              {!section.suppressLabel ? (
+                <Typography variant="overline" sx={{ display: "block", mb: 0.75, opacity: 0.8, letterSpacing: 0.6 }}>
+                  {formatSectionLabel(section.label, meta.nombre_usuario)}
+                </Typography>
+              ) : null}
               <PromptSectionBody section={section} userName={meta.nombre_usuario} />
             </section>
           )
