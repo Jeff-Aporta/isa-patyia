@@ -58,6 +58,8 @@ export type PatyConversacionRow = {
 };
 
 export type PatyMensaje = {
+  imensaje?: number;
+  ireferencia?: number;
   autor?: string;
   mensaje?: string;
   fecha_hora?: string | number;
