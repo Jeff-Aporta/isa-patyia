@@ -1,4 +1,4 @@
-/** Sesión AppTools isa-patyia — permisos vía system-login (token `app`). */
+/** Sesión ISA PatyIA — permisos vía system-login (token `app`). */
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../ui/notifications.jsx";
 
