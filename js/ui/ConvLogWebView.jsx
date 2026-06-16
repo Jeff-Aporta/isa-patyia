@@ -726,6 +726,23 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
   const rated = calificacion !== undefined && calificacion !== null;
   const useful = calificacion === 1;
   const notUseful = calificacion === 0;
+  const readOnly = disabled && !rated && !busy;
+
+  const upTooltip = (() => {
+    if (busy && !rated) return "Guardando calificación…";
+    if (useful) return "Calificado como útil";
+    if (rated && notUseful) return "Calificado como no útil · no se puede cambiar";
+    if (readOnly) return "Calificación no disponible (modo lectura)";
+    return "Marcar como útil";
+  })();
+
+  const downTooltip = (() => {
+    if (busy && !rated) return "Guardando calificación…";
+    if (notUseful) return "Calificado como no útil";
+    if (rated && useful) return "Calificado como útil · no se puede cambiar";
+    if (readOnly) return "Calificación no disponible (modo lectura)";
+    return "Marcar como no útil";
+  })();
 
   return (
     <Stack
@@ -737,12 +754,12 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
       role="group"
       aria-label="Calificación del mensaje"
     >
-      <Tooltip title={useful ? "Calificado como útil" : "Marcar como útil"} arrow>
+      <Tooltip title={upTooltip} arrow>
         <span>
           <IconButton
             size="small"
             className={`conv-msg-rating__btn conv-msg-rating__btn--up${useful ? " conv-msg-rating__btn--active" : ""}`}
-            aria-label="Útil"
+            aria-label={useful ? "Calificado como útil" : "Marcar como útil"}
             aria-pressed={useful}
             disabled={disabled || busy || rated}
             onClick={() => onRate(true)}
@@ -751,12 +768,12 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
           </IconButton>
         </span>
       </Tooltip>
-      <Tooltip title={notUseful ? "Calificado como no útil" : "Marcar como no útil"} arrow>
+      <Tooltip title={downTooltip} arrow>
         <span>
           <IconButton
             size="small"
             className={`conv-msg-rating__btn conv-msg-rating__btn--down${notUseful ? " conv-msg-rating__btn--active" : ""}`}
-            aria-label="No útil"
+            aria-label={notUseful ? "Calificado como no útil" : "Marcar como no útil"}
             aria-pressed={notUseful}
             disabled={disabled || busy || rated}
             onClick={() => onRate(false)}
