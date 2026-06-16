@@ -174,10 +174,78 @@ function pushImage(images: string[], ref: unknown) {
     }).filter(Boolean).join("\n\n");
   }
 
+  /** Separador legacy cuando el template no tiene {{instruccion_tipo}} (UlPrompts.ts). */
+  const INSTRUCTION_CONCAT_SEP = /\n\n---\n\n/;
+
+  function extractUserTextFromConvSend(send) {
+    if (!send || typeof send !== "object") return "";
+    const input = send.input;
+    if (typeof input === "string") return input.trim();
+    if (!Array.isArray(input)) return "";
+    return input.flatMap((turn) => {
+      if (!turn || typeof turn !== "object" || turn.role !== "user") return [];
+      const content = turn.content;
+      if (typeof content === "string") return [content];
+      if (!Array.isArray(content)) return [];
+      return content.map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) return String(part.text ?? "");
+        return "";
+      }).filter(Boolean);
+    }).join("\n").trim();
+  }
+
+  function extractAssistantTextFromConvReceive(receive) {
+    if (!receive || typeof receive !== "object") return "";
+    const direct = String(receive.output_text ?? "").trim();
+    if (direct) return direct;
+    const output = receive.output;
+    if (!Array.isArray(output)) return "";
+    const messages = output.filter((o) => o && typeof o === "object" && o.type === "message");
+    if (!messages.length) return "";
+    const last = messages[messages.length - 1];
+    const content = last.content;
+    if (!Array.isArray(content)) return "";
+    return content
+      .filter((c) => c && typeof c === "object" && c.type === "output_text")
+      .map((c) => String(c.text ?? ""))
+      .join("")
+      .trim();
+  }
+
+  /** Resuelve texto visible de un ítem mensajesOpenAI (API PatyIA). */
+  function resolveOpenAiMensajeText(m) {
+    const direct = String(m?.mensaje ?? "").trim();
+    if (direct) return direct;
+    const meta = m?.meta && typeof m.meta === "object" ? m.meta : null;
+    if (!meta) return "";
+    const isUser = String(m?.autor ?? "").toLowerCase().includes("usuario") || meta.role === "user";
+    if (isUser) {
+      const fromSend = extractUserTextFromConvSend(meta.send);
+      if (fromSend) return fromSend;
+      const input = meta.send?.input;
+      if (typeof input === "string" && input.trim()) return input.trim();
+      return String(meta.text ?? meta.prompt_text ?? "").trim();
+    }
+    const fromReceive = extractAssistantTextFromConvReceive(meta.receive);
+    if (fromReceive) return fromReceive;
+    const others = meta.others && typeof meta.others === "object" ? meta.others : null;
+    const fromOthers = String(others?.response_text ?? "").trim();
+    if (fromOthers) return fromOthers;
+    return String(meta.response_text ?? meta.text ?? "").trim();
+  }
+
+  function instructionsUseInlineTipoSlot(text) {
+    const body = String(text ?? "").trim();
+    return Boolean(body && !INSTRUCTION_CONCAT_SEP.test(body));
+  }
+
   function extractPromptSections(send) {
     if (!send || typeof send !== "object") return [];
     const sections = [];
     const seen = new Set();
+    const instrRaw = typeof send.instructions === "string" ? normalizePromptText(send.instructions).trim() : "";
+    const inlineTipoSlot = instructionsUseInlineTipoSlot(instrRaw);
 
     function push(key, label, text) {
       const normalized = normalizePromptText(text).trim();
@@ -186,7 +254,7 @@ function pushImage(images: string[], ref: unknown) {
       sections.push({ key, label, text: normalized });
     }
 
-    if (typeof send.instructions === "string") {
+    if (instrRaw) {
       push("instructions", "Instructions", send.instructions);
     }
 
@@ -195,7 +263,11 @@ function pushImage(images: string[], ref: unknown) {
       const vars = prompt.variables;
       if (vars && typeof vars === "object") {
         if (typeof vars.instrucion_tipo === "string" && vars.instrucion_tipo.trim()) {
-          push("instrucion_tipo", "Instrucción tipo", vars.instrucion_tipo);
+          const tipoText = vars.instrucion_tipo.trim();
+          const embedded = instrRaw && instrRaw.includes(tipoText);
+          if (!inlineTipoSlot && !embedded) {
+            push("instrucion_tipo", "Instrucción tipo", tipoText);
+          }
         }
         const generalParts = [];
         if (typeof vars.nombre_usuario === "string" && vars.nombre_usuario.trim()) {
@@ -228,8 +300,6 @@ function pushImage(images: string[], ref: unknown) {
     return sections;
   }
 
-  const INSTRUCTION_CONCAT_SEP = /\n\n---\n\n/;
-
   function splitInstructionParts(text, meta) {
     const body = String(text ?? "").trim();
     if (!body) return [];
@@ -251,11 +321,14 @@ function pushImage(images: string[], ref: unknown) {
 
   function resolvePromptSectionsForDisplay(sections, meta) {
     const list = sections || [];
-    const hasInstructions = list.some((s) => {
+    const instrSection = list.find((s) => {
       const key = String(s?.key ?? "");
       const label = String(s?.label ?? "").toLowerCase();
       return key === "instructions" || label === "instructions";
     });
+    const instrText = String(instrSection?.text ?? "");
+    const useInlineTipoSlot = instructionsUseInlineTipoSlot(instrText);
+    const hasInstructions = Boolean(instrSection);
     const out = [];
 
     for (const section of list) {
@@ -263,29 +336,32 @@ function pushImage(images: string[], ref: unknown) {
       const labelLower = String(section?.label ?? "").toLowerCase();
 
       if (key === "instructions" || labelLower === "instructions") {
-        for (const part of splitInstructionParts(section.text, meta)) {
+        if (useInlineTipoSlot) {
           out.push({
-            key: `instruction-${part.key}`,
-            label: part.name,
-            instructionName: part.name,
-            instructionKind: part.kind,
-            text: part.text,
-            isInstructionPart: true,
+            ...section,
+            isInstructionPart: false,
+            suppressLabel: true,
           });
+        } else {
+          for (const part of splitInstructionParts(section.text, meta)) {
+            out.push({
+              key: `instruction-${part.key}`,
+              label: part.name,
+              instructionName: part.name,
+              instructionKind: part.kind,
+              text: part.text,
+              isInstructionPart: true,
+            });
+          }
         }
         continue;
       }
 
       if (key === "instrucion_tipo" || labelLower === "instrucción tipo") {
+        if (useInlineTipoSlot) continue;
         const tipoText = String(section.text ?? "").trim();
         if (hasInstructions) {
-          const instrSection = list.find((s) => {
-            const k = String(s?.key ?? "");
-            const l = String(s?.label ?? "").toLowerCase();
-            return k === "instructions" || l === "instructions";
-          });
-          if (tipoText && instrSection && String(instrSection.text ?? "").includes(tipoText))
-            continue;
+          if (tipoText && instrText.includes(tipoText)) continue;
         }
         out.push({
           key: section.key,
@@ -713,6 +789,7 @@ function pushImage(images: string[], ref: unknown) {
   }
 
 export {
+  resolveOpenAiMensajeText,
   parseLogInput,
   logToMensajesVista,
   ordenarMensajesConvLog,
