@@ -78,6 +78,32 @@ export async function fetchConvLogById(id: string | number) {
   }
 }
 
+/** Reintenta mientras el log no alcance minMensajes (p. ej. tras POST /conversacion). */
+export async function fetchConvLogByIdWithRetry(
+  id: string | number,
+  { minMensajes = 0, attempts = 8, delayMs = 300 }: {
+    minMensajes?: number;
+    attempts?: number;
+    delayMs?: number;
+  } = {},
+) {
+  let last: Awaited<ReturnType<typeof fetchConvLogById>> | null = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const log = await fetchConvLogById(id);
+      last = log;
+      const n = Array.isArray(log.mensajes) ? log.mensajes.length : 0;
+      if (!minMensajes || n >= minMensajes) return log;
+    } catch (e) {
+      if (i === attempts - 1 && !last) throw e;
+    }
+    if (i < attempts - 1) {
+      await new Promise((resolve) => { setTimeout(resolve, delayMs); });
+    }
+  }
+  return last;
+}
+
 export type TerceroAuditRow = {
   itercero: string;
   icontacto: string;
