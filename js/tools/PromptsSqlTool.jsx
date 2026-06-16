@@ -877,7 +877,13 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
             {loadBusy && <CircularProgress size={14} />}
 
-            <Chip size="small" label={`${filledCount}/${instruccionKeys.length}`} color={filledCount ? "primary" : "default"} variant="outlined" />
+            <Chip
+              className="panel-head-count-chip"
+              size="small"
+              label={`${filledCount}/${instruccionKeys.length}`}
+              color={filledCount ? "primary" : "default"}
+              variant="outlined"
+            />
 
             <ButtonIconify
               variant="primary"

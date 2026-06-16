@@ -1,4 +1,4 @@
-/** Endpoints PatyIA — lecturas al puente Azure; publish vía main-orchestrator (gateway). */
+/** Endpoints PatyIA — token `app` (AppSession) en gateway y puente Azure. */
 import { Session, Config } from "../core/platform.ts";
 import {
   ORCH_ONLINE,
@@ -21,13 +21,13 @@ const bridgeHttp = window.ISAFront.createCapFetch({
   isLocal: isLocalMode,
 });
 
+/** Publish y mutaciones gateway: solo AppSession (verify-access en orquestador). */
 const orchHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
   getApiBase: () => ORCH_ONLINE.replace(/\/$/, ""),
   orchOnlineInLocal: false,
   isLocal: isLocalMode,
-  serviceAuthHeaders: SessionApi.serviceAuthHeaders,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
@@ -42,8 +42,7 @@ export async function fetchInstruccionesPaty() {
 }
 
 export async function publishInstruccionesPaty(sql: string) {
-  const cap = SessionApi.instruccionesPublishCap();
-  if (!cap) {
+  if (!SessionApi.instruccionesPublishCap()) {
     throw new Error(
       SessionApi.blockReason(SessionApi.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para publicar instrucciones",
@@ -56,7 +55,7 @@ export async function publishInstruccionesPaty(sql: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sql }),
     },
-    cap,
+    null,
   );
 }
 

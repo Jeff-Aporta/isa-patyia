@@ -3,13 +3,11 @@ import {
   type PatyJwtRecord,
   type PatyJwtClaims,
 } from "../core/patyia-jwt.ts";
+import { patyAuthHeaders } from "./patyiaTokens.ts";
 import { readPatyiaSseStream } from "../core/patyia-chat-sse.ts";
 
-function authHeaders(jwt: PatyJwtRecord): HeadersInit {
-  return {
-    Authorization: `Bearer ${jwt.token}`,
-    Accept: "application/json",
-  };
+function authHeaders(jwt: PatyJwtRecord, extra: Record<string, string> = {}): HeadersInit {
+  return patyAuthHeaders(jwt, extra);
 }
 
 function unwrapBody<T>(data: unknown): T {
@@ -146,11 +144,10 @@ export async function sendConversacionStream(
 
   const res = await fetch(`${PATYIA_API_BASE}/conversacion`, {
     method: "POST",
-    headers: {
-      ...authHeaders(jwt),
+    headers: authHeaders(jwt, {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
-    },
+    }),
     body: JSON.stringify(body),
   });
 

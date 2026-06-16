@@ -932,6 +932,21 @@ html[data-mui-color-scheme="light"] .conv-usage-dialog__table tbody tr:last-chil
   background: rgba(15, 23, 42, 0.35);
 }
 
+.panel-head-count-chip {
+  align-self: center;
+  margin-right: 0.35rem;
+  height: 1.625rem;
+}
+
+.panel-head-count-chip .MuiChip-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 0.65rem;
+  padding-left: 0.55rem;
+  line-height: 1;
+}
+
 .panel-body {
   flex: 1 1 auto;
   min-height: 0;

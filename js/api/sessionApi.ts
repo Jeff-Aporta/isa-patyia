@@ -1,22 +1,15 @@
-/** CAP isa-patyia — tokens de servicio vía ISAFront.createServiceSession. */
-import { Session, Config } from "../core/platform.ts";
+/** Sesión AppTools isa-patyia — permisos vía system-login (token `app`). */
+import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../ui/notifications.jsx";
 
 /** Capacidad canónica para guardar instrucciones en Paty (MSSQL publish). */
 export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-
-/** Overrides por app; el catálogo de system-login completa el resto. */
-const CAP_ENDPOINTS: Record<string, { method: string; path: string }> = {
-  [INSTRUCCIONES_WRITE_CAP]: { method: "POST", path: "/api/patyia/instrucciones/publish" },
-};
 
 function notifyAuth() {
   window.dispatchEvent(new Event(Session.EVENT));
   window.dispatchEvent(new Event("patyia-apptools:auth"));
   window.dispatchEvent(new Event("isa-patyia:auth"));
 }
-
-const svc = window.ISAFront.createServiceSession({ Session, Config, capEndpoints: CAP_ENDPOINTS, notifyAuth });
 
 export const isLoggedIn = () => Session.isLoggedIn();
 export const can = (cap: string) => Session.can(cap);
@@ -38,11 +31,18 @@ export function patyChatAuditCap(): string | null {
   return can("patyia.chat.audit") ? "patyia.chat.audit" : null;
 }
 
-export const serviceAuthHeaders = svc.serviceAuthHeaders;
-export const resolveCapEndpoint = svc.resolveCapEndpoint;
-export const clearSession = svc.clearSession;
-export const login = svc.login;
-export const logout = clearSession;
+export async function login(user: string, pass: string) {
+  const session = await Session.login(user, pass);
+  notifyAuth();
+  return session;
+}
+
+export function logout() {
+  Session.logout();
+  notifyAuth();
+}
+
+export const clearSession = logout;
 
 export function getSession() {
   const s = Session.current();
@@ -75,6 +75,5 @@ export function handleApiError(err: Error & { code?: string }, cap: string) {
   login,
   logout,
   refreshProfile: () => Session.refreshProfile(),
-  serviceAuthHeaders,
   clearSession,
 };
