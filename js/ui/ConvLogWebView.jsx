@@ -6,7 +6,42 @@ import { UI } from "../core/platform.ts";
 import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
 
-const { useMemo, useState } = getReact();
+const { useMemo, useState, useRef, useEffect } = getReact();
+
+function useOperativaEnterIds(mensajes, threadKey) {
+  const seenIdsRef = useRef(new Set());
+  const primedKeyRef = useRef(null);
+  const [enterIds, setEnterIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (primedKeyRef.current === threadKey) return;
+    primedKeyRef.current = threadKey;
+    seenIdsRef.current = new Set();
+    setEnterIds(new Set());
+  }, [threadKey]);
+
+  useEffect(() => {
+    const msgs = mensajes || [];
+    if (primedKeyRef.current !== threadKey) return;
+
+    if (!seenIdsRef.current.size && msgs.length) {
+      for (const m of msgs) seenIdsRef.current.add(m.idMsg);
+      return;
+    }
+
+    const nextEnter = new Set();
+    for (const m of msgs) {
+      if (seenIdsRef.current.has(m.idMsg)) continue;
+      seenIdsRef.current.add(m.idMsg);
+      if (m.esOperativa) nextEnter.add(m.idMsg);
+    }
+    if (nextEnter.size) {
+      setEnterIds((prev) => new Set([...prev, ...nextEnter]));
+    }
+  }, [mensajes, threadKey]);
+
+  return enterIds;
+}
 
 const ROLE_META = {
   user: { icon: "mdi:account-outline", title: "Usuario", accent: "#1e90ff" },
@@ -44,7 +79,7 @@ function roleTitle(msg, chatUserName) {
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, fecha, streaming = false }) {
+function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, fecha, streaming = false, footerExtra = null }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
@@ -168,7 +203,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
         </Stack>
       </Box>
       <Box sx={{ p: { xs: 2, sm: 2.5 } }}>{children}</Box>
-      {fecha ? (
+      {(fecha || footerExtra) ? (
         <Box
           className="conv-msg-card__footer"
           sx={{
@@ -176,18 +211,37 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
             py: 0.65,
             borderTop: 1,
             borderColor: "divider",
-            textAlign: isRight ? "right" : "left",
             bgcolor: muted ? "action.hover" : "transparent",
           }}
         >
-          <Typography
-            component="time"
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontSize: "0.68rem", letterSpacing: "0.02em", opacity: 0.85 }}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            flexWrap="wrap"
+            useFlexGap
+            gap={0.75}
+            sx={{ flexDirection: align === "right" ? "row-reverse" : "row" }}
           >
-            {fecha}
-          </Typography>
+            {footerExtra}
+            {fecha ? (
+              <Typography
+                component="time"
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  fontSize: "0.68rem",
+                  letterSpacing: "0.02em",
+                  opacity: 0.85,
+                  ml: align === "right" ? 0 : "auto",
+                  mr: align === "right" ? "auto" : 0,
+                  textAlign: align === "right" ? "right" : "left",
+                }}
+              >
+                {fecha}
+              </Typography>
+            ) : null}
+          </Stack>
         </Box>
       ) : null}
     </Paper>
@@ -666,7 +720,65 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   );
 }
 
-function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null }) {
+function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, align = "right" }) {
+  const { Stack, IconButton, Tooltip, CircularProgress } = getMaterialUI();
+  const { Icon } = UI;
+  const rated = calificacion !== undefined && calificacion !== null;
+  const useful = calificacion === 1;
+  const notUseful = calificacion === 0;
+
+  return (
+    <Stack
+      direction="row"
+      spacing={0.25}
+      alignItems="center"
+      justifyContent={align === "right" ? "flex-end" : "flex-start"}
+      className={`conv-msg-rating conv-msg-rating--${align}`}
+      role="group"
+      aria-label="Calificación del mensaje"
+    >
+      <Tooltip title={useful ? "Calificado como útil" : "Marcar como útil"} arrow>
+        <span>
+          <IconButton
+            size="small"
+            className={`conv-msg-rating__btn conv-msg-rating__btn--up${useful ? " conv-msg-rating__btn--active" : ""}`}
+            aria-label="Útil"
+            aria-pressed={useful}
+            disabled={disabled || busy || rated}
+            onClick={() => onRate(true)}
+          >
+            {busy && !rated ? <CircularProgress size={16} /> : <Icon icon={useful ? "mdi:thumb-up" : "mdi:thumb-up-outline"} size={18} />}
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={notUseful ? "Calificado como no útil" : "Marcar como no útil"} arrow>
+        <span>
+          <IconButton
+            size="small"
+            className={`conv-msg-rating__btn conv-msg-rating__btn--down${notUseful ? " conv-msg-rating__btn--active" : ""}`}
+            aria-label="No útil"
+            aria-pressed={notUseful}
+            disabled={disabled || busy || rated}
+            onClick={() => onRate(false)}
+          >
+            <Icon icon={notUseful ? "mdi:thumb-down" : "mdi:thumb-down-outline"} size={18} />
+          </IconButton>
+        </span>
+      </Tooltip>
+    </Stack>
+  );
+}
+
+function resolveMsgIreferencia(msg) {
+  if (Number(msg?.ireferencia)) return Number(msg.ireferencia);
+  const ts = msg?.meta?.ts;
+  if (!ts) return undefined;
+  const d = Date.parse(String(ts).trim());
+  if (Number.isNaN(d)) return undefined;
+  return Math.floor(d / 1000);
+}
+
+function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
   const { Alert, Box } = getMaterialUI();
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, compactMeta ? chatUserName : undefined);
@@ -676,10 +788,34 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
   const isStreaming = Boolean(msg.isStreaming || (streamingMsgId && msg.idMsg === streamingMsgId));
   const showMetaBtn = Boolean(onMeta && msg.meta && metaWorthDialog(msg.meta, isUser));
   const statsSide = isUser ? "left" : "right";
+  const msgIreferencia = resolveMsgIreferencia(msg);
+  const showRating = Boolean(
+    onRateMessage
+    && !isUser
+    && !isOperativa
+    && !isStreaming
+    && msgIreferencia
+    && (canRate || msg.calificacion !== undefined),
+  );
+  const ratingRow = showRating ? (
+    <MsgRatingRow
+      calificacion={msg.calificacion}
+      disabled={!canRate}
+      busy={ratingMsgId === msg.idMsg}
+      align="left"
+      onRate={(butil) => onRateMessage({ ...msg, ireferencia: msgIreferencia }, butil)}
+    />
+  ) : null;
+  const showMetricsColumn = Boolean(showUsageStats && msg.usageStats);
+  const showSideColumn = Boolean(showMetricsColumn || ratingRow);
 
   return (
     <Box
-      className={isOperativa && compactMeta ? "conv-msg--operativa" : undefined}
+      className={
+        isOperativa && compactMeta
+          ? `conv-msg--operativa${operativaEnter ? " conv-msg--operativa-enter" : ""}`
+          : undefined
+      }
       sx={{
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
@@ -690,7 +826,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
       <Box sx={{
         display: "flex",
         flexDirection: isUser ? "row-reverse" : "row",
-        alignItems: "flex-start",
+        alignItems: showSideColumn && ratingRow ? "stretch" : "flex-start",
         gap: { xs: 1, sm: 1.25 },
         maxWidth: isOperativa && compactMeta ? "88%" : "95%",
         minWidth: 0,
@@ -727,23 +863,42 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
             />
           </SectionCard>
         </Box>
-        {showUsageStats && msg.usageStats && (
-          <UsageStatsColumn
-            stats={msg.usageStats}
-            align={statsSide}
-            msgLabel={title}
-            fecha={fecha}
-            meta={msg.meta}
-          />
+        {showSideColumn && (
+          <Box
+            className={`conv-msg-side-column conv-msg-side-column--${statsSide}`}
+            sx={{
+              flexShrink: 0,
+              maxWidth: { xs: "min(100%, 16rem)", sm: "18rem" },
+              pt: 0.25,
+              pb: 0.25,
+              alignSelf: "stretch",
+            }}
+          >
+            {showMetricsColumn ? (
+              <UsageStatsColumn
+                stats={msg.usageStats}
+                align={statsSide}
+                msgLabel={title}
+                fecha={fecha}
+                meta={msg.meta}
+              />
+            ) : null}
+            {ratingRow ? (
+              <Box className="conv-msg-rating-slot">
+                {ratingRow}
+              </Box>
+            ) : null}
+          </Box>
         )}
       </Box>
     </Box>
   );
 }
 
-export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null }) {
+export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey);
 
   const mensajesConStats = useMemo(
     () => attachUsageStats(mensajes || []),
@@ -772,6 +927,10 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
           showUsageStats={hasUsageStats}
           onImageClick={onImageClick}
           streamingMsgId={streamingMsgId}
+          onRateMessage={onRateMessage}
+          canRate={canRate}
+          ratingMsgId={ratingMsgId}
+          operativaEnter={operativaEnterIds.has(m.idMsg)}
         />
       ))}
       <ImageLightboxDialog open={Boolean(lightboxSrc)} src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
