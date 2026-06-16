@@ -20,6 +20,7 @@ import {
   sendConversacionStream,
   buildConversacionPostBody,
   formatConversacionPostBodyPreview,
+  postMensajeCalificado,
 } from "../api/patyiaChatApi.ts";
 import { fetchConvLogById, fetchTercerosAudit, fetchConversacionesBridge } from "../api/apiClient.ts";
 import { logToMensajesVista, resolveOpenAiMensajeText } from "../core/convLog.ts";
@@ -33,7 +34,72 @@ import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { buildUserAvatarUrl } from "../core/userAvatar.ts";
 import { resolveSessionBrowseScope, browseScopeKey } from "../core/sessionBrowseScope.ts";
 
-const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
+const { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } = getReact();
+
+const THREAD_SCROLL_NEAR_BOTTOM = 72;
+
+/** Conserva distancia al fondo al insertar mensajes (p. ej. operativas) arriba del viewport. */
+function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
+  const snapshotRef = useRef(null);
+
+  const mensajesKey = useMemo(
+    () => (mensajes || []).map((m) => (
+      m.idMsg === "stream-live"
+        ? `${m.idMsg}:${String(m.contenido || "").length}`
+        : m.idMsg
+    )).join("|"),
+    [mensajes],
+  );
+
+  const captureSnapshot = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    snapshotRef.current = {
+      scrollHeight: el.scrollHeight,
+      scrollTop: el.scrollTop,
+      clientHeight: el.clientHeight,
+    };
+  }, [scrollRef]);
+
+  const applyScrollAnchor = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const snap = snapshotRef.current;
+    const distBottom = snap
+      ? snap.scrollHeight - snap.scrollTop - snap.clientHeight
+      : 0;
+    const pinBottom = sending || !snap || distBottom <= THREAD_SCROLL_NEAR_BOTTOM;
+
+    if (pinBottom) {
+      el.scrollTop = el.scrollHeight;
+    } else {
+      el.scrollTop = Math.max(0, el.scrollHeight - distBottom - el.clientHeight);
+    }
+    captureSnapshot();
+  }, [scrollRef, sending, captureSnapshot]);
+
+  const onThreadScroll = useCallback(() => {
+    captureSnapshot();
+  }, [captureSnapshot]);
+
+  useLayoutEffect(() => {
+    applyScrollAnchor();
+  }, [mensajesKey, sending, applyScrollAnchor]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+
+    const ro = new ResizeObserver(() => {
+      applyScrollAnchor();
+    });
+    for (const child of el.children) ro.observe(child);
+    return () => ro.disconnect();
+  }, [mensajesKey, applyScrollAnchor, scrollRef]);
+
+  return onThreadScroll;
+}
 const {
   Box, Typography, Button, IconButton, TextField, List, ListItemButton, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Tooltip, Alert,
@@ -294,6 +360,92 @@ function resolveUserName(msg, fallbackUserName) {
   );
 }
 
+function fechaHoraToEpochSeconds(fh) {
+  if (fh == null || fh === "") return undefined;
+  if (typeof fh === "number" && Number.isFinite(fh)) {
+    const n = fh > 1e12 ? Math.floor(fh / 1000) : Math.floor(fh);
+    return n > 0 ? n : undefined;
+  }
+  const d = Date.parse(String(fh).trim());
+  if (Number.isNaN(d)) return undefined;
+  return Math.floor(d / 1000);
+}
+
+function butilToCalificacion(butil) {
+  if (butil === undefined || butil === null) return undefined;
+  return butil === true || butil === 1 || butil === "1" ? 1 : 0;
+}
+
+function findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido }) {
+  const rated = (calificados || []).map((c) => ({
+    imensaje: Number(c.imensaje) || 0,
+    ireferencia: Number(c.ireferencia) || 0,
+    butil: c.butil,
+    contenido: String(c.contenido ?? "").trim(),
+  })).filter((c) => c.imensaje > 0);
+  if (!rated.length) return null;
+
+  if (ireferencia) {
+    let match = rated.find((r) => r.ireferencia === ireferencia);
+    if (!match) match = rated.find((r) => r.ireferencia && Math.abs(r.ireferencia - ireferencia) <= 2);
+    if (match) return match;
+  }
+  if (imensaje) {
+    const match = rated.find((r) => r.imensaje === imensaje);
+    if (match) return match;
+  }
+  const text = String(contenido ?? "").trim();
+  if (text) {
+    return rated.find((r) => {
+      const c = r.contenido;
+      return c === text || (text.length >= 24 && c.startsWith(text.slice(0, 24)));
+    }) || null;
+  }
+  return null;
+}
+
+function attachCalificacionesToVista(vista, openAiMsgs, calificados) {
+  let oi = 0;
+  return (vista || []).map((v) => {
+    if (v.esUsuario || v.esOperativa) return v;
+    const msgs = openAiMsgs || [];
+    let raw;
+    if (msgs.length) {
+      while (oi < msgs.length && String(msgs[oi]?.autor || "").toLowerCase().includes("usuario")) oi += 1;
+      raw = msgs[oi];
+      oi += 1;
+    }
+    const ireferencia = v.ireferencia
+      ?? Number(raw?.ireferencia)
+      ?? fechaHoraToEpochSeconds(raw?.fecha_hora)
+      ?? fechaHoraToEpochSeconds(v.meta?.ts);
+    const imensaje = Number(v.imensaje) || Number(raw?.imensaje) || undefined;
+    const match = findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido: v.contenido });
+    return {
+      ...v,
+      ...(ireferencia ? { ireferencia } : {}),
+      ...(match?.imensaje || imensaje ? { imensaje: match?.imensaje || imensaje } : {}),
+      ...(match ? { calificacion: butilToCalificacion(match.butil) } : {}),
+    };
+  });
+}
+
+function attachCalificacionesOnly(vista, calificados) {
+  return (vista || []).map((v) => {
+    if (v.esUsuario || v.esOperativa) return v;
+    const ireferencia = v.ireferencia ?? fechaHoraToEpochSeconds(v.meta?.ts);
+    const imensaje = Number(v.imensaje) || undefined;
+    const match = findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido: v.contenido });
+    if (!match) return { ...v, ...(ireferencia ? { ireferencia } : {}) };
+    return {
+      ...v,
+      ...(ireferencia ? { ireferencia } : {}),
+      ...(match.imensaje ? { imensaje: match.imensaje } : {}),
+      calificacion: butilToCalificacion(match.butil),
+    };
+  });
+}
+
 function openAiFallbackVista(mensajes, fallbackUserName) {
   return (mensajes || []).map((m, i) => {
     const isUser = String(m.autor || "").toLowerCase().includes("usuario");
@@ -305,6 +457,7 @@ function openAiFallbackVista(mensajes, fallbackUserName) {
     const contenido = resolveOpenAiMensajeText(m);
     const fechaRaw = m.fecha_hora || meta?.ts || "";
     const imensaje = Number(m.imensaje) || undefined;
+    const ireferencia = Number(m.ireferencia) || fechaHoraToEpochSeconds(fechaRaw) || undefined;
     return {
       idMsg: imensaje ? `msg-${imensaje}` : `openai-${i}`,
       rol: isUser ? "user" : "assistant",
@@ -314,6 +467,8 @@ function openAiFallbackVista(mensajes, fallbackUserName) {
       esOperativa: false,
       meta,
       nombreUsuario: nombreUsuario || undefined,
+      ...(imensaje ? { imensaje } : {}),
+      ...(ireferencia ? { ireferencia } : {}),
     };
   });
 }
@@ -658,6 +813,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [images, setImages] = useState([]);
   const [streamText, setStreamText] = useState("");
   const [logMensajes, setLogMensajes] = useState([]);
+  const [ratingMsgId, setRatingMsgId] = useState(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [logError, setLogError] = useState("");
   const [metaOpen, setMetaOpen] = useState(false);
@@ -823,12 +979,24 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser]);
 
   const applyThreadFromDetail = useCallback((d, log, name) => {
+    const rated = d?.mensajesCalificados || [];
     if (log?.mensajes?.length) {
-      setLogMensajes(enrichLogVista(logToMensajesVista(log), name));
+      let vista = enrichLogVista(logToMensajesVista(log), name);
+      if (d?.mensajesOpenAI?.length) {
+        vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+      } else if (rated.length) {
+        vista = attachCalificacionesOnly(vista, rated);
+      }
+      setLogMensajes(vista);
       setLogError("");
       return;
     }
-    setLogMensajes(enrichLogVista(openAiFallbackVista(d?.mensajesOpenAI || [], name), name));
+    const vista = attachCalificacionesToVista(
+      enrichLogVista(openAiFallbackVista(d?.mensajesOpenAI || [], name), name),
+      d?.mensajesOpenAI,
+      rated,
+    );
+    setLogMensajes(vista);
     if (log === null) {
       setLogError("");
     }
@@ -989,6 +1157,42 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     setMetaOpen(true);
   }, []);
 
+  const onRateMessage = useCallback(async (msg, butil) => {
+    if (!canSend || !jwt?.token || !selectedId) return;
+    if (msg.calificacion !== undefined) return;
+    const ireferencia = Number(msg.ireferencia) || fechaHoraToEpochSeconds(msg.meta?.ts);
+    if (!ireferencia) {
+      toastWarning("No se puede calificar este mensaje (sin referencia temporal).");
+      return;
+    }
+    const contenido = String(msg.contenido || "").trim();
+    if (!contenido) {
+      toastWarning("No se puede calificar un mensaje vacío.");
+      return;
+    }
+    setRatingMsgId(msg.idMsg);
+    try {
+      const saved = await postMensajeCalificado(jwt, {
+        iconversacion: selectedId,
+        contenido,
+        ireferencia,
+        butil,
+      });
+      const calificacion = butil ? 1 : 0;
+      const imensajeDb = Number(saved?.imensaje) || msg.imensaje;
+      setLogMensajes((prev) => prev.map((m) => (
+        m.idMsg === msg.idMsg
+          ? { ...m, calificacion, imensaje: imensajeDb, idMsg: imensajeDb ? `msg-${imensajeDb}` : m.idMsg }
+          : m
+      )));
+      toastSuccess(butil ? "Marcado como útil" : "Marcado como no útil");
+    } catch (e) {
+      toastError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRatingMsgId(null);
+    }
+  }, [canSend, jwt, selectedId]);
+
   const chatUserName = useMemo(
     () => convOwnerDisplayLabel(displayScope),
     [displayScope],
@@ -999,12 +1203,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   );
   const showThread = Boolean(selectedId || detail || sending || logMensajes.length);
 
-  useEffect(() => {
-    if (!sending) return;
-    const el = threadScrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [sending, streamText, displayMensajes.length]);
+  const onThreadScroll = useThreadScrollAnchor(threadScrollRef, displayMensajes, { sending });
 
   const postBodyPreview = useMemo(
     () => buildConversacionPostBody({
@@ -1250,7 +1449,11 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           </Box>
         ) : (
           <>
-            <Box ref={threadScrollRef} sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}>
+            <Box
+              ref={threadScrollRef}
+              onScroll={onThreadScroll}
+              sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}
+            >
               {loadingThread && !sending && (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                   <CircularProgress size={28} />
@@ -1267,6 +1470,10 @@ export function ChatTool({ bootChat, onNeedLogin }) {
                   chatUserName={chatUserName}
                   streamingMsgId={sending ? "stream-live" : null}
                   emptyHint="Sin mensajes en esta conversación."
+                  canRate={canSend && Boolean(jwt?.token)}
+                  onRateMessage={onRateMessage}
+                  ratingMsgId={ratingMsgId}
+                  threadKey={selectedId ?? "draft"}
                 />
               )}
             </Box>
