@@ -1,6 +1,5 @@
 /** JWT portal soporte-staging — persistido en BD_AUTH por usuario (system-login). Token `app`. */
-import { Config } from "../core/platform.ts";
-import { appAuthHeaders } from "./patyiaTokens.ts";
+import { Config, Session } from "../core/platform.ts";
 
 export const PATYIA_PORTAL_ID = "soporte-staging";
 
@@ -15,7 +14,11 @@ export type PortalJwtResponse = {
 };
 
 function authHeaders(): HeadersInit {
-  return { Accept: "application/json", ...appAuthHeaders() };
+  const h: Record<string, string> = { Accept: "application/json" };
+  if (Session.isLoggedIn()) {
+    Object.assign(h, Session.authHeader(), Session.appHeader());
+  }
+  return h;
 }
 
 function portalUrl(portal: string, query = "") {
