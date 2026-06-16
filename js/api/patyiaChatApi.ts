@@ -153,6 +153,10 @@ export async function sendConversacionStream(
 
   let streamingText = "";
   const finalPayload = await readPatyiaSseStream(res, (ev) => {
+    if (ev.event === "begin") {
+      onDelta("", ev.data);
+      return;
+    }
     if ((ev.event === "message" || ev.event === "end") && typeof ev.data.respuesta === "string") {
       streamingText = ev.data.respuesta;
       onDelta(streamingText, ev.data);
