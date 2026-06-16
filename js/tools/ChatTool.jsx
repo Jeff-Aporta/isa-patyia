@@ -304,8 +304,9 @@ function openAiFallbackVista(mensajes, fallbackUserName) {
     }
     const contenido = resolveOpenAiMensajeText(m);
     const fechaRaw = m.fecha_hora || meta?.ts || "";
+    const imensaje = Number(m.imensaje) || undefined;
     return {
-      idMsg: `openai-${i}`,
+      idMsg: imensaje ? `msg-${imensaje}` : `openai-${i}`,
       rol: isUser ? "user" : "assistant",
       contenido,
       fecha: formatTs(fechaRaw),
