@@ -45,33 +45,6 @@ const CHAT_SIDEBAR_W = 320;
 const MAX_CHAT_IMAGES = 10;
 const TERCEROS_AUDIT_PAGE_SIZE = 15;
 const CONV_LIST_PAGE_SIZE = 100;
-const BROWSE_TERCEROS_LIMIT = 30;
-const BROWSE_TERCEROS_FETCH = 8;
-const BROWSE_CONV_PER_TERCERO = 25;
-
-async function fetchBrowseConversationsAggregated() {
-  const audit = await fetchTercerosAudit({ page: 1, limit: BROWSE_TERCEROS_LIMIT });
-  const candidates = (audit.rows ?? []).filter((r) => r.total_conversaciones > 0).slice(0, BROWSE_TERCEROS_FETCH);
-  const chunks = await Promise.all(
-    candidates.map((r) =>
-      fetchConversacionesBridge({
-        itercero: r.itercero,
-        icontacto: r.icontacto,
-        page: 1,
-        limit: BROWSE_CONV_PER_TERCERO,
-      }).catch(() => ({ conversaciones: [] })),
-    ),
-  );
-  const merged = chunks.flatMap((c) => c.conversaciones || []);
-  merged.sort((a, b) => String(b.fhultact || "").localeCompare(String(a.fhultact || "")));
-  const seen = new Set();
-  return merged.filter((r) => {
-    const id = r.iconversacion;
-    if (seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-}
 
 function auditScopeKey(scope) {
   if (!scope) return "";
@@ -693,12 +666,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         });
         setRows(res.conversaciones);
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
-      } else if (sessionScopeLoading) {
-        setRows([]);
-        setConvListMeta(null);
       } else {
-        const list = await fetchBrowseConversationsAggregated();
-        setRows(list);
+        setRows([]);
         setConvListMeta(null);
       }
     } catch (e) {
@@ -1023,7 +992,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
                   ? `${listScope.nombre} · modo lectura`
                   : sessionScopeLoading
                     ? "Buscando tus conversaciones…"
-                    : "Recientes · modo lectura"}
+                    : "Sin contacto identificado · filtra por usuario"}
               </Typography>
             ) : null}
             {viewingAuditOther ? (
