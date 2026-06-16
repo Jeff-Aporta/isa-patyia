@@ -470,15 +470,6 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-stats--clickable:focus-visib
   box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35);
 }
 
-.conv-msg-usage-stats__hint {
-  display: block;
-  font-size: 0.52rem !important;
-  opacity: 0.55;
-  letter-spacing: 0.03em;
-  text-align: inherit;
-  margin-top: 0.1rem;
-}
-
 .conv-msg-usage-stats__meta {
   display: flex;
   flex-wrap: wrap;
@@ -517,14 +508,6 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-chip--model {
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--latency {
   border-color: rgba(14, 165, 233, 0.32) !important;
   color: #0369a1 !important;
-}
-
-.conv-msg-usage-stats--right .conv-msg-usage-stats__hint {
-  text-align: right;
-}
-
-.conv-msg-usage-stats--left .conv-msg-usage-stats__hint {
-  text-align: left;
 }
 
 .conv-msg-usage-stats__group {
@@ -2162,6 +2145,106 @@ code {
 
 .tab-editor .MuiTextField-root {
   width: 100%;
+}
+
+.prompt-body-preview {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  max-height: 24rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.35);
+  cursor: default;
+}
+
+.prompt-body-preview--editable {
+  cursor: pointer;
+}
+
+.prompt-body-preview--editable:hover {
+  border-color: rgba(30, 144, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.12);
+}
+
+.prompt-body-preview__empty {
+  padding: 2rem 0.5rem;
+  text-align: center;
+  font-style: italic;
+}
+
+.prompt-md-editor-surface {
+  box-sizing: border-box;
+  max-width: 52rem;
+  margin: 0 auto;
+  min-height: 18rem;
+  padding: 1.25rem 1.5rem 2rem;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  outline: none;
+}
+
+.prompt-md-editor-surface:focus {
+  border-color: rgba(30, 144, 255, 0.55);
+}
+
+.prompt-md-editor-surface--readonly {
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.prompt-var-chip,
+.prompt-var-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  vertical-align: baseline;
+  margin: 0 0.12rem;
+  padding: 0.08rem 0.35rem 0.08rem 0.45rem;
+  border-radius: 999px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  background: rgba(30, 144, 255, 0.18);
+  border: 1px solid rgba(30, 144, 255, 0.45);
+  color: #93c5fd;
+  white-space: nowrap;
+}
+
+.prompt-var-chip--static {
+  cursor: default;
+}
+
+.prompt-var-chip__label {
+  pointer-events: none;
+}
+
+.prompt-var-chip__del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.prompt-var-chip__del:hover {
+  background: rgba(248, 113, 113, 0.45);
+  color: #fff;
+}
+
+.prompt-md-preview .prompt-var-badge,
+.prompt-md-preview .prompt-var-chip {
+  user-select: none;
 }
 
 .tab-editor textarea {
