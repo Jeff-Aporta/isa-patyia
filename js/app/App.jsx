@@ -10,7 +10,7 @@ import { Session } from "../core/platform.ts";
 const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline", requiresLogin: true },
+  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
 ];
 
 export function App() {
@@ -30,17 +30,9 @@ export function App() {
     };
   }, []);
 
-  const tools = ALL_TOOLS.filter((t) => !t.requiresLogin || Session.isLoggedIn());
-
-  useEffect(() => {
-    if (tool === "chat" && !Session.isLoggedIn()) setTool("log");
-  }, [tool, authTick]);
+  const tools = ALL_TOOLS;
 
   function selectTool(id) {
-    if (id === "chat" && !Session.isLoggedIn()) {
-      setAuthOpen(true);
-      return;
-    }
     setTool(id);
     mergePartial({ tool: id });
   }
