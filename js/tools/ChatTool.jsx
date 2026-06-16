@@ -22,7 +22,7 @@ import {
   formatConversacionPostBodyPreview,
 } from "../api/patyiaChatApi.ts";
 import { fetchConvLogById, fetchTercerosAudit, fetchConversacionesBridge } from "../api/apiClient.ts";
-import { logToMensajesVista } from "../core/convLog.ts";
+import { logToMensajesVista, resolveOpenAiMensajeText } from "../core/convLog.ts";
 import { ConvLogWebView } from "../ui/ConvLogWebView.jsx";
 import { convLogSurfaceSx } from "../ui/convLogSurface.ts";
 import { MetaDialog } from "../ui/shared.jsx";
@@ -302,11 +302,13 @@ function openAiFallbackVista(mensajes, fallbackUserName) {
     if (isUser && nombreUsuario) {
       meta = meta ? { ...meta, nombre_usuario: meta.nombre_usuario || nombreUsuario } : { nombre_usuario: nombreUsuario };
     }
+    const contenido = resolveOpenAiMensajeText(m);
+    const fechaRaw = m.fecha_hora || meta?.ts || "";
     return {
       idMsg: `openai-${i}`,
       rol: isUser ? "user" : "assistant",
-      contenido: String(m.mensaje || ""),
-      fecha: formatTs(m.fecha_hora),
+      contenido,
+      fecha: formatTs(fechaRaw),
       esUsuario: isUser,
       esOperativa: false,
       meta,
@@ -328,20 +330,36 @@ function enrichLogVista(mensajes, fallbackUserName) {
   });
 }
 
-function appendStreamMsg(mensajes, streamText) {
-  if (!streamText) return mensajes;
+function appendStreamMsg(mensajes, streamText, active) {
+  if (!active) return mensajes;
   return [
     ...mensajes,
     {
       idMsg: "stream-live",
       rol: "assistant",
-      contenido: streamText,
+      contenido: streamText || "",
       fecha: "",
       esUsuario: false,
       esOperativa: false,
       meta: null,
+      isStreaming: true,
     },
   ];
+}
+
+function buildOptimisticUserMsg({ text, imagenes, userName }) {
+  const imgs = (imagenes || []).filter(Boolean);
+  return {
+    idMsg: `pending-user-${Date.now()}`,
+    rol: "user",
+    contenido: text || (imgs.length ? "(imagen adjunta)" : ""),
+    fecha: formatTs(new Date()),
+    esUsuario: true,
+    esOperativa: false,
+    meta: userName ? { nombre_usuario: userName } : null,
+    nombreUsuario: userName || undefined,
+    imagenes: imgs.length ? imgs : undefined,
+  };
 }
 
 function ChatSessionPanel({ claims, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, onOpenAudit }) {
@@ -551,6 +569,80 @@ function ChatPayloadPreview({ open, body, endpoint }) {
   );
 }
 
+function ChatLoggedOutShell({ onNeedLogin }) {
+  return (
+    <Box
+      className="conv-log-shell paty-chat-shell paty-chat-shell--logged-out"
+      sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: { xs: "column", md: "row" } }}
+    >
+      <Box
+        className="conv-log-sidebar paty-chat-sidebar"
+        sx={{
+          width: { xs: "100%", md: CHAT_SIDEBAR_W },
+          flexShrink: 0,
+          borderBottom: { xs: 1, md: 0 },
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          maxHeight: { xs: "42vh", md: "none" },
+          opacity: 0.55,
+          pointerEvents: "none",
+        }}
+        aria-hidden="true"
+      >
+        <Stack direction="row" spacing={1} alignItems="center" className="conv-log-sidebar-block" sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}>
+          <Icon icon="mdi:chat-outline" size={20} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>Paty IA · staging</Typography>
+        </Stack>
+        <Box className="conv-log-sidebar-block paty-chat-sidebar-meta" sx={{ pt: 0.75, pb: 0.75 }}>
+          <Box className="paty-chat-session paty-chat-session--skeleton">
+            <Box className="paty-chat-session__avatar"><Icon icon="mdi:account-outline" size={20} /></Box>
+            <Box className="paty-chat-session__body">
+              <span className="paty-chat-skeleton-line paty-chat-skeleton-line--md" />
+              <span className="paty-chat-skeleton-line paty-chat-skeleton-line--sm" />
+            </Box>
+          </Box>
+        </Box>
+        <Box className="conv-log-sidebar-block" sx={{ pt: 1 }}>
+          <Button fullWidth variant="contained" size="small" disabled startIcon={<Icon icon="mdi:plus" size={16} />}>
+            Nueva conversación
+          </Button>
+        </Box>
+        <Divider sx={{ my: 1 }} />
+        <Box className="conv-log-sidebar-block" sx={{ flex: 1, pb: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>Conversaciones</Typography>
+          {[1, 2, 3, 4].map((i) => (
+            <Box key={i} className="paty-chat-skeleton-conv">
+              <span className="paty-chat-skeleton-line paty-chat-skeleton-line--xs" />
+              <span className="paty-chat-skeleton-line paty-chat-skeleton-line--lg" />
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
+      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+        <Box sx={convLogSurfaceSx({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, opacity: 0.45, pointerEvents: "none" })} aria-hidden="true">
+          <Box sx={{ textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }}>
+            <Typography variant="body2" color="text.secondary">Área de conversación</Typography>
+          </Box>
+        </Box>
+        <Box className="paty-chat-gate paty-chat-gate--overlay">
+          <Box className="paty-chat-gate__inner">
+            <Icon icon="mdi:login" width="2em" height="2em" style={{ marginBottom: 12, opacity: 0.85 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Chat Paty IA staging</Typography>
+            <Alert severity="info" sx={{ mb: 2, textAlign: "left" }}>
+              Inicia sesión para ver conversaciones, consultar terceros y chatear con Paty en staging.
+            </Alert>
+            <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 export function ChatTool({ bootChat, onNeedLogin }) {
   const [jwt, setJwt] = useState(() => loadPatyJwt());
   const [jwtOpen, setJwtOpen] = useState(false);
@@ -580,6 +672,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [convListMeta, setConvListMeta] = useState(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const threadScrollRef = useRef(null);
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
@@ -823,6 +916,11 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     setStreamText("");
     const imagenes = images.map((i) => i.dataUrl);
     const convIdBefore = selectedId;
+    const userName = convOwnerDisplayLabel(displayScope);
+    setLogMensajes((prev) => enrichLogVista(
+      [...prev, buildOptimisticUserMsg({ text, imagenes, userName })],
+      userName,
+    ));
     try {
       const result = await sendConversacionStream(
         jwt,
@@ -890,15 +988,22 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     setMetaOpen(true);
   }, []);
 
-  const showStream = sending && streamText;
   const chatUserName = useMemo(
     () => convOwnerDisplayLabel(displayScope),
     [displayScope],
   );
   const displayMensajes = useMemo(
-    () => appendStreamMsg(logMensajes, showStream ? streamText : ""),
-    [logMensajes, showStream, streamText],
+    () => appendStreamMsg(logMensajes, streamText, sending),
+    [logMensajes, sending, streamText],
   );
+  const showThread = Boolean(selectedId || detail || sending || logMensajes.length);
+
+  useEffect(() => {
+    if (!sending) return;
+    const el = threadScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [sending, streamText, displayMensajes.length]);
 
   const postBodyPreview = useMemo(
     () => buildConversacionPostBody({
@@ -910,14 +1015,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   );
 
   if (!loggedIn) {
-    return (
-      <Box className="paty-chat-gate">
-        <Box className="paty-chat-gate__inner">
-          <Alert severity="info" sx={{ mb: 2 }}>Inicia sesión para abrir el chat de pruebas Paty IA (staging).</Alert>
-          <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
-        </Box>
-      </Box>
-    );
+    return <ChatLoggedOutShell onNeedLogin={onNeedLogin} />;
   }
 
   return (
@@ -1137,7 +1235,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           </Stack>
         )}
 
-        {!selectedId && !detail ? (
+        {!showThread ? (
           <Box sx={convLogSurfaceSx({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 })}>
             <Box sx={{ textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }}>
               <Typography variant="body1">
@@ -1151,8 +1249,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           </Box>
         ) : (
           <>
-            <Box sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}>
-              {loadingThread && (
+            <Box ref={threadScrollRef} sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}>
+              {loadingThread && !sending && (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                   <CircularProgress size={28} />
                 </Box>
@@ -1160,12 +1258,13 @@ export function ChatTool({ bootChat, onNeedLogin }) {
               {!loadingThread && logError && (
                 <Alert severity="warning" sx={{ mb: 2 }}>{logError}</Alert>
               )}
-              {!loadingThread && (
+              {(!loadingThread || sending) && (
                 <ConvLogWebView
                   mensajes={displayMensajes}
                   onMeta={onMeta}
                   compactMeta
                   chatUserName={chatUserName}
+                  streamingMsgId={sending ? "stream-live" : null}
                   emptyHint="Sin mensajes en esta conversación."
                 />
               )}
