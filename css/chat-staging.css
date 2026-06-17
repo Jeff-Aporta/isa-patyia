@@ -175,6 +175,14 @@ html[data-mui-color-scheme="light"] .paty-chat-conv-id-badge {
   color: var(--muted, #94a3b8);
 }
 
+.paty-chat-shell .conv-msg--operativa {
+  opacity: 1;
+}
+
+.paty-chat-shell .conv-msg-card {
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
 @keyframes conv-operativa-enter {
   from {
     opacity: 0;
@@ -583,6 +591,7 @@ html[data-mui-color-scheme="light"] .paty-chat-attach-btn:hover:not(:disabled) {
 .conv-msg-card--streaming {
   animation: conv-stream-pulse 2.2s ease-in-out infinite;
   border-color: rgba(30, 144, 255, 0.45) !important;
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-card--streaming {
