@@ -5,16 +5,14 @@ import {
   formatUsageBreakdownParts,
   formatTokensWithUsd,
   usageHasData,
-  resolvePromptSectionsForDisplay,
 } from "../core/convLog.ts";
 import { ButtonIconify } from "./iconify.jsx";
 import { CodeMirrorPanel } from "./codeMirrorPanel.jsx";
-import { formatPromptSectionHtml, formatSectionLabel, isLegacyChatPayload } from "./promptFormat.ts";
 import { mdToHtml } from "./markdown.ts";
 
 export { mdToHtml } from "./markdown.ts";
 
-const { useState, useEffect, useMemo } = getReact();
+const { useState, useEffect } = getReact();
 const { createTheme, Dialog, DialogTitle, DialogContent, Tabs, Tab, Box, Typography } = getMaterialUI();
 
 function isOpenAiPmptId(id) {
@@ -28,10 +26,6 @@ function bdInstructionKey(meta) {
 
 export function instructionKeyFromMeta(meta) {
   return bdInstructionKey(meta);
-}
-
-function promptSectionCharCount(sections) {
-  return (sections || []).reduce((n, s) => n + String(s.text || "").length, 0);
 }
 
 const USAGE_METRIC_COLS = [
@@ -103,9 +97,8 @@ function MetaUsageGrid({ sections }) {
   );
 }
 
-function PromptSummaryCard({ meta, promptSections, tokens, usageStats }) {
-  const sectionChars = promptSectionCharCount(promptSections);
-  const promptChars = meta.prompt_chars ?? sectionChars;
+function PromptSummaryCard({ meta, tokens, usageStats }) {
+  const promptChars = meta.prompt_chars ?? String(meta.prompt_markdown ?? "").length;
   const responseChars = meta.response_chars;
 
   const charStats = [
@@ -239,80 +232,15 @@ export function metaWorthDialog(meta, isUser) {
   return false;
 }
 
-function InstructionPartBox({ name, kind, section, userName }) {
-  return (
-    <section className={`meta-instruction-part meta-instruction-part--${kind || "other"}`}>
-      <div className="meta-instruction-part__head">
-        <span className="meta-instruction-part__badge" title={`Instrucción: ${name}`}>
-          {name}
-        </span>
-      </div>
-      <div className="meta-instruction-part__content">
-        <PromptSectionBody section={section} userName={userName} />
-      </div>
-    </section>
-  );
-}
-
-function shouldRenderPromptAsMarkdown(section) {
-  if (section?.isInstructionPart) return true;
-  const label = String(section?.label ?? "").toLowerCase();
-  const key = String(section?.key ?? "").toLowerCase();
-  return (
-    key === "instructions"
-    || label === "instructions"
-    || label === "instrucciones"
-    || key === "system"
-    || label === "system"
-    || label === "sistema"
-  );
-}
-
-function PromptSectionBody({ section, userName }) {
-  const text = String(section?.text ?? "");
-
-  if (shouldRenderPromptAsMarkdown(section)) {
-    return (
-      <div
-        className="prompt-md-preview msg-body meta-prompt-md"
-        dangerouslySetInnerHTML={{ __html: mdToHtml(text) }}
-      />
-    );
-  }
-
-  if (isLegacyChatPayload(text)) {
-    return (
-      <div
-        className="prompt-md-preview msg-body meta-prompt-md"
-        dangerouslySetInnerHTML={{ __html: formatPromptSectionHtml(text, { userName }) }}
-      />
-    );
-  }
-
-  return (
-    <Typography
-      component="pre"
-      className="meta-prompt-exact"
-      sx={{ m: 0 }}
-    >
-      {text}
-    </Typography>
-  );
-}
-
 export function MetaDialog({ open, onClose, meta, title, isUserMessage = false, usageStats = null }) {
   const [tab, setTab] = useState(0);
-  const promptSections = isUserMessage ? [] : (meta?.prompt_sections ?? []);
-  const displayPromptSections = useMemo(
-    () => resolvePromptSectionsForDisplay(promptSections, meta),
-    [promptSections, meta],
-  );
+  const promptMarkdown = String(meta?.prompt_markdown ?? "").trim();
   const iinstruccion = bdInstructionKey(meta);
-  const hasPrompt = !isUserMessage && (promptSections.length > 0 || Boolean(iinstruccion));
+  const hasPrompt = !isUserMessage && (Boolean(promptMarkdown) || Boolean(iinstruccion));
 
   useEffect(() => {
     if (open) setTab(0);
-  }, [open, meta?.ts, meta?.prompt_id, promptSections.length]);
+  }, [open, meta?.ts, meta?.prompt_id, promptMarkdown]);
 
   if (!meta) return null;
   const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
@@ -351,33 +279,13 @@ export function MetaDialog({ open, onClose, meta, title, isUserMessage = false, 
   function renderPromptPanel() {
     return (
       <div className="meta-prompt-panel custom-scrollbar">
-        <PromptSummaryCard meta={meta} promptSections={promptSections} tokens={tk} usageStats={usageStats} />
-        {iinstruccion ? (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.25 }}>
-            iinstruccion · <code>{iinstruccion}</code>
-            {meta.itdconsulta ? ` · tipo ${meta.itdconsulta}` : ""}
-          </Typography>
-        ) : null}
-        {displayPromptSections.length > 0 ? displayPromptSections.map((section) => (
-          section.isInstructionPart ? (
-            <InstructionPartBox
-              key={section.key}
-              name={section.instructionName}
-              kind={section.instructionKind}
-              section={section}
-              userName={meta.nombre_usuario}
-            />
-          ) : (
-            <section key={section.key} className="meta-prompt-section">
-              {!section.suppressLabel ? (
-                <Typography variant="overline" sx={{ display: "block", mb: 0.75, opacity: 0.8, letterSpacing: 0.6 }}>
-                  {formatSectionLabel(section.label, meta.nombre_usuario)}
-                </Typography>
-              ) : null}
-              <PromptSectionBody section={section} userName={meta.nombre_usuario} />
-            </section>
-          )
-        )) : (
+        <PromptSummaryCard meta={meta} tokens={tk} usageStats={usageStats} />
+        {promptMarkdown ? (
+          <div
+            className="prompt-md-preview msg-body meta-prompt-md"
+            dangerouslySetInnerHTML={{ __html: mdToHtml(promptMarkdown) }}
+          />
+        ) : (
           <Typography variant="body2" color="text.secondary">
             Sin texto de instrucciones en el log de este turno.
           </Typography>
