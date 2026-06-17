@@ -150,6 +150,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
             size="small"
             variant="filled"
             className="header-session-chip"
+            clickable
             label={session.username}
             sx={HEADER_CHIP_SX}
           />
