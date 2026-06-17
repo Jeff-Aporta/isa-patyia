@@ -1,0 +1,1 @@
+const i={width:"min(300px, calc(100vw - 12px))",maxWidth:"100%",height:"100%",maxHeight:"100%",boxSizing:"border-box",overflow:"hidden",display:"flex",flexDirection:"column"};function o(e){return{className:e,sx:i}}export{i as MOBILE_DRAWER_PAPER_SX,o as mobileDrawerPaperProps};

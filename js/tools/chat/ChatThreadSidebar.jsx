@@ -34,22 +34,37 @@ export function ChatThreadSidebar({
   onOpenConv,
   onDelete,
   onConvListPageChange,
+  drawerMode = false,
+  onClose,
 }) {
+  const handleOpenConv = (id) => {
+    onOpenConv(id);
+    onClose?.();
+  };
+
+  const handleNewChat = () => {
+    onNewChat();
+    onClose?.();
+  };
+
   return (
     <Box
       className="conv-log-sidebar paty-chat-sidebar"
       sx={{
         position: "relative",
-        width: { xs: "100%", md: CHAT_SIDEBAR_W },
+        width: drawerMode ? "100%" : { xs: "100%", md: CHAT_SIDEBAR_W },
         flexShrink: 0,
-        borderRight: { md: 0 },
-        borderBottom: { xs: 1, md: 0 },
+        borderRight: drawerMode ? 0 : { md: 0 },
+        borderBottom: drawerMode ? 0 : { xs: 1, md: 0 },
         borderColor: "divider",
         bgcolor: "background.paper",
-        display: "flex",
+        display: drawerMode ? "flex" : { xs: "none", md: "flex" },
         flexDirection: "column",
         minHeight: 0,
-        maxHeight: { xs: "42vh", md: "none" },
+        height: drawerMode ? "100%" : "auto",
+        maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
+        overflow: drawerMode ? "hidden" : "visible",
+        boxSizing: "border-box",
       }}
     >
       <Stack
@@ -63,6 +78,13 @@ export function ChatThreadSidebar({
         <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
           Paty IA · staging
         </Typography>
+        {onClose ? (
+          <Tooltip title="Cerrar panel">
+            <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
+              <Icon icon="mdi:close" size={18} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
         <Tooltip title="Cambiar token JWT">
           <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
             <Icon icon="mdi:key-variant" size={18} />
@@ -89,7 +111,7 @@ export function ChatThreadSidebar({
           size="small"
           disabled={!canSend}
           startIcon={<Icon icon="mdi:plus" size={16} />}
-          onClick={onNewChat}
+          onClick={handleNewChat}
         >
           Nueva conversación
         </Button>
@@ -126,7 +148,7 @@ export function ChatThreadSidebar({
               <ListItemButton
                 key={r.iconversacion}
                 selected={selectedId === r.iconversacion}
-                onClick={() => onOpenConv(r.iconversacion)}
+                onClick={() => handleOpenConv(r.iconversacion)}
                 title={convTip}
                 aria-label={convTip}
                 sx={{ py: 0.5, pl: 1.5, pr: 1, minHeight: 36, "&.Mui-selected": { bgcolor: "action.selected" } }}

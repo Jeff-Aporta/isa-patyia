@@ -9,11 +9,13 @@ import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
 import { persistLogMeta, mergePartial } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../core/platform.ts";
+import { mobileDrawerPaperProps } from "../ui/mobileDrawer.ts";
 
 const { useState, useCallback, useMemo, useEffect, useRef } = getReact();
 const {
   Box, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip,
   List, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions,
+  Drawer, Fab, IconButton, useTheme, useMediaQuery,
 } = getMaterialUI();
 
 const SIDEBAR_WIDTH_KEY = "isa-patyia:log-sidebar-width";
@@ -213,8 +215,156 @@ function ResumenDialog({ open, onClose, logInfo, navItems, selectedId, onSelectM
   );
 }
 
+function LogEntradaPanel({
+  drawerMode = false,
+  onClose,
+  sidebarWidth,
+  dragging,
+  onResizeStart,
+  convId,
+  loading,
+  jsonInput,
+  error,
+  canClear,
+  onConvIdChange,
+  onConvIdKeyDown,
+  recuperarPorId,
+  parsearPegado,
+  limpiar,
+  onJsonInputChange,
+}) {
+  const { Icon } = UI;
+  return (
+    <Box
+      className="conv-log-sidebar"
+      sx={{
+        position: "relative",
+        width: drawerMode ? "100%" : { xs: "100%", md: sidebarWidth },
+        flexShrink: 0,
+        borderRight: drawerMode ? 0 : { md: 0 },
+        borderBottom: drawerMode ? 0 : { xs: 1, md: 0 },
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        display: drawerMode ? "flex" : { xs: "none", md: "flex" },
+        flexDirection: "column",
+        minHeight: 0,
+        height: drawerMode ? "100%" : "auto",
+        maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
+        overflow: drawerMode ? "hidden" : "visible",
+        boxSizing: "border-box",
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        className="conv-log-sidebar-block"
+        sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+      >
+        <Icon icon="mdi:database-import-outline" size={20} />
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
+          Entrada
+        </Typography>
+        {onClose ? (
+          <Tooltip title="Cerrar panel">
+            <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
+              <Icon icon="mdi:close" size={18} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Stack>
+
+      <Box className="conv-log-sidebar-block" sx={{ pt: 1.5, flexShrink: 0 }}>
+        <Box className="conv-log-action-grp" role="group" aria-label="Acciones de entrada de log">
+          <TextField
+            className="conv-log-action-grp__input"
+            size="small"
+            type="number"
+            hiddenLabel
+            placeholder="iconversacion"
+            aria-label="iconversacion"
+            value={convId}
+            disabled={loading}
+            onChange={onConvIdChange}
+            onKeyDown={onConvIdKeyDown}
+            slotProps={{ htmlInput: { min: 1 } }}
+          />
+          <Box className="conv-log-action-grp__actions">
+            <Tooltip title="Recuperar por ID (Enter)" arrow>
+              <span>
+                <ButtonIconify
+                  variant="primary"
+                  icon="mdi:cloud-download-outline"
+                  title="Recuperar por ID"
+                  onClick={recuperarPorId}
+                  disabled={!String(convId ?? "").trim()}
+                  busy={loading}
+                />
+              </span>
+            </Tooltip>
+            <Tooltip title="Parsear JSON" arrow>
+              <span>
+                <ButtonIconify
+                  variant="primary"
+                  icon="mdi:code-json"
+                  title="Parsear JSON"
+                  onClick={parsearPegado}
+                  disabled={!jsonInput.trim()}
+                />
+              </span>
+            </Tooltip>
+            <Tooltip title="Limpiar" arrow>
+              <span>
+                <ButtonIconify
+                  icon="mdi:delete-outline"
+                  title="Limpiar"
+                  onClick={limpiar}
+                  disabled={!canClear}
+                />
+              </span>
+            </Tooltip>
+          </Box>
+        </Box>
+        {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
+      </Box>
+
+      <Divider sx={{ my: 1 }} />
+
+      <Box
+        className="conv-log-sidebar-block"
+        sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", pb: 1.5 }}
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, flexShrink: 0 }}>
+          JSON del log
+        </Typography>
+        <Box sx={{ flex: 1, minHeight: 80, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
+          <JsonCodeEditor
+            value={jsonInput}
+            onChange={onJsonInputChange}
+            placeholder='{ "iconversacion": 1234, "mensajes": [ ... ] }'
+          />
+        </Box>
+      </Box>
+      {!drawerMode ? (
+        <Box
+          className={`conv-log-resize-handle${dragging ? " is-dragging" : ""}`}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar panel Entrada"
+          title="Arrastrar para cambiar ancho"
+          onMouseDown={onResizeStart}
+          sx={{ display: { xs: "none", md: "block" } }}
+        />
+      ) : null}
+    </Box>
+  );
+}
+
 export function LogViewer({ bootLog = {} }) {
   const { Icon } = UI;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [entradaOpen, setEntradaOpen] = useState(false);
   const { width: sidebarWidth, dragging, onResizeStart } = useResizableSidebarWidth();
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
   const [convId, setConvId] = useState(bootLog.convId || "");
@@ -240,7 +390,10 @@ export function LogViewer({ bootLog = {} }) {
       if (!silent) toastWarning(msg);
     } else {
       setError("");
-      if (!silent) toastSuccess(`${vista.length} mensaje(s) cargado(s)`);
+      if (!silent) {
+        toastSuccess(`${vista.length} mensaje(s) cargado(s)`);
+        setEntradaOpen(false);
+      }
     }
   }, []);
 
@@ -345,131 +498,78 @@ export function LogViewer({ bootLog = {} }) {
     setMetaOpen(true);
   }, []);
 
+  const entradaProps = {
+    sidebarWidth,
+    dragging,
+    onResizeStart,
+    convId,
+    loading,
+    jsonInput,
+    error,
+    canClear,
+    onConvIdChange: (e) => setConvId(e.target.value),
+    onConvIdKeyDown,
+    recuperarPorId,
+    parsearPegado,
+    limpiar,
+    onJsonInputChange: setJsonInput,
+  };
+
   return (
-    <Box className="conv-log-shell" sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: { xs: "column", md: "row" } }}>
-      {/* Panel entrada — navegador lateral (estilo tickets) */}
-      <Box
-        className="conv-log-sidebar"
-        sx={{
-          position: "relative",
-          width: { xs: "100%", md: sidebarWidth },
-          flexShrink: 0,
-          borderRight: { md: 0 },
-          borderBottom: { xs: 1, md: 0 },
-          borderColor: "divider",
-          bgcolor: "background.paper",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          maxHeight: { xs: "42vh", md: "none" },
-        }}
-      >
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          className="conv-log-sidebar-block"
-          sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+    <Box
+      className="conv-log-shell"
+      sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: { xs: "column", md: "row" }, position: "relative" }}
+    >
+      <LogEntradaPanel {...entradaProps} />
+
+      {isMobile ? (
+        <Drawer
+          anchor="left"
+          open={entradaOpen}
+          onClose={() => setEntradaOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          PaperProps={mobileDrawerPaperProps("paty-mobile-sidebar-drawer")}
         >
-          <Icon icon="mdi:database-import-outline" size={20} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
-            Entrada
-          </Typography>
-        </Stack>
-
-        <Box className="conv-log-sidebar-block" sx={{ pt: 1.5, flexShrink: 0 }}>
-          <Box className="conv-log-action-grp" role="group" aria-label="Acciones de entrada de log">
-            <TextField
-              className="conv-log-action-grp__input"
-              size="small"
-              type="number"
-              hiddenLabel
-              placeholder="iconversacion"
-              aria-label="iconversacion"
-              value={convId}
-              disabled={loading}
-              onChange={(e) => setConvId(e.target.value)}
-              onKeyDown={onConvIdKeyDown}
-              slotProps={{ htmlInput: { min: 1 } }}
-            />
-            <Box className="conv-log-action-grp__actions">
-              <Tooltip title="Recuperar por ID (Enter)" arrow>
-                <span>
-                  <ButtonIconify
-                    variant="primary"
-                    icon="mdi:cloud-download-outline"
-                    title="Recuperar por ID"
-                    onClick={recuperarPorId}
-                    disabled={!String(convId ?? "").trim()}
-                    busy={loading}
-                  />
-                </span>
-              </Tooltip>
-              <Tooltip title="Parsear JSON" arrow>
-                <span>
-                  <ButtonIconify
-                    variant="primary"
-                    icon="mdi:code-json"
-                    title="Parsear JSON"
-                    onClick={parsearPegado}
-                    disabled={!jsonInput.trim()}
-                  />
-                </span>
-              </Tooltip>
-              <Tooltip title="Limpiar" arrow>
-                <span>
-                  <ButtonIconify
-                    icon="mdi:delete-outline"
-                    title="Limpiar"
-                    onClick={limpiar}
-                    disabled={!canClear}
-                  />
-                </span>
-              </Tooltip>
-            </Box>
-          </Box>
-          {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
-        </Box>
-
-        <Divider sx={{ my: 1 }} />
-
-        <Box
-          className="conv-log-sidebar-block"
-          sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", pb: 1.5 }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, flexShrink: 0 }}>
-            JSON del log
-          </Typography>
-          <Box sx={{ flex: 1, minHeight: 80, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
-            <JsonCodeEditor
-              value={jsonInput}
-              onChange={setJsonInput}
-              placeholder='{ "iconversacion": 1234, "mensajes": [ ... ] }'
-            />
-          </Box>
-        </Box>
-        <Box
-          className={`conv-log-resize-handle${dragging ? " is-dragging" : ""}`}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Redimensionar panel Entrada"
-          title="Arrastrar para cambiar ancho"
-          onMouseDown={onResizeStart}
-          sx={{ display: { xs: "none", md: "block" } }}
-        />
-      </Box>
+          <LogEntradaPanel {...entradaProps} drawerMode onClose={() => setEntradaOpen(false)} />
+        </Drawer>
+      ) : null}
 
       {/* Hilo recuperado — driver JSX (estilo ticket web) */}
       <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {isMobile ? (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{
+              px: 1,
+              py: 0.5,
+              borderBottom: 1,
+              borderColor: "divider",
+              flexShrink: 0,
+              bgcolor: "background.paper",
+            }}
+          >
+            <Tooltip title="Entrada de log" arrow>
+              <IconButton size="small" onClick={() => setEntradaOpen(true)} aria-label="Abrir entrada de log">
+                <Icon icon="mdi:database-import-outline" size={20} />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+              Hilo recuperado
+            </Typography>
+          </Stack>
+        ) : null}
         <Stack
           direction="row"
           spacing={1}
           alignItems="center"
           flexWrap="wrap"
           useFlexGap
-          sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
+          sx={{ px: { xs: 1, md: 2 }, py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
         >
           <Chip
+            className="conv-log-thread-title-chip"
             size="small"
             label={
               <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
@@ -506,6 +606,25 @@ export function LogViewer({ bootLog = {} }) {
           <ConvLogWebView mensajes={mensajes} onMeta={onMeta} />
         </Box>
       </Box>
+
+      {isMobile ? (
+        <Fab
+          color="primary"
+          size="medium"
+          className="paty-mobile-sidebar-fab paty-mobile-sidebar-fab--log"
+          aria-label="Abrir entrada de log"
+          onClick={() => setEntradaOpen(true)}
+          sx={{
+            position: "absolute",
+            bottom: 12,
+            left: 12,
+            zIndex: 6,
+            display: entradaOpen ? "none" : "flex",
+          }}
+        >
+          <Icon icon="mdi:database-import-outline" size={22} />
+        </Fab>
+      ) : null}
 
       <MetaDialog
         open={metaOpen}

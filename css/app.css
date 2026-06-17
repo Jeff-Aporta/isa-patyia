@@ -220,6 +220,53 @@ html[data-mui-color-scheme="light"] .isa-layout-root .header-session-chip.MuiChi
   }
 }
 
+@media (max-width: 899px) {
+  .conv-log-thread-title-chip {
+    display: none !important;
+  }
+
+  .paty-mobile-sidebar-fab {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  }
+
+  .paty-mobile-sidebar-drawer .conv-log-sidebar {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .paty-mobile-sidebar-drawer .conv-log-action-grp__input {
+    min-width: 0;
+  }
+
+  .panel-head {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .panel-head > .MuiStack-root {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .isa-layout-body > .tool-grid-prompts {
+    padding: 0.25rem;
+  }
+
+  .header-session-chip .MuiChip-label {
+    display: none;
+  }
+
+  .header-login-btn--icon {
+    min-width: 36px !important;
+  }
+}
+
 .MuiAppBar-root .MuiToolbar-root {
   align-items: center;
 }

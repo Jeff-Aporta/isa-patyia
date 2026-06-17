@@ -43,9 +43,34 @@ export function ChatMainPanel({
   onRemoveImage,
   onMeta,
   onRateMessage,
+  onOpenSidebar,
 }) {
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {onOpenSidebar ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            px: 1,
+            py: 0.5,
+            borderBottom: 1,
+            borderColor: "divider",
+            flexShrink: 0,
+            bgcolor: "background.paper",
+          }}
+        >
+          <Tooltip title="Conversaciones" arrow>
+            <IconButton size="small" onClick={onOpenSidebar} aria-label="Abrir conversaciones">
+              <Icon icon="mdi:menu-open" size={20} />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+            Conversaciones
+          </Typography>
+        </Stack>
+      ) : null}
       {needsJwt && (
         <Alert
           severity="info"

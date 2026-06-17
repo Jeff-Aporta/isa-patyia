@@ -123,6 +123,8 @@ interface AppShellProps {
   showAuthChip?: boolean;
   showLogout?: boolean;
   loginGate?: boolean;
+  mobileNav?: boolean;
+  mobileBreakpoint?: "xs" | "sm" | "md" | "lg" | "xl";
 }
 
 type MuiThemeOptions = Record<string, unknown>;

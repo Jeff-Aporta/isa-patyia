@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-17T20:27:46.210Z",
-  "files": 57,
-  "bytesIn": 416357,
-  "bytesOut": 253657,
+  "builtAt": "2026-06-17T21:08:43.436Z",
+  "files": 58,
+  "bytesIn": 424461,
+  "bytesOut": 258689,
   "ratio": 0.609,
-  "hash": "731265c07152",
+  "hash": "633db77b8d7c",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 52310,
-      "bytesOut": 41529
+      "bytesIn": 53219,
+      "bytesOut": 42191
     },
     {
       "src": "css/chat-staging.css",
@@ -75,8 +75,8 @@
     {
       "src": "js/auth/LabAuth.jsx",
       "dist": "_dist/js/auth/LabAuth.js",
-      "bytesIn": 9984,
-      "bytesOut": 6149
+      "bytesIn": 10502,
+      "bytesOut": 6471
     },
     {
       "src": "js/boot/cdn.mjs",
@@ -159,14 +159,14 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 4141,
-      "bytesOut": 2888
+      "bytesIn": 5597,
+      "bytesOut": 3726
     },
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 19370,
-      "bytesOut": 11198
+      "bytesIn": 22602,
+      "bytesOut": 13271
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -189,8 +189,8 @@
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 5502,
-      "bytesOut": 3477
+      "bytesIn": 6288,
+      "bytesOut": 3960
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -207,8 +207,8 @@
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 7207,
-      "bytesOut": 4635
+      "bytesIn": 7931,
+      "bytesOut": 5010
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",
@@ -335,6 +335,12 @@
       "dist": "_dist/js/ui/PromptBodyEditor.js",
       "bytesIn": 27575,
       "bytesOut": 14263
+    },
+    {
+      "src": "js/ui/mobileDrawer.ts",
+      "dist": "_dist/js/ui/mobileDrawer.js",
+      "bytesIn": 479,
+      "bytesOut": 279
     },
     {
       "src": "js/ui/promptMdEditorHtml.ts",

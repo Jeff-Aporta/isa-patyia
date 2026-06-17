@@ -8,6 +8,7 @@ const { useState, useEffect } = getReact();
 const {
   Box, Stack, Tooltip, Chip, IconButton, Button,
   Dialog, DialogTitle, DialogContent, DialogActions, Typography, Alert, TextField, InputAdornment,
+  useTheme, useMediaQuery,
 } = getMaterialUI();
 
 /** Mismo criterio que chips del AppBar en app.css (TargetSwitch incluido). */
@@ -77,6 +78,8 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   const [, tick] = useState(0);
   const { useRealtimeStatus, RealtimeStatusDot } = UI;
   const { tip, tone, reconnect } = useRealtimeStatus();
+  const theme = useTheme();
+  const compactHeader = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
     const onAuth = () => tick((n) => n + 1);
@@ -151,7 +154,8 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
             variant="filled"
             className="header-session-chip"
             clickable
-            label={session.username}
+            icon={compactHeader ? <Icon icon="mdi:account-circle" size={18} /> : undefined}
+            label={compactHeader ? undefined : session.username}
             sx={HEADER_CHIP_SX}
           />
         </Tooltip>
@@ -173,10 +177,13 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
           size="small"
           variant="outlined"
           color="inherit"
-          startIcon={<Icon icon="mdi:login" size={18} />}
+          className={compactHeader ? "header-login-btn--icon" : undefined}
+          startIcon={compactHeader ? undefined : <Icon icon="mdi:login" size={18} />}
           onClick={() => setOpen(true)}
+          aria-label="Iniciar sesión"
+          sx={compactHeader ? { minWidth: 36, px: 1 } : undefined}
         >
-          Iniciar sesión
+          {compactHeader ? <Icon icon="mdi:login" size={18} /> : "Iniciar sesión"}
         </Button>
       </Stack>
       <Dialog open={open} onClose={busy ? undefined : () => setOpen(false)} maxWidth="xs" fullWidth>
