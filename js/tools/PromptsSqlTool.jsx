@@ -8,6 +8,7 @@ import { ButtonIconify } from "../ui/iconify.jsx";
 import { CodeMirrorPanel } from "../core/codeMirror.ts";
 import { estimatePromptTokensFromCdn } from "../core/promptTokens.ts";
 import { PromptBodyEditor } from "../ui/PromptBodyEditor.jsx";
+import { hasInstruccionTipoSlot, preparePromptBodyForSave } from "../core/promptVariables.ts";
 import { toastWarning, toastSuccess, toastError, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
@@ -391,7 +392,9 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           unknownKeys.push(tipo);
           next[tipo] = PromptsSql.createPromptSlot(tipo);
         }
-        const body = String(LabApi.rowVal(row, "INSTRUCCION") ?? LabApi.rowVal(row, "instruccion") ?? "").trim();
+        const rawBody = String(LabApi.rowVal(row, "INSTRUCCION") ?? LabApi.rowVal(row, "instruccion") ?? "").trim();
+        const body = preparePromptBodyForSave(rawBody);
+        const bodyRepaired = Boolean(rawBody && body !== rawBody);
         const rawJconfig = LabApi.rowVal(row, "JCONFIG") ?? LabApi.rowVal(row, "jconfig");
         const jconfig = PromptsSql.syncJconfigMetrics(
           rawJconfig && typeof rawJconfig === "object" && !Array.isArray(rawJconfig)
@@ -406,7 +409,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
         const basePatch = { jconfig, jconfigBaseline: { ...jconfig }, configDirty: false };
         if (urlIsDraft) {
           if (body && urlBody === body) {
-            next[tipo] = { ...next[tipo], ...basePatch, body, dirty: false, source: "bd" };
+            next[tipo] = { ...next[tipo], ...basePatch, body, dirty: bodyRepaired, source: "bd" };
           } else {
             next[tipo] = { ...next[tipo], ...basePatch, body: urlBody, dirty: true, source: "url" };
           }
@@ -414,7 +417,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           next[tipo] = {
             ...next[tipo],
             ...basePatch,
-            ...(body ? { body, dirty: false, source: "bd" } : {}),
+            ...(body ? { body, dirty: bodyRepaired, source: "bd" } : {}),
           };
         }
       }
@@ -626,9 +629,12 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   const saveOneInstruction = useCallback(async (tipo, body) => {
     const key = String(tipo ?? "").trim().toUpperCase();
-    const text = String(body ?? "").trim();
+    const text = preparePromptBodyForSave(body);
     if (!key) throw new Error("Instrucción no válida");
     if (!text) throw new Error("El contenido no puede estar vacío");
+    if (key === "GENERAL" && !hasInstruccionTipoSlot(text)) {
+      throw new Error("El prompt GENERAL debe incluir {{instruccion_tipo}} con ambas llaves de cierre.");
+    }
     if (!ensurePublishCap(onNeedLogin)) {
       throw new Error(editBlockReason || "Sin permiso para guardar en Paty");
     }
