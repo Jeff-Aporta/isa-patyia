@@ -174,8 +174,11 @@ function pushImage(images: string[], ref: unknown) {
     }).filter(Boolean).join("\n\n");
   }
 
-  /** Separador legacy cuando el template no tiene {{instruccion_tipo}} ni {{instrucion_tipo}} (UlPrompts.ts). */
-  const INSTRUCTION_CONCAT_SEP = /\n\n---\n\n/;
+  function extractInstructionsMarkdown(send) {
+    if (!send || typeof send !== "object") return "";
+    const raw = typeof send.instructions === "string" ? send.instructions : "";
+    return normalizePromptText(raw).trim();
+  }
 
   function extractUserTextFromConvSend(send) {
     if (!send || typeof send !== "object") return "";
@@ -233,151 +236,6 @@ function pushImage(images: string[], ref: unknown) {
     const fromOthers = String(others?.response_text ?? "").trim();
     if (fromOthers) return fromOthers;
     return String(meta.response_text ?? meta.text ?? "").trim();
-  }
-
-  function instructionsUseInlineTipoSlot(text) {
-    const body = String(text ?? "").trim();
-    return Boolean(body && !INSTRUCTION_CONCAT_SEP.test(body));
-  }
-
-  function extractPromptSections(send) {
-    if (!send || typeof send !== "object") return [];
-    const sections = [];
-    const seen = new Set();
-    const instrRaw = typeof send.instructions === "string" ? normalizePromptText(send.instructions).trim() : "";
-    const inlineTipoSlot = instructionsUseInlineTipoSlot(instrRaw);
-
-    function push(key, label, text) {
-      const normalized = normalizePromptText(text).trim();
-      if (!normalized || seen.has(normalized)) return;
-      seen.add(normalized);
-      sections.push({ key, label, text: normalized });
-    }
-
-    if (instrRaw) {
-      push("instructions", "Instructions", send.instructions);
-    }
-
-    const prompt = send.prompt;
-    if (prompt && typeof prompt === "object") {
-      const vars = prompt.variables;
-      if (vars && typeof vars === "object") {
-        if (typeof vars.instrucion_tipo === "string" && vars.instrucion_tipo.trim()) {
-          const tipoText = vars.instrucion_tipo.trim();
-          const embedded = instrRaw && instrRaw.includes(tipoText);
-          if (!inlineTipoSlot && !embedded) {
-            push("instrucion_tipo", "Instrucción tipo", tipoText);
-          }
-        }
-        const generalParts = [];
-        if (typeof vars.nombre_usuario === "string" && vars.nombre_usuario.trim()) {
-          generalParts.push(`nombre_usuario: ${vars.nombre_usuario.trim()}`);
-        }
-        if (generalParts.length) {
-          push("prompt-variables", "Variables prompt", generalParts.join("\n"));
-        }
-      }
-      if (typeof prompt.id === "string" && /^pmpt_/i.test(prompt.id.trim())) {
-        push("prompt-template-legacy", "Template OpenAI (legacy)", prompt.id.trim());
-      }
-    }
-
-    if (Array.isArray(send.messages)) {
-      send.messages.forEach((msg, i) => {
-        if (!msg || typeof msg !== "object") return;
-        const role = String(msg.role || "message");
-        push(`message-${i}-${role}`, role, msg.content);
-      });
-    }
-
-    const inputText = extractInputText(send.input);
-    if (inputText.trim()) push("input", "Input", inputText);
-
-    if (typeof send.content === "string") {
-      push("content", "Content", send.content);
-    }
-
-    return sections;
-  }
-
-  function splitInstructionParts(text, meta) {
-    const body = String(text ?? "").trim();
-    if (!body) return [];
-
-    const chunks = body.split(INSTRUCTION_CONCAT_SEP).map((c) => c.trim()).filter(Boolean);
-    const tipoName = String(meta?.itdconsulta ?? "").trim() || "Instrucción tipo";
-
-    if (chunks.length <= 1) {
-      return [{ key: "general", name: "GENERAL", kind: "general", text: body }];
-    }
-
-    return chunks.map((chunk, index) => ({
-      key: index === 0 ? "general" : `tipo-${index}`,
-      name: index === 0 ? "GENERAL" : (index === 1 ? tipoName : `${tipoName} #${index}`),
-      kind: index === 0 ? "general" : "tipo",
-      text: chunk,
-    }));
-  }
-
-  function resolvePromptSectionsForDisplay(sections, meta) {
-    const list = sections || [];
-    const instrSection = list.find((s) => {
-      const key = String(s?.key ?? "");
-      const label = String(s?.label ?? "").toLowerCase();
-      return key === "instructions" || label === "instructions";
-    });
-    const instrText = String(instrSection?.text ?? "");
-    const useInlineTipoSlot = instructionsUseInlineTipoSlot(instrText);
-    const hasInstructions = Boolean(instrSection);
-    const out = [];
-
-    for (const section of list) {
-      const key = String(section?.key ?? "");
-      const labelLower = String(section?.label ?? "").toLowerCase();
-
-      if (key === "instructions" || labelLower === "instructions") {
-        if (useInlineTipoSlot) {
-          out.push({
-            ...section,
-            isInstructionPart: false,
-            suppressLabel: true,
-          });
-        } else {
-          for (const part of splitInstructionParts(section.text, meta)) {
-            out.push({
-              key: `instruction-${part.key}`,
-              label: part.name,
-              instructionName: part.name,
-              instructionKind: part.kind,
-              text: part.text,
-              isInstructionPart: true,
-            });
-          }
-        }
-        continue;
-      }
-
-      if (key === "instrucion_tipo" || labelLower === "instrucción tipo") {
-        if (useInlineTipoSlot) continue;
-        const tipoText = String(section.text ?? "").trim();
-        if (hasInstructions) {
-          if (tipoText && instrText.includes(tipoText)) continue;
-        }
-        out.push({
-          key: section.key,
-          label: meta?.itdconsulta || section.label || "Instrucción tipo",
-          instructionName: String(meta?.itdconsulta ?? "").trim() || String(section.label ?? "Instrucción tipo"),
-          instructionKind: "tipo",
-          text: section.text,
-          isInstructionPart: true,
-        });
-        continue;
-      }
-
-      out.push({ ...section, isInstructionPart: false });
-    }
-
-    return out;
   }
 
   function tokensFromUsage(usage) {
@@ -697,7 +555,7 @@ function pushImage(images: string[], ref: unknown) {
             operativa_engine: raw.operativa_engine != null ? String(raw.operativa_engine) : undefined,
           }
         : undefined,
-      prompt_sections: isUser ? [] : extractPromptSections(raw.send),
+      prompt_markdown: isUser ? undefined : extractInstructionsMarkdown(raw.send) || undefined,
     };
   }
 
@@ -810,9 +668,7 @@ export {
   convLogToMsgVista,
   tokensFromUsage,
   normalizeMeta,
-  extractPromptSections,
-  splitInstructionParts,
-  resolvePromptSectionsForDisplay,
+  extractInstructionsMarkdown,
   attachUsageStats,
   threadHasUsageStats,
   formatUsageTokens,
