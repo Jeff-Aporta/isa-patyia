@@ -171,8 +171,8 @@ function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
           <div className="meta-row"><span className="meta-k">Chars</span><span className="meta-v">{view.chars ?? "—"}</span></div>
           <div className="meta-row"><span className="meta-k">Tokens</span><span className="meta-v">{view.tokens ?? "—"}</span></div>
           <div className="meta-row"><span className="meta-k">Modelo</span><span className="meta-v"><code>{view.model}</code></span></div>
-          <div className="meta-row"><span className="meta-k">Temp</span><span className="meta-v">{view.temperature}</span></div>
-          <div className="meta-row"><span className="meta-k">Top_p</span><span className="meta-v">{view.top_p}</span></div>
+          <div className="meta-row"><span className="meta-k">Temperature (temperature)</span><span className="meta-v">{view.temperature}</span></div>
+          <div className="meta-row"><span className="meta-k">Top P (top_p)</span><span className="meta-v">{view.top_p}</span></div>
           <div className="meta-row"><span className="meta-k">Provider</span><span className="meta-v"><code>{view.provider}</code></span></div>
         </div>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2, mb: 0.5 }}>
@@ -359,6 +359,8 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [jconfigDlg, setJconfigDlg] = useState({ open: false, tipo: null });
 
   const [dragOver, setDragOver] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   const [mapped, setMapped] = useState([]);
 
@@ -622,6 +624,47 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     }
   }, [applyCloudRows, clearUrlBodies, pendingTipos, onNeedLogin, prompts]);
 
+  const saveOneInstruction = useCallback(async (tipo, body) => {
+    const key = String(tipo ?? "").trim().toUpperCase();
+    const text = String(body ?? "").trim();
+    if (!key) throw new Error("Instrucción no válida");
+    if (!text) throw new Error("El contenido no puede estar vacío");
+    if (!ensurePublishCap(onNeedLogin)) {
+      throw new Error(editBlockReason || "Sin permiso para guardar en Paty");
+    }
+    const session = LabSession.getSession();
+    const author = session?.username || "";
+    const slot = prompts[key];
+    const jconfig = PromptsSql.enrichJconfigForSave(slot?.jconfig, { body: text, author });
+    setActionBusy(true);
+    setLoadErr("");
+    try {
+      await LabApi.upsertInstruccionPaty({
+        iinstruccion: key,
+        instruccion: text,
+        jconfig,
+        author,
+      });
+      clearUrlBodies([key]);
+      const rows = await LabApi.fetchInstruccionesPaty();
+      applyCloudRows(rows, { onlyTipos: [key], ignoreUrl: true });
+      toastSuccess(`${key.replace(/_/g, " ")} guardada en Paty`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLoadErr(msg);
+      if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
+        LabSession.handleApiError(e, LabSession.INSTRUCCIONES_WRITE_CAP);
+      } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
+        toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP));
+      } else {
+        toastError(msg);
+      }
+      throw e;
+    } finally {
+      setActionBusy(false);
+    }
+  }, [applyCloudRows, clearUrlBodies, editBlockReason, onNeedLogin, prompts]);
+
 
 
   useEffect(() => {
@@ -719,6 +762,38 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     await applyFiles(dt.files);
 
   }, [applyFiles]);
+
+
+
+  const onDragEnter = useCallback((e) => {
+
+    e.preventDefault();
+
+    setDragOver(true);
+
+  }, []);
+
+
+
+  const onDragLeave = useCallback((e) => {
+
+    const zone = e.currentTarget;
+
+    const next = e.relatedTarget;
+
+    if (!next || !zone.contains(next)) setDragOver(false);
+
+  }, []);
+
+
+
+  const onDragOverZone = useCallback((e) => {
+
+    e.preventDefault();
+
+    e.dataTransfer.dropEffect = "copy";
+
+  }, []);
 
 
 
@@ -880,20 +955,33 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
             />
 
             <ButtonIconify
+              icon="mdi:folder-open-outline"
+              title="Importar archivos PROMPT_*.md / .txt"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={actionBusy || loadBusy}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.txt,text/markdown,text/plain"
+              multiple
+              hidden
+              onChange={onFileInput}
+            />
+
+            <ButtonIconify
+              icon="mdi:delete-outline"
+              title="Descartar borradores y restaurar desde la base"
+              onClick={discardAll}
+              disabled={actionBusy || loadBusy || !hasLocalChanges}
+            />
+            <ButtonIconify
               variant="primary"
               icon="mdi:content-save"
-              label={actionBusy ? "Guardando…" : "Guardar"}
-              title={saveTitle}
+              title={actionBusy ? "Guardando…" : saveTitle}
               onClick={saveAll}
               disabled={actionBusy || loadBusy || !pendingTipos.length || !canPublish}
               busy={actionBusy}
-            />
-            <ButtonIconify
-              icon="mdi:delete-outline"
-              label="Descartar"
-              title="Descartar todos los borradores y restaurar desde la base"
-              onClick={discardAll}
-              disabled={actionBusy || loadBusy || !hasLocalChanges}
             />
 
           </Stack>
@@ -907,40 +995,19 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           <div className="prompt-instrucciones-zone">
 
           <div
-
-            className={`drop-zone${dragOver ? " drop-zone--active" : ""}`}
-
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-
-            onDragLeave={() => setDragOver(false)}
-
+            className={`prompt-tabs-layout${dragOver ? " prompt-tabs-layout--drop-active" : ""}`}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={onDragOverZone}
             onDrop={onDrop}
-
           >
 
-            <iconify-icon icon="mdi:file-upload-outline" width="1.6em" height="1.6em" />
-
-            <span>Arrastra <code>PROMPT_*.md</code> o <code>PROMPT_*.txt</code> aquí</span>
-
-            <label className="drop-zone-file-btn" title="Seleccionar archivos PROMPT_*.md / .txt">
-
-              <ButtonIconify icon="mdi:folder-open-outline" title="Seleccionar archivos" />
-
-              <input type="file" accept=".md,.txt,text/markdown,text/plain" multiple hidden onChange={onFileInput} />
-
-            </label>
-
-            <Typography variant="caption" color="text.secondary">
-
-              Carga desde la base de instrucciones.
-
-            </Typography>
-
-          </div>
-
-
-
-          <div className="prompt-tabs-layout">
+          {dragOver && (
+            <div className="prompt-drop-overlay" aria-hidden>
+              <iconify-icon icon="mdi:file-upload-outline" width="1.6em" height="1.6em" />
+              <span>Suelta <code>PROMPT_*.md</code> o <code>PROMPT_*.txt</code> aquí</span>
+            </div>
+          )}
 
           <Tabs
 
@@ -1003,6 +1070,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
               canEdit={canEdit}
               editBlockReason={editBlockReason}
               onChange={(body) => updateBody(activeTipo, body)}
+              onPersist={(body) => saveOneInstruction(activeTipo, body)}
               placeholder={`Contenido de ${activePrompt?.archivo || `PROMPT_${activeTipo}.md`}…`}
               tipo={activeTipo}
               title={activeTipo.replace(/_/g, " ")}
@@ -1015,12 +1083,6 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           </div>
 
           <div className="prompt-mapeo-block">
-
-            <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: "block", mb: 0.5 }}>
-
-              Mapeo
-
-            </Typography>
 
             <TableContainer className="prompt-mapeo-scroll custom-scrollbar">
 
@@ -1036,9 +1098,9 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
                     <TableCell>Modelo</TableCell>
 
-                    <TableCell>Temp</TableCell>
+                    <TableCell>Temperature (temperature)</TableCell>
 
-                    <TableCell>Top_p</TableCell>
+                    <TableCell>Top P (top_p)</TableCell>
 
                     <TableCell align="center">Actions</TableCell>
 
