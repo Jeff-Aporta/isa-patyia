@@ -1,6 +1,7 @@
 import { asset } from "./cdn.mjs";
 
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
+const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 
 import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }) => {
   mountBoot(async () => {
@@ -11,8 +12,12 @@ import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }
     h.assertStack();
     await h.loadIsaFront();
     await h.loadSharedUi(Babel);
-    await h.importAppEntry("js/core/isa-setup.ts", Babel);
-    await h.importAppEntry("js/main.jsx", Babel);
+    if (isDist) {
+      await import("../core/isa-setup.js");
+      await import("../main.js");
+    } else {
+      await h.importAppModules(["js/core/isa-setup.ts", "js/main.jsx"], Babel);
+    }
   });
 }).catch((err) => {
   const root = document.getElementById("root");
