@@ -1,19 +1,18 @@
 import { getReact, getMaterialUI } from "../core/runtime.ts";
 import { mdToHtml } from "./markdown.ts";
-import { bodyPreviewHtml, bodyToEditorHtml, editorHtmlToBody, varChipHtml } from "./promptMdEditorHtml.ts";
+import { bodyPreviewHtml, bodyToEditorHtml, editorHtmlToBody, surfaceHasRawVarTokens } from "./promptMdEditorHtml.ts";
 import {
-  deletePromptVariable,
+  renamePromptVariable,
   extractPromptVariables,
   isValidVarName,
-  renamePromptVariable,
+  varToneSx,
 } from "../core/promptVariables.ts";
 import { ButtonIconify } from "./iconify.jsx";
-import { requestConfirm } from "./notifications.jsx";
 
-const { useState, useEffect, useRef, useCallback, useMemo } = getReact();
+const { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } = getReact();
 const {
   Box, Stack, Typography, Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Menu, MenuItem, TextField, Alert, Divider, Chip,
+  Button, TextField, Alert, Divider, Chip, Switch, FormControlLabel,
 } = getMaterialUI();
 
 const MAX_UNDO = 80;
@@ -96,23 +95,152 @@ function useEditorUndo(initial) {
   };
 }
 
-function createVarChipNode(name) {
-  const wrap = document.createElement("div");
-  wrap.innerHTML = varChipHtml(name);
-  return wrap.firstElementChild;
+/** Offset de texto dentro de root (para restaurar caret tras re-render del surface). */
+function getCaretOffset(root, targetNode, targetOffset) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  let node = walker.nextNode();
+  while (node) {
+    if (node === targetNode) return offset + targetOffset;
+    offset += node.textContent?.length ?? 0;
+    node = walker.nextNode();
+  }
+  return offset;
 }
 
-function insertNodeAtSelection(node) {
+function setCaretOffset(root, offset) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remain = Math.max(0, offset);
+  let node = walker.nextNode();
+  while (node) {
+    const len = node.textContent?.length ?? 0;
+    if (remain <= len) {
+      const range = document.createRange();
+      range.setStart(node, remain);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      return;
+    }
+    remain -= len;
+    node = walker.nextNode();
+  }
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
   const sel = window.getSelection();
-  if (!sel?.rangeCount) return false;
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+function saveSurfaceCaret(root) {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount || !root) return null;
   const range = sel.getRangeAt(0);
-  range.deleteContents();
-  range.insertNode(node);
-  range.setStartAfter(node);
+  if (!root.contains(range.startContainer)) return null;
+  return getCaretOffset(root, range.startContainer, range.startOffset);
+}
+
+function restoreSurfaceCaret(root, offset) {
+  if (offset == null || !root) return;
+  requestAnimationFrame(() => setCaretOffset(root, offset));
+}
+
+function getScrollContainer(el) {
+  let node = el;
+  while (node) {
+    const { overflowY } = window.getComputedStyle(node);
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return el;
+}
+
+function viewportLead(scrollEl) {
+  return Math.min(120, Math.max(48, scrollEl.clientHeight * 0.12));
+}
+
+function caretRangeFromClientPoint(x, y) {
+  if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+  const pos = document.caretPositionFromPoint?.(x, y);
+  if (!pos) return null;
+  const range = document.createRange();
+  range.setStart(pos.offsetNode, pos.offset);
   range.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(range);
-  return true;
+  return range;
+}
+
+function plainOffsetFromScroll(textarea, scrollTop, lead) {
+  const style = window.getComputedStyle(textarea);
+  const lineHeight = parseFloat(style.lineHeight) || 22;
+  const padTop = parseFloat(style.paddingTop) || 0;
+  const targetLine = Math.max(0, Math.floor((scrollTop + lead - padTop) / lineHeight));
+  const text = textarea.value;
+  let line = 0;
+  let pos = 0;
+  while (pos < text.length && line < targetLine) {
+    const nl = text.indexOf("\n", pos);
+    if (nl < 0) return text.length;
+    pos = nl + 1;
+    line += 1;
+  }
+  return pos;
+}
+
+function captureScrollAnchor(scrollEl, { plainText, surfaceEl, plainTextEl }) {
+  if (!scrollEl) return null;
+  const lead = viewportLead(scrollEl);
+  const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+  const ratio = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
+  const rect = scrollEl.getBoundingClientRect();
+  const x = rect.left + 96;
+  const y = rect.top + lead;
+
+  let charOffset = 0;
+  if (plainText) {
+    if (plainTextEl) charOffset = plainOffsetFromScroll(plainTextEl, scrollEl.scrollTop, lead);
+  } else if (surfaceEl) {
+    const range = caretRangeFromClientPoint(x, y);
+    if (range && surfaceEl.contains(range.startContainer)) {
+      charOffset = getCaretOffset(surfaceEl, range.startContainer, range.startOffset);
+    } else {
+      charOffset = saveSurfaceCaret(surfaceEl) ?? 0;
+    }
+  }
+
+  return { charOffset, lead, ratio };
+}
+
+function restoreScrollAnchor(scrollEl, anchor, { plainText, surfaceEl, plainTextEl }) {
+  if (!scrollEl || !anchor) return;
+  const { charOffset, lead, ratio } = anchor;
+
+  if (plainText && plainTextEl) {
+    plainTextEl.setSelectionRange(charOffset, charOffset);
+    const style = window.getComputedStyle(plainTextEl);
+    const lineHeight = parseFloat(style.lineHeight) || 22;
+    const padTop = parseFloat(style.paddingTop) || 0;
+    const line = plainTextEl.value.slice(0, charOffset).split("\n").length - 1;
+    scrollEl.scrollTop = Math.max(0, line * lineHeight + padTop - lead);
+    return;
+  }
+
+  if (surfaceEl) {
+    setCaretOffset(surfaceEl, charOffset);
+    const sel = window.getSelection();
+    if (sel?.rangeCount) {
+      const caretRect = sel.getRangeAt(0).getBoundingClientRect();
+      const scrollRect = scrollEl.getBoundingClientRect();
+      scrollEl.scrollTop += caretRect.top - scrollRect.top - lead;
+      return;
+    }
+  }
+
+  const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+  scrollEl.scrollTop = ratio * maxScroll;
 }
 
 function RenameVarDialog({ open, name, existing, onClose, onConfirm }) {
@@ -162,81 +290,105 @@ function RenameVarDialog({ open, name, existing, onClose, onConfirm }) {
   );
 }
 
-function NewVarDialog({ open, onClose, onConfirm, existing }) {
-  const [draft, setDraft] = useState("");
-  const [err, setErr] = useState("");
-  useEffect(() => {
-    if (open) {
-      setDraft("");
-      setErr("");
-    }
-  }, [open]);
-  function submit() {
-    const next = draft.trim();
-    if (!isValidVarName(next)) {
-      setErr("Nombre inválido (use letras, números y _)");
-      return;
-    }
-    if (existing.includes(next)) {
-      setErr("La variable ya existe en el documento");
-      return;
-    }
-    onConfirm(next);
-  }
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Nueva variable</DialogTitle>
-      <DialogContent>
-        {err ? <Alert severity="error" sx={{ mb: 1 }}>{err}</Alert> : null}
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          label="Nombre"
-          placeholder="instruccion_tipo"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value.replace(/[^\w]/g, ""))}
-          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" onClick={submit}>Insertar</Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
 function PromptEditorDialog({
-  open, onClose, title, body, canEdit, onSave, tipo,
+  open, onClose, title, body, canEdit, onSave, onDraft, tipo,
 }) {
   const surfaceRef = useRef(null);
+  const plainTextRef = useRef(null);
+  const dialogContentRef = useRef(null);
+  const pendingScrollAnchorRef = useRef(null);
   const syncLock = useRef(false);
+  const pendingSurfaceValue = useRef(null);
+  const surfaceOrigin = useRef(false);
+  const prevOpen = useRef(false);
   const { value, commit, undo, redo, canUndo, canRedo, reset } = useEditorUndo(body);
-  const [ctxMenu, setCtxMenu] = useState(null);
   const [renameDlg, setRenameDlg] = useState({ open: false, name: "" });
-  const [newVarDlg, setNewVarDlg] = useState(false);
-  const wasOpen = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [plainText, setPlainText] = useState(false);
+  const savedRangeRef = useRef(null);
+  const savedCaretRef = useRef(null);
+  const pushSuppressRef = useRef(false);
 
   const variables = useMemo(() => extractPromptVariables(value), [value]);
 
-  useEffect(() => {
-    if (open && !wasOpen.current) reset(body);
-    wasOpen.current = open;
-  }, [open, body, reset]);
-
-  const syncSurfaceFromValue = useCallback((text) => {
+  const captureEditorSelection = useCallback(() => {
     const el = surfaceRef.current;
-    if (!el) return;
+    const sel = window.getSelection();
+    if (!el || !sel?.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!el.contains(range.commonAncestorContainer)) return;
+    savedRangeRef.current = range.cloneRange();
+    savedCaretRef.current = saveSurfaceCaret(el);
+  }, []);
+
+  const restoreEditorRange = useCallback(() => {
+    const el = surfaceRef.current;
+    const sel = window.getSelection();
+    if (!el || !sel) return null;
+    if (savedRangeRef.current && el.contains(savedRangeRef.current.commonAncestorContainer)) {
+      const range = savedRangeRef.current;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return range;
+    }
+    if (savedCaretRef.current != null) {
+      setCaretOffset(el, savedCaretRef.current);
+      if (sel.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+        return sel.getRangeAt(0);
+      }
+    }
+    if (sel.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      return sel.getRangeAt(0);
+    }
+    return null;
+  }, []);
+
+  const syncSurfaceFromValue = useCallback((text, opts = {}) => {
+    const el = surfaceRef.current;
+    if (!el) return false;
+    const caret = opts.preserveCaret ? saveSurfaceCaret(el) : null;
     syncLock.current = true;
     el.innerHTML = bodyToEditorHtml(text);
     syncLock.current = false;
+    if (caret != null) restoreSurfaceCaret(el, caret);
+    return true;
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
+  useLayoutEffect(() => {
+    if (!open) {
+      pendingSurfaceValue.current = null;
+      pendingScrollAnchorRef.current = null;
+      prevOpen.current = false;
+      setPlainText(false);
+      return;
+    }
+
+    const justOpened = !prevOpen.current;
+    prevOpen.current = true;
+
+    if (justOpened) {
+      setPlainText(false);
+      reset(body);
+      pendingSurfaceValue.current = body;
+      syncSurfaceFromValue(body);
+      surfaceOrigin.current = true;
+      return;
+    }
+
+    if (plainText) {
+      pendingSurfaceValue.current = value;
+      return;
+    }
+
+    if (surfaceOrigin.current) {
+      surfaceOrigin.current = false;
+      pendingSurfaceValue.current = value;
+      return;
+    }
+
+    pendingSurfaceValue.current = value;
     syncSurfaceFromValue(value);
-  }, [open, value, syncSurfaceFromValue]);
+  }, [open, value, body, reset, syncSurfaceFromValue, plainText]);
 
   const readSurface = useCallback(() => {
     const el = surfaceRef.current;
@@ -244,44 +396,134 @@ function PromptEditorDialog({
     return editorHtmlToBody(el);
   }, [value]);
 
+  const restoreScrollAfterModeSwitch = useCallback(() => {
+    const anchor = pendingScrollAnchorRef.current;
+    if (!anchor) return;
+    const scrollEl = getScrollContainer(dialogContentRef.current);
+    if (!scrollEl) return;
+    const editorReady = plainText ? plainTextRef.current : surfaceRef.current;
+    if (!editorReady) return;
+    pendingScrollAnchorRef.current = null;
+    restoreScrollAnchor(scrollEl, anchor, {
+      plainText,
+      surfaceEl: surfaceRef.current,
+      plainTextEl: plainTextRef.current,
+    });
+  }, [plainText]);
+
+  const attachSurfaceRef = useCallback((node) => {
+    surfaceRef.current = node;
+    if (node && open && pendingSurfaceValue.current != null) {
+      syncSurfaceFromValue(pendingSurfaceValue.current);
+      if (pendingScrollAnchorRef.current) {
+        requestAnimationFrame(() => {
+          restoreScrollAfterModeSwitch();
+          requestAnimationFrame(() => restoreScrollAfterModeSwitch());
+        });
+      }
+    }
+  }, [open, syncSurfaceFromValue, restoreScrollAfterModeSwitch]);
+
+  useLayoutEffect(() => {
+    if (!open || !pendingScrollAnchorRef.current) return;
+    restoreScrollAfterModeSwitch();
+    requestAnimationFrame(() => restoreScrollAfterModeSwitch());
+  }, [plainText, open, restoreScrollAfterModeSwitch]);
+
+  const getEditorText = useCallback(() => (
+    plainText ? value : readSurface()
+  ), [plainText, value, readSurface]);
+
+  const togglePlainText = useCallback((on) => {
+    const scrollEl = getScrollContainer(dialogContentRef.current);
+    pendingScrollAnchorRef.current = captureScrollAnchor(scrollEl, {
+      plainText,
+      surfaceEl: surfaceRef.current,
+      plainTextEl: plainTextRef.current,
+    });
+
+    if (on && !plainText) {
+      const text = readSurface();
+      surfaceOrigin.current = true;
+      commit(text);
+    } else if (!on && plainText) {
+      pendingSurfaceValue.current = value;
+    }
+    setPlainText(on);
+  }, [plainText, readSurface, commit, value]);
+
   const pushChange = useCallback(() => {
-    if (syncLock.current) return;
+    if (syncLock.current || pushSuppressRef.current) return;
     const next = readSurface();
+    surfaceOrigin.current = true;
     commit(next);
-    if (/\{\{\s*[A-Za-z_]\w*\s*\}\}/.test(next)) {
-      requestAnimationFrame(() => syncSurfaceFromValue(next));
+    if (surfaceHasRawVarTokens(surfaceRef.current)) {
+      requestAnimationFrame(() => syncSurfaceFromValue(next, { preserveCaret: true }));
     }
   }, [readSurface, commit, syncSurfaceFromValue]);
 
-  function handleClose() {
-    onClose();
-  }
+  const handleUndo = useCallback(() => {
+    surfaceOrigin.current = false;
+    pushSuppressRef.current = true;
+    undo();
+    requestAnimationFrame(() => { pushSuppressRef.current = false; });
+  }, [undo]);
 
-  function handleSave() {
-    const next = readSurface();
-    onSave(next);
-    onClose();
-  }
+  const handleRedo = useCallback(() => {
+    surfaceOrigin.current = false;
+    pushSuppressRef.current = true;
+    redo();
+    requestAnimationFrame(() => { pushSuppressRef.current = false; });
+  }, [redo]);
 
-  function insertVariable(name) {
-    const chip = createVarChipNode(name);
-    if (!chip) return;
-    insertNodeAtSelection(chip);
+  const keepToolbarFocus = useCallback((e) => {
+    e.preventDefault();
+  }, []);
+
+  function onEditorBlur(e) {
+    const target = e.relatedTarget;
+    if (target?.closest?.(
+      ".MuiDialogTitle, .MuiDialogActions, .btn-iconify, .MuiMenu-root, .MuiPopover-root, .MuiModal-root"
+    )) return;
     pushChange();
-    setCtxMenu(null);
   }
 
-  async function onChipDelete(name) {
-    setCtxMenu(null);
-    const ok = await requestConfirm({
-      title: "Eliminar variable",
-      message: `¿Eliminar todas las ocurrencias de {{${name}}} en este documento?`,
-      confirmLabel: "Eliminar",
-      destructive: true,
-    });
-    if (!ok) return;
-    const next = deletePromptVariable(value, name);
+  function handleDismiss() {
+    if (canEdit && onDraft) onDraft(getEditorText());
+    onClose();
+  }
+
+  function handleDiscard() {
+    onClose();
+  }
+
+  async function handleSave() {
+    const next = getEditorText();
+    setSaving(true);
+    try {
+      await onSave(next);
+      onClose();
+    } catch {
+      /* el padre muestra el error; mantener el diálogo abierto */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function onEditorMouseDown(e) {
+    const delBtn = e.target.closest?.("[data-var-del]");
+    if (!delBtn || !canEdit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const chip = delBtn.closest(".prompt-var-chip");
+    if (!chip) return;
+    chip.remove();
+    const next = readSurface();
+    surfaceOrigin.current = true;
     commit(next);
+    if (surfaceHasRawVarTokens(surfaceRef.current)) {
+      requestAnimationFrame(() => syncSurfaceFromValue(next, { preserveCaret: true }));
+    }
   }
 
   function onChipRename(oldName, newName) {
@@ -290,20 +532,7 @@ function PromptEditorDialog({
     setRenameDlg({ open: false, name: "" });
   }
 
-  function onEditorContextMenu(e) {
-    if (!canEdit) return;
-    e.preventDefault();
-    setCtxMenu({ mouseX: e.clientX + 2, mouseY: e.clientY - 6 });
-  }
-
   function onEditorClick(e) {
-    const delBtn = e.target.closest?.("[data-var-del]");
-    if (delBtn) {
-      e.preventDefault();
-      e.stopPropagation();
-      onChipDelete(delBtn.getAttribute("data-var-del"));
-      return;
-    }
     const chip = e.target.closest?.(".prompt-var-chip");
     if (chip && e.detail >= 2 && canEdit) {
       e.preventDefault();
@@ -311,60 +540,114 @@ function PromptEditorDialog({
     }
   }
 
-  function onKeyDown(e) {
+  function onEditorCopy(e) {
+    const md = readSurface();
+    if (!md) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", md);
+  }
+
+  function onPlainTextKeyDown(e) {
     if (!canEdit) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key === "z" && !e.shiftKey) {
       e.preventDefault();
-      undo();
+      handleUndo();
     } else if (mod && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
       e.preventDefault();
-      redo();
+      handleRedo();
+    }
+  }
+
+  function onKeyDown(e) {
+    if (!canEdit) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === "a" && surfaceRef.current) {
+      e.preventDefault();
+      const range = document.createRange();
+      range.selectNodeContents(surfaceRef.current);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      captureEditorSelection();
+      return;
+    }
+    if (mod && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      handleUndo();
+    } else if (mod && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+      e.preventDefault();
+      handleRedo();
     }
   }
 
   function execFmt(cmd, arg) {
+    captureEditorSelection();
     surfaceRef.current?.focus();
+    restoreEditorRange();
     document.execCommand(cmd, false, arg ?? null);
+    captureEditorSelection();
     pushChange();
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen scroll="paper">
+    <Dialog
+      open={open}
+      onClose={handleDismiss}
+      fullScreen
+      scroll="paper"
+      TransitionProps={{
+        onEntered: () => {
+          if (!plainText && pendingSurfaceValue.current != null) {
+            syncSurfaceFromValue(pendingSurfaceValue.current);
+          }
+        },
+      }}
+    >
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5, flexWrap: "wrap" }}>
         <iconify-icon icon="mdi:pencil-outline" width="1.25em" height="1.25em" />
         <Box component="span" sx={{ fontWeight: 600 }}>{title}</Box>
+        <FormControlLabel
+          control={(
+            <Switch
+              size="small"
+              checked={plainText}
+              onChange={(e) => togglePlainText(e.target.checked)}
+              disabled={!canEdit}
+            />
+          )}
+          label={(
+            <Typography variant="body2" color="text.secondary" component="span">
+              Texto plano
+            </Typography>
+          )}
+          sx={{ ml: 0.5, mr: 0 }}
+        />
         <Box sx={{ flex: 1 }} />
+        {!plainText && (
         <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-          <ButtonIconify icon="mdi:undo" title="Deshacer (Ctrl+Z)" onClick={undo} disabled={!canUndo} />
-          <ButtonIconify icon="mdi:redo" title="Rehacer (Ctrl+Y)" onClick={redo} disabled={!canRedo} />
+          <ButtonIconify icon="mdi:undo" title="Deshacer (Ctrl+Z)" onMouseDown={keepToolbarFocus} onClick={handleUndo} disabled={!canUndo} />
+          <ButtonIconify icon="mdi:redo" title="Rehacer (Ctrl+Y)" onMouseDown={keepToolbarFocus} onClick={handleRedo} disabled={!canRedo} />
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <ButtonIconify icon="mdi:format-bold" title="Negrita" onClick={() => execFmt("bold")} disabled={!canEdit} />
-          <ButtonIconify icon="mdi:format-italic" title="Cursiva" onClick={() => execFmt("italic")} disabled={!canEdit} />
-          <ButtonIconify icon="mdi:format-header-1" title="Título 1" onClick={() => execFmt("formatBlock", "h1")} disabled={!canEdit} />
-          <ButtonIconify icon="mdi:format-header-2" title="Título 2" onClick={() => execFmt("formatBlock", "h2")} disabled={!canEdit} />
-          <ButtonIconify icon="mdi:format-list-bulleted" title="Lista" onClick={() => execFmt("insertUnorderedList")} disabled={!canEdit} />
-          <ButtonIconify
-            icon="mdi:variable"
-            label="Variable"
-            title="Insertar variable"
-            onClick={() => setNewVarDlg(true)}
-            disabled={!canEdit}
-          />
-          <ButtonIconify icon="mdi:close" title="Cerrar sin guardar" onClick={handleClose} />
+          <ButtonIconify icon="mdi:format-bold" title="Negrita" onMouseDown={keepToolbarFocus} onClick={() => execFmt("bold")} disabled={!canEdit} />
+          <ButtonIconify icon="mdi:format-italic" title="Cursiva" onMouseDown={keepToolbarFocus} onClick={() => execFmt("italic")} disabled={!canEdit} />
+          <ButtonIconify icon="mdi:format-header-1" title="Título 1" onMouseDown={keepToolbarFocus} onClick={() => execFmt("formatBlock", "h1")} disabled={!canEdit} />
+          <ButtonIconify icon="mdi:format-header-2" title="Título 2" onMouseDown={keepToolbarFocus} onClick={() => execFmt("formatBlock", "h2")} disabled={!canEdit} />
+          <ButtonIconify icon="mdi:format-list-bulleted" title="Lista" onMouseDown={keepToolbarFocus} onClick={() => execFmt("insertUnorderedList")} disabled={!canEdit} />
         </Stack>
-      </DialogTitle>
-      <DialogContent dividers className="prompt-md-dialog custom-scrollbar">
-        {tipo === "GENERAL" && (
-          <Alert severity="info" sx={{ mb: 1.5, maxWidth: "52rem", mx: "auto" }}>
-            Coloque <code>{`{{instruccion_tipo}}`}</code> exactamente donde debe insertarse la instrucción del tipo clasificado
-            (ya no se concatena al final). Use <code>{`{{nombre_usuario}}`}</code> para personalizar el saludo.
-          </Alert>
         )}
+        {plainText && (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <ButtonIconify icon="mdi:undo" title="Deshacer (Ctrl+Z)" onClick={handleUndo} disabled={!canUndo} />
+          <ButtonIconify icon="mdi:redo" title="Rehacer (Ctrl+Y)" onClick={handleRedo} disabled={!canRedo} />
+        </Stack>
+        )}
+      </DialogTitle>
+      <DialogContent ref={dialogContentRef} dividers className="prompt-md-dialog custom-scrollbar">
         {variables.length > 0 && (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5, maxWidth: "52rem", mx: "auto" }}>
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5, width: "100%", justifyContent: "flex-start", px: "1.5rem", pt: 1.25 }}>
             <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center", mr: 0.5 }}>
-              Variables:
+              Variables (escribe {"{{nombre}}"} en el texto):
             </Typography>
             {variables.map((v) => (
               <Chip
@@ -373,49 +656,58 @@ function PromptEditorDialog({
                 variant="outlined"
                 className="prompt-var-chip prompt-var-chip--static"
                 label={`{{${v}}}`}
+                sx={varToneSx(v)}
                 onDoubleClick={canEdit ? () => setRenameDlg({ open: true, name: v }) : undefined}
               />
             ))}
           </Stack>
         )}
+        {plainText ? (
+          <TextField
+            multiline
+            fullWidth
+            className="prompt-md-plain-editor"
+            value={value}
+            onChange={(e) => {
+              surfaceOrigin.current = true;
+              commit(e.target.value);
+            }}
+            onKeyDown={onPlainTextKeyDown}
+            disabled={!canEdit}
+            spellCheck={false}
+            placeholder="Markdown y {{variables}} en texto plano…"
+            minRows={24}
+            inputRef={plainTextRef}
+            slotProps={{ input: { "aria-label": "Editor de instrucción (texto plano)" } }}
+          />
+        ) : (
         <div
-          ref={surfaceRef}
+          ref={attachSurfaceRef}
           className={`prompt-md-editor-surface prompt-md-preview${canEdit ? "" : " prompt-md-editor-surface--readonly"}`}
           contentEditable={canEdit}
+          spellCheck={false}
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
           aria-label="Editor de instrucción"
           onInput={pushChange}
-          onBlur={pushChange}
-          onContextMenu={onEditorContextMenu}
+          onBlur={onEditorBlur}
+          onMouseUp={captureEditorSelection}
+          onKeyUp={captureEditorSelection}
+          onMouseDown={onEditorMouseDown}
+          onCopy={onEditorCopy}
           onClick={onEditorClick}
           onKeyDown={onKeyDown}
         />
+        )}
       </DialogContent>
       <DialogActions sx={{ px: 2, py: 1 }}>
-        <Button onClick={handleClose}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSave} disabled={!canEdit}>Guardar cambios</Button>
+        <Button onClick={handleDismiss} disabled={saving} sx={{ color: "text.secondary" }}>Cerrar</Button>
+        <Button onClick={handleDiscard} disabled={saving}>Descartar</Button>
+        <Button variant="contained" onClick={handleSave} disabled={!canEdit || saving}>
+          {saving ? "Guardando…" : "Guardar cambios"}
+        </Button>
       </DialogActions>
-
-      <Menu
-        open={ctxMenu != null}
-        onClose={() => setCtxMenu(null)}
-        anchorReference="anchorPosition"
-        anchorPosition={ctxMenu ? { top: ctxMenu.mouseY, left: ctxMenu.mouseX } : undefined}
-      >
-        <MenuItem disabled sx={{ opacity: 1, fontSize: "0.72rem", fontWeight: 600 }}>
-          Insertar variable
-        </MenuItem>
-        {variables.map((v) => (
-          <MenuItem key={v} onClick={() => insertVariable(v)}>{`{{${v}}}`}</MenuItem>
-        ))}
-        <Divider />
-        <MenuItem onClick={() => { setCtxMenu(null); setNewVarDlg(true); }}>
-          <iconify-icon icon="mdi:plus" width="1em" height="1em" style={{ marginRight: 8 }} />
-          Nueva variable…
-        </MenuItem>
-      </Menu>
 
       <RenameVarDialog
         open={renameDlg.open}
@@ -423,15 +715,6 @@ function PromptEditorDialog({
         existing={variables}
         onClose={() => setRenameDlg({ open: false, name: "" })}
         onConfirm={(newName) => onChipRename(renameDlg.name, newName)}
-      />
-      <NewVarDialog
-        open={newVarDlg}
-        onClose={() => setNewVarDlg(false)}
-        existing={variables}
-        onConfirm={(name) => {
-          insertVariable(name);
-          setNewVarDlg(false);
-        }}
       />
     </Dialog>
   );
@@ -443,11 +726,13 @@ export function PromptBodyEditor({
   canEdit,
   editBlockReason,
   onChange,
+  onPersist,
   placeholder,
   tipo,
   title,
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
+  const previewRef = useRef(null);
   const previewHtml = useMemo(() => {
     const text = String(body || "").trim();
     if (!text) return "";
@@ -459,33 +744,45 @@ export function PromptBodyEditor({
     setEditorOpen(true);
   }
 
+  function handlePreviewCopy(e) {
+    const md = String(body ?? "");
+    if (!md) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", md);
+  }
+
+  function handlePreviewKeyDown(e) {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === "a" && previewRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      const range = document.createRange();
+      range.selectNodeContents(previewRef.current);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      return;
+    }
+    if (canEdit && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      openEditor();
+    }
+  }
+
   return (
     <>
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" className="tab-editor-head" sx={{ mb: 0.5 }}>
-        <ButtonIconify
-          icon="mdi:login"
-          label="Entrar"
-          title={canEdit ? "Abrir editor de instrucción" : editBlockReason}
-          onClick={openEditor}
-          disabled={!canEdit}
-        />
-      </Stack>
-
       <Box
         className={`prompt-body-preview custom-scrollbar${canEdit ? " prompt-body-preview--editable" : ""}`}
         onDoubleClick={openEditor}
+        onCopy={handlePreviewCopy}
+        onKeyDown={handlePreviewKeyDown}
         title={canEdit ? "Doble clic para editar" : editBlockReason}
         role={canEdit ? "button" : undefined}
         tabIndex={canEdit ? 0 : undefined}
-        onKeyDown={(e) => {
-          if (canEdit && (e.key === "Enter" || e.key === " ")) {
-            e.preventDefault();
-            openEditor();
-          }
-        }}
       >
         {previewHtml ? (
           <div
+            ref={previewRef}
             className="prompt-md-preview msg-body"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
@@ -503,7 +800,8 @@ export function PromptBodyEditor({
         body={body || ""}
         canEdit={canEdit}
         tipo={tipo}
-        onSave={(next) => onChange(next)}
+        onDraft={onChange}
+        onSave={onPersist ?? onChange}
       />
     </>
   );
