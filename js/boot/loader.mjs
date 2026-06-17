@@ -3,6 +3,21 @@ import { asset } from "./cdn.mjs";
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 
+/** boot-helper puede cargar index.js de un pin sin lazy-assets — usar el pin de la app. */
+async function loadIsaFrontPinned(h) {
+  if (isDist) {
+    await import(asset("isa/js/index.js"));
+  } else {
+    await h.loadIsaFront();
+    if (!window.ISAFront?.ensureCodeMirrorLoaded) {
+      await import(asset("isa/js/index.js"));
+    }
+  }
+  if (!window.ISAFront?.ensureCodeMirrorLoaded) {
+    throw new Error("ISAFront incompleto — lazy-assets no disponibles en el pin CDN");
+  }
+}
+
 import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }) => {
   mountBoot(async () => {
     if (bootHold) return;
@@ -10,7 +25,7 @@ import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }
     const Babel = getBabel();
     await (await h.importShared("stack.mjs")).stackReady;
     h.assertStack();
-    await h.loadIsaFront();
+    await loadIsaFrontPinned(h);
     await h.loadSharedUi(Babel);
     if (isDist) {
       await import("../core/isa-setup.js");
