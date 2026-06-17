@@ -35,7 +35,7 @@
       var k = "isa-patyia:theme";
       var m = "dark";
       try {
-        var v = localStorage.getItem(k);
+        var v = localStorage.getItem(k); 
         if (v === "light" || v === "dark") m = v;
       } catch (e) { /* ignore */ }
       document.documentElement.setAttribute("data-mui-color-scheme", m);
