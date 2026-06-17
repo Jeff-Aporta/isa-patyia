@@ -25,18 +25,25 @@ function clampSidebarWidth(w) {
   return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
 }
 
-function readSidebarWidth(bootSidebarW) {
-  const fromUrl = Number(bootSidebarW);
-  if (Number.isFinite(fromUrl)) return clampSidebarWidth(fromUrl);
+function readSidebarWidth() {
   try {
     const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
-    if (Number.isFinite(n)) return clampSidebarWidth(n);
+    if (Number.isFinite(n)) {
+      const w = clampSidebarWidth(n);
+      if (w === SIDEBAR_MIN) {
+        try {
+          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_DEFAULT));
+        } catch (_) { /* ignore */ }
+        return SIDEBAR_DEFAULT;
+      }
+      return w;
+    }
   } catch (_) { /* ignore */ }
   return SIDEBAR_DEFAULT;
 }
 
-function useResizableSidebarWidth(bootSidebarW) {
-  const [width, setWidth] = useState(() => readSidebarWidth(bootSidebarW));
+function useResizableSidebarWidth() {
+  const [width, setWidth] = useState(() => readSidebarWidth());
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startW: SIDEBAR_DEFAULT });
 
@@ -63,7 +70,6 @@ function useResizableSidebarWidth(bootSidebarW) {
         try {
           localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next));
         } catch (_) { /* ignore */ }
-        mergePartial({ log: { sidebarW: next } });
         return next;
       });
     }
@@ -209,7 +215,7 @@ function ResumenDialog({ open, onClose, logInfo, navItems, selectedId, onSelectM
 
 export function LogViewer({ bootLog = {} }) {
   const { Icon } = UI;
-  const { width: sidebarWidth, dragging, onResizeStart } = useResizableSidebarWidth(bootLog.sidebarW);
+  const { width: sidebarWidth, dragging, onResizeStart } = useResizableSidebarWidth();
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
   const [convId, setConvId] = useState(bootLog.convId || "");
   const [error, setError] = useState("");

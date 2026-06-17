@@ -8,9 +8,7 @@ const STATE_VERSION = 1;
 function normalizeLog(raw: unknown) {
   if (!raw || typeof raw !== "object") return {};
   const o = { ...(raw as Record<string, unknown>) };
-  const w = Number(o.sidebarW);
-  if (Number.isFinite(w)) o.sidebarW = Math.min(560, Math.max(220, Math.round(w)));
-  else delete o.sidebarW;
+  delete o.sidebarW;
   return o;
 }
 
@@ -35,8 +33,14 @@ function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
 function slimForUrl(src: Record<string, unknown>) {
   const slim = { ...src };
   const log = slim.log as Record<string, unknown> | undefined;
-  if (log?.jsonInput && String(log.jsonInput).length > 4000) {
-    slim.log = { convId: log.convId || "" };
+  if (log) {
+    const nextLog = { ...log };
+    delete nextLog.sidebarW;
+    if (nextLog.jsonInput && String(nextLog.jsonInput).length > 4000) {
+      slim.log = { convId: nextLog.convId || "" };
+    } else {
+      slim.log = nextLog;
+    }
   }
   const prompts = slim.prompts as Record<string, unknown> | undefined;
   if (prompts?.bodies) {
@@ -56,6 +60,7 @@ function slimForUrl(src: Record<string, unknown>) {
 function merge(state: Record<string, unknown>, partial: Record<string, unknown>) {
   const nextLog = { ...(state.log as object), ...((partial.log as object) || {}) };
   if ("jsonInput" in nextLog) delete (nextLog as Record<string, unknown>).jsonInput;
+  delete (nextLog as Record<string, unknown>).sidebarW;
   return {
     ...state,
     ...partial,
@@ -94,8 +99,23 @@ const urlState = window.ISAFront.createUrlState({
 export const bootState = urlState.boot;
 export const getSnapshot = urlState.getSnapshot;
 export const mergePartial = urlState.mergePartial;
-export const resetUrlState = urlState.reset;
 export const PARAM = urlState.PARAM;
+
+function stripUrlStateParam() {
+  try {
+    const url = new URL(location.href);
+    if (!url.searchParams.has(PARAM)) return;
+    url.searchParams.delete(PARAM);
+    history.replaceState(null, "", url);
+  } catch { /* ignore */ }
+}
+
+/** Reinicia estado de la app y elimina por completo ?s= de la URL. */
+export function resetUrlState() {
+  const snap = urlState.reset();
+  stripUrlStateParam();
+  return snap;
+}
 
 /** Solo metadatos ligeros del visor de log (iconversacion), no el JSON completo. */
 export function persistLogMeta(convId: string) {
