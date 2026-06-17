@@ -12,7 +12,8 @@
     "ogTitle": "ISA PatyIA",
     "imageAlt": "ISA PatyIA — asistente PatyIA staging"
   },
-  "frontSharedPin": "5cc2d4c",
+  "frontSharedPin": "9b5af5c",
+  "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
   "fonts": false,
@@ -22,21 +23,17 @@
   "styles": [
     "shared-base",
     "shared-feedback",
-    "shared-code-mirror",
     "local:css/theme.css",
-    "local:css/app.css",
-    "local:css/chat-staging.css",
-    "cm-core",
-    "cm-dracula",
-    "cm-foldgutter"
+    "local:css/app.css"
+  ],
+  "preconnect": [
+    "https://cdn.jsdelivr.net",
+    "https://cdnjs.cloudflare.com",
+    "https://esm.sh",
+    "https://unpkg.com",
+    "https://code.iconify.design"
   ],
   "libs": [
-    "marked",
-    "codemirror-core",
-    "codemirror-javascript",
-    "codemirror-foldcode",
-    "codemirror-foldgutter",
-    "codemirror-brace-fold",
     "iconify",
     "loader-mjs"
   ]

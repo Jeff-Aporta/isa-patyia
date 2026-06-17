@@ -1,7 +1,7 @@
 /**
  * Estado de la app en ?s= — esquema isa-patyia sobre url-state compartido.
  */
-import { isLocalMode, setLocalMode } from "./config.ts";
+import { isLocalMode, setLocalMode } from "./patyia.ts";
 
 const STATE_VERSION = 1;
 

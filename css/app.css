@@ -2178,6 +2178,15 @@ code {
   font-style: italic;
 }
 
+.prompt-body-preview__loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 6rem;
+  width: 100%;
+}
+
 .prompt-md-editor-surface {
   box-sizing: border-box;
   max-width: 52rem;

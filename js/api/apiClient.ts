@@ -6,7 +6,7 @@ import {
   isPatyiaApiPath,
   patyiaBridgeBase,
   PATYIA_BRIDGE_URL,
-} from "../core/config.ts";
+} from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const bridgeHttp = window.ISAFront.createCapFetch({

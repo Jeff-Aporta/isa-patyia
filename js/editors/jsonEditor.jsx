@@ -1,4 +1,4 @@
-import { CodeMirrorPanel } from "../core/codeMirror.ts";
+import { CodeMirrorPanel } from "../core/platform.ts";
 
 /** Editor JSON editable (CodeMirror compartido + copiar + pantalla completa). */
 export function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra = null }) {

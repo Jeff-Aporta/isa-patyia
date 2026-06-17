@@ -1,13 +1,4 @@
-/** Registra ISA PatyIA en ISAFront (front-shared). */
-window.ISAFront.registerApp({
-  ns: "ISA", app: "isa-patyia", theme: true, widgets: { targetStyle: "chip" },
-  session: true, auth: false, realtime: { enabled: () => false, autoStart: false }, toast: true,
-});
+/** Punto de entrada de arranque — loader.mjs importa este archivo antes de main.jsx. */
+import { bootstrapIsaPatyia } from "./platform.ts";
 
-if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
-  window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);
-}
-
-if (!window.ISA?.Session) {
-  throw new Error("No se pudo iniciar la aplicación. Recargue sin caché (Ctrl+Shift+R).");
-}
+bootstrapIsaPatyia();

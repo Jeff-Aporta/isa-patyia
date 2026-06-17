@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getReact, getMaterialUI, CodeMirrorPanel } from "../core/platform.ts";
 import { Session } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import {
@@ -30,9 +30,8 @@ import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/iconify.jsx";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../ui/notifications.jsx";
 import { mergePartial } from "../core/urlState.ts";
-import { CodeMirrorPanel } from "../core/codeMirror.ts";
-import { buildUserAvatarUrl } from "../core/userAvatar.ts";
-import { resolveSessionBrowseScope, browseScopeKey } from "../core/sessionBrowseScope.ts";
+import { buildUserAvatarUrl } from "../core/patyia.ts";
+import { resolveSessionBrowseScope, browseScopeKey } from "../core/patyia-jwt.ts";
 
 const { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } = getReact();
 

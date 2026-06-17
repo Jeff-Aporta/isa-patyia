@@ -24,7 +24,7 @@ export const Session = {
   logout: () => bridge().Session.logout(),
   refreshProfile: () => bridge().Session.refreshProfile(),
   capabilities: () => bridge().Session.capabilities(),
-  capabilityCatalog: () => bridge().Session.capabilityCatalog(),
+  capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
   can: (cap: string) => bridge().Session.can(cap),
   blockReason: (cap: string) => bridge().Session.blockReason(cap),
   get EVENT() { return bridge().Session.EVENT; },
@@ -41,3 +41,66 @@ export const Config = {
   setLocal: (on: boolean) => bridge().Config.setLocal(on),
   get EVENT() { return bridge().Config.EVENT; },
 };
+
+function frontShared(): IsaFrontApi {
+  const api = window.ISAFront;
+  if (!api?.ensureCodeMirrorLoaded) {
+    throw new Error("ISAFront lazy-assets no cargado — recargue sin caché (Ctrl+Shift+R).");
+  }
+  return api;
+}
+
+/** Carga lazy de scripts/CSS y markdown (front-shared). */
+export const Assets = {
+  ensureCodeMirrorLoaded: (opts?: { sql?: boolean }) => frontShared().ensureCodeMirrorLoaded!(opts),
+  ensureMarked: () => frontShared().ensureMarked!(),
+  ensureStylesheet: (href: string) => frontShared().ensureLazyStylesheet!(href),
+  ensureChatStagingCss: () => {
+    const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "dist/" : "";
+    frontShared().ensureLazyStylesheet!(`${prefix}css/chat-staging.css`).catch((err) => {
+      console.warn("chat-staging.css:", err);
+    });
+  },
+};
+
+export function mdToHtml(src: string): string {
+  return frontShared().mdToHtml!(src);
+}
+
+/** Estimación de tokens de prompt (ISAFront o fallback chars/4). */
+export const Tokens = {
+  estimatePrompt: (text: unknown): number => {
+    const fn = window.ISAFront?.estimatePromptTokens;
+    if (typeof fn === "function") return fn(text);
+    const s = String(text ?? "");
+    return s.trim() ? Math.ceil(s.length / 4) : 0;
+  },
+};
+
+/** Puente al stack React/MUI (front-shared). */
+export const getReact = () => window.ISAFront.getReact();
+export const getReactDOM = () => window.ISAFront.getReactDOM();
+export const getMaterialUI = () => window.ISAFront.getMaterialUI();
+
+/** Puente a ISAFront.CodeMirrorPanel (front-shared). */
+export function CodeMirrorPanel(props: Record<string, unknown>) {
+  const Panel = window.ISAFront?.CodeMirrorPanel;
+  if (!Panel) throw new Error("CodeMirrorPanel no cargado — recargue sin caché (Ctrl+Shift+R).");
+  return Panel(props);
+}
+
+/** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
+export function bootstrapIsaPatyia(): void {
+  window.ISAFront.registerApp({
+    ns: "ISA", app: "isa-patyia", theme: true, widgets: { targetStyle: "chip" },
+    session: true, auth: false, realtime: { enabled: () => false, autoStart: false }, toast: true,
+  });
+
+  if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
+    window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);
+  }
+
+  if (!window.ISA?.Session) {
+    throw new Error("No se pudo iniciar la aplicación. Recargue sin caché (Ctrl+Shift+R).");
+  }
+}

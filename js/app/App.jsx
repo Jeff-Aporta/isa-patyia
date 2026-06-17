@@ -1,4 +1,4 @@
-import { getReact, getReactDOM } from "../core/runtime.ts";
+import { getReact, getReactDOM } from "../core/platform.ts";
 import { mergePartial, bootState, getSnapshot } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
 import { LoginButton } from "../auth/LabAuth.jsx";
@@ -6,6 +6,7 @@ import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { Session } from "../core/platform.ts";
+import { Assets } from "../core/platform.ts";
 
 const BRAND_HOME_EVENT = "isa:brand-home";
 
@@ -23,6 +24,14 @@ export function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
+
+  useEffect(() => {
+    Assets.ensureMarked().catch(() => { /* fallback plaintext en mdToHtml */ });
+  }, []);
+
+  useEffect(() => {
+    if (tool === "chat") Assets.ensureChatStagingCss();
+  }, [tool]);
 
   useEffect(() => {
     function onAuth() { setAuthTick((n) => n + 1); }

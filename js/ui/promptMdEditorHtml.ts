@@ -1,4 +1,4 @@
-import { mdToHtml } from "./markdown.ts";
+import { mdToHtml } from "../core/platform.ts";
 import { PROMPT_VAR_PATTERN, repairPromptVarBraces, varToneStyleAttr } from "../core/promptVariables.ts";
 function escAttr(s: string): string {
   return String(s)

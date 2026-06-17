@@ -1,8 +1,25 @@
 /** Tema neon / tech — isa-patyia (override de dodger en ISA.Theme). */
-import { getMaterialUI, getReact } from "./runtime.ts";
-import { applyThemeModeToDocument, type ThemeMode } from "./theme-mode.ts";
+import { getMaterialUI, getReact } from "./platform.ts";
 
-export const LS_KEY = "isa-patyia:theme";
+export const THEME_LS_KEY = "isa-patyia:theme";
+export type ThemeMode = "light" | "dark";
+
+export function readStoredThemeMode(): ThemeMode {
+  try {
+    const v = localStorage.getItem(THEME_LS_KEY);
+    if (v === "light" || v === "dark") return v;
+  } catch { /* ignore */ }
+  return "dark";
+}
+
+/** Aplica `data-mui-color-scheme` antes de montar React (evita flash claro). */
+export function applyThemeModeToDocument(mode: ThemeMode = readStoredThemeMode()): ThemeMode {
+  document.documentElement.setAttribute("data-mui-color-scheme", mode);
+  document.documentElement.style.colorScheme = mode;
+  return mode;
+}
+
+export const LS_KEY = THEME_LS_KEY;
 export const NEON = {
   blue: "#1e90ff",
   cyan: "#00e5ff",

@@ -1,5 +1,5 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
-import { mdToHtml } from "./markdown.ts";
+import { getReact, getMaterialUI } from "../core/platform.ts";
+import { mdToHtml } from "../core/platform.ts";
 import { bodyPreviewHtml, bodyToEditorHtml, editorHtmlToBody, surfaceHasRawVarTokens } from "./promptMdEditorHtml.ts";
 import {
   renamePromptVariable,
@@ -12,7 +12,7 @@ import { ButtonIconify } from "./iconify.jsx";
 const { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } = getReact();
 const {
   Box, Stack, Typography, Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Alert, Divider, Chip, Switch, FormControlLabel,
+  Button, TextField, Alert, Divider, Chip, Switch, FormControlLabel, CircularProgress,
 } = getMaterialUI();
 
 const MAX_UNDO = 80;
@@ -730,6 +730,7 @@ export function PromptBodyEditor({
   placeholder,
   tipo,
   title,
+  loading = false,
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const previewRef = useRef(null);
@@ -774,14 +775,19 @@ export function PromptBodyEditor({
       <Box
         className={`prompt-body-preview custom-scrollbar${canEdit ? " prompt-body-preview--editable" : ""}`}
         sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
-        onDoubleClick={openEditor}
+        onDoubleClick={loading ? undefined : openEditor}
         onCopy={handlePreviewCopy}
-        onKeyDown={handlePreviewKeyDown}
-        title={canEdit ? "Doble clic para editar" : editBlockReason}
-        role={canEdit ? "button" : undefined}
-        tabIndex={canEdit ? 0 : undefined}
+        onKeyDown={loading ? undefined : handlePreviewKeyDown}
+        title={loading ? undefined : (canEdit ? "Doble clic para editar" : editBlockReason)}
+        role={loading ? undefined : (canEdit ? "button" : undefined)}
+        tabIndex={loading ? undefined : (canEdit ? 0 : undefined)}
+        aria-busy={loading || undefined}
       >
-        {previewHtml ? (
+        {loading ? (
+          <Box className="prompt-body-preview__loading" aria-hidden>
+            <CircularProgress size={28} />
+          </Box>
+        ) : previewHtml ? (
           <div
             ref={previewRef}
             className="prompt-md-preview msg-body"

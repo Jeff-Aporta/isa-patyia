@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/iconify.jsx";

@@ -12,11 +12,16 @@ interface IsaNs {
 interface Window {
   ISA: IsaNs;
   ISAFront: IsaFrontApi;
+  React?: ReactHooks;
+  MaterialUI?: Record<string, unknown>;
+  CodeMirror?: unknown;
+  marked?: { parse: (src: string, opts?: Record<string, unknown>) => string };
   AppMeta?: {
     apply: (cfg: Record<string, unknown>) => void;
     initFromDocument: () => Record<string, unknown>;
     cfg?: { theme?: { lsKey?: string } };
   };
+  __ISA_DIST__?: boolean;
   ThemeInit?: {
     lsKey: string;
     readMode: (key: string) => string;
@@ -71,6 +76,7 @@ interface IsaSession {
   logout(): void;
   refreshProfile(): Promise<unknown>;
   capabilities(): string[];
+  capabilityCatalog?(): unknown[];
   can(cap: string): boolean;
   blockReason(cap: string): string;
   EVENT: string;
@@ -82,6 +88,10 @@ interface IsaUi {
   ThemeSwitch: (props: { mode: string; onToggle: () => void }) => unknown;
   Loading?: (props: { label?: string }) => unknown;
   ErrorBox?: (props: { message: string }) => unknown;
+  LoginGate?: unknown;
+  LoginButton?: unknown;
+  useRealtimeStatus?: unknown;
+  RealtimeStatusDot?: unknown;
 }
 
 interface IsaTheme {
@@ -119,6 +129,12 @@ interface IsaFrontApi {
   registerApp(opts: Record<string, unknown>): void;
   registerCodeMirror?(react: unknown, mui: unknown): void;
   registerRealtime?(ns: string, opts: Record<string, unknown>): void;
+  ensureCodeMirrorLoaded?(opts?: { sql?: boolean }): Promise<void>;
+  ensureMarked?(): Promise<void>;
+  ensureLazyStylesheet?(href: string): Promise<void>;
+  mdToHtml?(src: string): string;
+  estimatePromptTokens?(text: unknown): number;
+  CodeMirrorPanel?: (props: Record<string, unknown>) => unknown;
   getReact(): ReactHooks;
   getReactDOM(): ReactDOMApi;
   getMaterialUI(): Record<string, unknown>;

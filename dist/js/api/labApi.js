@@ -1,0 +1,1 @@
+import{apiUrl as o,capFetch as r,fetchConvLogById as e,fetchInstruccionesPaty as n,publishInstruccionesPaty as s,upsertInstruccionPaty as a,rowVal as i}from"./apiClient.ts";export{o as apiUrl,r as capFetch,e as fetchConvLogById,n as fetchInstruccionesPaty,s as publishInstruccionesPaty,i as rowVal,a as upsertInstruccionPaty};

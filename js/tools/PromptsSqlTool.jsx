@@ -1,12 +1,11 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getReact, getMaterialUI } from "../core/platform.ts";
 import { getSnapshot, mergePartial } from "../core/urlState.ts";
 import * as PromptsSql from "../api/promptsSql.ts";
 import * as LabApi from "../api/labApi.ts";
 import * as LabSession from "../api/sessionApi.ts";
-import { Session } from "../core/platform.ts";
+import { Session, Tokens } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/iconify.jsx";
-import { CodeMirrorPanel } from "../core/codeMirror.ts";
-import { estimatePromptTokensFromCdn } from "../core/promptTokens.ts";
+import { CodeMirrorPanel } from "../core/platform.ts";
 import { PromptBodyEditor } from "../ui/PromptBodyEditor.jsx";
 import { hasInstruccionTipoSlot, preparePromptBodyForSave } from "../core/promptVariables.ts";
 import { toastWarning, toastSuccess, toastError, toastInfo, requestConfirm } from "../ui/notifications.jsx";
@@ -121,7 +120,7 @@ function formatCharsTokens(body) {
   const text = String(body ?? "");
   if (!text.trim()) return "—";
   const chars = text.length;
-  const tokens = estimatePromptTokensFromCdn(text);
+  const tokens = Tokens.estimatePrompt(text);
   return (
     <>
       {chars}
@@ -1089,6 +1088,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
               placeholder={`Contenido de ${activePrompt?.archivo || `PROMPT_${activeTipo}.md`}…`}
               tipo={activeTipo}
               title={activeTipo.replace(/_/g, " ")}
+              loading={loadBusy}
             />
 
           </div>

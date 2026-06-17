@@ -1,7 +1,7 @@
 /**
  * Presentación web del hilo CONVERSACION_LOG — estilo driver JSX de tickets (SectionCard, gradientes MUI).
  */
-import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";

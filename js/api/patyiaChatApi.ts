@@ -4,7 +4,7 @@ import {
   type PatyJwtClaims,
 } from "../core/patyia-jwt.ts";
 import { patyAuthHeaders } from "./patyiaTokens.ts";
-import { readPatyiaSseStream } from "../core/patyia-chat-sse.ts";
+import { readPatyiaSseStream } from "../core/patyia.ts";
 
 function authHeaders(jwt: PatyJwtRecord, extra: Record<string, string> = {}): HeadersInit {
   return patyAuthHeaders(jwt, extra);

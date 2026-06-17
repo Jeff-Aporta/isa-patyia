@@ -1,6 +1,6 @@
 /** Formateo legible de secciones de prompt (historial JSON, líneas [role], consulta actual). */
 
-import { mdToHtml } from "./markdown.ts";
+import { mdToHtml } from "../core/platform.ts";
 
 function escapeHtml(src: string): string {
   return String(src ?? "")

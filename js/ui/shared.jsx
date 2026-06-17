@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI } from "../core/runtime.ts";
+import { getReact, getMaterialUI } from "../core/platform.ts";
 import {
   tokensFromUsage,
   formatUsageUsd,
@@ -7,10 +7,10 @@ import {
   usageHasData,
 } from "../core/convLog.ts";
 import { ButtonIconify } from "./iconify.jsx";
-import { CodeMirrorPanel } from "./codeMirrorPanel.jsx";
-import { mdToHtml } from "./markdown.ts";
+import { CodeMirrorPanel } from "../core/platform.ts";
+import { mdToHtml } from "../core/platform.ts";
 
-export { mdToHtml } from "./markdown.ts";
+export { mdToHtml } from "../core/platform.ts";
 
 const { useState, useEffect } = getReact();
 const { createTheme, Dialog, DialogTitle, DialogContent, Tabs, Tab, Box, Typography } = getMaterialUI();

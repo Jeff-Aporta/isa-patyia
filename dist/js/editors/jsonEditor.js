@@ -1,0 +1,1 @@
+import{CodeMirrorPanel as a}from"../core/platform.ts";function i({value:l="",onChange:e,placeholder:o="",toolbarExtra:r=null}){return React.createElement(a,{value:l,onChange:e,json:!0,readOnly:!1,fill:!0,enableFullPage:!0,fullPageTitle:"Log JSON",placeholder:o,lineWrapping:!1,toolbarExtra:r})}export{i as JsonCodeEditor};

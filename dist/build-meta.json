@@ -1,0 +1,226 @@
+{
+  "builtAt": "2026-06-17T18:11:56.399Z",
+  "files": 36,
+  "bytesIn": 410462,
+  "bytesOut": 244581,
+  "ratio": 0.596,
+  "hash": "3d8d0c0571d1",
+  "entries": [
+    {
+      "src": "css/app.css",
+      "dist": "dist/css/app.css",
+      "bytesIn": 52310,
+      "bytesOut": 41529
+    },
+    {
+      "src": "css/chat-staging.css",
+      "dist": "dist/css/chat-staging.css",
+      "bytesIn": 18003,
+      "bytesOut": 14569
+    },
+    {
+      "src": "css/theme.css",
+      "dist": "dist/css/theme.css",
+      "bytesIn": 6182,
+      "bytesOut": 5101
+    },
+    {
+      "src": "js/api/apiClient.ts",
+      "dist": "dist/js/api/apiClient.js",
+      "bytesIn": 7566,
+      "bytesOut": 3649
+    },
+    {
+      "src": "js/api/labApi.ts",
+      "dist": "dist/js/api/labApi.js",
+      "bytesIn": 265,
+      "bytesOut": 327
+    },
+    {
+      "src": "js/api/patyiaChatApi.ts",
+      "dist": "dist/js/api/patyiaChatApi.js",
+      "bytesIn": 6717,
+      "bytesOut": 2778
+    },
+    {
+      "src": "js/api/patyiaTokens.ts",
+      "dist": "dist/js/api/patyiaTokens.js",
+      "bytesIn": 1967,
+      "bytesOut": 681
+    },
+    {
+      "src": "js/api/portalJwtApi.ts",
+      "dist": "dist/js/api/portalJwtApi.js",
+      "bytesIn": 2084,
+      "bytesOut": 1072
+    },
+    {
+      "src": "js/api/promptsSql.ts",
+      "dist": "dist/js/api/promptsSql.js",
+      "bytesIn": 18613,
+      "bytesOut": 10418
+    },
+    {
+      "src": "js/api/sessionApi.ts",
+      "dist": "dist/js/api/sessionApi.js",
+      "bytesIn": 2635,
+      "bytesOut": 1630
+    },
+    {
+      "src": "js/app/App.jsx",
+      "dist": "dist/js/app/App.js",
+      "bytesIn": 3262,
+      "bytesOut": 2001
+    },
+    {
+      "src": "js/auth/LabAuth.jsx",
+      "dist": "dist/js/auth/LabAuth.js",
+      "bytesIn": 9988,
+      "bytesOut": 6153
+    },
+    {
+      "src": "js/boot/cdn.mjs",
+      "dist": "dist/js/boot/cdn.mjs",
+      "bytesIn": 171,
+      "bytesOut": 146
+    },
+    {
+      "src": "js/boot/loader.mjs",
+      "dist": "dist/js/boot/loader.mjs",
+      "bytesIn": 791,
+      "bytesOut": 600
+    },
+    {
+      "src": "js/boot/theme-init.mjs",
+      "dist": "dist/js/boot/theme-init.mjs",
+      "bytesIn": 376,
+      "bytesOut": 227
+    },
+    {
+      "src": "js/core/convLog.ts",
+      "dist": "dist/js/core/convLog.js",
+      "bytesIn": 26337,
+      "bytesOut": 14012
+    },
+    {
+      "src": "js/core/isa-setup.ts",
+      "dist": "dist/js/core/isa-setup.js",
+      "bytesIn": 170,
+      "bytesOut": 56
+    },
+    {
+      "src": "js/core/patyia-jwt.ts",
+      "dist": "dist/js/core/patyia-jwt.js",
+      "bytesIn": 9467,
+      "bytesOut": 4474
+    },
+    {
+      "src": "js/core/patyia.ts",
+      "dist": "dist/js/core/patyia.js",
+      "bytesIn": 3108,
+      "bytesOut": 1683
+    },
+    {
+      "src": "js/core/platform.ts",
+      "dist": "dist/js/core/platform.js",
+      "bytesIn": 4403,
+      "bytesOut": 2810
+    },
+    {
+      "src": "js/core/promptVariables.ts",
+      "dist": "dist/js/core/promptVariables.js",
+      "bytesIn": 4402,
+      "bytesOut": 2120
+    },
+    {
+      "src": "js/core/theme.ts",
+      "dist": "dist/js/core/theme.js",
+      "bytesIn": 6957,
+      "bytesOut": 4281
+    },
+    {
+      "src": "js/core/urlState.ts",
+      "dist": "dist/js/core/urlState.js",
+      "bytesIn": 4125,
+      "bytesOut": 1883
+    },
+    {
+      "src": "js/editors/jsonEditor.jsx",
+      "dist": "dist/js/editors/jsonEditor.js",
+      "bytesIn": 537,
+      "bytesOut": 323
+    },
+    {
+      "src": "js/main.jsx",
+      "dist": "dist/js/main.js",
+      "bytesIn": 188,
+      "bytesOut": 91
+    },
+    {
+      "src": "js/tools/ChatTool.jsx",
+      "dist": "dist/js/tools/ChatTool.js",
+      "bytesIn": 67327,
+      "bytesOut": 36103
+    },
+    {
+      "src": "js/tools/LogViewer.jsx",
+      "dist": "dist/js/tools/LogViewer.js",
+      "bytesIn": 19380,
+      "bytesOut": 11212
+    },
+    {
+      "src": "js/tools/PromptsSqlTool.jsx",
+      "dist": "dist/js/tools/PromptsSqlTool.js",
+      "bytesIn": 41893,
+      "bytesOut": 22997
+    },
+    {
+      "src": "js/ui/ConvLogWebView.jsx",
+      "dist": "dist/js/ui/ConvLogWebView.js",
+      "bytesIn": 35451,
+      "bytesOut": 20593
+    },
+    {
+      "src": "js/ui/PromptBodyEditor.jsx",
+      "dist": "dist/js/ui/PromptBodyEditor.js",
+      "bytesIn": 27576,
+      "bytesOut": 14265
+    },
+    {
+      "src": "js/ui/convLogSurface.ts",
+      "dist": "dist/js/ui/convLogSurface.js",
+      "bytesIn": 787,
+      "bytesOut": 458
+    },
+    {
+      "src": "js/ui/iconify.jsx",
+      "dist": "dist/js/ui/iconify.js",
+      "bytesIn": 1158,
+      "bytesOut": 739
+    },
+    {
+      "src": "js/ui/notifications.jsx",
+      "dist": "dist/js/ui/notifications.js",
+      "bytesIn": 540,
+      "bytesOut": 365
+    },
+    {
+      "src": "js/ui/promptFormat.ts",
+      "dist": "dist/js/ui/promptFormat.js",
+      "bytesIn": 7955,
+      "bytesOut": 3735
+    },
+    {
+      "src": "js/ui/promptMdEditorHtml.ts",
+      "dist": "dist/js/ui/promptMdEditorHtml.js",
+      "bytesIn": 5535,
+      "bytesOut": 3010
+    },
+    {
+      "src": "js/ui/shared.jsx",
+      "dist": "dist/js/ui/shared.js",
+      "bytesIn": 12236,
+      "bytesOut": 8490
+    }
+  ]
+}
