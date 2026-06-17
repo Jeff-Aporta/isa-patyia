@@ -35,7 +35,7 @@
       var k = "isa-patyia:theme";
       var m = "dark";
       try {
-        var v = localStorage.getItem(k); 
+        var v = localStorage.getItem(k);
         if (v === "light" || v === "dark") m = v;
       } catch (e) { /* ignore */ }
       document.documentElement.setAttribute("data-mui-color-scheme", m);
@@ -68,13 +68,13 @@
 }
   </script>
   <script defer src="https://unpkg.com/@babel/standalone@7.26.9/babel.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldcode.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldgutter.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/brace-fold.min.js"></script>
   <script defer src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
   <script async src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-  <script async src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
-  <script async src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
-  <script async src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldcode.min.js"></script>
-  <script async src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/foldgutter.min.js"></script>
-  <script async src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/fold/brace-fold.min.js"></script>
   <script type="module" src="js/boot/loader.mjs"></script>
 </head>
 
