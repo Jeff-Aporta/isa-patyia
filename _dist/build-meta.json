@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-17T18:58:48.927Z",
+  "builtAt": "2026-06-17T20:27:46.210Z",
   "files": 57,
-  "bytesIn": 415228,
-  "bytesOut": 253043,
+  "bytesIn": 416357,
+  "bytesOut": 253657,
   "ratio": 0.609,
-  "hash": "89d028fc7214",
+  "hash": "731265c07152",
   "entries": [
     {
       "src": "css/app.css",
@@ -87,8 +87,8 @@
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 897,
-      "bytesOut": 680
+      "bytesIn": 1571,
+      "bytesOut": 1041
     },
     {
       "src": "js/boot/theme-init.mjs",
@@ -123,8 +123,8 @@
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 5077,
-      "bytesOut": 3167
+      "bytesIn": 5532,
+      "bytesOut": 3420
     },
     {
       "src": "js/core/promptVariables.ts",
