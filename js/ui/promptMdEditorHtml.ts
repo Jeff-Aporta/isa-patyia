@@ -1,6 +1,5 @@
 import { mdToHtml } from "./markdown.ts";
-import { splitBodyWithVars } from "../core/promptVariables.ts";
-
+import { PROMPT_VAR_PATTERN, varToneStyleAttr } from "../core/promptVariables.ts";
 function escAttr(s: string): string {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -14,27 +13,40 @@ export function varChipHtml(name: string, opts: { editable?: boolean } = {}): st
     ? `<button type="button" class="prompt-var-chip__del" data-var-del="${escAttr(name)}" aria-label="Eliminar variable ${escAttr(name)}" tabindex="-1">×</button>`
     : "";
   return (
-    `<span class="prompt-var-chip" contenteditable="false" data-var="${escAttr(name)}" title="${escAttr(name)}">`
+    `<span class="prompt-var-chip" contenteditable="false" data-var="${escAttr(name)}" style="${varToneStyleAttr(name)}" title="${escAttr(name)}">`
     + `<span class="prompt-var-chip__label">{{${escAttr(name)}}}</span>${del}</span>`
   );
 }
 
-/** Vista previa: markdown + badges de variables. */
+/** Sustituye {{vars}} por tokens, renderiza markdown una vez y reemplaza por chips inline. */
+function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {}): string {
+  const src = String(body ?? "");
+  if (!src) return "";
+
+  const placeholders: { token: string; name: string }[] = [];
+  let idx = 0;
+  const mdSrc = src.replace(PROMPT_VAR_PATTERN, (_m, name: string) => {
+    const token = `\uE000PV${idx++}\uE001`;
+    placeholders.push({ token, name });
+    return token;
+  });
+
+  let html = mdToHtml(mdSrc);
+  for (const { token, name } of placeholders) {
+    html = html.split(token).join(varChipHtml(name, opts));
+  }
+  return html;
+}
+
+/** Vista previa: markdown + badges de variables inline (sin saltos extra). */
 export function bodyPreviewHtml(body: string): string {
-  const parts = splitBodyWithVars(body);
-  if (!parts.length) return "";
-  return parts
-    .map((p) => (p.type === "var" ? varChipHtml(p.name, { editable: false }) : mdToHtml(p.value)))
-    .join("");
+  return renderBodyWithVarChips(body, { editable: false });
 }
 
 /** HTML editable para contenteditable (markdown renderizado + chips). */
 export function bodyToEditorHtml(body: string): string {
-  const parts = splitBodyWithVars(body);
-  if (!parts.length) return "<p><br></p>";
-  return parts
-    .map((p) => (p.type === "var" ? varChipHtml(p.name) : mdToHtml(p.value || "")))
-    .join("");
+  const html = renderBodyWithVarChips(body, { editable: true });
+  return html || "<p><br></p>";
 }
 
 function inlineMd(node: Node): string {
@@ -88,7 +100,7 @@ function blockMd(el: Element): string {
     case "li": {
       const parent = el.parentElement?.tagName.toLowerCase();
       const bullet = parent === "ol" ? "1." : "-";
-      return `${bullet} ${inner().trim()}\n`;
+      return `${bullet} ${inner().trimStart()}\n`;
     }
     case "ul":
     case "ol":
@@ -126,4 +138,18 @@ export function editorHtmlToBody(root: HTMLElement): string {
     else if (node.nodeType === Node.TEXT_NODE) out += node.textContent || "";
   }
   return out.replace(/\n{3,}/g, "\n\n").trimEnd();
+}
+
+const RAW_VAR_IN_TEXT = /\{\{\s*[A-Za-z_]\w*\s*\}\}/;
+
+/** true si hay {{var}} en texto plano aún sin convertir a chip. */
+export function surfaceHasRawVarTokens(root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest(".prompt-var-chip")) continue;
+    if (RAW_VAR_IN_TEXT.test(node.textContent ?? "")) return true;
+  }
+  return false;
 }
