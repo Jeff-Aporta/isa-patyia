@@ -50,21 +50,39 @@ function frontShared(): IsaFrontApi {
   return api;
 }
 
+function frontSharedLazy() {
+  const api = window.ISAFront;
+  return api?.ensureCodeMirrorLoaded ? api : null;
+}
+
 /** Carga lazy de scripts/CSS y markdown (front-shared). */
 export const Assets = {
-  ensureCodeMirrorLoaded: (opts?: { sql?: boolean }) => frontShared().ensureCodeMirrorLoaded!(opts),
-  ensureMarked: () => frontShared().ensureMarked!(),
-  ensureStylesheet: (href: string) => frontShared().ensureLazyStylesheet!(href),
+  ensureCodeMirrorLoaded: (opts?: { sql?: boolean }) => {
+    const api = frontSharedLazy();
+    return api ? api.ensureCodeMirrorLoaded!(opts) : Promise.resolve();
+  },
+  ensureMarked: () => {
+    const api = frontSharedLazy();
+    return api ? api.ensureMarked!() : Promise.resolve();
+  },
+  ensureStylesheet: (href: string) => {
+    const api = frontSharedLazy();
+    return api ? api.ensureLazyStylesheet!(href) : Promise.resolve();
+  },
   ensureChatStagingCss: () => {
+    const api = frontSharedLazy();
+    if (!api) return;
     const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "_dist/" : "";
-    frontShared().ensureLazyStylesheet!(`${prefix}css/chat-staging.css`).catch((err) => {
+    api.ensureLazyStylesheet!(`${prefix}css/chat-staging.css`).catch((err) => {
       console.warn("chat-staging.css:", err);
     });
   },
 };
 
 export function mdToHtml(src: string): string {
-  return frontShared().mdToHtml!(src);
+  const api = frontSharedLazy();
+  if (api?.mdToHtml) return api.mdToHtml(src);
+  return String(src ?? "");
 }
 
 /** Estimación de tokens de prompt (ISAFront o fallback chars/4). */
