@@ -15,10 +15,8 @@ const HEADER_CHIP_SX = {
   height: "auto",
   minHeight: 28,
   py: 0.375,
-  pl: 1.25,
-  pr: 0.75,
-  "& .MuiChip-label": { pl: 0.75, pr: 1.25, py: 0.25 },
-  "& .MuiChip-icon": { ml: 0.25, mr: 0.75 },
+  px: 1.25,
+  "& .MuiChip-label": { px: 0.25, py: 0.25 },
 };
 
 function PasswordField({ Icon, label, value, onChange, onEnter, size = "small", autoFocus = false }) {
@@ -150,9 +148,8 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
         <Tooltip title={`${session.username}${roleTip}`} arrow>
           <Chip
             size="small"
-            color="success"
-            variant="outlined"
-            icon={<Icon icon="mdi:account-check" size={16} />}
+            variant="filled"
+            className="header-session-chip"
             label={session.username}
             sx={HEADER_CHIP_SX}
           />
