@@ -7,5 +7,6 @@ export {
   fetchConvLogById,
   fetchInstruccionesPaty,
   publishInstruccionesPaty,
+  upsertInstruccionPaty,
   rowVal,
 } from "./apiClient.ts";

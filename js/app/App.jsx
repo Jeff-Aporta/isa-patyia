@@ -1,11 +1,13 @@
 import { getReact, getReactDOM } from "../core/runtime.ts";
-import { mergePartial, bootState, resetUrlState } from "../core/urlState.ts";
+import { mergePartial, bootState, getSnapshot } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
 import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { Session } from "../core/platform.ts";
+
+const BRAND_HOME_EVENT = "isa:brand-home";
 
 const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
@@ -32,17 +34,21 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    function onBrandHome() {
+      setAppBoot(getSnapshot());
+      setTool("log");
+      setHomeTick((n) => n + 1);
+    }
+    window.addEventListener(BRAND_HOME_EVENT, onBrandHome);
+    return () => window.removeEventListener(BRAND_HOME_EVENT, onBrandHome);
+  }, []);
+
   const tools = ALL_TOOLS;
 
   function selectTool(id) {
     setTool(id);
     mergePartial({ tool: id });
-  }
-
-  function goHome() {
-    setAppBoot(resetUrlState());
-    setTool("log");
-    setHomeTick((n) => n + 1);
   }
 
   const Shell = window.ISAFront?.Layout?.AppShell;
@@ -51,9 +57,6 @@ export function App() {
   return (
     <Shell
       ns="ISA"
-      title="ISA PatyIA"
-      icon="mdi:robot-happy-outline"
-      onBrandClick={goHome}
       showTarget={false}
       navRows={[
         { id: "tool", value: tool, onChange: selectTool, tabs: tools },

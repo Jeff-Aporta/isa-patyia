@@ -99,11 +99,15 @@ interface IsaConfig {
 
 interface AppShellProps {
   ns: string;
-  title: string;
+  title?: string;
   children?: unknown;
   icon?: string;
-  onBrandClick?: () => void;
+  showTitle?: boolean;
+  onBrandClick?: (() => void) | false;
+  brandClick?: false;
   toolbarExtra?: unknown;
+  toolbarEnd?: unknown;
+  navRows?: unknown[];
   showTarget?: boolean;
   showTheme?: boolean;
   showAuthChip?: boolean;
@@ -148,5 +152,10 @@ interface IsaFrontApi {
     Realtime?: Record<string, unknown>;
   };
   migrateLegacyGatewayKeys(keys: Record<string, string>): void;
-  Layout: { AppShell: (props: AppShellProps) => unknown };
+  goBrandHome?(): void;
+  BRAND_HOME_EVENT?: string;
+  Layout: {
+    AppShell: (props: AppShellProps) => unknown;
+    goBrandHome?: () => void;
+  };
 }

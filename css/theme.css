@@ -117,17 +117,20 @@ html[data-mui-color-scheme="light"] .panel-head {
   background: linear-gradient(90deg, rgba(30, 144, 255, 0.04), rgba(240, 247, 255, 0.6));
 }
 
-html[data-mui-color-scheme="dark"] .drop-zone {
+html[data-mui-color-scheme="dark"] .drop-zone,
+html[data-mui-color-scheme="dark"] .prompt-drop-overlay {
   border-color: rgba(30, 144, 255, 0.28);
   background: rgba(30, 144, 255, 0.03);
 }
 
-html[data-mui-color-scheme="light"] .drop-zone {
+html[data-mui-color-scheme="light"] .drop-zone,
+html[data-mui-color-scheme="light"] .prompt-drop-overlay {
   border-color: rgba(30, 144, 255, 0.22);
   background: rgba(30, 144, 255, 0.02);
 }
 
-.drop-zone--active {
+.drop-zone--active,
+.prompt-tabs-layout--drop-active .prompt-drop-overlay {
   border-color: var(--neon-blue) !important;
   background: rgba(30, 144, 255, 0.1) !important;
   box-shadow: 0 0 24px rgba(30, 144, 255, 0.15), inset 0 0 0 1px rgba(30, 144, 255, 0.2);

@@ -59,6 +59,32 @@ export async function publishInstruccionesPaty(sql: string) {
   );
 }
 
+export type InstruccionUpsertPayload = {
+  iinstruccion: string;
+  instruccion: string;
+  jconfig?: Record<string, unknown>;
+  author?: string;
+};
+
+/** Guarda una sola instrucción (sin publicar el lote completo). */
+export async function upsertInstruccionPaty(payload: InstruccionUpsertPayload) {
+  if (!SessionApi.instruccionesPublishCap()) {
+    throw new Error(
+      SessionApi.blockReason(SessionApi.INSTRUCCIONES_WRITE_CAP)
+      || "Sin permiso para publicar instrucciones",
+    );
+  }
+  return orchHttp.capFetch(
+    "/patyia/instrucciones/upsert",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    null,
+  );
+}
+
 export async function fetchConvLogById(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");

@@ -5,6 +5,9 @@ import { toastError, toastWarning } from "../ui/notifications.jsx";
 /** Capacidad canónica para guardar instrucciones en Paty (MSSQL publish). */
 export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
 
+/** Cambiar entorno Local/Producción (solo roles con infra.target.switch, p. ej. admin). */
+export const TARGET_SWITCH_CAP = "infra.target.switch";
+
 function notifyAuth() {
   window.dispatchEvent(new Event(Session.EVENT));
   window.dispatchEvent(new Event("patyia-apptools:auth"));
@@ -17,6 +20,10 @@ export const blockReason = (cap: string) => Session.blockReason(cap);
 
 export function canEditInstrucciones(): boolean {
   return can(INSTRUCCIONES_WRITE_CAP);
+}
+
+export function canSwitchTarget(): boolean {
+  return can(TARGET_SWITCH_CAP);
 }
 
 export function instruccionesPublishCap(): string | null {

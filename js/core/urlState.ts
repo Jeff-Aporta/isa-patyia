@@ -76,8 +76,19 @@ function merge(state: Record<string, unknown>, partial: Record<string, unknown>)
   };
 }
 
+const URL_STATE_PARAM = "s";
+
+function stripUrlStateParam() {
+  try {
+    const url = new URL(location.href);
+    if (!url.searchParams.has(URL_STATE_PARAM)) return;
+    url.searchParams.delete(URL_STATE_PARAM);
+    history.replaceState(null, "", url);
+  } catch { /* ignore */ }
+}
+
 const urlState = window.ISAFront.createUrlState({
-  param: "s",
+  param: URL_STATE_PARAM,
   debounceMs: 350,
   maxB64Len: 12000,
   historyKey: "patyAppState",
@@ -94,21 +105,17 @@ const urlState = window.ISAFront.createUrlState({
     if (state.local === local) return;
     api.merge({ local });
   },
+  brandHomeReset(api) {
+    const snap = api.reset();
+    stripUrlStateParam();
+    return snap;
+  },
 });
 
 export const bootState = urlState.boot;
 export const getSnapshot = urlState.getSnapshot;
 export const mergePartial = urlState.mergePartial;
 export const PARAM = urlState.PARAM;
-
-function stripUrlStateParam() {
-  try {
-    const url = new URL(location.href);
-    if (!url.searchParams.has(PARAM)) return;
-    url.searchParams.delete(PARAM);
-    history.replaceState(null, "", url);
-  } catch { /* ignore */ }
-}
 
 /** Reinicia estado de la app y elimina por completo ?s= de la URL. */
 export function resetUrlState() {
