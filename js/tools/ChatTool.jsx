@@ -496,14 +496,101 @@ function enrichLogVista(mensajes, fallbackUserName) {
   });
 }
 
+function isEphemeralMsgId(idMsg) {
+  if (!idMsg || idMsg === "stream-live") return true;
+  const id = String(idMsg);
+  return id.startsWith("pending-user-") || id.startsWith("assistant-final-");
+}
+
+function mensajeVistaStableEqual(a, b) {
+  if (!a || !b) return false;
+  return a.contenido === b.contenido
+    && a.fecha === b.fecha
+    && a.rol === b.rol
+    && a.calificacion === b.calificacion
+    && a.esUsuario === b.esUsuario
+    && a.esOperativa === b.esOperativa
+    && !a.isStreaming
+    && !b.isStreaming
+    && JSON.stringify(a.usageStats ?? null) === JSON.stringify(b.usageStats ?? null)
+    && JSON.stringify(a.imagenes ?? null) === JSON.stringify(b.imagenes ?? null);
+}
+
+/** Conserva referencias de mensajes sin cambios para no remontar todo el hilo. */
+function mergeMensajesVista(prev, next) {
+  if (!next?.length) return prev || [];
+  const prevById = new Map();
+  for (const m of prev || []) {
+    if (isEphemeralMsgId(m.idMsg) || m.isStreaming) continue;
+    prevById.set(m.idMsg, m);
+  }
+  return next.map((m) => {
+    const old = prevById.get(m.idMsg);
+    return old && mensajeVistaStableEqual(old, m) ? old : m;
+  });
+}
+
+function vistaFromLogAndDetail(d, log, name) {
+  if (!log?.mensajes?.length) return null;
+  const rated = d?.mensajesCalificados || [];
+  let vista = enrichLogVista(logToMensajesVista(log), name);
+  if (d?.mensajesOpenAI?.length) {
+    vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+  } else if (rated.length) {
+    vista = attachCalificacionesOnly(vista, rated);
+  }
+  return vista;
+}
+
+function finalizeStreamInLog(mensajes, finalText) {
+  return appendStreamMsg(mensajes, finalText, true).map((m) => {
+    if (m.idMsg !== "stream-live" && !m.isStreaming) return m;
+    return {
+      ...m,
+      idMsg: m.idMsg === "stream-live" ? `assistant-final-${Date.now()}` : m.idMsg,
+      contenido: finalText || m.contenido,
+      isStreaming: false,
+      fecha: m.fecha || formatTs(new Date()),
+    };
+  });
+}
+
 function appendStreamMsg(mensajes, streamText, active) {
-  if (!active) return mensajes;
+  if (!active) return mensajes || [];
+  const list = [...(mensajes || [])];
+  const liveText = String(streamText ?? "");
+
+  let lastUserIdx = -1;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].esUsuario) {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  let lastAsstIdx = -1;
+  for (let i = list.length - 1; i > lastUserIdx; i--) {
+    const m = list[i];
+    if (!m.esUsuario && !m.esOperativa) {
+      lastAsstIdx = i;
+      break;
+    }
+  }
+
+  if (lastAsstIdx >= 0) {
+    const cur = list[lastAsstIdx];
+    const logText = String(cur.contenido ?? "");
+    const contenido = liveText.length >= logText.length ? liveText : logText;
+    list[lastAsstIdx] = { ...cur, contenido, isStreaming: true };
+    return list;
+  }
+
   return [
-    ...mensajes,
+    ...list,
     {
       idMsg: "stream-live",
       rol: "assistant",
-      contenido: streamText || "",
+      contenido: liveText,
       fecha: "",
       esUsuario: false,
       esOperativa: false,
@@ -843,6 +930,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const fileInputRef = useRef(null);
   const threadScrollRef = useRef(null);
   const lastLogApiCountRef = useRef(0);
+  const skipThreadReloadRef = useRef(null);
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
@@ -1042,6 +1130,30 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     }
   }, []);
 
+  const patchThreadAfterSend = useCallback(async (id, { minLogMensajes = 0, ownerLabel } = {}) => {
+    if (!loggedIn || !id) return;
+    const name = ownerLabel || convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims));
+    const useLogOnly = !jwt?.token || viewingAuditOther;
+    try {
+      const logResult = await fetchConvLogByIdWithRetry(id, { minMensajes: minLogMensajes }).catch(() => null);
+      let d = null;
+      if (!useLogOnly) {
+        d = await getConversacion(jwt, id).catch(() => null);
+        if (d) setDetail(d);
+      }
+      if (logResult?.mensajes?.length) {
+        lastLogApiCountRef.current = logResult.mensajes.length;
+        const vista = vistaFromLogAndDetail(d, logResult, name);
+        if (vista?.length) {
+          setLogMensajes((prev) => mergeMensajesVista(prev, vista));
+          setLogError("");
+        }
+      }
+    } catch {
+      /* enriquecimiento en segundo plano; el hilo local ya muestra la respuesta */
+    }
+  }, [loggedIn, jwt, viewingAuditOther, listScope]);
+
   const openConv = useCallback(async (id, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0 } = {}) => {
     if (!loggedIn || !id) return;
     setSelectedId(id);
@@ -1086,8 +1198,13 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   useEffect(() => { reloadList(); }, [reloadList, authTick]);
 
   useEffect(() => {
-    if (selectedId && !jwtLoading && !sending) openConv(selectedId);
-  }, [selectedId, jwtLoading, jwt?.token, sending]);
+    if (!selectedId || jwtLoading) return;
+    if (skipThreadReloadRef.current === selectedId) {
+      skipThreadReloadRef.current = null;
+      return;
+    }
+    openConv(selectedId);
+  }, [selectedId, jwtLoading, jwt?.token, openConv]);
 
   async function onNewChat() {
     if (!canSend) { toastWarning("Modo lectura."); return; }
@@ -1143,27 +1260,33 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         { prompt: draft.trim(), iconversacion: selectedId || undefined, imagenes },
         (partial) => setStreamText(partial),
       );
+      const finalText = String(result.respuesta || "").trim();
+      if (finalText) setStreamText(finalText);
       const newId = Number(result.iconversacion) || convIdBefore;
       setDraft("");
       setImages([]);
-      const finalText = String(result.respuesta || "").trim();
-      if (finalText) setStreamText(finalText);
-      if (result?.mensajesOpenAI?.length) {
-        applyThreadFromDetail(result, null, userName);
-      }
+      setLogMensajes((prev) => enrichLogVista(
+        finalizeStreamInLog(prev, finalText),
+        userName,
+      ));
+      setSending(false);
+      setStreamText("");
       if (newId) {
-        setSelectedId(newId);
-        mergePartial({ chat: { convId: newId } });
+        if (newId !== convIdBefore) {
+          skipThreadReloadRef.current = newId;
+          setSelectedId(newId);
+          mergePartial({ chat: { convId: newId } });
+        }
         void reloadList();
-        await openConv(newId, {
-          silent: true,
-          freshLog: true,
+        void patchThreadAfterSend(newId, {
           minLogMensajes: logCountBefore + 2,
+          ownerLabel: userName,
         });
+      } else if (result?.mensajesOpenAI?.length) {
+        applyThreadFromDetail(result, null, userName);
       }
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
-    } finally {
       setSending(false);
       setStreamText("");
     }
@@ -1508,15 +1631,15 @@ export function ChatTool({ bootChat, onNeedLogin }) {
               onScroll={onThreadScroll}
               sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}
             >
-              {loadingThread && !sending && (
+              {loadingThread && !sending && !displayMensajes.length && (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                   <CircularProgress size={28} />
                 </Box>
               )}
-              {!loadingThread && logError && (
+              {logError && (
                 <Alert severity="warning" sx={{ mb: 2 }}>{logError}</Alert>
               )}
-              {(!loadingThread || sending) && (
+              {displayMensajes.length > 0 && (
                 <ConvLogWebView
                   mensajes={displayMensajes}
                   onMeta={onMeta}
