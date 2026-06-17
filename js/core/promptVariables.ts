@@ -2,6 +2,14 @@
 
 export const PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 
+/** `{{nombre}` sin la segunda `}` de cierre (typo histórico en BD). */
+export const MALFORMED_PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}(?!\})/g;
+
+const INSTRUCCION_TIPO_SLOT_RES = [
+  /\{\{\s*instruccion_tipo\s*\}\}/i,
+  /\{\{\s*instrucion_tipo\s*\}\}/i,
+] as const;
+
 export type PromptTextSegment = { type: "text"; value: string } | { type: "var"; name: string };
 
 export function isValidVarName(name: string): boolean {
@@ -83,4 +91,30 @@ export function insertPromptVariable(text: string, offset: number, name: string)
   const token = `{{${name}}}`;
   const pos = Math.max(0, Math.min(offset, text.length));
   return text.slice(0, pos) + token + text.slice(pos);
+}
+
+/** Corrige `{{var}` → `{{var}}` antes de guardar o renderizar en el editor. */
+export function repairPromptVarBraces(text: string): string {
+  return String(text ?? "").replace(MALFORMED_PROMPT_VAR_PATTERN, (_m, name: string) => `{{${name}}}`);
+}
+
+export function findMalformedPromptVars(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const re = new RegExp(MALFORMED_PROMPT_VAR_PATTERN.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(String(text ?? "")))) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    out.push(m[1]);
+  }
+  return out;
+}
+
+export function hasInstruccionTipoSlot(text: string): boolean {
+  return INSTRUCCION_TIPO_SLOT_RES.some((re) => re.test(String(text ?? "")));
+}
+
+export function preparePromptBodyForSave(text: string): string {
+  return repairPromptVarBraces(String(text ?? "").trim());
 }
