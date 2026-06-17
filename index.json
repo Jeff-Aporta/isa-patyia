@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "title": "ISA PatyIA",
+    "applicationName": "ISA PatyIA",
+    "description": "Chat con PatyIA, editor de instrucciones Prompts→SQL, logs de conversación y herramientas staging para asesores InSoft.",
+    "keywords": "PatyIA, ISA, InSoft, chat, instrucciones, staging, Jeff-Aporta",
+    "themeColor": "#1e90ff",
+    "themeLsKey": "isa-patyia:theme",
+    "icon": "mdi:robot-happy-outline",
+    "canonical": "https://jeff-aporta.github.io/isa-patyia/",
+    "ogSiteName": "ISA PatyIA — Jeff-Aporta",
+    "ogTitle": "ISA PatyIA",
+    "imageAlt": "ISA PatyIA — asistente PatyIA staging"
+  },
+  "frontSharedPin": "989de09",
+  "headIndent": "  ",
+  "viewport": "width=device-width, initial-scale=1.0",
+  "fonts": false,
+  "loader": "mjs-module",
+  "themeInit": true,
+  "appMeta": true,
+  "styles": [
+    "shared-base",
+    "shared-feedback",
+    "shared-code-mirror",
+    "local:css/theme.css",
+    "local:css/app.css",
+    "local:css/chat-staging.css",
+    "cm-core",
+    "cm-dracula",
+    "cm-foldgutter"
+  ],
+  "libs": [
+    "marked",
+    "codemirror-core",
+    "codemirror-javascript",
+    "codemirror-foldcode",
+    "codemirror-foldgutter",
+    "codemirror-brace-fold",
+    "iconify",
+    "loader-mjs"
+  ]
+}
