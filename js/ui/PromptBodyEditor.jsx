@@ -773,6 +773,7 @@ export function PromptBodyEditor({
     <>
       <Box
         className={`prompt-body-preview custom-scrollbar${canEdit ? " prompt-body-preview--editable" : ""}`}
+        sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
         onDoubleClick={openEditor}
         onCopy={handlePreviewCopy}
         onKeyDown={handlePreviewKeyDown}
