@@ -158,6 +158,42 @@ body {
   padding-right: 10px;
 }
 
+/* Chip sesión — sin icono, fondo soft (también si CDN antiguo sin header-session-chip) */
+.isa-layout-root .header-session-btn .MuiChip-root,
+.isa-layout-root .header-session-chip.MuiChip-root {
+  background: rgba(20, 184, 166, 0.18);
+  border: 1px solid rgba(20, 184, 166, 0.32);
+  color: #5eead4;
+  font-weight: 600;
+  box-shadow: none;
+}
+.isa-layout-root .header-session-btn .MuiChip-root .MuiChip-label,
+.isa-layout-root .header-session-chip.MuiChip-root .MuiChip-label {
+  color: inherit;
+}
+.isa-layout-root .header-session-btn .MuiChip-root .MuiChip-icon,
+.isa-layout-root .header-session-chip.MuiChip-root .MuiChip-icon {
+  display: none;
+}
+.isa-layout-root .header-session-btn .MuiChip-clickable:hover,
+.isa-layout-root .header-session-btn .MuiChip-clickable:focus-visible,
+.isa-layout-root .header-session-chip.MuiChip-clickable:hover,
+.isa-layout-root .header-session-chip.MuiChip-clickable:focus-visible {
+  background: rgba(20, 184, 166, 0.28);
+}
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-btn .MuiChip-root,
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-chip.MuiChip-root {
+  background: rgba(20, 184, 166, 0.12);
+  border-color: rgba(20, 184, 166, 0.26);
+  color: #0f766e;
+}
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-btn .MuiChip-clickable:hover,
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-btn .MuiChip-clickable:focus-visible,
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-chip.MuiChip-clickable:hover,
+html[data-mui-color-scheme="light"] .isa-layout-root .header-session-chip.MuiChip-clickable:focus-visible {
+  background: rgba(20, 184, 166, 0.2);
+}
+
 .header-session-badge {
   cursor: default;
   pointer-events: auto;
