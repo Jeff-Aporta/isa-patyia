@@ -796,10 +796,12 @@ function ChatLoggedOutShell({ onNeedLogin }) {
         </Box>
         <Box className="paty-chat-gate paty-chat-gate--overlay">
           <Box className="paty-chat-gate__inner">
-            <Icon icon="mdi:login" width="2em" height="2em" style={{ marginBottom: 12, opacity: 0.85 }} />
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Chat Paty IA staging</Typography>
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mb: 1 }}>
+              <Icon icon="mdi:login" width="1.35em" height="1.35em" style={{ opacity: 0.85, flexShrink: 0 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Chat</Typography>
+            </Stack>
             <Alert severity="info" sx={{ mb: 2, textAlign: "left" }}>
-              Inicia sesión para ver conversaciones, consultar terceros y chatear con Paty en staging.
+              Inicia sesión para ver conversaciones.
             </Alert>
             <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
           </Box>
