@@ -6,9 +6,9 @@ import { UI } from "../core/platform.ts";
 import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
 
-const { useMemo, useState, useRef, useEffect } = getReact();
+const { useMemo, useState, useRef, useEffect, memo } = getReact();
 
-function useOperativaEnterIds(mensajes, threadKey) {
+function useOperativaEnterIds(mensajes, threadKey, { enabled = true } = {}) {
   const seenIdsRef = useRef(new Set());
   const primedKeyRef = useRef(null);
   const [enterIds, setEnterIds] = useState(() => new Set());
@@ -21,6 +21,7 @@ function useOperativaEnterIds(mensajes, threadKey) {
   }, [threadKey]);
 
   useEffect(() => {
+    if (!enabled) return;
     const msgs = mensajes || [];
     if (primedKeyRef.current !== threadKey) return;
 
@@ -30,15 +31,18 @@ function useOperativaEnterIds(mensajes, threadKey) {
     }
 
     const nextEnter = new Set();
+    const newlySeen = [];
     for (const m of msgs) {
       if (seenIdsRef.current.has(m.idMsg)) continue;
       seenIdsRef.current.add(m.idMsg);
+      newlySeen.push(m);
       if (m.esOperativa) nextEnter.add(m.idMsg);
     }
-    if (nextEnter.size) {
+    // Varias piezas nuevas a la vez (p. ej. log completo tras stream): sin animación de entrada.
+    if (nextEnter.size && newlySeen.length === 1) {
       setEnterIds((prev) => new Set([...prev, ...nextEnter]));
     }
-  }, [mensajes, threadKey]);
+  }, [mensajes, threadKey, enabled]);
 
   return enterIds;
 }
@@ -795,7 +799,7 @@ function resolveMsgIreferencia(msg) {
   return Math.floor(d / 1000);
 }
 
-function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
+const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
   const { Alert, Box } = getMaterialUI();
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, compactMeta ? chatUserName : undefined);
@@ -837,7 +841,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         width: "100%",
-        mb: isOperativa && compactMeta ? 1.5 : 2.5,
+        mb: isOperativa && compactMeta ? 1 : 2.5,
       }}
     >
       <Box sx={{
@@ -847,7 +851,7 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
         gap: { xs: 1, sm: 1.25 },
         maxWidth: isOperativa && compactMeta ? "88%" : "95%",
         minWidth: 0,
-        opacity: isOperativa && compactMeta ? 0.92 : 1,
+        opacity: 1,
       }}>
         <Box sx={{
           flex: 1,
@@ -910,12 +914,21 @@ function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUs
       </Box>
     </Box>
   );
-}
+}, (prev, next) => (
+  prev.msg === next.msg
+  && prev.streamingMsgId === next.streamingMsgId
+  && prev.compactMeta === next.compactMeta
+  && prev.chatUserName === next.chatUserName
+  && prev.showUsageStats === next.showUsageStats
+  && prev.ratingMsgId === next.ratingMsgId
+  && prev.canRate === next.canRate
+  && prev.operativaEnter === next.operativaEnter
+));
 
 export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey);
+  const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
 
   const mensajesConStats = useMemo(
     () => attachUsageStats(mensajes || []),
