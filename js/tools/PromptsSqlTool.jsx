@@ -1029,6 +1029,15 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
             className="prompt-tabs prompt-tabs--vertical"
 
+            slotProps={{
+              list: {
+                sx: {
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                },
+              },
+            }}
+
           >
 
             {instruccionKeys.map((tipo) => {

@@ -1815,7 +1815,7 @@ code {
 .panel-body.panel-body-tabs {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1839,6 +1839,8 @@ code {
   flex: 1 1 auto;
   min-height: 18rem;
   max-height: 24rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .prompt-tabs-layout--drop-active .prompt-tabs--vertical,
@@ -1928,6 +1930,9 @@ code {
 
 .prompt-tabs--vertical {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   width: 12.5rem;
   min-width: 11rem;
   max-width: 14rem;
@@ -1935,19 +1940,32 @@ code {
   max-height: 24rem;
   border-bottom: none;
   border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* MUI vertical tabs — flex explícito (Brave/Edge/Chromium) */
+.prompt-tabs--vertical .MuiTabs-flexContainer,
+.prompt-tabs--vertical .MuiTabs-list {
+  flex-direction: column !important;
+  align-items: stretch !important;
 }
 
 .prompt-tabs--vertical .MuiTabs-scroller {
   overflow-y: auto !important;
   overflow-x: hidden !important;
+  height: 100%;
+  max-height: 24rem;
 }
 
 .prompt-tabs--vertical .MuiTab-root {
+  display: flex !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
   min-height: 2.25rem;
   align-items: center;
   justify-content: flex-start;
   text-align: left;
-  max-width: 100%;
 }
 
 .prompt-tabs-layout .tab-editor {
@@ -1957,13 +1975,17 @@ code {
   flex-direction: column;
   padding-top: 0;
   padding-left: 0.65rem;
+  overflow: hidden;
 }
 
 .prompt-tabs .MuiTab-root {
-  min-height: 42px;
   font-size: 0.72rem;
   text-transform: none;
   padding: 0.35rem 0.65rem;
+}
+
+.prompt-tabs:not(.prompt-tabs--vertical) .MuiTab-root {
+  min-height: 42px;
 }
 
 .tab-label {
@@ -1972,6 +1994,10 @@ code {
   gap: 0.3rem;
   width: 100%;
   min-width: 0;
+}
+
+.tab-label iconify-icon {
+  flex-shrink: 0;
 }
 
 .tab-label > span:not(.tab-dot) {
