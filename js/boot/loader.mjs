@@ -1,7 +1,10 @@
 import { asset } from "./cdn.mjs";
 
+const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
+
 import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }) => {
   mountBoot(async () => {
+    if (bootHold) return;
     const h = await importBootHelper();
     const Babel = getBabel();
     await (await h.importShared("stack.mjs")).stackReady;

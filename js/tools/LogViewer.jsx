@@ -1,14 +1,14 @@
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
-import { ButtonIconify } from "../ui/iconify.jsx";
+import { ButtonIconify } from "../ui/shared.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { ConvLogWebView, convLogNavItems } from "../ui/ConvLogWebView.jsx";
-import { convLogSurfaceSx } from "../ui/convLogSurface.ts";
+import { convLogSurfaceSx } from "../core/convLog.ts";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
 import { persistLogMeta, mergePartial } from "../core/urlState.ts";
-import { toastWarning, toastSuccess, toastError } from "../ui/notifications.jsx";
+import { toastWarning, toastSuccess, toastError } from "../core/platform.ts";
 
 const { useState, useCallback, useMemo, useEffect, useRef } = getReact();
 const {

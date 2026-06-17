@@ -1,0 +1,72 @@
+import { getMaterialUI } from "../../core/platform.ts";
+import { ICON_BY_TIPO } from "./constants.ts";
+import { hasPendingChanges } from "./helpers.ts";
+
+const { Tabs, Tab } = getMaterialUI();
+
+export function PromptsSqlTree({
+  instruccionKeys,
+  prompts,
+  activeTab,
+  onActiveTabChange,
+  dragOver,
+  onDragEnter,
+  onDragLeave,
+  onDragOverZone,
+  onDrop,
+  children,
+}) {
+  return (
+    <div
+      className={`prompt-tabs-layout${dragOver ? " prompt-tabs-layout--drop-active" : ""}`}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOverZone}
+      onDrop={onDrop}
+    >
+      {dragOver && (
+        <div className="prompt-drop-overlay" aria-hidden>
+          <iconify-icon icon="mdi:file-upload-outline" width="1.6em" height="1.6em" />
+          <span>Suelta <code>PROMPT_*.md</code> o <code>PROMPT_*.txt</code> aquí</span>
+        </div>
+      )}
+
+      <Tabs
+        value={activeTab}
+        onChange={(_, v) => onActiveTabChange(v)}
+        orientation="vertical"
+        variant="scrollable"
+        scrollButtons="auto"
+        className="prompt-tabs prompt-tabs--vertical"
+        slotProps={{
+          list: {
+            sx: {
+              flexDirection: "column",
+              alignItems: "stretch",
+            },
+          },
+        }}
+      >
+        {instruccionKeys.map((tipo) => {
+          const p = prompts[tipo];
+          const has = Boolean(p?.body?.trim());
+          const dirty = hasPendingChanges(p);
+          return (
+            <Tab
+              key={tipo}
+              label={(
+                <span className="tab-label">
+                  <iconify-icon icon={ICON_BY_TIPO[tipo] || "mdi:file-document-outline"} width="0.9em" height="0.9em" />
+                  <span>{tipo.replace(/_/g, " ")}</span>
+                  {has && <span className={`tab-dot${dirty ? " tab-dot--dirty" : ""}`} />}
+                </span>
+              )}
+            />
+          );
+        })}
+      </Tabs>
+
+      {children}
+    </div>
+  );
+}

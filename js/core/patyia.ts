@@ -1,4 +1,5 @@
 /** Configuración, avatares y streaming SSE — dominio PatyIA (isa-patyia). */
+/// <reference path="../global.d.ts" />
 import { Config } from "./platform.ts";
 
 window.ISAFront.migrateLegacyGatewayKeys?.({

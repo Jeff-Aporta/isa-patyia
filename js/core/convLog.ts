@@ -2,6 +2,42 @@
  * Parser de conv-*.json / CONVERSACION_LOG — portado de ISA-DOC readConvLog + convLogContent.
  * Uso offline en GH Pages; sin llamadas a PatyIA.
  */
+
+/** Mensaje conv-log aplanado — campos base + propiedades según rol (user/assistant/operativa). */
+type FlatConvLogMensaje = {
+  ts?: unknown;
+  tokens?: unknown;
+  cost?: unknown;
+  usage?: unknown;
+  latency_ms?: unknown;
+  send?: unknown;
+  receive?: unknown;
+  others?: unknown;
+  text?: string;
+  prompt_text?: string;
+  imagenes?: string[];
+  prompt_id?: string;
+  prompt_variables?: unknown;
+  vectorStoreIds?: unknown;
+  operativa_key?: string;
+  operativa_engine?: string;
+  model?: string;
+  response_text?: string;
+  response_id?: string;
+  engine?: string;
+  itdconsulta?: string;
+  nombre_usuario?: string;
+  stream_ok?: boolean;
+  stream_error?: string;
+  nombre_usado_en_respuesta?: boolean;
+  modelo_configurado?: string;
+  premisas?: string[];
+  prompt_chars?: number;
+  response_chars?: number;
+};
+
+type NormalizeMetaOptions = { isUser?: boolean };
+
 function pushImage(images: string[], ref: unknown) {
     const n = String(ref ?? "").trim();
     if (n && !isOmittedVisionRef(n)) images.push(n);
@@ -100,21 +136,6 @@ function pushImage(images: string[], ref: unknown) {
     return { text: texts.join("\n\n").trim() || fb, images };
   }
 
-  function formatContenidoConImagenes(texto, imagenes) {
-    const usable = (imagenes || []).filter(isDisplayableImageRef);
-    if (!usable.length) return texto;
-    const imgs = usable.map((src, i) => `![Adjunto ${i + 1}](${src})`).join("\n\n");
-    return texto ? `${texto}\n\n${imgs}` : imgs;
-  }
-
-  function userContenidoFromConvLogSend(send, fallbackText) {
-    if (!send) return String(fallbackText ?? "");
-    const rawInput = send.input ?? send.text;
-    const fb = typeof send.text === "string" ? send.text : fallbackText;
-    const { text, images } = extractUserVisionFromSendInput(rawInput, fb);
-    return formatContenidoConImagenes(text, images);
-  }
-
   function dedupeAssistantText(text) {
     const t = String(text || "").trim();
     if (!t) return t;
@@ -151,27 +172,6 @@ function pushImage(images: string[], ref: unknown) {
     if (text == null) return "";
     if (Array.isArray(text)) return text.map((part) => String(part ?? "")).join("\n").replace(/\r\n/g, "\n");
     return String(text).replace(/\r\n/g, "\n");
-  }
-
-  function extractInputText(input) {
-    if (typeof input === "string") return normalizePromptText(input);
-    if (!Array.isArray(input)) return "";
-    return input.map((turn) => {
-      if (typeof turn === "string") return normalizePromptText(turn);
-      if (!turn || typeof turn !== "object") return "";
-      if (typeof turn.content === "string") return normalizePromptText(turn.content);
-      if (Array.isArray(turn.content)) {
-        return turn.content.map((part) => {
-          if (typeof part === "string") return part;
-          if (part && typeof part === "object") {
-            if (part.type === "input_text" || part.type === "output_text") return String(part.text ?? "");
-            if ("text" in part) return String(part.text ?? "");
-          }
-          return "";
-        }).filter(Boolean).join("\n");
-      }
-      return "";
-    }).filter(Boolean).join("\n\n");
   }
 
   function extractInstructionsMarkdown(send) {
@@ -288,11 +288,11 @@ function pushImage(images: string[], ref: unknown) {
     return out;
   }
 
-  function flattenConvLogMensaje(m) {
+  function flattenConvLogMensaje(m): FlatConvLogMensaje {
     const s = m.send;
     const r = m.receive;
     const o = m.others ?? {};
-    const flat = {
+    const flat: FlatConvLogMensaje = {
       ts: m.ts,
       tokens: m.tokens,
       cost: m.cost,
@@ -454,12 +454,6 @@ function pushImage(images: string[], ref: unknown) {
     };
   }
 
-  function formatUsageBreakdownLine(tokens, cost) {
-    const parts = formatUsageBreakdownParts(tokens, cost);
-    if (parts.every((p) => !p.hasData && p.display === "—")) return "—";
-    return parts.map((p) => `${p.label} ${p.display}`).join(" · ");
-  }
-
   function usageHasData(tokens, cost) {
     return (Number(tokens?.total ?? 0) || 0) > 0 || (Number(cost?.total_usd ?? 0) || 0) > 0;
   }
@@ -524,10 +518,10 @@ function pushImage(images: string[], ref: unknown) {
     return `${(ms / 1000).toFixed(2)} s`;
   }
 
-  function normalizeMeta(raw, options = {}) {
+  function normalizeMeta(raw: FlatConvLogMensaje | null | undefined, options: NormalizeMetaOptions = {}) {
     if (!raw || typeof raw !== "object") return null;
     const isUser = options.isUser === true;
-    const tokensRaw = raw.tokens;
+    const tokensRaw = raw.tokens as { total?: unknown } | undefined;
     const tokens = tokensRaw?.total ? tokensRaw : tokensFromUsage(raw.usage) ?? tokensRaw;
     const cost = normalizeCost(raw.cost);
     return {
@@ -664,19 +658,35 @@ export {
   resolveOpenAiMensajeText,
   parseLogInput,
   logToMensajesVista,
-  ordenarMensajesConvLog,
-  convLogToMsgVista,
   tokensFromUsage,
-  normalizeMeta,
-  extractInstructionsMarkdown,
   attachUsageStats,
   threadHasUsageStats,
   formatUsageTokens,
   formatUsageUsd,
   formatTokensWithUsd,
-  formatUsageBreakdownLine,
   formatUsageBreakdownParts,
   formatUsageSummary,
   formatLatencySeconds,
   usageHasData,
 };
+
+/** Fondo y padding del hilo de conversación (mismo criterio que tkDocSurface en jagudeloe). */
+const CONV_LOG_GRADIENT = {
+  background: (t: { palette: { mode: string } }) =>
+    t.palette.mode === "dark"
+      ? "radial-gradient(ellipse 120% 80% at 50% -20%, rgba(99,102,241,0.18), transparent 55%), linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
+      : "radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30,144,255,0.12), transparent 55%), linear-gradient(180deg, #f0f6ff 0%, #f8fafc 100%)",
+};
+
+const CONV_LOG_PAD = { p: { xs: 1.25, sm: 2, md: 3 } };
+
+export function convLogSurfaceSx(extra: Record<string, unknown> = {}) {
+  return {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    ...CONV_LOG_GRADIENT,
+    ...CONV_LOG_PAD,
+    ...extra,
+  };
+}

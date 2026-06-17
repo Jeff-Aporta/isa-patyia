@@ -7,7 +7,7 @@ import {
   isValidVarName,
   varToneSx,
 } from "../core/promptVariables.ts";
-import { ButtonIconify } from "./iconify.jsx";
+import { ButtonIconify } from "./shared.jsx";
 
 const { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } = getReact();
 const {

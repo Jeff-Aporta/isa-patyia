@@ -1,1 +1,0 @@
-const n=()=>globalThis.ISAFront?.Feedback;function r(t,o){n()?.toast?.error?.(t,o)}function s(t,o){n()?.toast?.success?.(t,o)}function e(t,o){n()?.toast?.info?.(t,o)}function a(t,o){n()?.toast?.warning?.(t,o)}function c(t){return n()?.confirm?.(t)??Promise.resolve(!1)}export{c as requestConfirm,r as toastError,e as toastInfo,s as toastSuccess,a as toastWarning};

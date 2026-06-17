@@ -6,11 +6,43 @@ import {
   formatTokensWithUsd,
   usageHasData,
 } from "../core/convLog.ts";
-import { ButtonIconify } from "./iconify.jsx";
 import { CodeMirrorPanel } from "../core/platform.ts";
 import { mdToHtml } from "../core/platform.ts";
 
 export { mdToHtml } from "../core/platform.ts";
+
+/** Botón con icono Iconify (mismo patrón que ISP ButtonIconify). */
+export function ButtonIconify({
+  icon,
+  title = "",
+  label = "",
+  onClick,
+  disabled = false,
+  busy = false,
+  color = "",
+  variant = "",
+  className = "",
+  type = "button",
+}) {
+  const shown = busy ? "mdi:loading" : icon;
+  const variantCls = variant ? `btn-iconify--${variant}` : "";
+  const colorCls = color ? `btn-iconify--${color}` : "";
+  const labeledCls = label ? "btn-iconify--labeled" : "";
+  const aria = label || title || undefined;
+  return (
+    <button
+      type={type}
+      className={`btn-iconify ${variantCls} ${colorCls} ${labeledCls} ${className}`.trim()}
+      title={title || label || undefined}
+      aria-label={aria}
+      onClick={onClick}
+      disabled={disabled || busy}
+    >
+      <iconify-icon icon={shown} width="1.15em" height="1.15em" />
+      {label ? <span className="btn-iconify__lbl">{label}</span> : null}
+    </button>
+  );
+}
 
 const { useState, useEffect } = getReact();
 const { createTheme, Dialog, DialogTitle, DialogContent, Tabs, Tab, Box, Typography } = getMaterialUI();
@@ -168,51 +200,6 @@ export const theme = createTheme({
 export function shortId(s, head = 10, tail = 4) {
   if (!s) return "";
   return s.length <= head + tail + 1 ? s : `${s.slice(0, head)}…${s.slice(-tail)}`;
-}
-
-export function MetaBadges({ meta, onInfo }) {
-  if (!meta) return null;
-  const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
-  return (
-    <span className="msg-badges">
-      {meta.extra?.operativa_key && (
-        <span className="badge badge-operativa" title="consulta operativa">{meta.extra.operativa_key}</span>
-      )}
-      {meta.nombre_usuario && (
-        <span className="badge badge-nombre" title="nombre_usuario">@{meta.nombre_usuario}</span>
-      )}
-      {meta.nombre_usuario && meta.nombre_usado_en_respuesta === false && (
-        <span className="badge badge-warn" title="Nombre enviado pero no usado">sin nombre</span>
-      )}
-      {meta.nombre_usado_en_respuesta === true && (
-        <span className="badge badge-ok" title="Nombre usado">✓ nombre</span>
-      )}
-      {meta.itdconsulta && (
-        <span className="badge badge-itd" title="itdconsulta">{meta.itdconsulta}</span>
-      )}
-      {bdInstructionKey(meta) && (
-        <span className="badge badge-pmpt" title={`iinstruccion: ${bdInstructionKey(meta)}`}>
-          {bdInstructionKey(meta)}
-        </span>
-      )}
-      {meta.model && (
-        <span className="badge badge-model" title={`model: ${meta.model}`}>{meta.model}</span>
-      )}
-      {meta.latency_ms != null && meta.latency_ms > 0 && (
-        <span className="badge badge-latency" title="latency_ms">{meta.latency_ms}ms</span>
-      )}
-      {tk?.total > 0 && (
-        <span className="badge badge-tokens" title={`tokens total ${tk.total}`}>{tk.total}t</span>
-      )}
-      {meta.premisas?.map((p) => (
-        <span key={p} className="badge badge-premisa" title={`premisa: ${p}`}>{p}</span>
-      ))}
-      {meta.stream_ok === false && (
-        <span className="badge badge-warn" title={meta.stream_error || "stream_ok: false"}>error stream</span>
-      )}
-      <ButtonIconify icon="mdi:information-outline" title="Ver trazabilidad" onClick={onInfo} className="btn-iconify--sm" />
-    </span>
-  );
 }
 
 export function metaWorthDialog(meta, isUser) {

@@ -56,7 +56,7 @@ export const Assets = {
   ensureMarked: () => frontShared().ensureMarked!(),
   ensureStylesheet: (href: string) => frontShared().ensureLazyStylesheet!(href),
   ensureChatStagingCss: () => {
-    const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "dist/" : "";
+    const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "_dist/" : "";
     frontShared().ensureLazyStylesheet!(`${prefix}css/chat-staging.css`).catch((err) => {
       console.warn("chat-staging.css:", err);
     });
@@ -80,13 +80,24 @@ export const Tokens = {
 /** Puente al stack React/MUI (front-shared). */
 export const getReact = () => window.ISAFront.getReact();
 export const getReactDOM = () => window.ISAFront.getReactDOM();
-export const getMaterialUI = () => window.ISAFront.getMaterialUI();
+export const getMaterialUI = (): MaterialUIApi => window.ISAFront.getMaterialUI();
 
 /** Puente a ISAFront.CodeMirrorPanel (front-shared). */
 export function CodeMirrorPanel(props: Record<string, unknown>) {
   const Panel = window.ISAFront?.CodeMirrorPanel;
   if (!Panel) throw new Error("CodeMirrorPanel no cargado — recargue sin caché (Ctrl+Shift+R).");
   return Panel(props);
+}
+
+/** Puente isa-patyia → ISAFront.Feedback (toasts y confirm). */
+const fb = () => globalThis.ISAFront?.Feedback;
+
+export function toastError(text: string, timeout?: number) { fb()?.toast?.error?.(text, timeout); }
+export function toastSuccess(text: string, timeout?: number) { fb()?.toast?.success?.(text, timeout); }
+export function toastInfo(text: string, timeout?: number) { fb()?.toast?.info?.(text, timeout); }
+export function toastWarning(text: string, timeout?: number) { fb()?.toast?.warning?.(text, timeout); }
+export function requestConfirm(opts: Record<string, unknown>) {
+  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
 }
 
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */

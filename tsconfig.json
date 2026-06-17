@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false
+  },
+  "include": [
+    "js/**/*.ts",
+    "js/**/*.tsx",
+    "js/**/*.jsx",
+    "js/**/*.mjs",
+    "js/global.d.ts",
+    "../../front-shared/cdn/types/**/*.d.ts"
+  ]
+}

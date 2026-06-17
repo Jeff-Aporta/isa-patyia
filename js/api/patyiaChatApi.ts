@@ -199,9 +199,3 @@ export async function sendConversacionStream(
     respuesta: streamingText || String(finalPayload.respuesta || ""),
   };
 }
-
-export function claimsSummary(claims: PatyJwtClaims | null | undefined): string {
-  if (!claims?.itercero) return "—";
-  return `${claims.nombres || ""} ${claims.apellidos || ""}`.trim()
-    + ` (${claims.itercero}/${claims.icontacto || "?"})`;
-}

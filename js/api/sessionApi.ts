@@ -1,6 +1,6 @@
 /** Sesión ISA PatyIA — permisos vía system-login (token `app`). */
 import { Session } from "../core/platform.ts";
-import { toastError, toastWarning } from "../ui/notifications.jsx";
+import { toastError, toastWarning } from "../core/platform.ts";
 
 /** Capacidad canónica para guardar instrucciones en Paty (MSSQL publish). */
 export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";

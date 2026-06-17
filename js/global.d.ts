@@ -31,7 +31,7 @@ interface Window {
 
 declare const React: ReactHooks;
 declare const ReactDOM: ReactDOMApi;
-declare const MaterialUI: Record<string, unknown>;
+declare const MaterialUI: MaterialUIApi;
 declare const Babel: BabelApi;
 
 interface ReactHooks {
@@ -125,6 +125,16 @@ interface AppShellProps {
   loginGate?: boolean;
 }
 
+type MuiThemeOptions = Record<string, unknown>;
+type MuiTheme = Record<string, unknown>;
+type MuiComponent = (props: Record<string, unknown>) => unknown;
+type MuiThemeFactory = (options: MuiThemeOptions) => MuiTheme;
+
+/** MUI cargado en runtime vía esm.sh — `createTheme` tipado; resto de exports por índice. */
+type MaterialUIApi = Record<string, MuiComponent | MuiThemeFactory | unknown> & {
+  createTheme: (options: MuiThemeOptions) => MuiTheme;
+};
+
 interface IsaFrontApi {
   registerApp(opts: Record<string, unknown>): void;
   registerCodeMirror?(react: unknown, mui: unknown): void;
@@ -137,7 +147,7 @@ interface IsaFrontApi {
   CodeMirrorPanel?: (props: Record<string, unknown>) => unknown;
   getReact(): ReactHooks;
   getReactDOM(): ReactDOMApi;
-  getMaterialUI(): Record<string, unknown>;
+  getMaterialUI(): MaterialUIApi;
   createCapFetch(opts: Record<string, unknown>): {
     capFetch(path: string, init?: RequestInit, cap?: string | null): Promise<unknown>;
     apiUrl(path: string, baseOverride?: string): string;
