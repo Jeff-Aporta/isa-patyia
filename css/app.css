@@ -153,8 +153,9 @@ body {
   padding-bottom: 2px;
 }
 
-.isa-layout-root .MuiAppBar-root .MuiToolbar-root .MuiChip-sizeSmall:not(:has(.MuiChip-icon)) .MuiChip-label {
+.isa-layout-root .MuiAppBar-root .MuiToolbar-root .header-session-chip.MuiChip-sizeSmall .MuiChip-label {
   padding-left: 10px;
+  padding-right: 10px;
 }
 
 .header-session-badge {
