@@ -131,6 +131,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
           role={session.role || ""}
           signalDot={signalDot}
           chipSx={HEADER_CHIP_SX}
+          showTarget={LabSession.canSwitchTarget()}
           onLogout={logout}
           runUnitTestUrl={() => `${patyiaBridgeBase()}/api/run-unit-test`}
           getAuthHeaders={() => {
