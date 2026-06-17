@@ -24,13 +24,44 @@ export function splitBodyWithVars(text: string): PromptTextSegment[] {
   return out;
 }
 
-/** Lista única de variables presentes en el texto (orden alfabético). */
+/** Lista única de variables presentes en el texto (orden de primera aparición). */
 export function extractPromptVariables(text: string): string[] {
-  const set = new Set<string>();
+  const seen = new Set<string>();
+  const out: string[] = [];
   for (const seg of splitBodyWithVars(text)) {
-    if (seg.type === "var") set.add(seg.name);
+    if (seg.type !== "var" || seen.has(seg.name)) continue;
+    seen.add(seg.name);
+    out.push(seg.name);
   }
-  return [...set].sort((a, b) => a.localeCompare(b));
+  return out;
+}
+
+/** Tono (hue 0–359) determinista a partir del nombre de la variable. */
+export function varNameToHue(name: string): number {
+  let h = 2166136261;
+  const s = String(name ?? "").trim().toLowerCase();
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+    h ^= Math.imul(i + 1, 0x9e3779b1);
+  }
+  return (Math.imul(h >>> 0, 137) >>> 0) % 360;
+}
+
+/** CSS custom property --var-tone-h para badges/chips de una variable. */
+export function varToneStyleAttr(name: string): string {
+  return `--var-tone-h:${varNameToHue(name)}`;
+}
+
+/** Estilos inline (MUI sx) con el mismo tono que los badges del editor. */
+export function varToneSx(name: string): Record<string, string | number> {
+  const hue = varNameToHue(name);
+  return {
+    "--var-tone-h": hue,
+    backgroundColor: `hsl(${hue} 52% 42% / 0.22)`,
+    borderColor: `hsl(${hue} 48% 58%)`,
+    color: `hsl(${hue} 62% 72%)`,
+  };
 }
 
 function varReplaceRe(name: string): RegExp {
