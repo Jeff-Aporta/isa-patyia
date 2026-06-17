@@ -1,5 +1,5 @@
 import { mdToHtml } from "./markdown.ts";
-import { PROMPT_VAR_PATTERN, varToneStyleAttr } from "../core/promptVariables.ts";
+import { PROMPT_VAR_PATTERN, repairPromptVarBraces, varToneStyleAttr } from "../core/promptVariables.ts";
 function escAttr(s: string): string {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -20,7 +20,7 @@ export function varChipHtml(name: string, opts: { editable?: boolean } = {}): st
 
 /** Sustituye {{vars}} por tokens, renderiza markdown una vez y reemplaza por chips inline. */
 function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {}): string {
-  const src = String(body ?? "");
+  const src = repairPromptVarBraces(String(body ?? ""));
   if (!src) return "";
 
   const placeholders: { token: string; name: string }[] = [];
