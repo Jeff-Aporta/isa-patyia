@@ -1,9 +1,9 @@
-/** Tableros SCRUM / tareas — gateway main-orchestrator → isa-todos. */
+/** Tableros SCRUM — gateway main-orchestrator → scrum worker. */
 import { Session, Config } from "../core/platform.ts";
 import { ORCH_ONLINE, isLocalMode } from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
-const todosHttp = window.ISAFront.createCapFetch({
+const scrumHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
   getApiBase: () => ORCH_ONLINE.replace(/\/$/, ""),
@@ -11,9 +11,9 @@ const todosHttp = window.ISAFront.createCapFetch({
     {
       test: (p: string) => {
         const n = p.startsWith("/") ? p : `/${p}`;
-        return n.startsWith("/todos") || n.startsWith("/api/todos");
+        return n.startsWith("/scrum") || n.startsWith("/api/scrum");
       },
-      base: "http://localhost:8780",
+      base: "http://localhost:8788",
     },
   ],
   orchOnlineInLocal: false,
@@ -22,7 +22,7 @@ const todosHttp = window.ISAFront.createCapFetch({
   clearSession: SessionApi.clearSession,
 });
 
-export const TODOS_APP_ID = "isa-patyia";
+export const SCRUM_APP_ID = "isa-patyia";
 
 export type TodoBoard = {
   id: string;
@@ -88,17 +88,17 @@ export type TodoBoardFull = {
 };
 
 function qs(extra?: Record<string, string>) {
-  const params = new URLSearchParams({ app: TODOS_APP_ID, ...extra });
+  const params = new URLSearchParams({ app: SCRUM_APP_ID, ...extra });
   return `?${params.toString()}`;
 }
 
 export async function fetchTodoBoards(boardType = "scrum") {
-  const data = await todosHttp.capFetch(`/todos/boards${qs({ boardType })}`, { method: "GET" });
+  const data = await scrumHttp.capFetch(`/scrum/boards${qs({ boardType })}`, { method: "GET" });
   return (data.boards ?? []) as TodoBoard[];
 }
 
 export async function createTodoBoard(payload: { title: string; description?: string; boardType?: string }) {
-  const data = await todosHttp.capFetch(`/todos/boards${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/boards${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ boardType: "scrum", ...payload }),
@@ -107,7 +107,7 @@ export async function createTodoBoard(payload: { title: string; description?: st
 }
 
 export async function fetchTodoBoard(boardId: string) {
-  const data = await todosHttp.capFetch(`/todos/boards/${boardId}${qs()}`, { method: "GET" });
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}${qs()}`, { method: "GET" });
   return data as TodoBoardFull & { ok: boolean };
 }
 
@@ -121,7 +121,7 @@ export async function createTodoTask(
     assignedTo?: string | null;
   },
 ) {
-  const data = await todosHttp.capFetch(`/todos/boards/${boardId}/tasks${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}/tasks${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -130,7 +130,7 @@ export async function createTodoTask(
 }
 
 export async function fetchTodoTask(taskId: string) {
-  const data = await todosHttp.capFetch(`/todos/tasks/${taskId}${qs()}`, { method: "GET" });
+  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, { method: "GET" });
   return data.task as TodoTask;
 }
 
@@ -144,7 +144,7 @@ export async function updateTodoTask(
     sortOrder?: number;
   },
 ) {
-  const data = await todosHttp.capFetch(`/todos/tasks/${taskId}${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -156,7 +156,7 @@ export async function createTodoMilestone(
   taskId: string,
   payload: { title: string; dueDate?: string | null },
 ) {
-  const data = await todosHttp.capFetch(`/todos/tasks/${taskId}/milestones${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}/milestones${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -168,7 +168,7 @@ export async function updateTodoMilestone(
   milestoneId: string,
   patch: { title?: string; dueDate?: string | null; completed?: boolean },
 ) {
-  const data = await todosHttp.capFetch(`/todos/milestones/${milestoneId}${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/milestones/${milestoneId}${qs()}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -177,7 +177,7 @@ export async function updateTodoMilestone(
 }
 
 export async function addTodoComment(taskId: string, body: string) {
-  const data = await todosHttp.capFetch(`/todos/tasks/${taskId}/comments${qs()}`, {
+  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}/comments${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ body }),
