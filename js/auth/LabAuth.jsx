@@ -124,20 +124,42 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
 
   if (session) {
     const UserSessionMenu = window.ISAFront?.UI?.UserSessionMenu;
+    const notifyViewAsChange = () => {
+      tick((n) => n + 1);
+      window.dispatchEvent(new Event("isa-patyia:auth"));
+    };
+    const handleViewAsClear = async () => {
+      try {
+        await Session.clearViewAs?.();
+        toastInfo("Simulación de usuario finalizada");
+        notifyViewAsChange();
+      } catch (e) {
+        toastError(e instanceof Error ? e.message : String(e));
+      }
+    };
     if (UserSessionMenu) {
       return (
         <UserSessionMenu
           ns="ISA"
           username={session.username}
+          realUsername={Session.realUsername?.() || session.realUsername || session.username}
+          viewAsUsername={Session.viewAsUsername?.() || session.viewAsUsername || ""}
           role={session.role || ""}
           signalDot={signalDot}
           chipSx={HEADER_CHIP_SX}
           showTarget={LabSession.canSwitchTarget()}
+          canViewAs={Session.can?.("session.view_as")}
+          onViewAsSelected={() => {
+            toastSuccess(`Simulando · ${Session.username?.() || ""}`);
+            notifyViewAsChange();
+          }}
+          onViewAsCleared={handleViewAsClear}
+          onViewAsClear={handleViewAsClear}
           onLogout={logout}
           runUnitTestUrl={() => `${patyiaBridgeBase()}/api/run-unit-test`}
           getAuthHeaders={() => {
             const tok = session.sessionToken || Session.current()?.token;
-            return tok ? { Authorization: `Bearer ${tok}` } : {};
+            return tok ? { ...Session.authHeader?.() } : {};
           }}
           unitTestTitle="Test unitario — iss-patyia-bridge"
         />

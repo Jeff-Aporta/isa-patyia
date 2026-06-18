@@ -38,6 +38,14 @@ export function patyChatAuditCap(): string | null {
   return can("patyia.chat.audit") ? "patyia.chat.audit" : null;
 }
 
+export function patyJwtAdminCap(): string | null {
+  return can("patyia.jwt.admin") ? "patyia.jwt.admin" : null;
+}
+
+export function canAdminPortalJwt(): boolean {
+  return Boolean(patyJwtAdminCap());
+}
+
 export async function login(user: string, pass: string) {
   const session = await Session.login(user, pass);
   notifyAuth();
@@ -55,13 +63,19 @@ export function getSession() {
   const s = Session.current();
   if (!s) return null;
   return {
-    username: s.username,
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
     role: s.role,
     expiresAt: s.expiresAt,
     sessionToken: s.token,
     app: Session.appId(),
     capabilities: Session.capabilities(),
   };
+}
+
+export function canViewAsUser(): boolean {
+  return Session.can("session.view_as");
 }
 
 export function humanPermissionError(err: unknown, cap: string) {
