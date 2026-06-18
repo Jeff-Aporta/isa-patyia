@@ -790,13 +790,9 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
   );
 }
 
-function resolveMsgIreferencia(msg) {
-  if (Number(msg?.ireferencia)) return Number(msg.ireferencia);
-  const ts = msg?.meta?.ts;
-  if (!ts) return undefined;
-  const d = Date.parse(String(ts).trim());
-  if (Number.isNaN(d)) return undefined;
-  return Math.floor(d / 1000);
+function resolveMsgImensaje(msg) {
+  const imensaje = Number(msg?.imensaje);
+  return imensaje > 0 ? imensaje : undefined;
 }
 
 const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
@@ -809,13 +805,13 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   const isStreaming = Boolean(msg.isStreaming || (streamingMsgId && msg.idMsg === streamingMsgId));
   const showMetaBtn = Boolean(onMeta && msg.meta && metaWorthDialog(msg.meta, isUser));
   const statsSide = isUser ? "left" : "right";
-  const msgIreferencia = resolveMsgIreferencia(msg);
+  const msgImensaje = resolveMsgImensaje(msg);
   const showRating = Boolean(
     onRateMessage
     && !isUser
     && !isOperativa
     && !isStreaming
-    && msgIreferencia
+    && msgImensaje
     && (canRate || msg.calificacion !== undefined),
   );
   const ratingRow = showRating ? (
@@ -824,7 +820,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
       disabled={!canRate}
       busy={ratingMsgId === msg.idMsg}
       align="left"
-      onRate={(butil) => onRateMessage({ ...msg, ireferencia: msgIreferencia }, butil)}
+      onRate={(butil) => onRateMessage({ ...msg, imensaje: msgImensaje }, butil)}
     />
   ) : null;
   const showMetricsColumn = Boolean(showUsageStats && msg.usageStats);

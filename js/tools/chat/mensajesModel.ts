@@ -32,20 +32,28 @@ function butilToCalificacion(butil) {
   return butil === true || butil === 1 || butil === "1" ? 1 : 0;
 }
 
-function findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido }) {
+/** Imágenes del mensaje OpenAI: campo top-level; meta solo respaldo legacy. */
+export function resolveMensajeImagenes(m) {
+  if (Array.isArray(m?.imagenes) && m.imagenes.length) {
+    return m.imagenes.filter(Boolean);
+  }
+  const meta = m?.meta;
+  if (!meta || typeof meta !== "object") return undefined;
+  const others = meta.others;
+  if (others && typeof others === "object" && Array.isArray(others.imagenes_adjuntas) && others.imagenes_adjuntas.length) {
+    return others.imagenes_adjuntas.filter(Boolean);
+  }
+  return undefined;
+}
+
+function findCalificadoForMsg(calificados, { imensaje, contenido }) {
   const rated = (calificados || []).map((c) => ({
     imensaje: Number(c.imensaje) || 0,
-    ireferencia: Number(c.ireferencia) || 0,
     butil: c.butil,
     contenido: String(c.contenido ?? "").trim(),
   })).filter((c) => c.imensaje > 0);
   if (!rated.length) return null;
 
-  if (ireferencia) {
-    let match = rated.find((r) => r.ireferencia === ireferencia);
-    if (!match) match = rated.find((r) => r.ireferencia && Math.abs(r.ireferencia - ireferencia) <= 2);
-    if (match) return match;
-  }
   if (imensaje) {
     const match = rated.find((r) => r.imensaje === imensaje);
     if (match) return match;
@@ -71,15 +79,10 @@ export function attachCalificacionesToVista(vista, openAiMsgs, calificados) {
       raw = msgs[oi];
       oi += 1;
     }
-    const ireferencia = v.ireferencia
-      ?? Number(raw?.ireferencia)
-      ?? fechaHoraToEpochSeconds(raw?.fecha_hora)
-      ?? fechaHoraToEpochSeconds(v.meta?.ts);
     const imensaje = Number(v.imensaje) || Number(raw?.imensaje) || undefined;
-    const match = findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido: v.contenido });
+    const match = findCalificadoForMsg(calificados, { imensaje, contenido: v.contenido });
     return {
       ...v,
-      ...(ireferencia ? { ireferencia } : {}),
       ...(match?.imensaje || imensaje ? { imensaje: match?.imensaje || imensaje } : {}),
       ...(match ? { calificacion: butilToCalificacion(match.butil) } : {}),
     };
@@ -89,13 +92,11 @@ export function attachCalificacionesToVista(vista, openAiMsgs, calificados) {
 export function attachCalificacionesOnly(vista, calificados) {
   return (vista || []).map((v) => {
     if (v.esUsuario || v.esOperativa) return v;
-    const ireferencia = v.ireferencia ?? fechaHoraToEpochSeconds(v.meta?.ts);
     const imensaje = Number(v.imensaje) || undefined;
-    const match = findCalificadoForMsg(calificados, { ireferencia, imensaje, contenido: v.contenido });
-    if (!match) return { ...v, ...(ireferencia ? { ireferencia } : {}) };
+    const match = findCalificadoForMsg(calificados, { imensaje, contenido: v.contenido });
+    if (!match) return v;
     return {
       ...v,
-      ...(ireferencia ? { ireferencia } : {}),
       ...(match.imensaje ? { imensaje: match.imensaje } : {}),
       calificacion: butilToCalificacion(match.butil),
     };
@@ -123,7 +124,7 @@ export function openAiFallbackVista(mensajes, fallbackUserName) {
     const contenido = resolveOpenAiMensajeText(m);
     const fechaRaw = m.fecha_hora || meta?.ts || "";
     const imensaje = Number(m.imensaje) || undefined;
-    const ireferencia = Number(m.ireferencia) || fechaHoraToEpochSeconds(fechaRaw) || undefined;
+    const imagenes = resolveMensajeImagenes(m);
     return {
       idMsg: imensaje ? `msg-${imensaje}` : `openai-${i}`,
       rol: isUser ? "user" : "assistant",
@@ -134,7 +135,7 @@ export function openAiFallbackVista(mensajes, fallbackUserName) {
       meta,
       nombreUsuario: nombreUsuario || undefined,
       ...(imensaje ? { imensaje } : {}),
-      ...(ireferencia ? { ireferencia } : {}),
+      ...(imagenes?.length ? { imagenes } : {}),
     };
   });
 }

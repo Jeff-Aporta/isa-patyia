@@ -307,7 +307,7 @@ export function useChatTool({ bootChat }) {
 
   const patchThreadAfterSend = useCallback(async (id, { minLogMensajes = 0, ownerLabel } = {}) => {
     if (!loggedIn || !id) return;
-    const name = ownerLabel || convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims));
+    const name = ownerLabel || convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
     const useLogOnly = !jwt?.token || viewingAuditOther;
     try {
       const logResult = await fetchConvLogByIdWithRetry(id, { minMensajes: minLogMensajes }).catch(() => null);
@@ -336,7 +336,7 @@ export function useChatTool({ bootChat }) {
     if (!silent) setLoadingThread(true);
     if (!keepStream) setStreamText("");
     setLogError("");
-    const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims));
+    const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
     const useLogOnly = !jwt?.token || viewingAuditOther;
     const minMensajes = freshLog
       ? Math.max(minLogMensajes, lastLogApiCountRef.current + 2)
@@ -455,7 +455,7 @@ export function useChatTool({ bootChat }) {
     setStreamText("");
     const imagenes = images.map((i) => i.dataUrl);
     const convIdBefore = selectedId;
-    const userName = convOwnerDisplayLabel(displayScope);
+    const userName = convOwnerDisplayLabel(displayScope, jwt, sessionUser);
     const logCountBefore = lastLogApiCountRef.current;
     setLogMensajes((prev) => enrichLogVista(
       [...prev, buildOptimisticUserMsg({ text, imagenes, userName })],
@@ -545,9 +545,9 @@ export function useChatTool({ bootChat }) {
   const onRateMessage = useCallback(async (msg, butil) => {
     if (!canSend || !jwt?.token || !selectedId) return;
     if (msg.calificacion !== undefined) return;
-    const ireferencia = Number(msg.ireferencia) || fechaHoraToEpochSeconds(msg.meta?.ts);
-    if (!ireferencia) {
-      toastWarning("No se puede calificar este mensaje (sin referencia temporal).");
+    const imensaje = Number(msg.imensaje);
+    if (!imensaje) {
+      toastWarning("No se puede calificar este mensaje (sin identificador de mensaje).");
       return;
     }
     const contenido = String(msg.contenido || "").trim();
@@ -560,7 +560,7 @@ export function useChatTool({ bootChat }) {
       const saved = await postMensajeCalificado(jwt, {
         iconversacion: selectedId,
         contenido,
-        ireferencia,
+        imensaje,
         butil,
       });
       const calificacion = butil ? 1 : 0;
@@ -579,8 +579,8 @@ export function useChatTool({ bootChat }) {
   }, [canSend, jwt, selectedId]);
 
   const chatUserName = useMemo(
-    () => convOwnerDisplayLabel(displayScope),
-    [displayScope],
+    () => convOwnerDisplayLabel(displayScope, jwt, sessionUser),
+    [displayScope, jwt, sessionUser],
   );
   const selectedInList = useMemo(
     () => Boolean(selectedId && rows.some((r) => r.iconversacion === selectedId)),
@@ -623,13 +623,13 @@ export function useChatTool({ bootChat }) {
     : null);
 
   const convListOwnerLabel = useMemo(
-    () => resolveConvListOwnerLabel(listScope, jwt),
-    [listScope, jwt],
+    () => resolveConvListOwnerLabel(listScope, jwt, sessionUser),
+    [listScope, jwt, sessionUser],
   );
 
   const convListHeader = useMemo(
-    () => resolveConvListHeader(listScope, jwt),
-    [listScope, jwt],
+    () => resolveConvListHeader(listScope, jwt, sessionUser),
+    [listScope, jwt, sessionUser],
   );
 
   const sessionHasJwtAccess = Session.can("patyia.chat.interact") || canAdminJwt;

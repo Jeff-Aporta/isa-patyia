@@ -59,10 +59,10 @@ export type PatyConversacionRow = {
 
 export type PatyMensaje = {
   imensaje?: number;
-  ireferencia?: number;
   autor?: string;
   mensaje?: string;
   fecha_hora?: string | number;
+  imagenes?: string[];
   meta?: {
     nombre_usuario?: string;
     prompt_variables?: { nombre_usuario?: string };
@@ -72,7 +72,6 @@ export type PatyMensaje = {
 
 export type PatyMensajeCalificado = {
   imensaje?: number;
-  ireferencia?: number;
   butil?: boolean | number;
   contenido?: string;
   iconversacion?: number;
@@ -88,7 +87,7 @@ export type PatyConversacionDetalle = PatyConversacionRow & {
 export type PostMensajeCalificadoInput = {
   iconversacion: number;
   contenido: string;
-  ireferencia: number;
+  imensaje: number;
   butil: boolean;
 };
 
