@@ -2234,6 +2234,75 @@ code {
   width: 100%;
 }
 
+/* Preview instrucciones — light mode (dark usa fondos slate heredados) */
+html[data-mui-color-scheme="light"] .prompt-body-preview {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(30, 144, 255, 0.16);
+  color: #1e293b;
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-md-preview,
+html[data-mui-color-scheme="light"] .prompt-body-preview .msg-body {
+  color: #334155;
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-md-preview h1,
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-md-preview h2,
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-md-preview h3,
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-md-preview h4 {
+  color: #0f172a;
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview--editable:hover {
+  border-color: rgba(30, 144, 255, 0.38);
+  box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.12);
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview pre {
+  background: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  color: #0f172a;
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview code:not(pre code) {
+  background: rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #0c4a6e;
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview blockquote {
+  border-left-color: rgba(30, 144, 255, 0.5);
+  color: #475569;
+  opacity: 1;
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview hr {
+  border-top-color: rgba(148, 163, 184, 0.4);
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview th,
+html[data-mui-color-scheme="light"] .prompt-md-preview td {
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #1e293b;
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview tbody tr:nth-child(even) {
+  background: rgba(241, 245, 249, 0.85);
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-preview .prompt-var-chip,
+html[data-mui-color-scheme="light"] .prompt-md-preview .prompt-var-badge {
+  background: hsl(var(--var-tone-h) 78% 93% / 1);
+  border-color: hsl(var(--var-tone-h) 52% 68% / 0.45);
+  color: hsl(var(--var-tone-h) 55% 28%);
+}
+
+html[data-mui-color-scheme="light"] .prompt-md-editor-surface {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #1e293b;
+}
+
 .prompt-md-editor-surface {
   box-sizing: border-box;
   max-width: 52rem;

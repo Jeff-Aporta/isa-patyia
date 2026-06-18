@@ -149,6 +149,24 @@ html[data-mui-color-scheme="light"] .paty-chat-terceros-row--jwt td {
   gap: 0.4rem;
 }
 
+.paty-chat-conv-item.MuiListItemButton-root {
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.paty-chat-conv-item .MuiListItemText-root {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.paty-chat-conv-item__delete {
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .paty-chat-conv-item__meta {
   font-size: 0.68rem !important;
   line-height: 1.35 !important;
