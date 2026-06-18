@@ -1,5 +1,5 @@
 import { getReact, getReactDOM } from "../core/platform.ts";
-import { mergePartial, bootState, getSnapshot } from "../core/urlState.ts";
+import { mergePartial, bootState, getSnapshot, hrefFor } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
 import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
@@ -68,7 +68,7 @@ export function App() {
       ns="ISA"
       showTarget={false}
       navRows={[
-        { id: "tool", value: tool, onChange: selectTool, tabs: tools },
+        { id: "tool", value: tool, onChange: selectTool, tabs: tools, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
       toolbarEnd={(
         <LoginButton

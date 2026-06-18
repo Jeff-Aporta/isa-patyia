@@ -115,6 +115,7 @@ const urlState = window.ISAFront.createUrlState({
 export const bootState = urlState.boot;
 export const getSnapshot = urlState.getSnapshot;
 export const mergePartial = urlState.mergePartial;
+export const hrefFor = urlState.hrefFor;
 export const PARAM = urlState.PARAM;
 
 /** Reinicia estado de la app y elimina por completo ?s= de la URL. */
