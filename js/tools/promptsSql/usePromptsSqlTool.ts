@@ -1,4 +1,4 @@
-import { getReact, Session } from "../../core/platform.ts";
+import { getReact, Session, Tokens } from "../../core/platform.ts";
 import { getSnapshot, mergePartial } from "../../core/urlState.ts";
 import * as PromptsSql from "../../api/promptsSql.ts";
 import * as LabApi from "../../api/labApi.ts";
@@ -67,6 +67,17 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const urlDraftTipos = useMemo(() => urlDraftTipoSet(bootPrompts), [bootPrompts]);
 
   const [prompts, setPrompts] = useState(() => buildInitialPromptState(bootPrompts, urlBodies));
+
+  /** Tabla de mapeo: más tokens → menos tokens (empate por nombre). */
+  const instruccionKeysTable = useMemo(() => {
+    return [...instruccionKeys].sort((a, b) => {
+      const ta = Tokens.estimatePrompt(prompts[a]?.body ?? "") || 0;
+      const tb = Tokens.estimatePrompt(prompts[b]?.body ?? "") || 0;
+      if (tb !== ta) return tb - ta;
+      return a.localeCompare(b);
+    });
+  }, [instruccionKeys, prompts]);
+
   const [activeTab, setActiveTab] = useState(
     Number.isInteger(bootPrompts.activeTab) ? bootPrompts.activeTab : 0,
   );
@@ -324,6 +335,7 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     editBlockReason,
     saveTitle,
     instruccionKeys,
+    instruccionKeysTable,
     importDlg,
     setImportDlg,
     onImportRowChange,

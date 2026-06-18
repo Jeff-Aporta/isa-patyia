@@ -59,13 +59,13 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
           <PromptsSqlMapeoTable
             activeTipo={tool.activeTipo}
-            instruccionKeys={tool.instruccionKeys}
+            instruccionKeys={tool.instruccionKeysTable}
             prompts={tool.prompts}
             mapped={tool.mapped}
             canEdit={tool.canEdit}
             loggedIn={tool.loggedIn}
             modelSelectOptions={tool.modelSelectOptions}
-            onSelectTipo={tool.setActiveTab}
+            onSelectTipo={(tipo) => tool.setActiveTab(tool.instruccionKeys.indexOf(tipo))}
             onUpdateConfig={tool.updateConfig}
             onOpenJconfig={(tipo) => tool.setJconfigDlg({ open: true, tipo })}
             onConfirmResetConfig={tool.confirmResetConfig}

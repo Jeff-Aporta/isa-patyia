@@ -86,7 +86,7 @@ export function PromptsSqlMapeoTable({
                     key={tipo}
                     hover
                     selected={tipo === activeTipo}
-                    onClick={() => onSelectTipo(instruccionKeys.indexOf(tipo))}
+                    onClick={() => onSelectTipo(tipo)}
                     sx={{ cursor: "pointer" }}
                   >
                     <TableCell>
