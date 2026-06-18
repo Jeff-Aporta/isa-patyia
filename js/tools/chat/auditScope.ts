@@ -1,4 +1,4 @@
-import { convBelongsToJwt, jwtUserShortName } from "../../core/patyia-jwt.ts";
+import { convBelongsToJwt, jwtUserShortName, jwtUserDisplayName } from "../../core/patyia-jwt.ts";
 
 export function auditScopeKey(scope) {
   if (!scope) return "";
@@ -30,10 +30,43 @@ export function activeConvOwnerScope(auditScope, claims) {
     return {
       itercero: claims.itercero,
       icontacto: claims.icontacto,
-      nombre: jwtUserShortName(claims) || null,
+      nombre: jwtUserDisplayName(claims) || jwtUserShortName(claims) || null,
     };
   }
   return null;
+}
+
+/** Etiqueta del dueño de las conversaciones listadas (auditoría, JWT ajeno o propio). */
+export function resolveConvListOwnerLabel(listScope, jwt) {
+  const auditName = String(listScope?.nombre ?? "").trim();
+  if (auditName) return auditName;
+
+  const actingName = String(jwt?.actingAsDisplayName ?? "").trim();
+  if (jwt?.actingAsUsername && actingName) return actingName;
+
+  const scope = activeConvOwnerScope(listScope, jwt?.claims);
+  const scopeLabel = convOwnerDisplayLabel(scope);
+  if (scopeLabel && scopeLabel !== "Usuario") return scopeLabel;
+
+  const fromClaims = jwtUserDisplayName(jwt?.claims);
+  if (fromClaims) return fromClaims;
+
+  if (jwt?.actingAsUsername) return jwt.actingAsUsername;
+
+  return "";
+}
+
+/** Línea consolidada bajo «Conversaciones»: nombre · itercero · contacto. */
+export function resolveConvListHeader(listScope, jwt) {
+  const scope = activeConvOwnerScope(listScope, jwt?.claims);
+  const name = resolveConvListOwnerLabel(listScope, jwt);
+  const tercero = String(scope?.itercero ?? "").trim();
+  const contacto = String(scope?.icontacto ?? "").trim();
+  const parts = [];
+  if (name) parts.push(name);
+  if (tercero) parts.push(tercero);
+  if (contacto) parts.push(contacto);
+  return parts.join(" · ");
 }
 
 export function formatAuditTs(v) {

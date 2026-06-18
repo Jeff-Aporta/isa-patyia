@@ -1,6 +1,6 @@
 /** JWT InSoft para AyudasCP-IA staging — BD por usuario + caché de sesión. */
 
-import { fetchPortalJwt, removePortalJwt, savePortalJwt, PATYIA_PORTAL_ID } from "../api/portalJwtApi.ts";
+import { fetchPortalJwt, removePortalJwt, savePortalJwt, fetchPortalJwtForUser, PATYIA_PORTAL_ID } from "../api/portalJwtApi.ts";
 import { fetchTercerosAudit, type TerceroAuditRow } from "../api/apiClient.ts";
 import { Session } from "./platform.ts";
 
@@ -25,6 +25,10 @@ export type PatyJwtRecord = {
   savedAt: string;
   expiresAt?: string | null;
   claims: PatyJwtClaims;
+  /** Dueño del token en BD_AUTH cuando un admin usa JWT ajeno. */
+  actingAsUsername?: string | null;
+  /** Nombre del contacto dueño (catálogo BD o claims) cuando actingAsUsername está activo. */
+  actingAsDisplayName?: string | null;
 };
 
 export function parseJwtExp(token: string): number | null {
@@ -197,12 +201,61 @@ export function clearPatyJwt(): void {
   clearPatyJwtLocal();
 }
 
-/** Solo interactúa quien tiene capacidad patyia.chat.interact y guardó el token bajo su usuario. */
+/** Solo interactúa quien tiene capacidad patyia.chat.interact y JWT propio o admin con JWT ajeno. */
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
   if (!Session.can("patyia.chat.interact")) return false;
-  return jwt.savedBy?.toUpperCase() === u;
+  if (jwt.savedBy?.toUpperCase() === u) return true;
+  if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
+  return false;
+}
+
+export function canAdminPortalJwt(): boolean {
+  return Session.can("patyia.jwt.admin");
+}
+
+export function jwtDisplayNameFromClaims(claims: PatyJwtClaims | null | undefined): string {
+  return jwtUserDisplayName(claims) || jwtUserShortName(claims) || "";
+}
+
+function buildActingJwtRecord(
+  token: string,
+  sessionUser: string,
+  ownerUsername: string,
+  expiresAt?: string | null,
+  actingAsDisplayName?: string | null,
+): PatyJwtRecord {
+  const rec = buildPatyJwtRecord(token, sessionUser, expiresAt);
+  const displayName = String(actingAsDisplayName ?? "").trim()
+    || jwtDisplayNameFromClaims(rec.claims)
+    || undefined;
+  return {
+    ...rec,
+    actingAsUsername: ownerUsername.trim().toUpperCase(),
+    actingAsDisplayName: displayName ?? null,
+  };
+}
+
+/** Admin: carga JWT portal de otro usuario ISA (sin guardarlo en su fila BD). */
+export async function activatePortalJwtAsAdmin(
+  ownerUsername: string,
+  sessionUser: string,
+  displayName?: string | null,
+): Promise<PatyJwtRecord> {
+  const owner = String(ownerUsername || "").trim().toUpperCase();
+  const u = String(sessionUser || "").trim().toUpperCase();
+  if (!owner || !u) throw new Error("Sesión y usuario dueño requeridos");
+  if (!canAdminPortalJwt()) throw new Error("Sin permiso para usar JWT de otros usuarios");
+
+  const data = await fetchPortalJwtForUser(owner, PATYIA_PORTAL_ID);
+  if (!data.token || isPatyJwtExpired(data.token)) {
+    throw new Error(`Sin JWT vigente en BD para ${owner}`);
+  }
+  const nameFromApi = jwtDisplayNameFromClaims(data.claims ?? null)
+    || jwtDisplayNameFromClaims(parseJwtClaims(data.token));
+  const actingName = String(displayName ?? "").trim() || nameFromApi || null;
+  return cachePatyJwt(buildActingJwtRecord(data.token, u, owner, data.expiresAt ?? null, actingName));
 }
 
 export function convBelongsToJwt(

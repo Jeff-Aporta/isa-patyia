@@ -6,7 +6,7 @@ import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
 
 const {
   Box, Typography, Button, IconButton, List, ListItemButton, ListItemText,
-  CircularProgress, Tooltip, Stack, Divider,
+  CircularProgress, Tooltip, Stack, Divider, Chip,
 } = getMaterialUI();
 const { Icon } = UI;
 
@@ -23,6 +23,10 @@ export function ChatThreadSidebar({
   sessionScopeLoading,
   viewingAuditOther,
   auditScope,
+  canAdminJwt,
+  convListOwnerLabel,
+  convListHeader,
+  showJwtBadge,
   loadingList,
   rows,
   selectedId,
@@ -97,8 +101,10 @@ export function ChatThreadSidebar({
           claims={jwt?.claims ?? null}
           displayScope={displayScope}
           sessionUser={sessionUser}
-          canInteract={canInteract}
-          viewOnly={viewOnly}
+          jwtActingAs={jwt?.actingAsUsername ?? null}
+          jwtActingAsDisplayName={jwt?.actingAsDisplayName ?? null}
+          canAdminJwt={canAdminJwt}
+          canSend={canSend}
           jwtLoading={jwtLoading}
           onOpenAudit={onOpenAudit}
         />
@@ -120,8 +126,47 @@ export function ChatThreadSidebar({
       <Divider sx={{ my: 1 }} />
 
       <Box className="conv-log-sidebar-block" sx={{ flex: 1, minHeight: 0, overflow: "auto", pb: 1.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block", fontWeight: 600 }}>
           Conversaciones
+          {(jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              useFlexGap
+              flexWrap="wrap"
+              sx={{ mt: 0.25 }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 500, color: "text.primary" }}>
+                {convListHeader || convListOwnerLabel}
+              </Typography>
+              {showJwtBadge ? (
+                <Chip
+                  size="small"
+                  label="JWT"
+                  sx={{
+                    height: 18,
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    bgcolor: "rgba(124,58,237,0.14)",
+                    color: "#6d28d9",
+                    border: "1px solid rgba(124,58,237,0.35)",
+                    "& .MuiChip-label": { px: 0.6, py: 0 },
+                  }}
+                />
+              ) : null}
+              {viewingAuditOther ? (
+                <Typography component="span" variant="caption" sx={{ color: "warning.main", fontWeight: 600 }}>
+                  · auditoría
+                </Typography>
+              ) : null}
+            </Stack>
+          ) : null}
+          {canAdminJwt && (
+            <Typography component="span" variant="caption" sx={{ display: "block", color: "secondary.main", mt: 0.25, fontSize: "0.68rem" }}>
+              Admin · puedes activar JWT de otros usuarios
+            </Typography>
+          )}
           {needsJwt ? (
             <Typography component="span" variant="caption" sx={{ display: "block", color: "info.main", mt: 0.25 }}>
               {listScope?.nombre
@@ -129,11 +174,6 @@ export function ChatThreadSidebar({
                 : sessionScopeLoading
                   ? "Buscando tus conversaciones…"
                   : "Sin contacto identificado · filtra por usuario"}
-            </Typography>
-          ) : null}
-          {viewingAuditOther ? (
-            <Typography component="span" variant="caption" sx={{ display: "block", color: "warning.main", mt: 0.25 }}>
-              Auditoría · {auditScope.itercero} / {auditScope.icontacto}
             </Typography>
           ) : null}
         </Typography>
@@ -164,9 +204,19 @@ export function ChatThreadSidebar({
                       </Typography>
                     </Stack>
                   )}
-                  secondary={`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
-                  primaryTypographyProps={{ sx: { pointerEvents: "none" } }}
-                  secondaryTypographyProps={{ variant: "caption", noWrap: true, sx: { pointerEvents: "none" } }}
+                  secondary={(
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      color="text.secondary"
+                      noWrap
+                      className="paty-chat-conv-item__meta"
+                      sx={{ pointerEvents: "none", display: "block", lineHeight: 1.35 }}
+                    >
+                      {`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
+                    </Typography>
+                  )}
+                  slotProps={{ primary: { sx: { pointerEvents: "none" } } }}
                 />
                 {canSend && convBelongsToJwt(r, jwt.claims) && (
                   <IconButton

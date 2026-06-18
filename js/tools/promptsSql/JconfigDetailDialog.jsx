@@ -23,8 +23,8 @@ export function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
           <div className="meta-row"><span className="meta-k">Chars</span><span className="meta-v">{view.chars ?? "—"}</span></div>
           <div className="meta-row"><span className="meta-k">Tokens</span><span className="meta-v">{view.tokens ?? "—"}</span></div>
           <div className="meta-row"><span className="meta-k">Modelo</span><span className="meta-v"><code>{view.model}</code></span></div>
-          <div className="meta-row"><span className="meta-k">Temperature (temperature)</span><span className="meta-v">{view.temperature}</span></div>
-          <div className="meta-row"><span className="meta-k">Top P (top_p)</span><span className="meta-v">{view.top_p}</span></div>
+          <div className="meta-row"><span className="meta-k">temperature</span><span className="meta-v">{view.temperature}</span></div>
+          <div className="meta-row"><span className="meta-k">top_p</span><span className="meta-v">{view.top_p}</span></div>
           <div className="meta-row"><span className="meta-k">Provider</span><span className="meta-v"><code>{view.provider}</code></span></div>
         </div>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2, mb: 0.5 }}>

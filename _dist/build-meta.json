@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-17T21:08:43.436Z",
+  "builtAt": "2026-06-18T14:27:40.711Z",
   "files": 58,
-  "bytesIn": 424461,
-  "bytesOut": 258689,
-  "ratio": 0.609,
-  "hash": "633db77b8d7c",
+  "bytesIn": 440846,
+  "bytesOut": 266105,
+  "ratio": 0.604,
+  "hash": "a6c454cf50ce",
   "entries": [
     {
       "src": "css/app.css",
@@ -15,8 +15,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 18003,
-      "bytesOut": 14569
+      "bytesIn": 18250,
+      "bytesOut": 14779
     },
     {
       "src": "css/theme.css",
@@ -51,8 +51,8 @@
     {
       "src": "js/api/portalJwtApi.ts",
       "dist": "_dist/js/api/portalJwtApi.js",
-      "bytesIn": 2084,
-      "bytesOut": 1072
+      "bytesIn": 3729,
+      "bytesOut": 1630
     },
     {
       "src": "js/api/promptsSql.ts",
@@ -63,20 +63,20 @@
     {
       "src": "js/api/sessionApi.ts",
       "dist": "_dist/js/api/sessionApi.js",
-      "bytesIn": 2631,
-      "bytesOut": 1626
+      "bytesIn": 3031,
+      "bytesOut": 1891
     },
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 3262,
-      "bytesOut": 1997
+      "bytesIn": 3311,
+      "bytesOut": 2033
     },
     {
       "src": "js/auth/LabAuth.jsx",
       "dist": "_dist/js/auth/LabAuth.js",
-      "bytesIn": 10502,
-      "bytesOut": 6471
+      "bytesIn": 11409,
+      "bytesOut": 6913
     },
     {
       "src": "js/boot/cdn.mjs",
@@ -111,8 +111,8 @@
     {
       "src": "js/core/patyia-jwt.ts",
       "dist": "_dist/js/core/patyia-jwt.js",
-      "bytesIn": 9467,
-      "bytesOut": 4474
+      "bytesIn": 11684,
+      "bytesOut": 5339
     },
     {
       "src": "js/core/patyia.ts",
@@ -123,8 +123,8 @@
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 5532,
-      "bytesOut": 3420
+      "bytesIn": 6047,
+      "bytesOut": 3820
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -141,8 +141,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 4125,
-      "bytesOut": 1883
+      "bytesIn": 4167,
+      "bytesOut": 1908
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -159,8 +159,8 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 5597,
-      "bytesOut": 3726
+      "bytesIn": 5803,
+      "bytesOut": 3878
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -201,14 +201,14 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 3285,
-      "bytesOut": 2143
+      "bytesIn": 3807,
+      "bytesOut": 2408
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 7931,
-      "bytesOut": 5010
+      "bytesIn": 9789,
+      "bytesOut": 5895
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",
@@ -219,14 +219,14 @@
     {
       "src": "js/tools/chat/TercerosAuditDialog.jsx",
       "dist": "_dist/js/tools/chat/TercerosAuditDialog.js",
-      "bytesIn": 8909,
-      "bytesOut": 4898
+      "bytesIn": 12536,
+      "bytesOut": 6638
     },
     {
       "src": "js/tools/chat/auditScope.ts",
       "dist": "_dist/js/tools/chat/auditScope.js",
-      "bytesIn": 1381,
-      "bytesOut": 807
+      "bytesIn": 2718,
+      "bytesOut": 1364
     },
     {
       "src": "js/tools/chat/constants.ts",
@@ -255,8 +255,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 21362,
-      "bytesOut": 9595
+      "bytesIn": 24219,
+      "bytesOut": 10655
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",
@@ -267,8 +267,8 @@
     {
       "src": "js/tools/promptsSql/JconfigDetailDialog.jsx",
       "dist": "_dist/js/tools/promptsSql/JconfigDetailDialog.js",
-      "bytesIn": 2681,
-      "bytesOut": 2725
+      "bytesIn": 2659,
+      "bytesOut": 2703
     },
     {
       "src": "js/tools/promptsSql/MapeoRowDot.jsx",
@@ -285,8 +285,8 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlEditorPane.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlEditorPane.js",
-      "bytesIn": 6520,
-      "bytesOut": 3448
+      "bytesIn": 6498,
+      "bytesOut": 3426
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlTree.jsx",

@@ -2,11 +2,14 @@ import { getReact, Session } from "../../core/platform.ts";
 import {
   loadPatyJwt,
   hydratePatyJwtFromServer,
+  clearPatyJwtLocal,
   canInteractPatyChat,
+  canAdminPortalJwt,
   convBelongsToJwt,
   jwtUserShortName,
   resolveSessionBrowseScope,
   browseScopeKey,
+  activatePortalJwtAsAdmin,
 } from "../../core/patyia-jwt.ts";
 import {
   listConversaciones,
@@ -26,6 +29,8 @@ import {
   auditScopeIsOwnJwt,
   convOwnerDisplayLabel,
   activeConvOwnerScope,
+  resolveConvListOwnerLabel,
+  resolveConvListHeader,
 } from "./auditScope.ts";
 import {
   enrichLogVista,
@@ -78,9 +83,12 @@ export function useChatTool({ bootChat }) {
   const threadScrollRef = useRef(null);
   const lastLogApiCountRef = useRef(0);
   const skipThreadReloadRef = useRef(null);
+  /** Conv recién creada al enviar — esperar a que aparezca en la lista antes de reconciliar. */
+  const pendingListConvRef = useRef(null);
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
+  const canAdminJwt = canAdminPortalJwt();
   const canInteract = canInteractPatyChat(sessionUser, jwt);
   const listScope = auditScope ?? (!jwt?.token ? sessionBrowseScope : null);
   const canSend = canInteract && auditScopeIsOwnJwt(auditScope, jwt?.claims);
@@ -116,6 +124,7 @@ export function useChatTool({ bootChat }) {
     }
     let cancelled = false;
     setJwtLoading(true);
+    clearPatyJwtLocal({ silent: true });
     hydratePatyJwtFromServer(sessionUser)
       .then((rec) => { if (!cancelled) setJwt(rec); })
       .finally(() => { if (!cancelled) setJwtLoading(false); });
@@ -176,6 +185,25 @@ export function useChatTool({ bootChat }) {
   }, [loggedIn, jwt, listScope?.itercero, listScope?.icontacto, convListPage, sessionScopeLoading]);
 
   const handleSelectAuditScope = useCallback((row) => {
+    if (row.activateJwtOwner && canAdminJwt) {
+      setAuditDialogOpen(false);
+      setJwtLoading(true);
+      activatePortalJwtAsAdmin(row.activateJwtOwner, sessionUser || "", row.nombre)
+        .then((rec) => {
+          setJwt(rec);
+          setAuditScope(null);
+          setConvListPage(1);
+          setSelectedId(null);
+          setDetail(null);
+          setLogMensajes([]);
+          setStreamText("");
+          mergePartial({ chat: { convId: null } });
+          toastSuccess(`JWT activo · ${row.activateJwtOwner}`);
+        })
+        .catch((e) => toastError(e instanceof Error ? e.message : String(e)))
+        .finally(() => setJwtLoading(false));
+      return;
+    }
     if (row.esJwt) {
       if (!jwt?.claims?.itercero) {
         setAuditDialogOpen(false);
@@ -224,7 +252,7 @@ export function useChatTool({ bootChat }) {
     mergePartial({ chat: { convId: null } });
     setAuditDialogOpen(false);
     toastInfo(`Filtro · ${row.nombre || row.icontacto}`);
-  }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser]);
+  }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser, canAdminJwt]);
 
   const applyThreadFromDetail = useCallback((d, log, name) => {
     const rated = d?.mensajesCalificados || [];
@@ -344,14 +372,46 @@ export function useChatTool({ bootChat }) {
 
   useEffect(() => { reloadList(); }, [reloadList, authTick]);
 
+  /** Si la conv abierta no está en el sidebar, elegir la primera o vaciar. */
   useEffect(() => {
-    if (!selectedId || jwtLoading) return;
+    if (loadingList || jwtLoading || sending) return;
+    if (!selectedId) return;
+
+    if (pendingListConvRef.current === selectedId) {
+      if (rows.some((r) => r.iconversacion === selectedId)) {
+        pendingListConvRef.current = null;
+      }
+      return;
+    }
+
+    if (rows.some((r) => r.iconversacion === selectedId)) return;
+
+    if (rows.length > 0) {
+      const first = rows[0].iconversacion;
+      skipThreadReloadRef.current = first;
+      setSelectedId(first);
+      mergePartial({ chat: { convId: first } });
+      return;
+    }
+
+    setSelectedId(null);
+    setDetail(null);
+    setLogMensajes([]);
+    setStreamText("");
+    setLogError("");
+    mergePartial({ chat: { convId: null } });
+  }, [rows, loadingList, jwtLoading, sending, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || jwtLoading || loadingList) return;
     if (skipThreadReloadRef.current === selectedId) {
       skipThreadReloadRef.current = null;
       return;
     }
+    if (pendingListConvRef.current === selectedId) return;
+    if (!rows.some((r) => r.iconversacion === selectedId)) return;
     openConv(selectedId);
-  }, [selectedId, jwtLoading, jwt?.token, openConv]);
+  }, [selectedId, jwtLoading, jwt?.token, openConv, rows, loadingList]);
 
   async function onNewChat() {
     if (!canSend) { toastWarning("Modo lectura."); return; }
@@ -420,6 +480,7 @@ export function useChatTool({ bootChat }) {
       setStreamText("");
       if (newId) {
         if (newId !== convIdBefore) {
+          pendingListConvRef.current = newId;
           skipThreadReloadRef.current = newId;
           setSelectedId(newId);
           mergePartial({ chat: { convId: newId } });
@@ -521,11 +582,18 @@ export function useChatTool({ bootChat }) {
     () => convOwnerDisplayLabel(displayScope),
     [displayScope],
   );
+  const selectedInList = useMemo(
+    () => Boolean(selectedId && rows.some((r) => r.iconversacion === selectedId)),
+    [selectedId, rows],
+  );
   const displayMensajes = useMemo(
     () => appendStreamMsg(logMensajes, streamText, sending),
     [logMensajes, sending, streamText],
   );
-  const showThread = Boolean(selectedId || detail || sending || logMensajes.length);
+  const showThread = Boolean(
+    sending
+    || (selectedInList && (detail || logMensajes.length || loadingThread)),
+  );
 
   const onThreadScroll = useThreadScrollAnchor(threadScrollRef, displayMensajes, { sending });
 
@@ -554,12 +622,26 @@ export function useChatTool({ bootChat }) {
     ? { itercero: jwt.claims.itercero, icontacto: jwt.claims.icontacto, nombre: jwtUserShortName(jwt.claims) }
     : null);
 
+  const convListOwnerLabel = useMemo(
+    () => resolveConvListOwnerLabel(listScope, jwt),
+    [listScope, jwt],
+  );
+
+  const convListHeader = useMemo(
+    () => resolveConvListHeader(listScope, jwt),
+    [listScope, jwt],
+  );
+
+  const sessionHasJwtAccess = Session.can("patyia.chat.interact") || canAdminJwt;
+  const showJwtBadge = Boolean(jwt?.token) && sessionHasJwtAccess;
+
   return {
     loggedIn,
     jwt,
     jwtOpen,
     jwtLoading,
     sessionUser,
+    canAdminJwt,
     canInteract,
     canSend,
     viewOnly,
@@ -585,6 +667,9 @@ export function useChatTool({ bootChat }) {
     convListPage,
     convListMeta,
     chatUserName,
+    convListOwnerLabel,
+    convListHeader,
+    showJwtBadge,
     displayMensajes,
     showThread,
     ratingMsgId,

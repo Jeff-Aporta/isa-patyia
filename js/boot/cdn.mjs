@@ -1,4 +1,4 @@
-export const PIN = "22f23a2";
+export const PIN = "bcc5453";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);

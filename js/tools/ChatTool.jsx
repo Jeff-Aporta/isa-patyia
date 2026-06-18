@@ -31,6 +31,10 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     canInteract: chat.canInteract,
     viewOnly: chat.viewOnly,
     jwtLoading: chat.jwtLoading,
+    canAdminJwt: chat.canAdminJwt,
+    convListOwnerLabel: chat.convListOwnerLabel,
+    convListHeader: chat.convListHeader,
+    showJwtBadge: chat.showJwtBadge,
     canSend: chat.canSend,
     needsJwt: chat.needsJwt,
     listScope: chat.listScope,
@@ -148,6 +152,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onClose={() => chat.setAuditDialogOpen(false)}
         jwt={chat.jwt}
         sessionUser={chat.sessionUser}
+        canAdminJwt={chat.canAdminJwt}
         currentScope={chat.auditCurrentScope}
         onSelect={chat.handleSelectAuditScope}
       />

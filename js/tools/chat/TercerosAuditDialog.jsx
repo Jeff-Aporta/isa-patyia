@@ -1,29 +1,61 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { parseJwtClaims, jwtUserDisplayName, shortDisplayName } from "../../core/patyia-jwt.ts";
 import { fetchTercerosAudit } from "../../api/apiClient.ts";
+import { fetchPortalJwtCatalog } from "../../api/portalJwtApi.ts";
 import { TERCEROS_AUDIT_PAGE_SIZE } from "./constants.ts";
 import { auditScopeKey, formatAuditTs } from "./auditScope.ts";
 
 const { useState, useEffect } = getReact();
 const {
   Box, Typography, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions,
-  CircularProgress, Alert, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip,
+  CircularProgress, Alert, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Divider,
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, currentScope }) {
+function catalogDisplayName(entry) {
+  const claims = entry.claims || {};
+  const full = jwtUserDisplayName(claims);
+  if (full) return shortDisplayName(full);
+  return entry.username;
+}
+
+export function TercerosAuditDialog({ open, onClose, jwt, sessionUser, canAdminJwt, onSelect, currentScope }) {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  const [jwtCatalog, setJwtCatalog] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
 
   useEffect(() => {
     if (!open) return undefined;
     const t = setTimeout(() => setQDebounced(q.trim()), 350);
     return () => clearTimeout(t);
   }, [q, open]);
+
+  useEffect(() => {
+    if (!open || !canAdminJwt) {
+      setJwtCatalog([]);
+      setCatalogError("");
+      return undefined;
+    }
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    fetchPortalJwtCatalog()
+      .then((res) => { if (!cancelled) setJwtCatalog(res.entries ?? []); })
+      .catch((err) => {
+        if (!cancelled) {
+          setJwtCatalog([]);
+          setCatalogError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, [open, canAdminJwt]);
 
   useEffect(() => {
     if (!open) return;
@@ -67,6 +99,55 @@ export function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect,
         Filtrar por usuario
       </DialogTitle>
       <DialogContent dividers sx={{ pt: 1.5 }}>
+        {canAdminJwt ? (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+              JWT en BD (admin)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              Activa el token portal de otro usuario para chatear como ese contacto InSoft.
+            </Typography>
+            {catalogError ? <Alert severity="warning" sx={{ mb: 1 }}>{catalogError}</Alert> : null}
+            {catalogLoading ? (
+              <Box sx={{ py: 1.5, textAlign: "center" }}><CircularProgress size={22} /></Box>
+            ) : (
+              <Stack direction="row" flexWrap="wrap" gap={0.75} useFlexGap>
+                {jwtCatalog.map((entry) => {
+                  const active = jwt?.actingAsUsername === entry.username
+                    || (!jwt?.actingAsUsername && sessionUser?.toUpperCase() === entry.username && jwt?.token);
+                  const label = catalogDisplayName(entry);
+                  const sub = entry.claims?.itercero
+                    ? `${entry.claims.itercero} · ${entry.claims.icontacto ?? ""}`
+                    : entry.username;
+                  return (
+                    <Button
+                      key={entry.username}
+                      size="small"
+                      variant={active ? "contained" : "outlined"}
+                      onClick={() => onSelect({ activateJwtOwner: entry.username, nombre: label })}
+                      sx={{
+                        textTransform: "none",
+                        borderColor: active ? undefined : "rgba(124,58,237,0.45)",
+                        color: active ? undefined : "#6d28d9",
+                      }}
+                    >
+                      <Stack alignItems="flex-start" spacing={0}>
+                        <span>{label}</span>
+                        <Typography component="span" variant="caption" sx={{ opacity: 0.85 }}>
+                          {sub}
+                        </Typography>
+                      </Stack>
+                    </Button>
+                  );
+                })}
+                {!catalogLoading && !jwtCatalog.length && !catalogError ? (
+                  <Typography variant="caption" color="text.secondary">Sin JWT guardados en BD.</Typography>
+                ) : null}
+              </Stack>
+            )}
+            <Divider sx={{ my: 1.5 }} />
+          </Box>
+        ) : null}
         <TextField
           size="small"
           fullWidth

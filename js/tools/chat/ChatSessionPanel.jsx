@@ -6,11 +6,27 @@ const { useState, useEffect, useMemo } = getReact();
 const { Box, Typography, CircularProgress } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatSessionPanel({ claims, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, onOpenAudit }) {
-  const fullName = claims ? jwtUserDisplayName(claims) : String(displayScope?.nombre ?? "").trim();
-  const name = claims
-    ? (jwtUserShortName(claims) || "Usuario JWT")
-    : (displayScope?.nombre || sessionUser || "ISA PatyIA");
+export function ChatSessionPanel({
+  claims,
+  displayScope,
+  sessionUser,
+  jwtActingAs,
+  jwtActingAsDisplayName,
+  canAdminJwt,
+  canSend,
+  jwtLoading,
+  onOpenAudit,
+}) {
+  const bdName = claims
+    ? jwtUserDisplayName(claims)
+    : String(displayScope?.nombre ?? "").trim();
+  const actingName = String(jwtActingAsDisplayName ?? "").trim();
+  const name = jwtActingAs && actingName
+    ? actingName
+    : claims
+      ? (jwtUserShortName(claims) || "Usuario JWT")
+      : (displayScope?.nombre || sessionUser || "ISA PatyIA");
+  const fullName = (jwtActingAs && actingName) ? actingName : (bdName || name);
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
   const avatarLabel = fullName || name;
@@ -51,7 +67,7 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser, canInterac
       </Box>
       <Box className="paty-chat-session__body">
         <Typography className="paty-chat-session__name" title={fullName || name}>
-          {name}
+          {fullName || name}
         </Typography>
         {(tercero || contacto) && (
           <Typography className="paty-chat-session__ids" variant="caption">
@@ -60,26 +76,29 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser, canInterac
             {contacto || ""}
           </Typography>
         )}
-        <Box className="paty-chat-session__flags">
-          {canInteract && (
+        <Box className="paty-chat-session__flags" sx={{ flexWrap: "wrap", gap: 0.5 }}>
+          {canSend ? (
             <span className="paty-chat-session__flag paty-chat-session__flag--live">
               <span className="status-dot status-dot--inline status-dot--green" aria-hidden />
               Interactivo
             </span>
-          )}
-          {viewOnly && (
+          ) : jwtLoading ? (
+            <span className="paty-chat-session__flag">
+              <CircularProgress size={10} sx={{ mr: 0.5 }} />
+              Token…
+            </span>
+          ) : (
             <span className="paty-chat-session__flag paty-chat-session__flag--readonly">
               <span className="status-dot status-dot--inline status-dot--orange" aria-hidden />
               Solo lectura
             </span>
           )}
-          {jwtLoading && (
-            <span className="paty-chat-session__flag">
-              <CircularProgress size={10} sx={{ mr: 0.5 }} />
-              Token…
-            </span>
-          )}
         </Box>
+        {canAdminJwt && (
+          <Typography variant="caption" sx={{ display: "block", mt: 0.35, color: "secondary.main", lineHeight: 1.35 }}>
+            Admin · acceso a JWT de otros usuarios
+          </Typography>
+        )}
       </Box>
     </Box>
   );

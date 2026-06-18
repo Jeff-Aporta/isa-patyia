@@ -62,8 +62,8 @@ export function PromptsSqlMapeoTable({
                 <TableCell>Instrucción</TableCell>
                 <TableCell>Chars | Tokens</TableCell>
                 <TableCell>Modelo</TableCell>
-                <TableCell>Temperature (temperature)</TableCell>
-                <TableCell>Top P (top_p)</TableCell>
+                <TableCell>temperature</TableCell>
+                <TableCell>top_p</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
