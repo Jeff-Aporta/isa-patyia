@@ -3,6 +3,7 @@ import { convBelongsToJwt } from "../../core/patyia-jwt.ts";
 import { CHAT_SIDEBAR_W } from "./constants.ts";
 import { formatTs } from "./mensajesModel.ts";
 import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
+import { resolveOwnerNickname } from "./auditScope.ts";
 
 const {
   Box, Typography, Button, IconButton, List, ListItemButton, ListItemText,
@@ -23,7 +24,6 @@ export function ChatThreadSidebar({
   sessionScopeLoading,
   viewingAuditOther,
   auditScope,
-  canAdminJwt,
   convListOwnerLabel,
   convListHeader,
   showJwtBadge,
@@ -101,9 +101,7 @@ export function ChatThreadSidebar({
           claims={jwt?.claims ?? null}
           displayScope={displayScope}
           sessionUser={sessionUser}
-          jwtActingAs={jwt?.actingAsUsername ?? null}
-          jwtActingAsDisplayName={jwt?.actingAsDisplayName ?? null}
-          canAdminJwt={canAdminJwt}
+          ownerNick={resolveOwnerNickname(jwt, sessionUser)}
           canSend={canSend}
           jwtLoading={jwtLoading}
           onOpenAudit={onOpenAudit}
@@ -162,11 +160,6 @@ export function ChatThreadSidebar({
               ) : null}
             </Stack>
           ) : null}
-          {canAdminJwt && (
-            <Typography component="span" variant="caption" sx={{ display: "block", color: "secondary.main", mt: 0.25, fontSize: "0.68rem" }}>
-              Admin · puedes activar JWT de otros usuarios
-            </Typography>
-          )}
           {needsJwt ? (
             <Typography component="span" variant="caption" sx={{ display: "block", color: "info.main", mt: 0.25 }}>
               {listScope?.nombre
@@ -187,19 +180,30 @@ export function ChatThreadSidebar({
             return (
               <ListItemButton
                 key={r.iconversacion}
+                className="paty-chat-conv-item"
                 selected={selectedId === r.iconversacion}
                 onClick={() => handleOpenConv(r.iconversacion)}
                 title={convTip}
                 aria-label={convTip}
-                sx={{ py: 0.5, pl: 1.5, pr: 1, minHeight: 36, "&.Mui-selected": { bgcolor: "action.selected" } }}
+                sx={{
+                  py: 0.5,
+                  px: 0,
+                  minHeight: 36,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 0.5,
+                  "&.Mui-selected": { bgcolor: "action.selected" },
+                }}
               >
                 <ListItemText
+                  sx={{ flex: 1, minWidth: 0, m: 0 }}
                   primary={(
                     <Stack direction="row" spacing={0.5} alignItems="center" className="paty-chat-conv-item__title" sx={{ minWidth: 0, pointerEvents: "none" }}>
                       <span className="paty-chat-conv-id-badge">
                         {r.iconversacion}
                       </span>
-                      <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0 }}>
+                      <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
                         {convTitle}
                       </Typography>
                     </Stack>
@@ -216,18 +220,22 @@ export function ChatThreadSidebar({
                       {`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
                     </Typography>
                   )}
-                  slotProps={{ primary: { sx: { pointerEvents: "none" } } }}
+                  slotProps={{
+                    primary: { sx: { pointerEvents: "none", mb: 0.25 } },
+                    secondary: { sx: { pointerEvents: "none", m: 0 } },
+                  }}
                 />
-                {canSend && convBelongsToJwt(r, jwt.claims) && (
+                {canSend && convBelongsToJwt(r, jwt.claims) ? (
                   <IconButton
                     size="small"
-                    edge="end"
                     aria-label="Eliminar"
+                    className="paty-chat-conv-item__delete"
                     onClick={(e) => { e.stopPropagation(); onDelete(r.iconversacion); }}
+                    sx={{ flexShrink: 0, mr: 0 }}
                   >
                     <Icon icon="mdi:delete-outline" size={16} />
                   </IconButton>
-                )}
+                ) : null}
               </ListItemButton>
             );
           })}

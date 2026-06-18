@@ -1,5 +1,4 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
-import { jwtUserDisplayName, jwtUserShortName } from "../../core/patyia-jwt.ts";
 import { buildUserAvatarUrl } from "../../core/patyia.ts";
 
 const { useState, useEffect, useMemo } = getReact();
@@ -9,28 +8,18 @@ const { Icon } = UI;
 export function ChatSessionPanel({
   claims,
   displayScope,
-  sessionUser,
-  jwtActingAs,
-  jwtActingAsDisplayName,
-  canAdminJwt,
+  sessionUser: _sessionUser,
+  ownerNick,
   canSend,
   jwtLoading,
   onOpenAudit,
 }) {
-  const bdName = claims
-    ? jwtUserDisplayName(claims)
-    : String(displayScope?.nombre ?? "").trim();
-  const actingName = String(jwtActingAsDisplayName ?? "").trim();
-  const name = jwtActingAs && actingName
-    ? actingName
-    : claims
-      ? (jwtUserShortName(claims) || "Usuario JWT")
-      : (displayScope?.nombre || sessionUser || "ISA PatyIA");
-  const fullName = (jwtActingAs && actingName) ? actingName : (bdName || name);
+  const nick = String(ownerNick ?? "").trim().toUpperCase();
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
-  const avatarLabel = fullName || name;
-  const avatarUrl = useMemo(() => buildUserAvatarUrl(avatarLabel, 72), [avatarLabel]);
+  const codes = [tercero, contacto].filter(Boolean).join(" · ");
+  const primaryLabel = nick || codes || "ISA PatyIA";
+  const avatarUrl = useMemo(() => buildUserAvatarUrl(primaryLabel, 72), [primaryLabel]);
   const [avatarOk, setAvatarOk] = useState(true);
   useEffect(() => { setAvatarOk(true); }, [avatarUrl]);
 
@@ -66,16 +55,9 @@ export function ChatSessionPanel({
         )}
       </Box>
       <Box className="paty-chat-session__body">
-        <Typography className="paty-chat-session__name" title={fullName || name}>
-          {fullName || name}
+        <Typography className="paty-chat-session__name" title={primaryLabel}>
+          {primaryLabel}
         </Typography>
-        {(tercero || contacto) && (
-          <Typography className="paty-chat-session__ids" variant="caption">
-            {tercero || ""}
-            {tercero && contacto ? " · " : ""}
-            {contacto || ""}
-          </Typography>
-        )}
         <Box className="paty-chat-session__flags" sx={{ flexWrap: "wrap", gap: 0.5 }}>
           {canSend ? (
             <span className="paty-chat-session__flag paty-chat-session__flag--live">
@@ -94,11 +76,6 @@ export function ChatSessionPanel({
             </span>
           )}
         </Box>
-        {canAdminJwt && (
-          <Typography variant="caption" sx={{ display: "block", mt: 0.35, color: "secondary.main", lineHeight: 1.35 }}>
-            Admin · acceso a JWT de otros usuarios
-          </Typography>
-        )}
       </Box>
     </Box>
   );

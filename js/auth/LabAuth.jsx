@@ -148,7 +148,6 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
           signalDot={signalDot}
           chipSx={HEADER_CHIP_SX}
           showTarget={LabSession.canSwitchTarget()}
-          canViewAs={Session.can?.("session.view_as")}
           onViewAsSelected={() => {
             toastSuccess(`Simulando · ${Session.username?.() || ""}`);
             notifyViewAsChange();

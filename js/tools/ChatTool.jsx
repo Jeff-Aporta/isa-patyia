@@ -31,7 +31,6 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     canInteract: chat.canInteract,
     viewOnly: chat.viewOnly,
     jwtLoading: chat.jwtLoading,
-    canAdminJwt: chat.canAdminJwt,
     convListOwnerLabel: chat.convListOwnerLabel,
     convListHeader: chat.convListHeader,
     showJwtBadge: chat.showJwtBadge,
