@@ -13,13 +13,21 @@ function normalizeLog(raw: unknown) {
 }
 
 function initial() {
-  return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {} };
+  return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {}, todos: {} };
+}
+
+function normalizeTool(raw: unknown) {
+  if (raw === "prompts") return "prompts";
+  if (raw === "chat") return "chat";
+  if (raw === "todos") return "todos";
+  return "log";
 }
 
 function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   if (!raw || typeof raw !== "object") return initial();
-  const tool = raw.tool === "prompts" ? "prompts" : raw.tool === "chat" ? "chat" : "log";
+  const tool = normalizeTool(raw.tool);
   const chat = raw.chat && typeof raw.chat === "object" ? raw.chat : {};
+  const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
   return {
     v: raw.v ?? STATE_VERSION,
     tool,
@@ -27,6 +35,7 @@ function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
     log: normalizeLog(raw.log),
     prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
     chat,
+    todos,
   };
 }
 
@@ -72,6 +81,10 @@ function merge(state: Record<string, unknown>, partial: Record<string, unknown>)
     chat: {
       ...(state.chat as Record<string, unknown>),
       ...((partial.chat as Record<string, unknown>) || {}),
+    },
+    todos: {
+      ...(state.todos as Record<string, unknown>),
+      ...((partial.todos as Record<string, unknown>) || {}),
     },
   };
 }

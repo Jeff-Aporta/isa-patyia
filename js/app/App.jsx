@@ -5,16 +5,31 @@ import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
+import { TodosTool } from "../tools/TodosTool.jsx";
 import { Session } from "../core/platform.ts";
 import { Assets } from "../core/platform.ts";
 
 const BRAND_HOME_EVENT = "isa:brand-home";
+const SCRUM_CAP = "patyia.scrum";
 
 const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
   { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
+  { id: "todos", label: "Scrum", icon: "mdi:view-column" },
 ];
+
+function canAccessScrum() {
+  return Session.can(SCRUM_CAP);
+}
+
+function scrumTabMeta() {
+  const allowed = canAccessScrum();
+  return {
+    disabled: !allowed,
+    disabledTitle: allowed ? "" : "En desarrollo",
+  };
+}
 
 export function App() {
   const { useState, useEffect } = getReact();
@@ -31,6 +46,7 @@ export function App() {
 
   useEffect(() => {
     if (tool === "chat") Assets.ensureChatStagingCss();
+    if (tool === "todos") Assets.ensureTodosCss();
   }, [tool]);
 
   useEffect(() => {
@@ -44,6 +60,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (tool === "todos" && !canAccessScrum()) {
+      setTool("log");
+      mergePartial({ tool: "log" });
+    }
+  }, [tool, authTick]);
+
+  useEffect(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
       setTool("log");
@@ -53,9 +76,10 @@ export function App() {
     return () => window.removeEventListener(BRAND_HOME_EVENT, onBrandHome);
   }, []);
 
-  const tools = ALL_TOOLS;
+  const tools = ALL_TOOLS.map((t) => (t.id === "todos" ? { ...t, ...scrumTabMeta() } : t));
 
   function selectTool(id) {
+    if (id === "todos" && !canAccessScrum()) return;
     setTool(id);
     mergePartial({ tool: id });
   }
@@ -84,6 +108,9 @@ export function App() {
       )}
       {tool === "chat" && (
         <ChatTool key={homeTick} bootChat={appBoot.chat || {}} onNeedLogin={() => setAuthOpen(true)} />
+      )}
+      {tool === "todos" && canAccessScrum() && (
+        <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
     </Shell>
   );

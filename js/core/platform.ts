@@ -27,6 +27,8 @@ export const Session = {
   logout: () => bridge().Session.logout(),
   refreshProfile: () => bridge().Session.refreshProfile(),
   fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+  searchSuplantacionUsers: (q: string, limit?: number) =>
+    bridge().Session.searchSuplantacionUsers?.(q, limit),
   setViewAs: (u: string) => bridge().Session.setViewAs?.(u),
   clearViewAs: () => bridge().Session.clearViewAs?.(),
   capabilities: () => bridge().Session.capabilities(),
@@ -82,6 +84,14 @@ export const Assets = {
     const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "_dist/" : "";
     api.ensureLazyStylesheet!(`${prefix}css/chat-staging.css`).catch((err) => {
       console.warn("chat-staging.css:", err);
+    });
+  },
+  ensureTodosCss: () => {
+    const api = frontSharedLazy();
+    if (!api) return;
+    const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "_dist/" : "";
+    api.ensureLazyStylesheet!(`${prefix}css/todos-staging.css`).catch((err) => {
+      console.warn("todos-staging.css:", err);
     });
   },
 };
