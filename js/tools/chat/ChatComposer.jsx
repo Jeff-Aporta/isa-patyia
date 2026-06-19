@@ -8,23 +8,7 @@ const {
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatComposer({
-  canSend,
-  sending,
-  draft,
-  images,
-  payloadPreviewOpen,
-  postBodyPreview,
-  inputRef,
-  fileInputRef,
-  onDraftChange,
-  onPaste,
-  onSend,
-  onTogglePayloadPreview,
-  onAttachImagesClick,
-  onAttachImagesChange,
-  onRemoveImage,
-}) {
+export function ChatComposer({ canSend, sending, draft, images, payloadPreviewOpen, postBodyPreview, inputRef, fileInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachImagesClick, onAttachImagesChange, onRemoveImage }) {
   if (!canSend) return null;
 
   return (
@@ -57,27 +41,14 @@ export function ChatComposer({
         />
         <Tooltip title={payloadPreviewOpen ? "Ocultar body POST" : "Ver body POST (JSON en vivo)"}>
           <span>
-            <IconButton
-              className={`paty-chat-payload-btn${payloadPreviewOpen ? " paty-chat-payload-btn--active" : ""}`}
-              aria-label={payloadPreviewOpen ? "Ocultar vista previa JSON" : "Ver vista previa JSON del POST"}
-              aria-pressed={payloadPreviewOpen}
-              disabled={sending}
-              onClick={onTogglePayloadPreview}
-              size="small"
-            >
+            <IconButton color="inherit" className={`paty-chat-payload-btn${payloadPreviewOpen ? " paty-chat-payload-btn--active" : ""}`} aria-label={payloadPreviewOpen ? "Ocultar vista previa JSON" : "Ver vista previa JSON del POST"} aria-pressed={payloadPreviewOpen} disabled={sending} onClick={onTogglePayloadPreview} size="small">
               <Icon icon="mdi:code-json" size={22} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Adjuntar imagen (se envía en base64)">
           <span>
-            <IconButton
-              className="paty-chat-attach-btn"
-              aria-label="Adjuntar imagen"
-              disabled={sending || images.length >= MAX_CHAT_IMAGES}
-              onClick={onAttachImagesClick}
-              size="small"
-            >
+            <IconButton color="inherit" className="paty-chat-attach-btn" aria-label="Adjuntar imagen" disabled={sending || images.length >= MAX_CHAT_IMAGES} onClick={onAttachImagesClick} size="small">
               <Icon icon="mdi:image-plus-outline" size={22} />
             </IconButton>
           </span>
