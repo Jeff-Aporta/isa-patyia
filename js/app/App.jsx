@@ -23,6 +23,14 @@ function canAccessScrum() {
   return Session.can(SCRUM_CAP);
 }
 
+function isPublicScrumBoot(todos) {
+  return !!String(todos?.publicSlug ?? "").trim();
+}
+
+function canShowScrumTool(todos) {
+  return canAccessScrum() || isPublicScrumBoot(todos);
+}
+
 function scrumTabMeta() {
   const allowed = canAccessScrum();
   return {
@@ -35,7 +43,11 @@ export function App() {
   const { useState, useEffect } = getReact();
   const boot = bootState;
   const [appBoot, setAppBoot] = useState(boot);
-  const [tool, setTool] = useState(boot.tool || "log");
+  const [tool, setTool] = useState(() => {
+    const t = boot.tool || "log";
+    if (t !== "log" || !Number(boot.chat?.convId)) return t;
+    return Number(boot.chat?.convId) > 0 ? "chat" : t;
+  });
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
@@ -60,11 +72,11 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (tool === "todos" && !canAccessScrum()) {
+    if (tool === "todos" && !canShowScrumTool(appBoot.todos)) {
       setTool("log");
       mergePartial({ tool: "log" });
     }
-  }, [tool, authTick]);
+  }, [tool, authTick, appBoot.todos]);
 
   useEffect(() => {
     function onBrandHome() {
@@ -107,9 +119,9 @@ export function App() {
         <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
       {tool === "chat" && (
-        <ChatTool key={homeTick} bootChat={appBoot.chat || {}} onNeedLogin={() => setAuthOpen(true)} />
+        <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
-      {tool === "todos" && canAccessScrum() && (
+      {tool === "todos" && canShowScrumTool(appBoot.todos) && (
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
       )}
     </Shell>
