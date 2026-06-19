@@ -100,6 +100,11 @@ export async function getConversacion(jwt: PatyJwtRecord, id: number): Promise<P
   return jsonFetch<PatyConversacionDetalle>(`/conversacion/${id}`, jwt);
 }
 
+/** Mensajes con meta (GET /conversacion/{id}/logs) — visor ISA PatyIA. */
+export async function getConversacionLogs(jwt: PatyJwtRecord, id: number): Promise<PatyConversacionDetalle> {
+  return jsonFetch<PatyConversacionDetalle>(`/conversacion/${id}/logs`, jwt);
+}
+
 export async function deleteConversacion(jwt: PatyJwtRecord, id: number): Promise<void> {
   await jsonFetch(`/conversacion/${id}`, jwt, { method: "DELETE" });
 }
