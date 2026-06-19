@@ -1,34 +1,34 @@
 {
-  "builtAt": "2026-06-19T00:31:09.887Z",
+  "builtAt": "2026-06-19T01:26:52.840Z",
   "files": 74,
-  "bytesIn": 559535,
-  "bytesOut": 332555,
-  "ratio": 0.594,
-  "hash": "99f38932d06e",
+  "bytesIn": 573751,
+  "bytesOut": 342588,
+  "ratio": 0.597,
+  "hash": "46604a6a56b1",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 55576,
-      "bytesOut": 44193
+      "bytesIn": 59017,
+      "bytesOut": 46892
     },
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 18604,
-      "bytesOut": 15064
+      "bytesIn": 21908,
+      "bytesOut": 17806
     },
     {
       "src": "css/theme.css",
       "dist": "_dist/css/theme.css",
-      "bytesIn": 6182,
-      "bytesOut": 5101
+      "bytesIn": 8257,
+      "bytesOut": 6864
     },
     {
       "src": "css/todos-staging.css",
       "dist": "_dist/css/todos-staging.css",
-      "bytesIn": 17317,
-      "bytesOut": 14025
+      "bytesIn": 17580,
+      "bytesOut": 14249
     },
     {
       "src": "js/api/apiClient.ts",
@@ -81,14 +81,14 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 4433,
-      "bytesOut": 2613
+      "bytesIn": 4586,
+      "bytesOut": 2707
     },
     {
       "src": "js/auth/LabAuth.jsx",
       "dist": "_dist/js/auth/LabAuth.js",
-      "bytesIn": 11353,
-      "bytesOut": 6876
+      "bytesIn": 11627,
+      "bytesOut": 7044
     },
     {
       "src": "js/boot/cdn.mjs",
@@ -153,8 +153,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 4538,
-      "bytesOut": 2047
+      "bytesIn": 5394,
+      "bytesOut": 2370
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -171,13 +171,13 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 5863,
-      "bytesOut": 3928
+      "bytesIn": 5907,
+      "bytesOut": 3958
     },
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22602,
+      "bytesIn": 22552,
       "bytesOut": 13271
     },
     {
@@ -195,8 +195,8 @@
     {
       "src": "js/tools/chat/ChatComposer.jsx",
       "dist": "_dist/js/tools/chat/ChatComposer.js",
-      "bytesIn": 3487,
-      "bytesOut": 2349
+      "bytesIn": 3279,
+      "bytesOut": 2381
     },
     {
       "src": "js/tools/chat/ChatLoggedOutShell.jsx",
@@ -207,8 +207,8 @@
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 6288,
-      "bytesOut": 3960
+      "bytesIn": 6412,
+      "bytesOut": 4072
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -219,14 +219,14 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 2886,
+      "bytesIn": 2863,
       "bytesOut": 1962
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 11216,
-      "bytesOut": 6748
+      "bytesIn": 10625,
+      "bytesOut": 6478
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",
@@ -249,8 +249,8 @@
     {
       "src": "js/tools/chat/constants.ts",
       "dist": "_dist/js/tools/chat/constants.js",
-      "bytesIn": 679,
-      "bytesOut": 403
+      "bytesIn": 1207,
+      "bytesOut": 608
     },
     {
       "src": "js/tools/chat/images.ts",
@@ -261,8 +261,8 @@
     {
       "src": "js/tools/chat/mensajesModel.ts",
       "dist": "_dist/js/tools/chat/mensajesModel.js",
-      "bytesIn": 11528,
-      "bytesOut": 5322
+      "bytesIn": 12043,
+      "bytesOut": 5528
     },
     {
       "src": "js/tools/chat/threadScroll.ts",
@@ -273,14 +273,14 @@
     {
       "src": "js/tools/chat/types.ts",
       "dist": "_dist/js/tools/chat/types.js",
-      "bytesIn": 2144,
+      "bytesIn": 2406,
       "bytesOut": 0
     },
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 27238,
-      "bytesOut": 11348
+      "bytesIn": 30717,
+      "bytesOut": 12575
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",
@@ -303,19 +303,19 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlActionBar.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlActionBar.js",
-      "bytesIn": 1961,
+      "bytesIn": 1920,
       "bytesOut": 1319
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlEditorPane.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlEditorPane.js",
-      "bytesIn": 6473,
+      "bytesIn": 6415,
       "bytesOut": 3415
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlTree.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlTree.js",
-      "bytesIn": 2078,
+      "bytesIn": 2046,
       "bytesOut": 1466
     },
     {
@@ -363,8 +363,8 @@
     {
       "src": "js/tools/todos/BoardsHome.jsx",
       "dist": "_dist/js/tools/todos/BoardsHome.js",
-      "bytesIn": 9641,
-      "bytesOut": 6126
+      "bytesIn": 9068,
+      "bytesOut": 6168
     },
     {
       "src": "js/tools/todos/NewBoardDialog.jsx",
@@ -381,19 +381,19 @@
     {
       "src": "js/tools/todos/TaskDetailDialog.jsx",
       "dist": "_dist/js/tools/todos/TaskDetailDialog.js",
-      "bytesIn": 16497,
+      "bytesIn": 16453,
       "bytesOut": 9106
     },
     {
       "src": "js/tools/todos/TodosKanban.jsx",
       "dist": "_dist/js/tools/todos/TodosKanban.js",
-      "bytesIn": 9846,
+      "bytesIn": 9803,
       "bytesOut": 5390
     },
     {
       "src": "js/tools/todos/TodosShellParts.jsx",
       "dist": "_dist/js/tools/todos/TodosShellParts.js",
-      "bytesIn": 2957,
+      "bytesIn": 2937,
       "bytesOut": 2371
     },
     {
@@ -423,13 +423,13 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 35281,
-      "bytesOut": 20467
+      "bytesIn": 35928,
+      "bytesOut": 20903
     },
     {
       "src": "js/ui/PromptBodyEditor.jsx",
       "dist": "_dist/js/ui/PromptBodyEditor.js",
-      "bytesIn": 27575,
+      "bytesIn": 27541,
       "bytesOut": 14263
     },
     {
@@ -447,7 +447,7 @@
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 11140,
+      "bytesIn": 11108,
       "bytesOut": 7374
     }
   ]
