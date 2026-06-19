@@ -1,10 +1,19 @@
 import { mdToHtml } from "../core/platform.ts";
 import { PROMPT_VAR_PATTERN, repairPromptVarBraces, varToneStyleAttr } from "../core/promptVariables.ts";
+
 function escAttr(s: string): string {
   return String(s)
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;");
+}
+
+/** Bloques que se serializan a markdown estándar; el resto conserva HTML fuente. */
+const MD_BLOCK_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "pre", "blockquote", "hr"]);
+const MD_INLINE_TAGS = new Set(["strong", "b", "em", "i", "code", "a", "br", "img"]);
+
+function preserveHtml(el: Element): string {
+  return el.outerHTML;
 }
 
 export function varChipHtml(name: string, opts: { editable?: boolean } = {}): string {
@@ -18,7 +27,7 @@ export function varChipHtml(name: string, opts: { editable?: boolean } = {}): st
   );
 }
 
-/** Sustituye {{vars}} por tokens, renderiza markdown una vez y reemplaza por chips inline. */
+/** Sustituye {{vars}} por tokens, renderiza markdown+HTML una vez y reemplaza por chips inline. */
 function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {}): string {
   const src = repairPromptVarBraces(String(body ?? ""));
   if (!src) return "";
@@ -38,26 +47,32 @@ function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {})
   return html;
 }
 
-/** Vista previa: markdown + badges de variables inline (sin saltos extra). */
+/** Vista previa: markdown + HTML + badges de variables inline. */
 export function bodyPreviewHtml(body: string): string {
   return renderBodyWithVarChips(body, { editable: false });
 }
 
-/** HTML editable para contenteditable (markdown renderizado + chips). */
+/** HTML editable para contenteditable (markdown/HTML renderizado + chips). */
 export function bodyToEditorHtml(body: string): string {
   const html = renderBodyWithVarChips(body, { editable: true });
   return html || "<p><br></p>";
+}
+
+function varChipSource(el: HTMLElement): string {
+  return el.dataset.var ? `{{${el.dataset.var}}}` : "";
 }
 
 function inlineMd(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
   const el = node as HTMLElement;
-  if (el.classList?.contains("prompt-var-chip") && el.dataset.var) {
-    return `{{${el.dataset.var}}}`;
-  }
+  if (el.classList?.contains("prompt-var-chip")) return varChipSource(el);
+
   const tag = el.tagName.toLowerCase();
   const inner = () => [...el.childNodes].map(inlineMd).join("");
+
+  if (!MD_INLINE_TAGS.has(tag)) return preserveHtml(el);
+
   switch (tag) {
     case "strong":
     case "b":
@@ -67,8 +82,11 @@ function inlineMd(node: Node): string {
       return `*${inner()}*`;
     case "code":
       return `\`${inner()}\``;
-    case "a":
-      return inner();
+    case "a": {
+      const href = el.getAttribute("href") || "";
+      const text = inner();
+      return href ? `[${text || href}](${href})` : text;
+    }
     case "img": {
       const alt = el.getAttribute("alt") || "imagen";
       const src = el.getAttribute("src") || "";
@@ -77,16 +95,27 @@ function inlineMd(node: Node): string {
     case "br":
       return "\n";
     default:
-      return inner();
+      return preserveHtml(el);
   }
 }
 
 function blockMd(el: Element): string {
   const tag = el.tagName.toLowerCase();
   const inner = () => [...el.childNodes].map((n) => (n.nodeType === Node.ELEMENT_NODE ? inlineMd(n) : inlineMd(n))).join("");
-  if (el.classList?.contains("prompt-var-chip") && (el as HTMLElement).dataset.var) {
-    return `{{${(el as HTMLElement).dataset.var}}}`;
+
+  if (el.classList?.contains("prompt-var-chip")) {
+    return varChipSource(el as HTMLElement);
   }
+
+  if (!MD_BLOCK_TAGS.has(tag)) {
+    if (tag === "div" && el.classList.contains("md-table-wrap")) {
+      const table = el.querySelector(":scope > table");
+      if (table) return `${preserveHtml(table)}\n\n`;
+    }
+    if (tag === "table") return `${preserveHtml(el)}\n\n`;
+    return `${preserveHtml(el)}\n\n`;
+  }
+
   switch (tag) {
     case "h1":
       return `# ${inner().trim()}\n\n`;
@@ -123,24 +152,23 @@ function blockMd(el: Element): string {
         .join("\n") + "\n\n";
     case "hr":
       return "---\n\n";
-    case "img": {
-      const alt = el.getAttribute("alt") || "imagen";
-      const src = el.getAttribute("src") || "";
-      return src ? `![${alt}](${src})\n\n` : "";
-    }
     case "div": {
-      if (el.classList.contains("md-table-wrap")) return el.innerHTML ? `${el.textContent?.trim() || ""}\n\n` : "";
-      return [...el.childNodes].map((n) => {
-        if (n.nodeType === Node.ELEMENT_NODE) return blockMd(n as Element);
-        return inlineMd(n);
-      }).join("");
+      const children = [...el.children];
+      if (
+        el.attributes.length > 0
+        || el.classList.length > 0
+        || children.some((c) => !MD_BLOCK_TAGS.has(c.tagName.toLowerCase()))
+      ) {
+        return `${preserveHtml(el)}\n\n`;
+      }
+      return children.map((c) => blockMd(c)).join("");
     }
     default:
-      return inner();
+      return `${preserveHtml(el)}\n\n`;
   }
 }
 
-/** Serializa contenteditable → markdown con {{variables}}. */
+/** Serializa contenteditable → markdown/HTML fuente con {{variables}}. */
 export function editorHtmlToBody(root: HTMLElement): string {
   let out = "";
   for (const node of root.childNodes) {

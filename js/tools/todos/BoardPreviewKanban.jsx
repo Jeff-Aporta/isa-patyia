@@ -5,6 +5,7 @@ import {
   groupTasksByColumn,
   taskModDate,
 } from "./todosKanbanShared.js";
+import { TaskAssigneeLabel } from "./TaskAssigneeLabel.jsx";
 
 const { useMemo, useState } = getReact();
 const { Box, Paper, Typography, Button } = getMaterialUI();
@@ -43,15 +44,10 @@ function PreviewTaskCard({ task, onOpen }) {
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onOpen(task.id); }}
     >
-      <Typography className="paty-todos-card__date" component="div" variant="caption" color="text.secondary">
-        {modDate}
-      </Typography>
       <Typography className="paty-todos-card__title" component="div" variant="body2">
         {task.title}
       </Typography>
-      <Typography className="paty-todos-card__assignee" component="div" variant="caption" color="text.secondary">
-        {task.assignedTo || "Sin asignar"}
-      </Typography>
+      <TaskAssigneeLabel assignedTo={task.assignedTo} />
       <Typography className="paty-todos-card__date paty-todos-card__date--bottom" component="div" variant="caption" color="text.secondary">
         {modDate}
       </Typography>

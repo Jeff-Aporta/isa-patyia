@@ -1,6 +1,7 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { UserAssignAutocomplete } from "./UserAssignAutocomplete.jsx";
 import { TaskConvoThread } from "./TaskConvoThread.jsx";
+import { normalizeAssigneeUsername } from "./todosKanbanShared.js";
 import { scrumTaskContext } from "../../api/treeMsgsApi.ts";
 
 const { useState, useEffect, useRef } = getReact();
@@ -198,7 +199,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
     if (!task || task.id === prevId.current) return;
     prevId.current = task.id;
     setTitle(task.title);
-    setAssignedTo(task.assignedTo || null);
+    setAssignedTo(normalizeAssigneeUsername(task.assignedTo) || null);
     setTab(0);
   }, [task]);
 
@@ -415,7 +416,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
             onClick={() => run(async () => {
               await onSave({
                 title: title.trim(),
-                assignedTo: assignedTo || null,
+                assignedTo: normalizeAssigneeUsername(assignedTo) || null,
               });
             })}
           >

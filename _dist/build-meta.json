@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-19T05:21:01.779Z",
-  "files": 80,
-  "bytesIn": 618980,
-  "bytesOut": 367052,
-  "ratio": 0.593,
-  "hash": "02b6c8c545f7",
+  "builtAt": "2026-06-19T06:02:00.387Z",
+  "files": 81,
+  "bytesIn": 633375,
+  "bytesOut": 375244,
+  "ratio": 0.592,
+  "hash": "8efaa3ec40cd",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 60065,
-      "bytesOut": 47761
+      "bytesIn": 61942,
+      "bytesOut": 49308
     },
     {
       "src": "css/chat-staging.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/todos-staging.css",
       "dist": "_dist/css/todos-staging.css",
-      "bytesIn": 20626,
-      "bytesOut": 16711
+      "bytesIn": 22178,
+      "bytesOut": 18008
     },
     {
       "src": "js/api/apiClient.ts",
@@ -117,8 +117,8 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 27756,
-      "bytesOut": 14214
+      "bytesIn": 31731,
+      "bytesOut": 15802
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -177,14 +177,14 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 5907,
-      "bytesOut": 3958
+      "bytesIn": 6011,
+      "bytesOut": 4030
     },
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22552,
-      "bytesOut": 13271
+      "bytesIn": 22646,
+      "bytesOut": 13327
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -357,8 +357,8 @@
     {
       "src": "js/tools/todos/BoardPreviewKanban.jsx",
       "dist": "_dist/js/tools/todos/BoardPreviewKanban.js",
-      "bytesIn": 4642,
-      "bytesOut": 2595
+      "bytesIn": 4431,
+      "bytesOut": 2437
     },
     {
       "src": "js/tools/todos/BoardSettingsDialog.jsx",
@@ -385,22 +385,28 @@
       "bytesOut": 1330
     },
     {
+      "src": "js/tools/todos/TaskAssigneeLabel.jsx",
+      "dist": "_dist/js/tools/todos/TaskAssigneeLabel.js",
+      "bytesIn": 638,
+      "bytesOut": 435
+    },
+    {
       "src": "js/tools/todos/TaskConvoThread.jsx",
       "dist": "_dist/js/tools/todos/TaskConvoThread.js",
-      "bytesIn": 8208,
-      "bytesOut": 5140
+      "bytesIn": 8443,
+      "bytesOut": 5331
     },
     {
       "src": "js/tools/todos/TaskDetailDialog.jsx",
       "dist": "_dist/js/tools/todos/TaskDetailDialog.js",
-      "bytesIn": 15796,
-      "bytesOut": 8547
+      "bytesIn": 15919,
+      "bytesOut": 8622
     },
     {
       "src": "js/tools/todos/TodosKanban.jsx",
       "dist": "_dist/js/tools/todos/TodosKanban.js",
-      "bytesIn": 12083,
-      "bytesOut": 6335
+      "bytesIn": 11872,
+      "bytesOut": 6179
     },
     {
       "src": "js/tools/todos/TodosShellParts.jsx",
@@ -411,8 +417,8 @@
     {
       "src": "js/tools/todos/UserAssignAutocomplete.jsx",
       "dist": "_dist/js/tools/todos/UserAssignAutocomplete.js",
-      "bytesIn": 4995,
-      "bytesOut": 2405
+      "bytesIn": 5262,
+      "bytesOut": 2514
     },
     {
       "src": "js/tools/todos/boardsHomeState.js",
@@ -429,8 +435,8 @@
     {
       "src": "js/tools/todos/todosKanbanShared.js",
       "dist": "_dist/js/tools/todos/todosKanbanShared.js",
-      "bytesIn": 1058,
-      "bytesOut": 658
+      "bytesIn": 2414,
+      "bytesOut": 1402
     },
     {
       "src": "js/tools/todos/treePathUtils.js",
@@ -447,8 +453,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 38166,
-      "bytesOut": 22060
+      "bytesIn": 38299,
+      "bytesOut": 22154
     },
     {
       "src": "js/ui/ImageLightboxDialog.jsx",
@@ -477,14 +483,14 @@
     {
       "src": "js/ui/promptMdEditorHtml.ts",
       "dist": "_dist/js/ui/promptMdEditorHtml.js",
-      "bytesIn": 5891,
-      "bytesOut": 3226
+      "bytesIn": 6706,
+      "bytesOut": 3551
     },
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 11108,
-      "bytesOut": 7374
+      "bytesIn": 14756,
+      "bytesOut": 9347
     }
   ]
 }

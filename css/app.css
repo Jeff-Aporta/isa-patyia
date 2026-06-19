@@ -2475,6 +2475,74 @@ html[data-mui-color-scheme="light"] .prompt-body-preview--editable:hover {
   box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.12);
 }
 
+/* HTML semántico en prompts (además de markdown) */
+.prompt-body-preview mark,
+.prompt-md-preview mark {
+  background: rgba(250, 204, 21, 0.38);
+  color: inherit;
+  padding: 0 0.12em;
+  border-radius: 0.15em;
+}
+
+.prompt-body-preview details,
+.prompt-md-preview details {
+  margin: 0.5rem 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.45rem;
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.prompt-body-preview summary,
+.prompt-md-preview summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.prompt-body-preview sub,
+.prompt-body-preview sup,
+.prompt-md-preview sub,
+.prompt-md-preview sup {
+  font-size: 0.78em;
+}
+
+.prompt-body-preview kbd,
+.prompt-md-preview kbd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  padding: 0.08em 0.35em;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(30, 41, 59, 0.55);
+}
+
+.prompt-body-preview .prompt-html-note,
+.prompt-md-preview .prompt-html-note {
+  margin: 0.5rem 0;
+  padding: 0.55rem 0.75rem;
+  border-left: 3px solid rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 0 0.35rem 0.35rem 0;
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview details,
+html[data-mui-color-scheme="light"] .prompt-md-preview details {
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview kbd,
+html[data-mui-color-scheme="light"] .prompt-md-preview kbd {
+  background: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+html[data-mui-color-scheme="light"] .prompt-body-preview .prompt-html-note,
+html[data-mui-color-scheme="light"] .prompt-md-preview .prompt-html-note {
+  background: rgba(219, 234, 254, 0.55);
+}
+
 html[data-mui-color-scheme="light"] .prompt-md-preview pre {
   background: #f1f5f9;
   border: 1px solid rgba(148, 163, 184, 0.38);

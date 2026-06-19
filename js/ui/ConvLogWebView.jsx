@@ -363,7 +363,9 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
   }
   if (!isUser && instructionKeyFromMeta(meta)) {
     const key = instructionKeyFromMeta(meta);
-    chips.push({ key: "pmpt", tag: "Prompt", label: key, tone: "context", title: `Instrucción: ${key}` });
+    if (key !== meta.extra?.operativa_key) {
+      chips.push({ key: "pmpt", tag: "Prompt", label: key, tone: "context", title: `Instrucción: ${key}` });
+    }
   }
   if (!hideUsageMetrics && meta.model) {
     chips.push({
@@ -758,7 +760,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
                 tag="Tok"
                 label={group.summary.tokensText}
                 className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
-                title="Tokens total"
+                title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
               />
             </Box>
           </Box>

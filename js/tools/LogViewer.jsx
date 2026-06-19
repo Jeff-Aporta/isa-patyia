@@ -616,6 +616,8 @@ export function LogViewer({ bootLog = {} }) {
         usageStats={metaMsg?.usageStats ?? null}
         title={metaMsg ? `Trazabilidad · ${metaMsg.rol}` : ""}
         isUserMessage={Boolean(metaMsg?.esUsuario)}
+        userContent={metaMsg?.contenido ?? ""}
+        imagenes={metaMsg?.imagenes ?? null}
       />
       <ResumenDialog
         open={resumenOpen}

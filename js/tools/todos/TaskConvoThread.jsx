@@ -1,5 +1,6 @@
 import { getReact, getMaterialUI, UI, Session } from "../../core/platform.ts";
 import { mdToHtml } from "../../ui/shared.jsx";
+import { PromptBodyEditor } from "../../ui/PromptBodyEditor.jsx";
 import {
   deleteTreeMessage,
   listTreeMessages,
@@ -10,7 +11,7 @@ import { pathDepth } from "./treePathUtils.js";
 
 const { useState, useEffect, useCallback } = getReact();
 const {
-  Box, Stack, Typography, TextField, Button, IconButton, Tooltip, CircularProgress, Divider,
+  Box, Stack, Typography, Button, IconButton, Tooltip, CircularProgress, Divider, Alert,
 } = getMaterialUI();
 const { Icon } = UI;
 
@@ -143,42 +144,9 @@ export function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_AP
       <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: "block" }}>
         Documentación conversacional
       </Typography>
-      <Box className="paty-task-convo__thread custom-scrollbar">
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : null}
-        {error ? (
-          <Typography variant="body2" color="error" sx={{ py: 1 }}>{error}</Typography>
-        ) : null}
-        {!loading && !messages.length && !error ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-            Sin mensajes. Escribe el primero abajo.
-          </Typography>
-        ) : null}
-        <Stack spacing={1.5} sx={{ py: 1 }}>
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.treePath}
-              msg={msg}
-              messages={messages}
-              readOnly={readOnly}
-              busy={busy}
-              onReply={(m) => { setReplyTo(m); setQuotePath(null); }}
-              onQuote={(m) => { setQuotePath(m.treePath); setReplyTo(m); }}
-              onDelete={(m) => run(async () => {
-                await deleteTreeMessage(appId, contextKey, m.treePath);
-                await reload();
-              })}
-            />
-          ))}
-        </Stack>
-      </Box>
 
       {!readOnly ? (
-        <>
-          <Divider sx={{ my: 1.5 }} />
+        <Box className="paty-task-convo__composer">
           {replyTo ? (
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="caption" color="text.secondary">
@@ -188,33 +156,68 @@ export function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_AP
               <Button size="small" onClick={() => { setReplyTo(null); setQuotePath(null); }}>Cancelar</Button>
             </Stack>
           ) : null}
-          <Stack direction="row" spacing={1} alignItems="flex-end">
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              maxRows={8}
-              size="small"
-              placeholder="Mensaje en Markdown… (Ctrl+Enter para enviar)"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  handlePost();
-                }
-              }}
-              disabled={busy}
+          <Box className="paty-task-convo__editor">
+            <PromptBodyEditor
+              body={draft}
+              canEdit={!busy}
+              editBlockReason={readOnly ? "Solo lectura" : "No disponible"}
+              onChange={setDraft}
+              placeholder="Escribe en Markdown… (doble clic para editar, imágenes: pegar como data URL)"
+              title="Nuevo mensaje"
+              loading={false}
             />
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mr: "auto" }}>
+              Autor: {Session.username() || "—"}
+            </Typography>
             <Button variant="contained" disabled={busy || !draft.trim()} onClick={handlePost}>
               Publicar
             </Button>
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-            Autor: {Session.username() || "—"} · imágenes: pegar en Markdown como data URL
-          </Typography>
-        </>
+        </Box>
       ) : null}
+
+      {error ? (
+        <Alert severity="warning" sx={{ mt: readOnly ? 0 : 1.5, mb: 1 }}>
+          No se pudo cargar el hilo: {error}
+        </Alert>
+      ) : null}
+
+      <Typography variant="caption" color="text.secondary" sx={{ mt: readOnly ? 0 : 1.5, mb: 0.5, display: "block" }}>
+        Hilo de mensajes
+      </Typography>
+      <Box className="paty-task-convo__thread custom-scrollbar">
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : null}
+        {!loading && !messages.length && !error ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+            Sin mensajes publicados.
+          </Typography>
+        ) : null}
+        {!loading && messages.length ? (
+          <Stack spacing={1.5} sx={{ py: 0.5 }}>
+            {messages.map((msg) => (
+              <MessageBubble
+                key={msg.treePath}
+                msg={msg}
+                messages={messages}
+                readOnly={readOnly}
+                busy={busy}
+                onReply={(m) => { setReplyTo(m); setQuotePath(null); }}
+                onQuote={(m) => { setQuotePath(m.treePath); setReplyTo(m); }}
+                onDelete={(m) => run(async () => {
+                  await deleteTreeMessage(appId, contextKey, m.treePath);
+                  await reload();
+                })}
+              />
+            ))}
+          </Stack>
+        ) : null}
+      </Box>
     </Box>
   );
 }

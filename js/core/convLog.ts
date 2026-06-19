@@ -212,6 +212,52 @@ function pushImage(images: string[], ref: unknown) {
     return normalizePromptText(raw).trim();
   }
 
+  function normalizeOpenAiMessageContent(content) {
+    if (content == null) return "";
+    if (typeof content === "string") return normalizePromptText(content).trim();
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === "string") return part;
+          if (part && typeof part === "object" && "text" in part) return String(part.text ?? "");
+          return String(part ?? "");
+        })
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+    }
+    if (typeof content === "object" && content !== null && "text" in content) {
+      return String(content.text ?? "").trim();
+    }
+    return String(content).trim();
+  }
+
+  function formatOpenAiMessagesMarkdown(messages) {
+    if (!Array.isArray(messages) || !messages.length) return "";
+    return messages
+      .map((m) => {
+        if (!m || typeof m !== "object") return "";
+        const role = String(m.role ?? "message").toUpperCase();
+        const body = normalizeOpenAiMessageContent(m.content);
+        return body ? `**${role}**\n\n${body}` : "";
+      })
+      .filter(Boolean)
+      .join("\n\n---\n\n");
+  }
+
+  /** Prompt de operativas: chat.completions (messages) o responses (input). */
+  function extractOperativaPromptMarkdown(send) {
+    if (!send || typeof send !== "object") return "";
+    const rec = send as Record<string, unknown>;
+    const fromMessages = formatOpenAiMessagesMarkdown(rec.messages);
+    if (fromMessages) return fromMessages;
+    const input = rec.input;
+    if (Array.isArray(input) && input.length) {
+      return formatOpenAiMessagesMarkdown(input);
+    }
+    return "";
+  }
+
   function extractUserTextFromConvSend(send) {
     if (!send || typeof send !== "object") return "";
     const input = send.input;
@@ -351,7 +397,10 @@ function pushImage(images: string[], ref: unknown) {
       if (prompt?.variables) flat.prompt_variables = prompt.variables;
       if (o.vector_store_ids) flat.vectorStoreIds = o.vector_store_ids;
     } else if (m.role === "operativa") {
-      if (o.operativa_key) flat.operativa_key = o.operativa_key;
+      if (o.operativa_key) {
+        flat.operativa_key = o.operativa_key;
+        flat.prompt_id = String(o.operativa_key);
+      }
       if (o.operativa_engine) flat.operativa_engine = o.operativa_engine;
       const txt = textFromOpenAIReceive(r);
       if (txt) flat.text = txt;
@@ -393,7 +442,7 @@ function pushImage(images: string[], ref: unknown) {
   const ZERO_TOKENS = { input: 0, cached: 0, output: 0, reasoning: 0, total: 0 };
   const ZERO_COST = { input_usd: 0, cached_usd: 0, output_usd: 0, total_usd: 0 };
 
-  function readMessageTokens(msg) {
+  function readRawMessageTokens(msg) {
     const meta = msg?.meta;
     if (!meta) return { ...ZERO_TOKENS };
     const tk = meta.tokens?.total != null ? meta.tokens : tokensFromUsage(meta.usage);
@@ -428,6 +477,18 @@ function pushImage(images: string[], ref: unknown) {
       output_usd: acc.output_usd + cost.output_usd,
       total_usd: acc.total_usd + cost.total_usd,
     };
+  }
+
+  function formatUsageTokens(n) {
+    if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+    return n.toLocaleString("es-CO");
+  }
+
+  function formatUsageUsd(n) {
+    if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+    if (n >= 0.01) return `$${n.toFixed(4)}`;
+    if (n >= 0.0001) return `$${n.toFixed(6)}`;
+    return `$${n.toFixed(8)}`;
   }
 
   function formatMoneyWithTokens(usd, tokenCount) {
@@ -484,15 +545,60 @@ function pushImage(images: string[], ref: unknown) {
     return (Number(tokens?.total ?? 0) || 0) > 0 || (Number(cost?.total_usd ?? 0) || 0) > 0;
   }
 
+  function turnoFromVistaMsg(msg) {
+    const im = Number(msg?.imensaje);
+    if (Number.isFinite(im) && im > 0) return Math.floor(im / 1000);
+    const m = String(msg?.idMsg ?? "").match(/^msg-(\d+)$/);
+    if (m) {
+      const n = Number(m[1]);
+      if (Number.isFinite(n) && n > 0) return Math.floor(n / 1000);
+    }
+    return undefined;
+  }
+
+  function userInputTokensForTurn(mensajes, index, userInputByTurno) {
+    const turno = turnoFromVistaMsg(mensajes[index]);
+    if (turno != null && userInputByTurno.has(turno)) {
+      return userInputByTurno.get(turno);
+    }
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const prev = mensajes[i];
+      if (prev?.esUsuario) return readRawMessageTokens(prev);
+      if (!prev?.esOperativa && !prev?.esUsuario) break;
+    }
+    return undefined;
+  }
+
   function attachUsageStats(mensajes) {
+    const list = mensajes || [];
+    const userInputByTurno = new Map();
+
+    for (const m of list) {
+      if (!m.esUsuario) continue;
+      const turno = turnoFromVistaMsg(m);
+      if (turno == null) continue;
+      const tk = readRawMessageTokens(m);
+      if (usageHasData(tk, null)) userInputByTurno.set(turno, tk);
+    }
+
     let cumulativeTokens = { ...ZERO_TOKENS };
     let cumulativeCost = { ...ZERO_COST };
 
-    return (mensajes || []).map((m) => {
-      const tokens = readMessageTokens(m);
-      const cost = readMessageCost(m);
+    return list.map((m, index) => {
+      if (m.esUsuario) {
+        return { ...m, usageStats: undefined };
+      }
+
       const previousTokens = { ...cumulativeTokens };
       const previousCost = { ...cumulativeCost };
+      let tokens = readRawMessageTokens(m);
+      const cost = readMessageCost(m);
+
+      if (!m.esOperativa) {
+        const userInput = userInputTokensForTurn(list, index, userInputByTurno);
+        if (userInput) tokens = accumulateTokens({ ...userInput }, tokens);
+      }
+
       cumulativeTokens = accumulateTokens(cumulativeTokens, tokens);
       cumulativeCost = accumulateCost(cumulativeCost, cost);
 
@@ -514,20 +620,8 @@ function pushImage(images: string[], ref: unknown) {
     return (mensajes || []).some((m) => {
       const s = m.usageStats;
       if (!s) return false;
-      return s.tokens.total > 0 || s.cost.total_usd > 0 || s.cumulativeTokens.total > 0 || s.cumulativeCost.total_usd > 0;
+      return usageHasData(s.tokens, s.cost) || usageHasData(s.cumulativeTokens, s.cumulativeCost);
     });
-  }
-
-  function formatUsageTokens(n) {
-    if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-    return n.toLocaleString("es-CO");
-  }
-
-  function formatUsageUsd(n) {
-    if (n == null || !Number.isFinite(n) || n <= 0) return "—";
-    if (n >= 0.01) return `$${n.toFixed(4)}`;
-    if (n >= 0.0001) return `$${n.toFixed(6)}`;
-    return `$${n.toFixed(8)}`;
   }
 
   function formatTokensWithUsd(tok, usd) {
@@ -547,6 +641,22 @@ function pushImage(images: string[], ref: unknown) {
   function normalizeMeta(raw: FlatConvLogMensaje | null | undefined, options: NormalizeMetaOptions = {}) {
     if (!raw || typeof raw !== "object") return null;
     const isUser = options.isUser === true;
+    const operativaKey = typeof raw.operativa_key === "string" ? raw.operativa_key.trim() : "";
+    const userPromptText = isUser
+      ? String(raw.prompt_text ?? raw.text ?? extractUserTextFromConvSend(raw.send) ?? "").trim()
+      : "";
+    const assistantPromptMarkdown = !isUser
+      ? (extractInstructionsMarkdown(raw.send) || extractOperativaPromptMarkdown(raw.send)).trim()
+      : "";
+    const promptMarkdown = isUser ? userPromptText : assistantPromptMarkdown;
+    const userImagenes = isUser && Array.isArray(raw.imagenes)
+      ? raw.imagenes.filter(isDisplayableImageRef)
+      : [];
+    const promptId = !isUser
+      ? (typeof raw.prompt_id === "string" && raw.prompt_id.trim()
+        ? raw.prompt_id.trim()
+        : (operativaKey || undefined))
+      : undefined;
     const tokensRaw = raw.tokens as { total?: unknown } | undefined;
     const tokens = tokensRaw?.total ? tokensRaw : tokensFromUsage(raw.usage) ?? tokensRaw;
     const cost = normalizeCost(raw.cost);
@@ -558,7 +668,7 @@ function pushImage(images: string[], ref: unknown) {
       model: typeof raw.model === "string" ? raw.model : undefined,
       modelo_configurado: typeof raw.modelo_configurado === "string" ? raw.modelo_configurado : undefined,
       modelo_autoswitch_vision: raw.modelo_autoswitch_vision === true ? true : undefined,
-      prompt_id: isUser ? undefined : (typeof raw.prompt_id === "string" ? raw.prompt_id : undefined),
+      prompt_id: promptId,
       premisas: Array.isArray(raw.premisas) ? raw.premisas.map(String) : undefined,
       tokens,
       cost,
@@ -566,7 +676,9 @@ function pushImage(images: string[], ref: unknown) {
       response_id: typeof raw.response_id === "string" ? raw.response_id : undefined,
       prompt_variables: raw.prompt_variables,
       latency_ms: typeof raw.latency_ms === "number" ? raw.latency_ms : undefined,
-      prompt_chars: isUser ? undefined : (typeof raw.prompt_chars === "number" ? raw.prompt_chars : undefined),
+      prompt_chars: typeof raw.prompt_chars === "number"
+        ? raw.prompt_chars
+        : (promptMarkdown ? promptMarkdown.length : undefined),
       response_chars: typeof raw.response_chars === "number" ? raw.response_chars : undefined,
       stream_ok: raw.stream_ok,
       stream_error: formatStreamError(typeof raw.stream_error === "string" ? raw.stream_error : undefined),
@@ -576,7 +688,8 @@ function pushImage(images: string[], ref: unknown) {
             operativa_engine: raw.operativa_engine != null ? String(raw.operativa_engine) : undefined,
           }
         : undefined,
-      prompt_markdown: isUser ? undefined : extractInstructionsMarkdown(raw.send) || undefined,
+      prompt_markdown: promptMarkdown || undefined,
+      imagenes: userImagenes.length ? userImagenes : undefined,
     };
   }
 

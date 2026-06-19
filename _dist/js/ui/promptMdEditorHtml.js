@@ -1,5 +1,11 @@
-import{mdToHtml as E}from"../core/platform.js";import{PROMPT_VAR_PATTERN as f,repairPromptVarBraces as g,varToneStyleAttr as T}from"../core/promptVariables.js";function o(t){return String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}function b(t,r={}){const e=r.editable!==!1?`<button type="button" class="prompt-var-chip__del" data-var-del="${o(t)}" aria-label="Eliminar variable ${o(t)}" tabindex="-1">\xD7</button>`:"";return`<span class="prompt-var-chip" contenteditable="false" data-var="${o(t)}" style="${T(t)}" title="${o(t)}"><span class="prompt-var-chip__label">{{${o(t)}}}</span>${e}</span>`}function m(t,r={}){const n=g(String(t??""));if(!n)return"";const e=[];let a=0;const s=n.replace(f,(d,l)=>{const p=`\uE000PV${a++}\uE001`;return e.push({token:p,name:l}),p});let c=E(s);for(const{token:d,name:l}of e)c=c.split(d).join(b(l,r));return c}function _(t){return m(t,{editable:!1})}function v(t){return m(t,{editable:!0})||"<p><br></p>"}function i(t){if(t.nodeType===Node.TEXT_NODE)return t.textContent||"";if(t.nodeType!==Node.ELEMENT_NODE)return"";const r=t;if(r.classList?.contains("prompt-var-chip")&&r.dataset.var)return`{{${r.dataset.var}}}`;const n=r.tagName.toLowerCase(),e=()=>[...r.childNodes].map(i).join("");switch(n){case"strong":case"b":return`**${e()}**`;case"em":case"i":return`*${e()}*`;case"code":return`\`${e()}\``;case"a":return e();case"img":{const a=r.getAttribute("alt")||"imagen",s=r.getAttribute("src")||"";return s?`![${a}](${s})`:""}case"br":return`
-`;default:return e()}}function u(t){const r=t.tagName.toLowerCase(),n=()=>[...t.childNodes].map(e=>(e.nodeType===Node.ELEMENT_NODE,i(e))).join("");if(t.classList?.contains("prompt-var-chip")&&t.dataset.var)return`{{${t.dataset.var}}}`;switch(r){case"h1":return`# ${n().trim()}
+import{mdToHtml as b}from"../core/platform.js";import{PROMPT_VAR_PATTERN as E,repairPromptVarBraces as T,varToneStyleAttr as $}from"../core/promptVariables.js";function i(t){return String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}const h=new Set(["h1","h2","h3","h4","h5","h6","p","ul","ol","li","pre","blockquote","hr"]),N=new Set(["strong","b","em","i","code","a","br","img"]);function s(t){return t.outerHTML}function _(t,e={}){const r=e.editable!==!1?`<button type="button" class="prompt-var-chip__del" data-var-del="${i(t)}" aria-label="Eliminar variable ${i(t)}" tabindex="-1">\xD7</button>`:"";return`<span class="prompt-var-chip" contenteditable="false" data-var="${i(t)}" style="${$(t)}" title="${i(t)}"><span class="prompt-var-chip__label">{{${i(t)}}}</span>${r}</span>`}function f(t,e={}){const n=T(String(t??""));if(!n)return"";const r=[];let o=0;const a=n.replace(E,(d,l)=>{const m=`\uE000PV${o++}\uE001`;return r.push({token:m,name:l}),m});let c=b(a);for(const{token:d,name:l}of r)c=c.split(d).join(_(l,e));return c}function w(t){return f(t,{editable:!1})}function y(t){return f(t,{editable:!0})||"<p><br></p>"}function g(t){return t.dataset.var?`{{${t.dataset.var}}}`:""}function u(t){if(t.nodeType===Node.TEXT_NODE)return t.textContent||"";if(t.nodeType!==Node.ELEMENT_NODE)return"";const e=t;if(e.classList?.contains("prompt-var-chip"))return g(e);const n=e.tagName.toLowerCase(),r=()=>[...e.childNodes].map(u).join("");if(!N.has(n))return s(e);switch(n){case"strong":case"b":return`**${r()}**`;case"em":case"i":return`*${r()}*`;case"code":return`\`${r()}\``;case"a":{const o=e.getAttribute("href")||"",a=r();return o?`[${a||o}](${o})`:a}case"img":{const o=e.getAttribute("alt")||"imagen",a=e.getAttribute("src")||"";return a?`![${o}](${a})`:""}case"br":return`
+`;default:return s(e)}}function p(t){const e=t.tagName.toLowerCase(),n=()=>[...t.childNodes].map(r=>(r.nodeType===Node.ELEMENT_NODE,u(r))).join("");if(t.classList?.contains("prompt-var-chip"))return g(t);if(!h.has(e)){if(e==="div"&&t.classList.contains("md-table-wrap")){const r=t.querySelector(":scope > table");if(r)return`${s(r)}
+
+`}return e==="table"?`${s(t)}
+
+`:`${s(t)}
+
+`}switch(e){case"h1":return`# ${n().trim()}
 
 `;case"h2":return`## ${n().trim()}
 
@@ -14,21 +20,21 @@ import{mdToHtml as E}from"../core/platform.js";import{PROMPT_VAR_PATTERN as f,re
 `;case"p":return`${n()}
 
 `;case"li":return`${t.parentElement?.tagName.toLowerCase()==="ol"?"1.":"-"} ${n().trimStart()}
-`;case"ul":case"ol":return[...t.children].map(e=>u(e)).join("")+`
+`;case"ul":case"ol":return[...t.children].map(r=>p(r)).join("")+`
 `;case"pre":return`\`\`\`
 ${t.querySelector("code")?.textContent??t.textContent??""}
 \`\`\`
 
 `;case"blockquote":return n().split(`
-`).filter(Boolean).map(e=>`> ${e}`).join(`
+`).filter(Boolean).map(r=>`> ${r}`).join(`
 `)+`
 
 `;case"hr":return`---
 
-`;case"img":{const e=t.getAttribute("alt")||"imagen",a=t.getAttribute("src")||"";return a?`![${e}](${a})
+`;case"div":{const r=[...t.children];return t.attributes.length>0||t.classList.length>0||r.some(o=>!h.has(o.tagName.toLowerCase()))?`${s(t)}
 
-`:""}case"div":return t.classList.contains("md-table-wrap")?t.innerHTML?`${t.textContent?.trim()||""}
+`:r.map(o=>p(o)).join("")}default:return`${s(t)}
 
-`:"":[...t.childNodes].map(e=>e.nodeType===Node.ELEMENT_NODE?u(e):i(e)).join("");default:return n()}}function x(t){let r="";for(const n of t.childNodes)n.nodeType===Node.ELEMENT_NODE?r+=u(n):n.nodeType===Node.TEXT_NODE&&(r+=n.textContent||"");return r.replace(/\n{3,}/g,`
+`}}function H(t){let e="";for(const n of t.childNodes)n.nodeType===Node.ELEMENT_NODE?e+=p(n):n.nodeType===Node.TEXT_NODE&&(e+=n.textContent||"");return e.replace(/\n{3,}/g,`
 
-`).trimEnd()}const h=/\{\{\s*[A-Za-z_]\w*\s*\}\}/;function L(t){if(!t)return!1;const r=document.createTreeWalker(t,NodeFilter.SHOW_TEXT);let n;for(;n=r.nextNode();)if(!n.parentElement?.closest(".prompt-var-chip")&&h.test(n.textContent??""))return!0;return!1}export{_ as bodyPreviewHtml,v as bodyToEditorHtml,x as editorHtmlToBody,L as surfaceHasRawVarTokens,b as varChipHtml};
+`).trimEnd()}const L=/\{\{\s*[A-Za-z_]\w*\s*\}\}/;function M(t){if(!t)return!1;const e=document.createTreeWalker(t,NodeFilter.SHOW_TEXT);let n;for(;n=e.nextNode();)if(!n.parentElement?.closest(".prompt-var-chip")&&L.test(n.textContent??""))return!0;return!1}export{w as bodyPreviewHtml,y as bodyToEditorHtml,H as editorHtmlToBody,M as surfaceHasRawVarTokens,_ as varChipHtml};

@@ -5,6 +5,7 @@ import {
   groupTasksByColumn,
   taskModDate,
 } from "./todosKanbanShared.js";
+import { TaskAssigneeLabel } from "./TaskAssigneeLabel.jsx";
 
 const { useState, useMemo, useRef, useEffect, memo } = getReact();
 const { Box, Paper, Typography, TextField, Button, Stack } = getMaterialUI();
@@ -55,15 +56,10 @@ function TaskCardBody({ task }) {
   const modDate = formatTaskDate(taskModDate(task));
   return (
     <>
-      <Typography className="paty-todos-card__date" component="div" variant="caption" color="text.secondary">
-        {modDate}
-      </Typography>
       <Typography className="paty-todos-card__title" component="div" variant="body2">
         {task.title}
       </Typography>
-      <Typography className="paty-todos-card__assignee" component="div" variant="caption" color="text.secondary">
-        {task.assignedTo || "Sin asignar"}
-      </Typography>
+      <TaskAssigneeLabel assignedTo={task.assignedTo} />
       <Typography className="paty-todos-card__date paty-todos-card__date--bottom" component="div" variant="caption" color="text.secondary">
         {modDate}
       </Typography>

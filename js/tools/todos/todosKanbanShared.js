@@ -36,3 +36,43 @@ export function groupTasksByColumn(boardData) {
 export function taskModDate(task) {
   return task.updatedAt ?? task.createdAt ?? null;
 }
+
+/** Paleta estable por username (mismo usuario → mismo color en todo el tablero). */
+const ASSIGNEE_PALETTE = [
+  { fg: "#38bdf8", bg: "rgba(56, 189, 248, 0.2)" },
+  { fg: "#f472b6", bg: "rgba(244, 114, 182, 0.2)" },
+  { fg: "#a78bfa", bg: "rgba(167, 139, 250, 0.2)" },
+  { fg: "#fbbf24", bg: "rgba(251, 191, 36, 0.22)" },
+  { fg: "#34d399", bg: "rgba(52, 211, 153, 0.2)" },
+  { fg: "#fb923c", bg: "rgba(251, 146, 60, 0.2)" },
+  { fg: "#22d3ee", bg: "rgba(34, 211, 238, 0.2)" },
+  { fg: "#e879f9", bg: "rgba(232, 121, 249, 0.2)" },
+];
+
+const UNASSIGNED_THEME = {
+  label: "Sin asignar",
+  fg: "#94a3b8",
+  bg: "rgba(148, 163, 184, 0.1)",
+};
+
+function hashUsername(value) {
+  let h = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    h = (h * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+/** KEVIN → KGOMEZ (username legacy en tareas). */
+export function normalizeAssigneeUsername(assignedTo) {
+  const username = String(assignedTo ?? "").trim().toUpperCase();
+  if (username === "KEVIN") return "KGOMEZ";
+  return username;
+}
+
+export function assigneeTheme(assignedTo) {
+  const username = normalizeAssigneeUsername(assignedTo);
+  if (!username) return UNASSIGNED_THEME;
+  const palette = ASSIGNEE_PALETTE[hashUsername(username) % ASSIGNEE_PALETTE.length];
+  return { label: username, ...palette };
+}

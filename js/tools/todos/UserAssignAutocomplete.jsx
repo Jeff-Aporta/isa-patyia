@@ -1,5 +1,6 @@
 import { getReact, getMaterialUI } from "../../core/platform.ts";
 import { searchScrumAppUsers } from "../../api/todosApi.ts";
+import { normalizeAssigneeUsername } from "./todosKanbanShared.js";
 
 const { useState, useEffect, useRef, useCallback } = getReact();
 const { Autocomplete, TextField, Typography, Box } = getMaterialUI();
@@ -12,6 +13,7 @@ function optionLabel(row) {
 }
 
 export function UserAssignAutocomplete({ value, onChange, disabled = false, label = "Asignado a", compact = false }) {
+  const username = value ? normalizeAssigneeUsername(value) : null;
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,8 +22,8 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
   const requestIdRef = useRef(0);
   const resolveAttemptRef = useRef("");
 
-  const selected = value
-    ? options.find((o) => o.username === value) ?? null
+  const selected = username
+    ? options.find((o) => o.username === username) ?? null
     : null;
 
   const runSearch = useCallback(async (query) => {
@@ -48,24 +50,28 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
   }, [runSearch]);
 
   useEffect(() => {
-    if (!value) {
+    if (!username) {
       resolveAttemptRef.current = "";
       setInputValue("");
       setInvalidHint("");
       return;
     }
-    const match = options.find((o) => o.username === value);
+    if (value && username !== value) {
+      onChange(username);
+      return;
+    }
+    const match = options.find((o) => o.username === username);
     if (match) {
       setInputValue(optionLabel(match));
       setInvalidHint("");
       return;
     }
-    if (resolveAttemptRef.current === value) return;
-    resolveAttemptRef.current = value;
+    if (resolveAttemptRef.current === username) return;
+    resolveAttemptRef.current = username;
     let cancelled = false;
-    runSearch(value).then((users) => {
+    runSearch(username).then((users) => {
       if (cancelled) return;
-      const resolved = users?.find((u) => u.username === value);
+      const resolved = users?.find((u) => u.username === username);
       if (resolved) {
         setOptions((prev) => (
           prev.some((o) => o.username === resolved.username) ? prev : [...prev, resolved]
@@ -74,12 +80,12 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
         setInvalidHint("");
       } else {
         setInputValue("");
-        setInvalidHint(`"${value}" no está registrado en isa-patyia`);
+        setInvalidHint(`"${username}" no está registrado en isa-patyia`);
         onChange(null);
       }
     });
     return () => { cancelled = true; };
-  }, [value, options, runSearch, onChange]);
+  }, [value, username, options, runSearch, onChange]);
 
   useEffect(() => {
     return () => {
@@ -98,7 +104,7 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
         label={label}
         fullWidth
         size="small"
-        value={value || ""}
+        value={username || ""}
         disabled
         placeholder="Sin asignar"
       />

@@ -148,6 +148,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         usageStats={chat.metaMsg?.usageStats ?? null}
         title={chat.metaMsg ? `Trazabilidad · ${chat.metaMsg.rol}` : ""}
         isUserMessage={Boolean(chat.metaMsg?.esUsuario)}
+        userContent={chat.metaMsg?.contenido ?? ""}
+        imagenes={chat.metaMsg?.imagenes ?? null}
       />
       <TercerosAuditDialog
         open={chat.auditDialogOpen}
