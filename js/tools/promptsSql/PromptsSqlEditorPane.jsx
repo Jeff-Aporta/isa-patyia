@@ -14,15 +14,7 @@ const {
   TextField, Stack, FormControl, Select, MenuItem,
 } = getMaterialUI();
 
-export function PromptsSqlBodyEditor({
-  activeTipo,
-  activePrompt,
-  canEdit,
-  editBlockReason,
-  loadBusy,
-  onBodyChange,
-  onPersist,
-}) {
+export function PromptsSqlBodyEditor({ activeTipo, activePrompt, canEdit, editBlockReason, loadBusy, onBodyChange, onPersist }) {
   return (
     <div className="tab-editor">
       <PromptBodyEditor
@@ -40,19 +32,7 @@ export function PromptsSqlBodyEditor({
   );
 }
 
-export function PromptsSqlMapeoTable({
-  activeTipo,
-  instruccionKeys,
-  prompts,
-  mapped,
-  canEdit,
-  loggedIn,
-  modelSelectOptions,
-  onSelectTipo,
-  onUpdateConfig,
-  onOpenJconfig,
-  onConfirmResetConfig,
-}) {
+export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, mapped, canEdit, loggedIn, modelSelectOptions, onSelectTipo, onUpdateConfig, onOpenJconfig, onConfirmResetConfig }) {
   return (
       <div className="prompt-mapeo-block">
         <TableContainer className="prompt-mapeo-scroll custom-scrollbar">
