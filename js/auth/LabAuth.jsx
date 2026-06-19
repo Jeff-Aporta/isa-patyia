@@ -141,18 +141,23 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
       return (
         <UserSessionMenu
           ns="ISA"
-          username={session.username}
+          username={Session.username?.() || session.username}
           realUsername={Session.realUsername?.() || session.realUsername || session.username}
           viewAsUsername={Session.viewAsUsername?.() || session.viewAsUsername || ""}
-          role={session.role || ""}
+          role={Session.current?.()?.role || session.role || ""}
           signalDot={signalDot}
           chipSx={HEADER_CHIP_SX}
           showTarget={LabSession.canSwitchTarget()}
           onViewAsSelected={() => {
             toastSuccess(`Simulando · ${Session.username?.() || ""}`);
             notifyViewAsChange();
+            window.dispatchEvent(new Event(Session.EVENT));
           }}
-          onViewAsCleared={handleViewAsClear}
+          onViewAsCleared={() => {
+            toastInfo("Simulación de usuario finalizada");
+            notifyViewAsChange();
+            window.dispatchEvent(new Event(Session.EVENT));
+          }}
           onViewAsClear={handleViewAsClear}
           onLogout={logout}
           runUnitTestUrl={() => `${patyiaBridgeBase()}/api/run-unit-test`}
