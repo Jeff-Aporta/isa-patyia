@@ -1,22 +1,28 @@
 {
-  "builtAt": "2026-06-19T13:34:06.321Z",
-  "files": 84,
-  "bytesIn": 686987,
-  "bytesOut": 398893,
-  "ratio": 0.581,
-  "hash": "b82118cdfece",
+  "builtAt": "2026-06-19T13:44:16.659Z",
+  "files": 86,
+  "bytesIn": 695836,
+  "bytesOut": 404786,
+  "ratio": 0.582,
+  "hash": "5ace94fd8982",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 66091,
-      "bytesOut": 48767
+      "bytesIn": 66122,
+      "bytesOut": 48787
+    },
+    {
+      "src": "css/boot-loading.css",
+      "dist": "_dist/css/boot-loading.css",
+      "bytesIn": 4819,
+      "bytesOut": 3804
     },
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 28186,
-      "bytesOut": 20502
+      "bytesIn": 28110,
+      "bytesOut": 20441
     },
     {
       "src": "css/theme.css",
@@ -189,8 +195,8 @@
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22722,
-      "bytesOut": 13367
+      "bytesIn": 22727,
+      "bytesOut": 13377
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -471,8 +477,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 44547,
-      "bytesOut": 25398
+      "bytesIn": 44161,
+      "bytesOut": 25164
     },
     {
       "src": "js/ui/ImageLightboxDialog.jsx",
@@ -485,6 +491,12 @@
       "dist": "_dist/js/ui/PromptBodyEditor.js",
       "bytesIn": 31250,
       "bytesOut": 16129
+    },
+    {
+      "src": "js/ui/bootShimmer.ts",
+      "dist": "_dist/js/ui/bootShimmer.js",
+      "bytesIn": 4456,
+      "bytesOut": 2354
     },
     {
       "src": "js/ui/mdImagePaste.ts",
