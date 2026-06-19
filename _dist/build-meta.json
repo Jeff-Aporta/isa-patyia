@@ -1,22 +1,22 @@
 {
-  "builtAt": "2026-06-19T13:25:00.324Z",
+  "builtAt": "2026-06-19T13:34:06.321Z",
   "files": 84,
-  "bytesIn": 686581,
-  "bytesOut": 398702,
+  "bytesIn": 686987,
+  "bytesOut": 398893,
   "ratio": 0.581,
-  "hash": "fd016ace1f2b",
+  "hash": "b82118cdfece",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 66069,
-      "bytesOut": 48747
+      "bytesIn": 66091,
+      "bytesOut": 48767
     },
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 28119,
-      "bytesOut": 20450
+      "bytesIn": 28186,
+      "bytesOut": 20502
     },
     {
       "src": "css/theme.css",
@@ -471,8 +471,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 44230,
-      "bytesOut": 25279
+      "bytesIn": 44547,
+      "bytesOut": 25398
     },
     {
       "src": "js/ui/ImageLightboxDialog.jsx",

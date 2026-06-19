@@ -536,11 +536,13 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     margin-left: 2.75rem;
     margin-right: 0;
     padding: 0;
+    margin-top: 0.15rem;
   }
   & .conv-msg-card__meta-row--right {
     margin-left: 0;
     margin-right: 2.75rem;
     padding: 0;
+    margin-top: 0.15rem;
   }
   & .conv-msg-card__title {
     min-width: 0;
@@ -679,13 +681,13 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
       min-width: min(100%, 8.5rem);
     }
     & .conv-msg-meta-chips {
-      gap: 0.3rem !important;
+      gap: 0.18rem !important;
     }
     & .conv-meta-badge {
-      max-width: 100%;
+      max-width: min(100%, 8.5rem);
     }
     & .conv-meta-badge__val {
-      max-width: 12rem;
+      max-width: 6.5rem;
     }
   }
 }

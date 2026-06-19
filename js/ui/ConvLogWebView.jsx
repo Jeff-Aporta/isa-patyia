@@ -369,11 +369,18 @@ function buildUsageDialogCtxItems(meta) {
   return items;
 }
 
+function compactMetaLabel(value, maxLen = 14) {
+  const v = String(value ?? "").trim();
+  if (!v) return v;
+  if (v.length <= maxLen) return v;
+  return `${v.slice(0, maxLen - 1)}…`;
+}
+
 function MetaBadge({ tag, label, tone = "neutral", title }) {
   return (
     <span className={`conv-meta-badge conv-meta-badge--${tone}`} title={title || label}>
       {tag ? <span className="conv-meta-badge__tag">{tag}</span> : null}
-      <span className="conv-meta-badge__val">{label}</span>
+      <span className="conv-meta-badge__val">{compactMetaLabel(label)}</span>
     </span>
   );
 }
@@ -385,25 +392,35 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
 
   if (meta.premisas?.length) {
     for (const p of meta.premisas) {
-      chips.push({ key: `p-${p}`, tag: "Premisa", label: p, tone: "premisa", title: `Premisa: ${p}` });
+      chips.push({ key: `p-${p}`, tag: "P", label: p, tone: "premisa", title: `Premisa: ${p}` });
     }
   }
   if (meta.extra?.operativa_key) {
-    chips.push({ key: "op", tag: "Op", label: meta.extra.operativa_key, tone: "operativa", title: "Consulta operativa" });
+    chips.push({
+      key: "op",
+      tag: "Op",
+      label: meta.extra.operativa_key,
+      tone: "operativa",
+      title: `Consulta operativa: ${meta.extra.operativa_key}`,
+    });
   }
+  const instrKey = !isUser ? instructionKeyFromMeta(meta) : null;
   if (meta.itdconsulta) {
-    chips.push({ key: "itd", tag: "TD", label: meta.itdconsulta, tone: "context", title: `itdconsulta: ${meta.itdconsulta}` });
+    chips.push({
+      key: "itd",
+      tag: "TD",
+      label: meta.itdconsulta,
+      tone: "context",
+      title: `itdconsulta: ${meta.itdconsulta}`,
+    });
   }
-  if (!isUser && instructionKeyFromMeta(meta)) {
-    const key = instructionKeyFromMeta(meta);
-    if (key !== meta.extra?.operativa_key) {
-      chips.push({ key: "pmpt", tag: "Prompt", label: key, tone: "context", title: `Instrucción: ${key}` });
-    }
+  if (instrKey && instrKey !== meta.extra?.operativa_key && instrKey !== meta.itdconsulta) {
+    chips.push({ key: "pmpt", tag: "Pr", label: instrKey, tone: "context", title: `Instrucción: ${instrKey}` });
   }
   if (!hideUsageMetrics && meta.model) {
     chips.push({
       key: "model",
-      tag: "Modelo",
+      tag: "M",
       label: meta.model,
       tone: "model",
       title: meta.modelo_autoswitch_vision ? "Modelo usado (autoswitch visión)" : "Modelo LLM",
@@ -416,13 +433,13 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
     }
   }
   if (!hideUsageMetrics && meta.latency_ms != null && meta.latency_ms > 0) {
-    chips.push({ key: "lat", tag: "Lat", label: `${meta.latency_ms} ms`, tone: "metric", title: "Latencia" });
+    chips.push({ key: "lat", tag: "L", label: `${meta.latency_ms}ms`, tone: "metric", title: "Latencia" });
   }
   if (!hideUsageMetrics && tk?.total > 0) {
-    chips.push({ key: "tok", tag: "Tok", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
+    chips.push({ key: "tok", tag: "T", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
   }
   if (meta.stream_ok === false) {
-    chips.push({ key: "stream", tag: "Stream", label: "error", tone: "error", title: meta.stream_error || "Stream falló" });
+    chips.push({ key: "stream", tag: "!", label: "err", tone: "error", title: meta.stream_error || "Stream falló" });
   }
 
   if (!chips.length) return null;
@@ -431,7 +448,7 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
   return (
     <Stack
       direction="row"
-      spacing={0.5}
+      spacing={0.25}
       flexWrap="wrap"
       useFlexGap
       className="conv-msg-meta-chips"

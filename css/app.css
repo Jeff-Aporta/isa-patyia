@@ -310,14 +310,14 @@ body.conv-log-resize-active * {
 .conv-meta-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  max-width: 100%;
-  min-height: 1.25rem;
-  padding: 0.1rem 0.42rem;
-  border-radius: 999px;
+  gap: 0.12rem;
+  max-width: min(100%, 9.5rem);
+  min-height: 1rem;
+  padding: 0 0.28rem;
+  border-radius: 4px;
   border: none;
-  background: rgba(148, 163, 184, 0.14);
-  line-height: 1.2;
+  background: rgba(148, 163, 184, 0.12);
+  line-height: 1;
   vertical-align: middle;
   &--context {
     background: rgba(167, 139, 250, 0.14);
@@ -362,28 +362,27 @@ body.conv-log-resize-active * {
   &__tag {
     flex-shrink: 0;
     font-family: "IBM Plex Sans", system-ui, sans-serif;
-    font-size: 0.56rem;
+    font-size: 0.48rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
-    opacity: 0.65;
+    opacity: 0.72;
     &::after {
       content: "·";
-      margin-left: 0.3rem;
-      opacity: 0.45;
+      margin-left: 0.12rem;
+      opacity: 0.4;
       font-weight: 400;
     }
   }
   &__val {
     font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
-    font-size: 0.62rem;
-    font-weight: 600;
+    font-size: 0.54rem;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
-    max-width: min(100%, 14rem);
-  }
+    max-width: min(100%, 7.5rem);
   }
   html[data-mui-color-scheme="light"] & {
     background: rgba(241, 245, 249, 0.95);
@@ -484,8 +483,9 @@ body.conv-log-resize-active * {
 }
 
 .conv-msg-meta-chips {
-  row-gap: 0.35rem;
-  column-gap: 0.35rem;
+  row-gap: 0.18rem;
+  column-gap: 0.18rem;
+  align-items: center;
 }
 
 .conv-msg-usage-chip {
