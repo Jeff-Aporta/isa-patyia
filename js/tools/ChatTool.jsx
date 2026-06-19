@@ -45,6 +45,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     selectedId: chat.selectedId,
     convListMeta: chat.convListMeta,
     convListPage: chat.convListPage,
+    messageSource: chat.messageSource,
+    onMessageSourceChange: chat.onMessageSourceChange,
     onOpenJwt: () => chat.setJwtOpen(true),
     onOpenAudit: () => chat.setAuditDialogOpen(true),
     onNewChat: chat.onNewChat,
@@ -110,6 +112,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onRemoveImage={(idx) => chat.setImages((p) => p.filter((_, j) => j !== idx))}
         onMeta={chat.onMeta}
         onRateMessage={chat.onRateMessage}
+        messageSource={chat.messageSource}
         onOpenSidebar={isMobile ? () => setSidebarOpen(true) : undefined}
       />
 
