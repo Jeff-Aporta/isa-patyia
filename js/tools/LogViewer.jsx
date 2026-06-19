@@ -246,7 +246,7 @@ function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, 
       >
         <Icon icon="mdi:database-import-outline" size={20} />
         <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
-          Entrada
+          Entrada 🧪
         </Typography>
         {onClose ? (
           <Tooltip title="Cerrar panel">
