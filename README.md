@@ -45,7 +45,3 @@ Al hacer merge a `main`, añadir una fila: fecha, enlace `https://xxxx.isa-patyi
 | Fecha merge | Preview Cloudflare (`dev`) | Commit `dev` | Notas |
 |-------------|----------------------------|--------------|-------|
 | 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) | `44930d4` | Primera integración dev→main: flujo dual CF/GH Pages, badges meta compactos, emoji 🧪 prueba workflow |
-
-<p align="center">
-  <sub>Jeff-Aporta · PatyIA · <a href="https://github.com/Jeff-Aporta/isa-patyia">isa-patyia</a></sub>
-</p>
