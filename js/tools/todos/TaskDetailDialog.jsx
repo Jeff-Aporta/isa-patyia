@@ -190,22 +190,7 @@ function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle
   );
 }
 
-export function TaskDetailDialog({
-  open,
-  task,
-  loading,
-  readOnly = false,
-  onClose,
-  onSave,
-  onSaveSubtask,
-  onDeleteSubtask,
-  onAddSubtask,
-  onSaveMilestone,
-  onDeleteMilestone,
-  onAddMilestone,
-  onToggleMilestone,
-  onComment,
-}) {
+export function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSave, onSaveSubtask, onDeleteSubtask, onAddSubtask, onSaveMilestone, onDeleteMilestone, onAddMilestone, onToggleMilestone, onComment }) {
   const [tab, setTab] = useState(0);
   const [title, setTitle] = useState("");
   const [doc, setDoc] = useState("");
