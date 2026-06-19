@@ -68,6 +68,8 @@ body.conv-log-resize-active * {
 }
 
 .MuiAppBar-root {
+  position: relative;
+  z-index: 2;
   & .MuiToolbar-root {
     align-items: center;
     flex-wrap: nowrap;
