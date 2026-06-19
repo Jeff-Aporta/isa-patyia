@@ -1868,6 +1868,10 @@ body.conv-log-resize-active * {
 }
 
 .panel-body-tabs {
+  & .prompt-instrucciones-zone {
+    flex: 1 1 52%;
+    min-height: 14rem;
+  }
   & .prompt-mapeo-scroll .MuiTableBody-root .MuiTableCell-root {
     font-size: 0.8rem;
   }
@@ -2144,10 +2148,8 @@ body.conv-log-resize-active * {
 }
 
 .prompt-instrucciones-zone {
-  flex: 0 0 auto;
-  height: 24rem;
-  max-height: 24rem;
-  min-height: 18rem;
+  flex: 1 1 52%;
+  min-height: 14rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -2559,13 +2561,14 @@ body.conv-log-resize-active * {
     padding: 0.35rem 0.65rem;
   }
   &--vertical {
-    flex: 0 0 auto;
+    flex: 0 0 12.5rem !important;
+    width: 12.5rem !important;
+    min-width: 11rem !important;
+    max-width: 14rem !important;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: stretch;
-    width: 12.5rem;
-    min-width: 11rem;
-    max-width: 14rem;
+    align-self: stretch;
     height: 100%;
     min-height: 0;
     max-height: 100%;
@@ -2595,24 +2598,33 @@ body.conv-log-resize-active * {
       overflow-x: hidden !important;
       height: 100%;
       max-height: 100%;
+      width: 100%;
     }
-  }
-  &-layout {
-    position: relative;
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    gap: 0;
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 0;
-    max-height: 100%;
-    min-width: 0;
-    overflow: hidden;
   }
 }
 
 .prompt-tabs-layout {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  min-width: 0;
+  overflow: hidden;
+
+  & > .prompt-tabs,
+  & > .MuiTabs-root {
+    flex: 0 0 12.5rem;
+    width: 12.5rem;
+    min-width: 11rem;
+    max-width: 14rem;
+    flex-shrink: 0;
+  }
+
   & .tab-editor {
     flex: 1 1 auto;
     min-width: 0;
@@ -2623,7 +2635,13 @@ body.conv-log-resize-active * {
     padding-top: 0;
     padding-left: 0.65rem;
     overflow: hidden;
+
+    & .prompt-body-preview {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
   }
+
   &--drop-active {
     & .prompt-tabs--vertical {
       opacity: 0.45;
@@ -2768,8 +2786,7 @@ body.conv-log-resize-active * {
 }
 
 .tab-editor {
-  flex: 0 0 auto;
-  padding-top: 0.35rem;
+  min-width: 0;
   & .MuiTextField-root {
     width: 100%;
   }

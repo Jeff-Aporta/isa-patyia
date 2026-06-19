@@ -27,6 +27,14 @@ export function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTa
         variant="scrollable"
         scrollButtons="auto"
         className="prompt-tabs prompt-tabs--vertical"
+        sx={{
+          flex: "0 0 12.5rem",
+          width: "12.5rem",
+          minWidth: "11rem",
+          maxWidth: "14rem",
+          flexShrink: 0,
+          alignSelf: "stretch",
+        }}
         slotProps={{
           list: {
             sx: {
