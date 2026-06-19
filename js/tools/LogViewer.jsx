@@ -215,24 +215,7 @@ function ResumenDialog({ open, onClose, logInfo, navItems, selectedId, onSelectM
   );
 }
 
-function LogEntradaPanel({
-  drawerMode = false,
-  onClose,
-  sidebarWidth,
-  dragging,
-  onResizeStart,
-  convId,
-  loading,
-  jsonInput,
-  error,
-  canClear,
-  onConvIdChange,
-  onConvIdKeyDown,
-  recuperarPorId,
-  parsearPegado,
-  limpiar,
-  onJsonInputChange,
-}) {
+function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, onResizeStart, convId, loading, jsonInput, error, canClear, onConvIdChange, onConvIdKeyDown, recuperarPorId, parsearPegado, limpiar, onJsonInputChange }) {
   const { Icon } = UI;
   return (
     <Box
