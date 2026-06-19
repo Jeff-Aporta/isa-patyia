@@ -20,16 +20,7 @@ export function applyThemeModeToDocument(mode: ThemeMode = readStoredThemeMode()
 }
 
 export const LS_KEY = THEME_LS_KEY;
-export const NEON = {
-  blue: "#1e90ff",
-  cyan: "#00e5ff",
-  purple: "#6366f1",
-  magenta: "#a855f7",
-  darkBg: "#060d18",
-  darkPaper: "rgba(15, 28, 48, 0.82)",
-  lightBg: "#eef4ff",
-  lightPaper: "rgba(255, 255, 255, 0.88)",
-};
+export const NEON = { blue: "#1e90ff", cyan: "#00e5ff", purple: "#6366f1", magenta: "#a855f7", darkBg: "#060d18", darkPaper: "rgba(15, 28, 48, 0.82)", lightBg: "#eef4ff", lightPaper: "rgba(255, 255, 255, 0.88)" };
 
 const componentOverrides = {
   MuiCssBaseline: {
@@ -155,16 +146,9 @@ export function makeNeonTheme(mode: string) {
   const dark = mode === "dark";
   return createTheme({
     palette: {
-      mode,
-      primary: { main: NEON.blue, light: "#63b3ff", dark: "#1565c0" },
-      secondary: { main: NEON.purple, light: "#818cf8", dark: "#4f46e5" },
-      info: { main: NEON.cyan },
-      background: dark
-        ? { default: NEON.darkBg, paper: "#0f2236" }
-        : { default: NEON.lightBg, paper: "#ffffff" },
-      text: dark
-        ? { primary: "#e8f4ff", secondary: "#9ec5eb" }
-        : { primary: "#0a2540", secondary: "#4a6278" },
+      mode, primary: { main: NEON.blue, light: "#63b3ff", dark: "#1565c0" }, secondary: { main: NEON.purple, light: "#818cf8", dark: "#4f46e5" }, info: { main: NEON.cyan },
+      background: dark ? { default: NEON.darkBg, paper: "#0f2236" } : { default: NEON.lightBg, paper: "#ffffff" },
+      text: dark ? { primary: "#e8f4ff", secondary: "#9ec5eb" } : { primary: "#0a2540", secondary: "#4a6278" },
       divider: dark ? "rgba(30,144,255,0.18)" : "rgba(10,37,64,0.1)",
     },
     shape: { borderRadius: 12 },

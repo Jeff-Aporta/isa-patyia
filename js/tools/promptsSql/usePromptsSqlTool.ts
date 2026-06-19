@@ -10,6 +10,7 @@ import {
   hasPendingChanges,
   draftBodiesFromPrompts,
   urlDraftTipoSet,
+  ensurePublishCap,
 } from "./helpers.ts";
 import { buildInitialPromptState, mergeCloudRows } from "./cloudRows.ts";
 import {
@@ -55,6 +56,12 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para guardar en Paty";
   }, [authTick, canPublish]);
+  const importTitle = useMemo(() => {
+    if (canPublish) return "Importar archivos PROMPT_*.md / .txt";
+    if (!loggedIn) return "Inicia sesión para importar instrucciones";
+    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
+      || "Sin permiso para importar instrucciones";
+  }, [authTick, canPublish, loggedIn]);
 
   const [extraInstructionKeys, setExtraInstructionKeys] = useState([]);
   const instruccionKeys = useMemo(
@@ -261,8 +268,11 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   );
 
   const applyFiles = useCallback(
-    (fileList) => applyPromptFiles(fileList, setImportDlg),
-    [],
+    (fileList) => {
+      if (!ensurePublishCap(onNeedLogin)) return Promise.resolve();
+      return applyPromptFiles(fileList, setImportDlg);
+    },
+    [onNeedLogin],
   );
 
   const onDrop = useCallback(async (e) => {
@@ -334,6 +344,7 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     canEdit,
     editBlockReason,
     saveTitle,
+    importTitle,
     instruccionKeys,
     instruccionKeysTable,
     importDlg,

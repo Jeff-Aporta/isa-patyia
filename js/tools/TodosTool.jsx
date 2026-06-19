@@ -83,6 +83,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
       <BoardSettingsDialog
         open={boardSettingsOpen}
         onClose={() => setBoardSettingsOpen(false)}
+        boardId={todos.boardId}
         board={todos.boardData?.board}
         readOnly={!todos.canEdit}
         saving={todos.loadingBoard}
@@ -91,6 +92,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
           try { await todos.onUpdateBoard(todos.boardId, patch); }
           catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
         }}
+        onMembersChange={todos.syncBoardMembers}
       />
 
       <NewBoardDialog

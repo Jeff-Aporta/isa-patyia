@@ -2,11 +2,7 @@
 /// <reference path="../global.d.ts" />
 import { Config } from "./platform.ts";
 
-window.ISAFront.migrateLegacyGatewayKeys?.({
-  "jeff:gateway-local": "",
-  "patyia-apptools:gateway-local": "",
-  "patyia-apptools:lab-local": "",
-});
+window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 
 export const ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 export const PATYIA_BRIDGE_URL = "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
@@ -46,10 +42,7 @@ export function buildUserAvatarUrl(name: string | null | undefined, size = 72): 
 }
 
 /** Parser SSE del stream POST /api/conversacion (PatyIA). */
-export type PatySseEvent = {
-  event: string;
-  data: Record<string, unknown>;
-};
+export type PatySseEvent = { event: string; data: Record<string, unknown> };
 
 export async function readPatyiaSseStream(
   response: Response,

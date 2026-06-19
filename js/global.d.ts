@@ -9,9 +9,24 @@ interface IsaNs {
   mount?: () => void;
 }
 
+/** @jeff-aporta/lightbox-zoom — cargado lazy vía boot/cdn.mjs */
+interface IsaLightboxZoomApi {
+  LightboxZoomDialog: (props: Record<string, unknown>) => unknown;
+  LightboxZoomImage: (props: Record<string, unknown>) => unknown;
+  useLightboxZoom: (...args: unknown[]) => unknown;
+  ZOOM_MIN: number;
+  ZOOM_MAX: number;
+  PAN_STEP: number;
+}
+
+interface IsaComponentsApi {
+  LightboxZoom?: IsaLightboxZoomApi;
+}
+
 interface Window {
   ISA: IsaNs;
   ISAFront: IsaFrontApi;
+  ISAComponents?: IsaComponentsApi;
   React?: ReactHooks;
   MaterialUI?: Record<string, unknown>;
   CodeMirror?: unknown;
@@ -67,16 +82,25 @@ interface IsaAuth {
 }
 
 interface IsaSession {
-  current(): { username: string; role: string | null; token: string; expiresAt: string | null; capabilities?: string[] } | null;
+  current(): { username: string; role: string | null; token: string; expiresAt: string | null; capabilities?: string[]; viewAsUsername?: string | null } | null;
   isLoggedIn(): boolean;
   username(): string | null;
+  realUsername?(): string | null;
+  viewAsUsername?(): string | null;
+  isViewingAs?(): boolean;
+  auditAuthor?(): string;
   authHeader(): Record<string, string>;
   appHeader(): Record<string, string>;
   appId(): string;
   login(user: string, pass: string): Promise<unknown>;
   logout(): void;
   refreshProfile(): Promise<unknown>;
+  fetchViewAsCatalog?(): Promise<unknown>;
+  searchSuplantacionUsers?(q: string, limit?: number): Promise<unknown>;
+  setViewAs?(username: string): Promise<unknown>;
+  clearViewAs?(): void;
   capabilities(): string[];
+  adminCapabilities?(): string[];
   capabilityCatalog?(): unknown[];
   can(cap: string): boolean;
   blockReason(cap: string): string;
@@ -126,6 +150,7 @@ interface AppShellProps {
   loginGate?: boolean;
   mobileNav?: boolean;
   mobileBreakpoint?: "xs" | "sm" | "md" | "lg" | "xl";
+  chromeless?: boolean;
 }
 
 type MuiThemeOptions = Record<string, unknown>;
@@ -167,6 +192,7 @@ interface IsaFrontApi {
     getSnapshot: () => Record<string, unknown>;
     merge: (partial: Record<string, unknown>) => Record<string, unknown>;
     mergePartial: (partial: Record<string, unknown>) => Record<string, unknown>;
+    hrefFor: (partial?: Record<string, unknown>) => string;
     reset: () => Record<string, unknown>;
     subscribe: (fn: (s: Record<string, unknown>) => void) => () => void;
     PARAM: string;

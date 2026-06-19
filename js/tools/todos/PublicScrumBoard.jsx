@@ -1,6 +1,7 @@
 import { getReact, getMaterialUI, UI, toastSuccess } from "../../core/platform.ts";
 import { TodosKanban } from "./TodosKanban.jsx";
 import { fetchPublicTodoBoard } from "../../api/todosApi.ts";
+import { normalizeTodoBoardData } from "./todosKanbanShared.js";
 
 const { useState, useEffect } = getReact();
 const { Box, Typography, Alert, CircularProgress } = getMaterialUI();
@@ -19,7 +20,11 @@ export function PublicScrumBoard({ publicSlug }) {
       try {
         const data = await fetchPublicTodoBoard(publicSlug);
         if (!cancelled) {
-          setBoardData({ board: data.board, columns: data.columns, tasks: data.tasks });
+          setBoardData(normalizeTodoBoardData({
+            board: data.board,
+            columns: data.columns,
+            tasks: data.tasks,
+          }));
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));

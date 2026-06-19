@@ -66,11 +66,11 @@ export function NewBoardDialog({ open, onClose, onCreate, busy }) {
               onChange={(e) => setVisibility(e.target.value)}
             >
               <MenuItem value="private">Privado — solo integrantes</MenuItem>
-              <MenuItem value="public">Público — enlace de solo lectura</MenuItem>
+              <MenuItem value="public">Público — equipo ISA puede editar</MenuItem>
             </Select>
             <FormHelperText>
               {visibility === "public"
-                ? "Genera una URL pública de solo lectura (no aparece en el listado de otros usuarios)."
+                ? "Cualquier usuario con acceso a isa-patyia puede ver y editar. El enlace público sigue siendo solo lectura."
                 : "Solo integrantes y administradores ven el tablero."}
             </FormHelperText>
           </FormControl>

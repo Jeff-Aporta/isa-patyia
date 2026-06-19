@@ -20,6 +20,7 @@ export const Session = {
   realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
   viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
   isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+  auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
   authHeader: () => bridge().Session.authHeader(),
   appHeader: () => bridge().Session.appHeader(),
   appId: () => bridge().Session.appId(),
@@ -27,8 +28,7 @@ export const Session = {
   logout: () => bridge().Session.logout(),
   refreshProfile: () => bridge().Session.refreshProfile(),
   fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-  searchSuplantacionUsers: (q: string, limit?: number) =>
-    bridge().Session.searchSuplantacionUsers?.(q, limit),
+  searchSuplantacionUsers: (q: string, limit?: number) => bridge().Session.searchSuplantacionUsers?.(q, limit),
   setViewAs: (u: string) => bridge().Session.setViewAs?.(u),
   clearViewAs: () => bridge().Session.clearViewAs?.(),
   capabilities: () => bridge().Session.capabilities(),
@@ -156,9 +156,7 @@ export function toastError(text: string, timeout?: number) { fb()?.toast?.error?
 export function toastSuccess(text: string, timeout?: number) { fb()?.toast?.success?.(text, timeout); }
 export function toastInfo(text: string, timeout?: number) { fb()?.toast?.info?.(text, timeout); }
 export function toastWarning(text: string, timeout?: number) { fb()?.toast?.warning?.(text, timeout); }
-export function requestConfirm(opts: Record<string, unknown>) {
-  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
-}
+export function requestConfirm(opts: Record<string, unknown>) { return fb()?.confirm?.(opts) ?? Promise.resolve(false); }
 
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
 export function bootstrapIsaPatyia(): void {

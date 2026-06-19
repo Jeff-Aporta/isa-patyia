@@ -4,38 +4,7 @@
  */
 
 /** Mensaje conv-log aplanado — campos base + propiedades según rol (user/assistant/operativa). */
-type FlatConvLogMensaje = {
-  ts?: unknown;
-  tokens?: unknown;
-  cost?: unknown;
-  usage?: unknown;
-  latency_ms?: unknown;
-  send?: unknown;
-  receive?: unknown;
-  others?: unknown;
-  text?: string;
-  prompt_text?: string;
-  imagenes?: string[];
-  prompt_id?: string;
-  prompt_variables?: unknown;
-  vectorStoreIds?: unknown;
-  operativa_key?: string;
-  operativa_engine?: string;
-  model?: string;
-  response_text?: string;
-  response_id?: string;
-  engine?: string;
-  itdconsulta?: string;
-  nombre_usuario?: string;
-  stream_ok?: boolean;
-  stream_error?: string;
-  nombre_usado_en_respuesta?: boolean;
-  modelo_configurado?: string;
-  modelo_autoswitch_vision?: boolean;
-  premisas?: string[];
-  prompt_chars?: number;
-  response_chars?: number;
-};
+type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number };
 
 type NormalizeMetaOptions = { isUser?: boolean };
 
@@ -96,6 +65,12 @@ function pushImage(images: string[], ref: unknown) {
     const n = String(ref ?? "").trim();
     if (!n || isOmittedVisionRef(n)) return false;
     return n.startsWith("data:") || /^https?:\/\//i.test(n);
+  }
+
+  function isDisplayableAudioRef(ref) {
+    const n = String(ref ?? "").trim();
+    if (!n) return false;
+    return n.startsWith("data:audio/") || /^https?:\/\/.+\.(webm|mp3|m4a|wav|ogg)/i.test(n);
   }
 
   function stripOmittedVisionFromText(texto) {
@@ -371,16 +346,7 @@ function pushImage(images: string[], ref: unknown) {
     const s = m.send;
     const r = m.receive;
     const o = m.others ?? {};
-    const flat: FlatConvLogMensaje = {
-      ts: m.ts,
-      tokens: m.tokens,
-      cost: m.cost,
-      usage: r?.usage,
-      latency_ms: m.latency_ms,
-      send: s,
-      receive: r,
-      others: m.others,
-    };
+    const flat: FlatConvLogMensaje = { ts: m.ts, tokens: m.tokens, cost: m.cost, usage: r?.usage, latency_ms: m.latency_ms, send: s, receive: r, others: m.others };
 
     if (m.role === "user") {
       const { text } = extractUserVisionFromSendInput(s?.input, typeof s?.text === "string" ? s.text : "");
@@ -392,6 +358,14 @@ function pushImage(images: string[], ref: unknown) {
         ? o.imagenes_adjuntas.filter(isDisplayableImageRef)
         : [];
       if (imagenes.length) flat.imagenes = imagenes;
+      const audios = Array.isArray(o.audios_adjuntas)
+        ? o.audios_adjuntas.filter(isDisplayableAudioRef)
+        : [];
+      if (audios.length) flat.audios = audios;
+      const audiosTranscripcion = Array.isArray(o.audios_transcripcion)
+        ? o.audios_transcripcion.map((t) => String(t ?? "").trim()).filter(Boolean)
+        : [];
+      if (audiosTranscripcion.length) flat.audios_transcripcion = audiosTranscripcion;
       const prompt = s?.prompt;
       if (prompt?.id) flat.prompt_id = prompt.id;
       if (prompt?.variables) flat.prompt_variables = prompt.variables;
@@ -447,13 +421,7 @@ function pushImage(images: string[], ref: unknown) {
     if (!meta) return { ...ZERO_TOKENS };
     const tk = meta.tokens?.total != null ? meta.tokens : tokensFromUsage(meta.usage);
     if (!tk) return { ...ZERO_TOKENS };
-    return {
-      input: Number(tk.input ?? 0) || 0,
-      cached: Number(tk.cached ?? 0) || 0,
-      output: Number(tk.output ?? 0) || 0,
-      reasoning: Number(tk.reasoning ?? 0) || 0,
-      total: Number(tk.total ?? 0) || 0,
-    };
+    return { input: Number(tk.input ?? 0) || 0, cached: Number(tk.cached ?? 0) || 0, output: Number(tk.output ?? 0) || 0, reasoning: Number(tk.reasoning ?? 0) || 0, total: Number(tk.total ?? 0) || 0 };
   }
 
   function readMessageCost(msg) {
@@ -461,22 +429,11 @@ function pushImage(images: string[], ref: unknown) {
   }
 
   function accumulateTokens(acc, tk) {
-    return {
-      input: acc.input + tk.input,
-      cached: acc.cached + tk.cached,
-      output: acc.output + tk.output,
-      reasoning: acc.reasoning + tk.reasoning,
-      total: acc.total + tk.total,
-    };
+    return { input: acc.input + tk.input, cached: acc.cached + tk.cached, output: acc.output + tk.output, reasoning: acc.reasoning + tk.reasoning, total: acc.total + tk.total };
   }
 
   function accumulateCost(acc, cost) {
-    return {
-      input_usd: acc.input_usd + cost.input_usd,
-      cached_usd: acc.cached_usd + cost.cached_usd,
-      output_usd: acc.output_usd + cost.output_usd,
-      total_usd: acc.total_usd + cost.total_usd,
-    };
+    return { input_usd: acc.input_usd + cost.input_usd, cached_usd: acc.cached_usd + cost.cached_usd, output_usd: acc.output_usd + cost.output_usd, total_usd: acc.total_usd + cost.total_usd };
   }
 
   function formatUsageTokens(n) {
@@ -532,13 +489,7 @@ function pushImage(images: string[], ref: unknown) {
     const totalUsd = Number(c.total_usd ?? 0)
       || (Number(c.input_usd ?? 0) + Number(c.cached_usd ?? 0) + Number(c.output_usd ?? 0))
       || 0;
-    return {
-      tokens: totalTok,
-      usd: totalUsd,
-      tokensText: totalTok > 0 ? `${formatUsageTokens(totalTok)} t` : "—",
-      usdText: formatUsageUsd(totalUsd),
-      hasData: totalTok > 0 || totalUsd > 0,
-    };
+    return { tokens: totalTok, usd: totalUsd, tokensText: totalTok > 0 ? `${formatUsageTokens(totalTok)} t` : "—", usdText: formatUsageUsd(totalUsd), hasData: totalTok > 0 || totalUsd > 0 };
   }
 
   function usageHasData(tokens, cost) {
@@ -585,9 +536,7 @@ function pushImage(images: string[], ref: unknown) {
     let cumulativeCost = { ...ZERO_COST };
 
     return list.map((m, index) => {
-      if (m.esUsuario) {
-        return { ...m, usageStats: undefined };
-      }
+      if (m.esUsuario) return { ...m, usageStats: undefined };
 
       const previousTokens = { ...cumulativeTokens };
       const previousCost = { ...cumulativeCost };
@@ -602,26 +551,27 @@ function pushImage(images: string[], ref: unknown) {
       cumulativeTokens = accumulateTokens(cumulativeTokens, tokens);
       cumulativeCost = accumulateCost(cumulativeCost, cost);
 
-      return {
-        ...m,
-        usageStats: {
-          tokens,
-          cost,
-          previousTokens,
-          previousCost,
-          cumulativeTokens: { ...cumulativeTokens },
-          cumulativeCost: { ...cumulativeCost },
-        },
-      };
+      return { ...m, usageStats: { tokens, cost, previousTokens, previousCost, cumulativeTokens: { ...cumulativeTokens }, cumulativeCost: { ...cumulativeCost } } };
     });
   }
 
   function threadHasUsageStats(mensajes) {
-    return (mensajes || []).some((m) => {
-      const s = m.usageStats;
-      if (!s) return false;
-      return usageHasData(s.tokens, s.cost) || usageHasData(s.cumulativeTokens, s.cumulativeCost);
-    });
+    return (mensajes || []).some((m) => sideLogPanelWorthShowing(m));
+  }
+
+  function sideLogPanelWorthShowing(msg) {
+    if (!msg) return false;
+    const meta = msg.meta;
+    if (meta) {
+      const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
+      if ((Number(tk?.total ?? 0) || 0) > 0) return true;
+      if (Number(meta.latency_ms ?? 0) > 0) return true;
+      if (String(meta.model ?? "").trim()) return true;
+      if (meta.modelo_autoswitch_vision) return true;
+    }
+    const s = msg.usageStats;
+    if (!s) return false;
+    return usageHasData(s.tokens, s.cost) || usageHasData(s.previousTokens, s.previousCost);
   }
 
   function formatTokensWithUsd(tok, usd) {
@@ -651,6 +601,12 @@ function pushImage(images: string[], ref: unknown) {
     const promptMarkdown = isUser ? userPromptText : assistantPromptMarkdown;
     const userImagenes = isUser && Array.isArray(raw.imagenes)
       ? raw.imagenes.filter(isDisplayableImageRef)
+      : [];
+    const userAudios = isUser && Array.isArray(raw.audios)
+      ? raw.audios.filter(isDisplayableAudioRef)
+      : [];
+    const userAudiosTranscripcion = isUser && Array.isArray(raw.audios_transcripcion)
+      ? raw.audios_transcripcion.map((t) => String(t ?? "").trim()).filter(Boolean)
       : [];
     const promptId = !isUser
       ? (typeof raw.prompt_id === "string" && raw.prompt_id.trim()
@@ -690,6 +646,8 @@ function pushImage(images: string[], ref: unknown) {
         : undefined,
       prompt_markdown: promptMarkdown || undefined,
       imagenes: userImagenes.length ? userImagenes : undefined,
+      audios: userAudios.length ? userAudios : undefined,
+      audiosTranscripcion: userAudiosTranscripcion.length ? userAudiosTranscripcion : undefined,
     };
   }
 
@@ -714,10 +672,18 @@ function pushImage(images: string[], ref: unknown) {
 
     let contenido = "";
     let imagenes = [];
+    let audios = [];
+    let audiosTranscripcion = [];
     if (role === "user") {
       const merged = mergeUserImagenes(send, others, String(send?.text ?? m.text ?? others.prompt_text ?? ""));
       contenido = merged.text;
       imagenes = merged.imagenes;
+      audios = Array.isArray(others.audios_adjuntas)
+        ? others.audios_adjuntas.filter(isDisplayableAudioRef)
+        : [];
+      audiosTranscripcion = Array.isArray(others.audios_transcripcion)
+        ? others.audios_transcripcion.map((t) => String(t ?? "").trim()).filter(Boolean)
+        : [];
     } else {
       contenido = resolveAssistantLogContenido(others as Record<string, unknown>, receive, m.text);
     }
@@ -744,8 +710,10 @@ function pushImage(images: string[], ref: unknown) {
     return {
       idMsg: logImensaje ? `msg-${logImensaje}` : `${role}-${String(m.seq ?? i)}-${String(m.turno ?? 0)}`,
       rol: esOperativa ? `OP · ${String(opKey ?? "operativa")}` : esUsuario ? "user" : "assistant",
-      contenido: contenido || (esUsuario && !imagenes.length ? "(mensaje usuario sin texto en log)" : contenido),
+      contenido: contenido || (esUsuario && !imagenes.length && !audios.length ? "(mensaje usuario sin texto en log)" : contenido),
       imagenes: imagenes.length ? imagenes : undefined,
+      audios: audios.length ? audios : undefined,
+      audiosTranscripcion: audiosTranscripcion.length ? audiosTranscripcion : undefined,
       fecha: formatearFecha(String(m.ts ?? "")),
       esUsuario,
       esOperativa,
@@ -800,6 +768,7 @@ export {
   tokensFromUsage,
   attachUsageStats,
   threadHasUsageStats,
+  sideLogPanelWorthShowing,
   formatUsageTokens,
   formatUsageUsd,
   formatTokensWithUsd,
@@ -809,23 +778,9 @@ export {
   usageHasData,
 };
 
-/** Fondo y padding del hilo de conversación (mismo criterio que tkDocSurface en jagudeloe). */
-const CONV_LOG_GRADIENT = {
-  background: (t: { palette: { mode: string } }) =>
-    t.palette.mode === "dark"
-      ? "radial-gradient(ellipse 120% 80% at 50% -20%, rgba(99,102,241,0.18), transparent 55%), linear-gradient(180deg, #0b1220 0%, #0f172a 100%)"
-      : "radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30,144,255,0.12), transparent 55%), linear-gradient(180deg, #f0f6ff 0%, #f8fafc 100%)",
-};
-
+/** Padding del hilo de conversación (fondo vía `.conv-log-shell::before` en chat-staging.css). */
 const CONV_LOG_PAD = { p: { xs: 1.25, sm: 2, md: 3 } };
 
 export function convLogSurfaceSx(extra: Record<string, unknown> = {}) {
-  return {
-    flex: 1,
-    minHeight: 0,
-    overflow: "auto",
-    ...CONV_LOG_GRADIENT,
-    ...CONV_LOG_PAD,
-    ...extra,
-  };
+  return { flex: 1, minHeight: 0, overflow: "auto", bgcolor: "transparent", ...CONV_LOG_PAD, ...extra };
 }

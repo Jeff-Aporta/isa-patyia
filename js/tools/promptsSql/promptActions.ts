@@ -55,8 +55,7 @@ export async function saveAllPrompts({
     return;
   }
   if (!ensurePublishCap(onNeedLogin)) return;
-  const session = LabSession.getSession();
-  const author = session?.username || "";
+  const author = LabSession.auditAuthor();
   const entries = pendingTipos.map((t) => ({
     archivo: prompts[t].archivo,
     iinstruccion: t,
@@ -118,8 +117,7 @@ export async function saveOnePrompt({
   if (!ensurePublishCap(onNeedLogin)) {
     throw new Error(editBlockReason || "Sin permiso para guardar en Paty");
   }
-  const session = LabSession.getSession();
-  const author = session?.username || "";
+  const author = LabSession.auditAuthor();
   const slot = prompts[key];
   const jconfig = PromptsSql.enrichJconfigForSave(slot?.jconfig, { body: text, author });
   setActionBusy(true);

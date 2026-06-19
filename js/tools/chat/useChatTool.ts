@@ -5,6 +5,7 @@ import {
   clearPatyJwtLocal,
   canInteractPatyChat,
   canAdminPortalJwt,
+  isFaithfulImpersonation,
   convBelongsToJwt,
   jwtUserShortName,
   resolveSessionBrowseScope,
@@ -24,7 +25,7 @@ import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge 
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
 import { persistChatConvId, persistChatMessageSource, getSnapshot, subscribe } from "../../core/urlState.ts";
-import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, readChatMessageSource, messageSourceFromUrl, type ChatMessageSource } from "./constants.ts";
+import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS, readChatMessageSource, messageSourceFromUrl, type ChatMessageSource } from "./constants.ts";
 import { useThreadScrollAnchor } from "./threadScroll.ts";
 import {
   auditScopeIsOwnJwt,
@@ -56,6 +57,7 @@ import type {
   AuditScopeRow,
   BrowseScope,
   ChatImageEntry,
+  ChatAudioEntry,
   ChatMensajeVista,
   ConvListMeta,
   ConvLogPayload,
@@ -70,6 +72,7 @@ import type {
   FileInputChangeEvent,
 } from "./types.ts";
 import { readImagesFromClipboard, filesToImageEntries, hasHeicLikeFiles } from "./images.ts";
+import { createVoiceRecorder, filesToAudioEntries, isVoiceRecordingSupported } from "./audio.ts";
 
 const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
 
@@ -137,6 +140,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [images, setImages] = useState<ChatImageEntry[]>([]);
+  const [audios, setAudios] = useState<ChatAudioEntry[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [logMensajes, setLogMensajes] = useState<ChatMensajeVista[]>([]);
   const [ratingMsgId, setRatingMsgId] = useState<string | null>(null);
@@ -156,6 +161,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const [messageSource, setMessageSource] = useState<ChatMessageSource>(() => readChatMessageSource(bootChat));
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const voiceRecorderRef = useRef(createVoiceRecorder());
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
   const lastLogApiCountRef = useRef(0);
   const skipThreadReloadRef = useRef<number | null>(null);
@@ -164,16 +171,30 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
+  const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
   const canInteract = canInteractPatyChat(sessionUser, jwt);
   const listScope = auditScope ?? (!jwt?.token ? sessionBrowseScope : null);
-  const canSend = canInteract && auditScopeIsOwnJwt(auditScope, jwt?.claims);
+  const selectedConvRow = selectedId
+    ? rows.find((r) => convIdsEqual(r.iconversacion, selectedId))
+    : null;
+  const selectedConvOwned = convBelongsToJwtResolved(
+    detail,
+    selectedConvRow,
+    activeConvOwnerScope(listScope, jwt?.claims),
+    jwt?.claims,
+    impersonating,
+  );
+  const canSend = canInteract
+    && auditScopeIsOwnJwt(auditScope, jwt?.claims)
+    && selectedConvOwned;
   const viewingAuditOther = Boolean(
-    auditScope && (
+    (auditScope && (
       jwt?.claims
         ? !auditScopeIsOwnJwt(auditScope, jwt.claims)
         : sessionBrowseScope && browseScopeKey(auditScope) !== browseScopeKey(sessionBrowseScope)
-    ),
+    ))
+    || (impersonating && Boolean(selectedId) && !selectedConvOwned),
   );
   const viewOnly = loggedIn && !canSend;
   const needsJwt = loggedIn && !jwt?.token && !jwtLoading;
@@ -191,6 +212,29 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       window.removeEventListener("isa-patyia:auth", onSessionAuth);
     };
   }, []);
+
+  const prevSessionUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prev = prevSessionUserRef.current;
+    if (prev && prev !== sessionUser) {
+      setAuditScope(null);
+      setConvListPage(1);
+      setConvListMeta(null);
+      setSelectedId(null);
+      setDetail(null);
+      setLogMensajes([]);
+      setStreamText("");
+      setLogError("");
+      setDraft("");
+      setImages([]);
+      setAudios([]);
+      voiceRecorderRef.current.cancel();
+      setIsRecording(false);
+      persistChatConvId(null);
+    }
+    prevSessionUserRef.current = sessionUser;
+  }, [sessionUser]);
 
   useEffect(() => {
     if (!loggedIn || !sessionUser) {
@@ -215,7 +259,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   }, [loggedIn, sessionUser]);
 
   useEffect(() => {
-    if (!loggedIn || !sessionUser || jwt?.token) {
+    if (!loggedIn || !sessionUser) {
+      setSessionBrowseScope(null);
+      setSessionScopeLoading(false);
+      return undefined;
+    }
+    if (jwt?.token && !impersonating) {
       setSessionBrowseScope(null);
       setSessionScopeLoading(false);
       return undefined;
@@ -226,7 +275,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       .then((scope) => { if (!cancelled) setSessionBrowseScope(scope); })
       .finally(() => { if (!cancelled) setSessionScopeLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, sessionUser, jwt?.token]);
+  }, [loggedIn, sessionUser, jwt?.token, impersonating]);
 
   const reloadList = useCallback(async () => {
     if (!loggedIn) return;
@@ -497,7 +546,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       if (prodMode) {
         const d = await getConversacion(jwt!, id);
         if (!convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
-          toastWarning("Esta conversación no pertenece al token activo");
+          toastWarning(impersonating
+            ? "Esta conversación no pertenece al usuario suplantado"
+            : "Esta conversación no pertenece al token activo");
         }
         setDetail(d);
         applyThreadFromDetail(d, null, ownerLabel, { openAiDirect: true, stripMeta: true });
@@ -627,12 +678,13 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   async function onSend() {
     if (!canSend || !jwt) return;
     const text = draft.trim();
-    if (!text && !images.length) return;
+    if (!text && !images.length && !audios.length) return;
     if (selectedId && !convBelongsToJwtResolved(
       detail,
       rows.find((r) => convIdsEqual(r.iconversacion, selectedId)),
       displayScope,
       jwt.claims,
+      impersonating,
     )) {
       toastError("No puedes enviar mensajes en conversaciones de otro contacto");
       return;
@@ -640,20 +692,23 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setSending(true);
     setStreamText("");
     const imagenes = images.map((i) => i.dataUrl);
+    const audioUrls = audios.map((a) => a.dataUrl);
     const convIdBefore = selectedId;
     const userName = convOwnerDisplayLabel(displayScope, jwt, sessionUser);
     const logCountBefore = lastLogApiCountRef.current;
     setDraft("");
     setImages([]);
+    setAudios([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (audioInputRef.current) audioInputRef.current.value = "";
     setLogMensajes((prev) => enrichLogVista(
-      [...prev, buildOptimisticUserMsg({ text, imagenes, userName })],
+      [...prev, buildOptimisticUserMsg({ text, imagenes, audios: audioUrls, userName })],
       userName,
     ));
     try {
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || undefined, imagenes },
+        { prompt: text, iconversacion: selectedId || undefined, imagenes, audios: audioUrls },
         (partial) => setStreamText(partial),
       );
       const finalText = String(result.respuesta || "").trim();
@@ -692,6 +747,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       if (imagenes.length) {
         setImages(imagenes.map((dataUrl, i) => ({ name: `imagen-${i + 1}`, dataUrl })));
       }
+      if (audioUrls.length) {
+        setAudios(audioUrls.map((dataUrl, i) => ({ name: `audio-${i + 1}`, dataUrl })));
+      }
       setLogMensajes((prev) => {
         const copy = [...prev];
         for (let i = copy.length - 1; i >= 0; i -= 1) {
@@ -729,6 +787,74 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } catch (err) {
       toastError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function appendAudiosFromFiles(files: FileList | File[] | null | undefined) {
+    if (!files?.length) return;
+    try {
+      const added = await filesToAudioEntries(files);
+      if (!added.length) {
+        toastWarning("Solo se admiten audios (WebM, MP3, M4A, WAV, OGG)");
+        return;
+      }
+      setAudios((prev) => {
+        const merged = [...prev, ...added];
+        if (merged.length > MAX_CHAT_AUDIOS) {
+          toastWarning(`Máximo ${MAX_CHAT_AUDIOS} audios por mensaje`);
+        }
+        return merged.slice(0, MAX_CHAT_AUDIOS);
+      });
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function onToggleVoiceRecord() {
+    if (!canSend || sending) return;
+    const recorder = voiceRecorderRef.current;
+    if (recorder.isActive()) {
+      setIsRecording(false);
+      try {
+        const entry = await recorder.stop();
+        if (!entry) {
+          toastWarning("La grabación quedó vacía");
+          return;
+        }
+        setAudios((prev) => {
+          const merged = [...prev, entry];
+          if (merged.length > MAX_CHAT_AUDIOS) {
+            toastWarning(`Máximo ${MAX_CHAT_AUDIOS} audios por mensaje`);
+          }
+          return merged.slice(0, MAX_CHAT_AUDIOS);
+        });
+      } catch (err) {
+        toastError(err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
+    if (!isVoiceRecordingSupported()) {
+      toastWarning("Tu navegador no admite grabación de voz");
+      return;
+    }
+    if (audios.length >= MAX_CHAT_AUDIOS) {
+      toastWarning(`Máximo ${MAX_CHAT_AUDIOS} audios por mensaje`);
+      return;
+    }
+    try {
+      await recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : "No se pudo acceder al micrófono");
+    }
+  }
+
+  function onAttachAudiosClick() {
+    audioInputRef.current?.click();
+  }
+
+  async function onAttachAudiosChange(e: FileInputChangeEvent) {
+    await appendAudiosFromFiles(e.target.files);
+    e.target.value = "";
   }
 
   async function onPaste(e: ClipboardPasteEvent) {
@@ -809,8 +935,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       prompt: draft,
       iconversacion: selectedId || undefined,
       imagenes: images.map((i) => i.dataUrl),
+      audios: audios.map((a) => a.dataUrl),
     }),
-    [draft, selectedId, images],
+    [draft, selectedId, images, audios],
   );
 
   const clearAuditFilter = useCallback(() => {
@@ -866,6 +993,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     sending,
     draft,
     images,
+    audios,
+    isRecording,
     logError,
     metaOpen,
     metaMsg,
@@ -884,6 +1013,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     threadScrollRef,
     inputRef,
     fileInputRef,
+    audioInputRef,
     postBodyPreview,
     auditCurrentScope,
     onThreadScroll,
@@ -902,10 +1032,14 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     onPaste,
     onAttachImagesClick,
     onAttachImagesChange,
+    onAttachAudiosClick,
+    onAttachAudiosChange,
+    onToggleVoiceRecord,
     onMeta,
     onRateMessage,
     onMessageSourceChange,
     setDraft,
     setImages,
+    setAudios,
   };
 }

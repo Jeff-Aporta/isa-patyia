@@ -9,27 +9,10 @@ export { PATYIA_PORTAL_ID };
 export const PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
 export const PATYIA_MCP_URL = "https://ia.contapyme.com/runtime/webhooks/mcp";
 
-export type PatyJwtClaims = {
-  itercero?: string;
-  icontacto?: string;
-  nombres?: string;
-  apellidos?: string;
-  controlkey?: string;
-  iapp?: number;
-  idmaquina?: string;
-};
+export type PatyJwtClaims = { itercero?: string; icontacto?: string; nombres?: string; apellidos?: string; controlkey?: string; iapp?: number; idmaquina?: string };
 
-export type PatyJwtRecord = {
-  token: string;
-  savedBy: string;
-  savedAt: string;
-  expiresAt?: string | null;
-  claims: PatyJwtClaims;
-  /** Dueño del token en BD_AUTH cuando un admin usa JWT ajeno. */
-  actingAsUsername?: string | null;
-  /** Nombre del contacto dueño (catálogo BD o claims) cuando actingAsUsername está activo. */
-  actingAsDisplayName?: string | null;
-};
+/** actingAsUsername: dueño del token en BD_AUTH (admin). actingAsDisplayName: nombre del contacto dueño. */
+export type PatyJwtRecord = { token: string; savedBy: string; savedAt: string; expiresAt?: string | null; claims: PatyJwtClaims; actingAsUsername?: string | null; actingAsDisplayName?: string | null };
 
 export function parseJwtExp(token: string): number | null {
   try {
@@ -55,15 +38,7 @@ export function parseJwtClaims(token: string): PatyJwtClaims | null {
     if (!part) return null;
     const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
     const raw = JSON.parse(json) as Record<string, unknown>;
-    return {
-      itercero: raw.itercero != null ? String(raw.itercero) : undefined,
-      icontacto: raw.icontacto != null ? String(raw.icontacto) : undefined,
-      nombres: raw.nombres != null ? String(raw.nombres) : undefined,
-      apellidos: raw.apellidos != null ? String(raw.apellidos) : undefined,
-      controlkey: raw.controlkey != null ? String(raw.controlkey) : undefined,
-      iapp: typeof raw.iapp === "number" ? raw.iapp : undefined,
-      idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : undefined,
-    };
+    return { itercero: raw.itercero != null ? String(raw.itercero) : undefined, icontacto: raw.icontacto != null ? String(raw.icontacto) : undefined, nombres: raw.nombres != null ? String(raw.nombres) : undefined, apellidos: raw.apellidos != null ? String(raw.apellidos) : undefined, controlkey: raw.controlkey != null ? String(raw.controlkey) : undefined, iapp: typeof raw.iapp === "number" ? raw.iapp : undefined, idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : undefined };
   } catch {
     return null;
   }
@@ -138,13 +113,7 @@ function buildPatyJwtRecord(token: string, savedBy: string, expiresAt?: string |
   const claims = parseJwtClaims(token);
   if (!claims?.itercero) throw new Error("Token JWT inválido o sin itercero");
   const exp = parseJwtExp(token);
-  return {
-    token: token.trim(),
-    savedBy: String(savedBy || "").trim().toUpperCase(),
-    savedAt: new Date().toISOString(),
-    expiresAt: expiresAt ?? (exp ? new Date(exp * 1000).toISOString() : null),
-    claims,
-  };
+  return { token: token.trim(), savedBy: String(savedBy || "").trim().toUpperCase(), savedAt: new Date().toISOString(), expiresAt: expiresAt ?? (exp ? new Date(exp * 1000).toISOString() : null), claims };
 }
 
 /** Guarda en caché local (sessionStorage). Preferir savePatyJwtAsync para persistir en BD. */
@@ -181,7 +150,10 @@ export async function hydratePatyJwtFromServer(username: string | null | undefin
   }
 
   const cached = loadPatyJwt();
-  if (cached && cached.savedBy?.toUpperCase() === u) return cached;
+  if (cached && cached.savedBy?.toUpperCase() === u) {
+    if (!isFaithfulImpersonation() || !cached.actingAsUsername) return cached;
+    clearPatyJwtLocal({ silent: true });
+  }
   if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
 
   try {
@@ -201,17 +173,25 @@ export function clearPatyJwt(): void {
   clearPatyJwtLocal();
 }
 
+export function isFaithfulImpersonation(): boolean {
+  return Boolean(Session.isViewingAs?.());
+}
+
 /** Solo interactúa quien tiene capacidad patyia.chat.interact y JWT propio o admin con JWT ajeno. */
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
   if (!Session.can("patyia.chat.interact")) return false;
+  if (isFaithfulImpersonation()) {
+    return jwt.savedBy?.toUpperCase() === u && !jwt.actingAsUsername;
+  }
   if (jwt.savedBy?.toUpperCase() === u) return true;
   if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
   return false;
 }
 
 export function canAdminPortalJwt(): boolean {
+  if (isFaithfulImpersonation()) return false;
   return Session.can("patyia.jwt.admin");
 }
 
@@ -230,11 +210,7 @@ function buildActingJwtRecord(
   const displayName = String(actingAsDisplayName ?? "").trim()
     || jwtDisplayNameFromClaims(rec.claims)
     || undefined;
-  return {
-    ...rec,
-    actingAsUsername: ownerUsername.trim().toUpperCase(),
-    actingAsDisplayName: displayName ?? null,
-  };
+  return { ...rec, actingAsUsername: ownerUsername.trim().toUpperCase(), actingAsDisplayName: displayName ?? null };
 }
 
 /** Admin: carga JWT portal de otro usuario ISA (sin guardarlo en su fila BD). */
@@ -243,6 +219,9 @@ export async function activatePortalJwtAsAdmin(
   sessionUser: string,
   displayName?: string | null,
 ): Promise<PatyJwtRecord> {
+  if (isFaithfulImpersonation()) {
+    throw new Error("No puedes usar JWT de otros usuarios mientras suplantas");
+  }
   const owner = String(ownerUsername || "").trim().toUpperCase();
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!owner || !u) throw new Error("Sesión y usuario dueño requeridos");
@@ -269,11 +248,7 @@ export function convBelongsToJwt(
 
 /** Alcance de navegación por tercero/contacto (auditoría de sesión). */
 
-export type BrowseScope = {
-  itercero: string;
-  icontacto: string;
-  nombre?: string | null;
-};
+export type BrowseScope = { itercero: string; icontacto: string; nombre?: string | null };
 
 export function findAuditRowForSessionUser(
   rows: TerceroAuditRow[],
@@ -283,11 +258,7 @@ export function findAuditRowForSessionUser(
 }
 
 export function auditRowToBrowseScope(row: TerceroAuditRow): BrowseScope {
-  return {
-    itercero: row.itercero,
-    icontacto: row.icontacto,
-    nombre: row.nombre ? shortDisplayName(row.nombre) : null,
-  };
+  return { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre ? shortDisplayName(row.nombre) : null };
 }
 
 export async function resolveSessionBrowseScope(

@@ -1,6 +1,6 @@
 import { getReact } from "../../core/platform.ts";
 import { Session, toastError, toastSuccess } from "../../core/platform.ts";
-import { mergePartial } from "../../core/urlState.ts";
+import { mergePartial, subscribe } from "../../core/urlState.ts";
 import {
   addTodoComment,
   createTodoBoard,
@@ -18,6 +18,7 @@ import {
   type TodoBoard,
   type TodoBoardFull,
   type TodoTask,
+  type BoardMember,
 } from "../../api/todosApi.ts";
 import {
   appendTaskToBoard,
@@ -26,6 +27,7 @@ import {
   replaceTaskInBoard,
 } from "./todosBoardState.js";
 import { sortBoardsByRecent } from "./boardsHomeState.js";
+import { normalizeTodoBoardData } from "./todosKanbanShared.js";
 
 const { useState, useEffect, useCallback, useRef } = getReact();
 
@@ -60,10 +62,15 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     return () => window.removeEventListener(Session.EVENT, onAuth);
   }, []);
 
-  useEffect(() => {
-    if (!loggedIn) return;
-    if (bootTodos?.boardId && !boardId) setBoardId(String(bootTodos.boardId));
-  }, [loggedIn, bootTodos?.boardId, boardId]);
+  /** URL ?s=.todos.boardId es la fuente de verdad (F5, atrás del navegador, goHome). */
+  useEffect(() => subscribe((snap) => {
+    const urlBoardId = String((snap.todos as Record<string, unknown> | undefined)?.boardId ?? "").trim();
+    setBoardId((prev) => (prev === urlBoardId ? prev : urlBoardId));
+    if (!urlBoardId) {
+      setBoardData(null);
+      setSelectedTask(null);
+    }
+  }), []);
 
   const loadBoardPreviews = useCallback(async (list: TodoBoard[]) => {
     if (!list.length) {
@@ -78,7 +85,7 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
             const data = await fetchTodoBoard(board.id);
             return [
               board.id,
-              { board: data.board, columns: data.columns, tasks: data.tasks },
+              normalizeTodoBoardData({ board: data.board, columns: data.columns, tasks: data.tasks }),
             ] as const;
           } catch {
             return [board.id, null] as const;
@@ -112,7 +119,7 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     if (!opts?.silent) setError("");
     try {
       const data = await fetchTodoBoard(id);
-      setBoardData({ board: data.board, columns: data.columns, tasks: data.tasks });
+      setBoardData(normalizeTodoBoardData({ board: data.board, columns: data.columns, tasks: data.tasks }));
     } catch (e) {
       if (!opts?.silent) {
         setError(e instanceof Error ? e.message : String(e));
@@ -175,15 +182,19 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
       if (!prev[boardIdToUpdate]) return prev;
       return {
         ...prev,
-        [boardIdToUpdate]: {
+        [boardIdToUpdate]: normalizeTodoBoardData({
           board: data.board,
           columns: data.columns,
           tasks: data.tasks,
-        },
+        }),
       };
     });
     if (boardId === boardIdToUpdate) {
-      setBoardData({ board: data.board, columns: data.columns, tasks: data.tasks });
+      setBoardData(normalizeTodoBoardData({
+        board: data.board,
+        columns: data.columns,
+        tasks: data.tasks,
+      }));
     }
     toastSuccess("Tablero actualizado");
   }
@@ -244,8 +255,12 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     setTaskLoading(!cached);
     if (!boardDataRef.current || boardDataRef.current.board?.id !== boardId) {
       try {
-        const data = preview ?? await fetchTodoBoard(boardId);
-        setBoardData(data);
+        const raw = preview ?? await fetchTodoBoard(boardId);
+        setBoardData(normalizeTodoBoardData({
+          board: raw.board,
+          columns: raw.columns,
+          tasks: raw.tasks,
+        }));
       } catch {
         /* permisos de edición pueden quedar limitados */
       }
@@ -419,6 +434,10 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     void moveTask(taskId, columnId);
   }
 
+  function syncBoardMembers(members: BoardMember[]) {
+    setBoardData((prev) => (prev ? { ...prev, members } : prev));
+  }
+
   const canEdit =
     !!boardData?.board &&
     (boardData.board.canEdit ?? (boardData.board.isAdmin || boardData.board.myRole === "editor"));
@@ -463,5 +482,6 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     onDragStart,
     onDropColumn,
     reload: () => boardId && loadBoard(boardId),
+    syncBoardMembers,
   };
 }

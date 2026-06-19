@@ -78,6 +78,14 @@ export function canViewAsUser(): boolean {
   return Session.can("session.view_as");
 }
 
+/** Autor de auditoría: `REAL -> SUPLANTADO` si hay suplantación activa. */
+export function auditAuthor(): string {
+  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
+  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
+  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
+  return real || viewAs || "";
+}
+
 export function humanPermissionError(err: unknown, cap: string) {
   return window.ISAFront.humanPermissionError(err, cap, blockReason);
 }

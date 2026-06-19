@@ -5,7 +5,7 @@ import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
-import { tokensFromUsage, attachUsageStats, threadHasUsageStats, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
+import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
 
@@ -56,7 +56,7 @@ const ROLE_META = {
 
 const ROLE_META_CHAT = {
   ...ROLE_META,
-  operativa: { icon: "mdi:cog-sync-outline", title: "Operativa", accent: "#64748b" },
+  operativa: { icon: "mdi:cog-sync-outline", title: "Operativa", accent: "#f59e0b" },
 };
 
 function roleMetaFor(msg, compactMeta) {
@@ -84,63 +84,90 @@ function roleTitle(msg, chatUserName) {
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, fecha, streaming = false, footerExtra = null }) {
+function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, streaming = false, footerExtra = null, compact = false }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
   const isRight = align === "right";
+  const softMuted = muted && !operativa;
+  const fullNeon = !compact;
 
   return (
     <Paper
       id={id}
-      className={`conv-msg-card${streaming ? " conv-msg-card--streaming" : ""}`}
+      className={[
+        "conv-msg-card",
+        streaming ? "conv-msg-card--streaming" : "",
+        compact ? "conv-msg-card--compact" : "conv-msg-card--full",
+        operativa ? "conv-msg-card--operativa" : "conv-msg-card--neon",
+      ].filter(Boolean).join(" ")}
       elevation={0}
       sx={{
-        borderRadius: "0.5rem",
+        borderRadius: fullNeon ? "0.75rem" : "0.5rem",
         overflow: "hidden",
         border: 1,
-        borderColor: muted ? "action.disabled" : "divider",
-        bgcolor: muted ? "action.hover" : "background.paper",
-        boxShadow: muted
+        borderColor: softMuted ? "action.disabled" : `${color}40`,
+        bgcolor: softMuted ? "action.hover" : "background.paper",
+        boxShadow: softMuted
           ? "none"
-          : (t) =>
-            t.palette.mode === "dark"
-              ? "0 4px 24px rgba(0,0,0,0.25)"
-              : "0 8px 32px rgba(15,23,42,0.07)",
+          : fullNeon
+            ? (t) => (t.palette.mode === "dark"
+              ? `0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px ${color}28`
+              : `0 8px 32px rgba(15, 23, 42, 0.08), 0 0 0 1px ${color}20`)
+            : operativa
+              ? `0 4px 20px ${color}18`
+              : (t) => (t.palette.mode === "dark"
+                ? `0 4px 24px rgba(0, 0, 0, 0.22), 0 0 0 1px ${color}22`
+                : `0 8px 28px rgba(15, 23, 42, 0.07), 0 0 0 1px ${color}1a`),
         scrollMarginTop: 12,
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
-        "&:hover": muted ? {} : {
-          transform: { sm: "translateY(-2px)" },
-          boxShadow: (t) =>
-            t.palette.mode === "dark"
-              ? "0 8px 32px rgba(0,0,0,0.35)"
-              : "0 16px 48px rgba(15,23,42,0.1)",
-        },
+        width: fullNeon ? "fit-content" : "100%",
+        maxWidth: "100%",
+        transition: fullNeon ? "transform 0.2s ease, box-shadow 0.2s ease" : "none",
+        ...(fullNeon && !softMuted ? {
+          "&:hover": {
+            transform: { sm: "translateY(-2px)" },
+            boxShadow: (t) => (t.palette.mode === "dark"
+              ? `0 8px 32px rgba(0, 0, 0, 0.35), 0 0 24px ${color}22`
+              : `0 16px 48px rgba(15, 23, 42, 0.1), 0 0 20px ${color}18`),
+          },
+        } : {}),
       }}
     >
       <Box
+        className="conv-msg-card__header"
         sx={{
-          px: { xs: 2, sm: 2.5 },
-          py: 1.5,
+          px: compact ? { xs: 1.25, sm: 1.5 } : { xs: 2, sm: 2.5 },
+          py: compact ? 1 : 1.5,
           borderBottom: 1,
           borderColor: "divider",
-          background: (t) => {
-            if (muted) {
-              return t.palette.mode === "dark"
-                ? "linear-gradient(90deg, rgba(100,116,139,0.12), transparent 70%)"
-                : "linear-gradient(90deg, rgba(100,116,139,0.08), transparent 70%)";
+          ...(fullNeon
+            ? {
+              background: (t) => (t.palette.mode === "dark"
+                ? (isRight
+                  ? `linear-gradient(270deg, ${color}28, transparent 72%)`
+                  : `linear-gradient(90deg, ${color}28, transparent 72%)`)
+                : (isRight
+                  ? `linear-gradient(270deg, ${color}1a, transparent 72%)`
+                  : `linear-gradient(90deg, ${color}1a, transparent 72%)`)),
+              ...(isRight
+                ? { borderRight: 4, borderRightColor: color }
+                : { borderLeft: 4, borderLeftColor: color }),
             }
-            return t.palette.mode === "dark"
-              ? isRight
-                ? `linear-gradient(270deg, ${color}22, transparent 70%)`
-                : `linear-gradient(90deg, ${color}22, transparent 70%)`
-              : isRight
-                ? `linear-gradient(270deg, ${color}14, transparent 70%)`
-                : `linear-gradient(90deg, ${color}14, transparent 70%)`;
-          },
-          ...(isRight
-            ? { borderRight: 4, borderRightColor: color }
-            : { borderLeft: 4, borderLeftColor: color }),
+            : operativa
+              ? {
+                background: (t) => (t.palette.mode === "dark"
+                  ? `linear-gradient(90deg, ${color}30, transparent 72%)`
+                  : `linear-gradient(90deg, ${color}22, transparent 72%)`),
+              }
+              : {
+                background: (t) => (t.palette.mode === "dark"
+                  ? (isRight
+                    ? `linear-gradient(270deg, ${color}24, transparent 72%)`
+                    : `linear-gradient(90deg, ${color}24, transparent 72%)`)
+                  : (isRight
+                    ? `linear-gradient(270deg, ${color}18, transparent 72%)`
+                    : `linear-gradient(90deg, ${color}18, transparent 72%)`)),
+              }),
         }}
       >
         <Stack
@@ -158,18 +185,21 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
             sx={{ flex: 1, minWidth: 0, flexDirection: isRight ? "row-reverse" : "row" }}
           >
             <Box
+              className="conv-msg-card__icon"
               sx={{
-                width: 32,
-                height: 32,
-                borderRadius: "0.5rem",
+                width: compact ? 28 : 32,
+                height: compact ? 28 : 32,
+                borderRadius: fullNeon ? "0.5rem" : "0.375rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                background: muted
-                  ? `linear-gradient(135deg, ${color}88, ${color}55)`
-                  : `linear-gradient(135deg, ${color}, ${color}99)`,
+                background: operativa || !softMuted
+                  ? `linear-gradient(135deg, ${color}, ${color}99)`
+                  : `${color}88`,
                 color: "#fff",
-                boxShadow: muted ? "none" : `0 4px 12px ${color}44`,
+                boxShadow: fullNeon
+                  ? `0 4px 16px ${color}55`
+                  : operativa || !softMuted ? `0 4px 14px ${color}44` : "none",
                 flexShrink: 0,
                 mt: 0.1,
               }}
@@ -185,11 +215,14 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
               }}
             >
               <Typography
-                variant="subtitle1"
+                variant={compact ? "body2" : "subtitle1"}
                 sx={{
                   fontWeight: 700,
                   letterSpacing: -0.2,
-                  lineHeight: 1.2,
+                  lineHeight: 1.25,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                   ...(isRight ? { pr: 0.5 } : {}),
                 }}
               >
@@ -211,7 +244,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
           </Box>
         ) : null}
       </Box>
-      <Box sx={{ p: { xs: 2, sm: 2.5 } }}>{children}</Box>
+      <Box sx={{ p: compact ? { xs: 1.25, sm: 1.5 } : { xs: 2, sm: 2.5 } }}>{children}</Box>
       {(fecha || footerExtra) ? (
         <Box
           className="conv-msg-card__footer"
@@ -220,7 +253,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
             py: 0.65,
             borderTop: 1,
             borderColor: "divider",
-            bgcolor: muted ? "action.hover" : "transparent",
+            bgcolor: softMuted ? "action.hover" : "transparent",
           }}
         >
           <Stack
@@ -411,14 +444,15 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
   );
 }
 
-function MsgBody({ text, imagenes, align = "left", onImageClick, streaming = false }) {
+function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false }) {
   const { Typography, Box } = getMaterialUI();
   const raw = String(text || "");
-  const hasText = Boolean(raw.trim());
+  const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
+  const hasText = Boolean(raw.trim()) && !placeholderOnly;
   const html = mdToHtml(raw);
   return (
     <>
-      {streaming && !hasText ? (
+      {streaming && !hasText && !audios?.length ? (
         <Box className="conv-stream-typing" aria-label="PatyIA está escribiendo" role="status">
           <span /><span /><span />
         </Box>
@@ -452,7 +486,39 @@ function MsgBody({ text, imagenes, align = "left", onImageClick, streaming = fal
       {imagenes?.length > 0 && (
         <ConvMsgImages items={imagenes} align={align} onImageClick={onImageClick} />
       )}
+      {audios?.length > 0 && (
+        <ConvMsgAudios items={audios} transcriptions={audiosTranscripcion} align={align} />
+      )}
     </>
+  );
+}
+
+function ConvMsgAudios({ items, transcriptions, align = "right" }) {
+  const { Box, Typography } = getMaterialUI();
+  const renderable = (items || []).filter((src) => String(src || "").trim().startsWith("data:audio/") || /^https?:\/\//i.test(String(src || "").trim()));
+  if (!renderable.length) return null;
+  return (
+    <Box
+      className={`conv-msg-audios conv-msg-audios--${align}`}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        mt: 1.25,
+        alignItems: align === "right" ? "flex-end" : "flex-start",
+      }}
+    >
+      {renderable.map((src, idx) => (
+        <Box key={`${idx}-${String(src).slice(0, 32)}`} className="conv-msg-audio-item">
+          <audio controls preload="metadata" src={src} aria-label={`Nota de voz ${idx + 1}`} />
+          {transcriptions?.[idx] ? (
+            <Typography variant="caption" component="p" className="conv-msg-audio-transcript" sx={{ mt: 0.5, opacity: 0.85 }}>
+              {transcriptions[idx]}
+            </Typography>
+          ) : null}
+        </Box>
+      ))}
+    </Box>
   );
 }
 
@@ -490,14 +556,15 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
   );
 }
 
-function UsageSummaryChip({ label, className, title, tag }) {
-  const tone = className?.includes("--vision") ? "vision"
-    : className?.includes("--model") ? "model"
-    : className?.includes("--latency") ? "latency"
-      : className?.includes("--usd") ? "usd"
-        : className?.includes("--tokens") ? "tokens"
-          : "metric";
-  return <MetaBadge tag={tag} label={label} tone={tone} title={title} />;
+function UsageSummaryChip({ label, className = "", title, tag }) {
+  return (
+    <span className={className || "conv-msg-usage-chip"} title={title || label}>
+      <span className="conv-msg-usage-chip__inner">
+        {tag ? <span className="conv-msg-usage-chip__key">{tag}</span> : null}
+        <span className="conv-msg-usage-chip__val">{label}</span>
+      </span>
+    </span>
+  );
 }
 
 function UsageBreakdownTable({ parts }) {
@@ -667,24 +734,35 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
 function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   const { Box } = getMaterialUI();
   const [open, setOpen] = useState(false);
-  if (!stats) return null;
-
-  const msgSummary = formatUsageSummary(stats.tokens, stats.cost);
-  const prevSummary = formatUsageSummary(stats.previousTokens, stats.previousCost);
-  const showPrev = usageHasData(stats.previousTokens, stats.previousCost);
 
   const modelRaw = String(meta?.model ?? "").trim();
   const modelLabel = modelRaw ? modelBadgeLabel(modelRaw) : "";
   const latencyLabel = formatLatencySeconds(meta?.latency_ms);
   const autoswitchBadge = visionAutoswitchBadge(meta);
-  const showMetaBadges = Boolean(modelLabel || latencyLabel || autoswitchBadge);
+  const metaTk = meta?.tokens?.total ? meta.tokens : tokensFromUsage(meta?.usage);
+  const metaTokTotal = Number(metaTk?.total ?? 0) || 0;
+  const metaTokLabel = metaTokTotal > 0 ? metaTokTotal.toLocaleString("es-CO") : "";
+  const showMetaBadges = Boolean(modelLabel || latencyLabel || autoswitchBadge || metaTokLabel);
 
-  const groups = [
-    { key: "msg", label: "Mensaje", summary: msgSummary },
-    ...(showPrev ? [{ key: "prev", label: "Acumulado", summary: prevSummary }] : []),
-  ];
+  const hasUsage = Boolean(
+    stats
+    && (usageHasData(stats.tokens, stats.cost) || usageHasData(stats.previousTokens, stats.previousCost)),
+  );
+  if (!showMetaBadges && !hasUsage) return null;
+
+  const msgSummary = hasUsage ? formatUsageSummary(stats.tokens, stats.cost) : null;
+  const prevSummary = hasUsage ? formatUsageSummary(stats.previousTokens, stats.previousCost) : null;
+  const showPrev = hasUsage && usageHasData(stats.previousTokens, stats.previousCost);
+
+  const groups = hasUsage
+    ? [
+      { key: "msg", label: "Mensaje", summary: msgSummary },
+      ...(showPrev ? [{ key: "prev", label: "Acumulado", summary: prevSummary }] : []),
+    ]
+    : [];
 
   const openDialog = (e) => {
+    if (!hasUsage) return;
     e?.stopPropagation?.();
     setOpen(true);
   };
@@ -692,22 +770,27 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   return (
     <>
       <Box
-        className={`conv-msg-usage-stats conv-msg-usage-stats--${align} conv-msg-usage-stats--clickable`}
-        role="button"
-        tabIndex={0}
-        title="Clic para ver desglose completo"
-        aria-label="Ver detalle de uso: costo USD y tokens"
-        onClick={openDialog}
-        onKeyDown={(e) => {
+        className={[
+          "conv-msg-usage-stats",
+          `conv-msg-usage-stats--${align}`,
+          hasUsage ? "conv-msg-usage-stats--clickable" : "",
+        ].filter(Boolean).join(" ")}
+        role={hasUsage ? "button" : undefined}
+        tabIndex={hasUsage ? 0 : undefined}
+        title={hasUsage ? "Clic para ver desglose completo" : undefined}
+        aria-label={hasUsage ? "Ver detalle de uso: costo USD y tokens" : undefined}
+        onClick={hasUsage ? openDialog : undefined}
+        onKeyDown={hasUsage ? (e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             e.stopPropagation();
             openDialog();
           }
-        }}
+        } : undefined}
         sx={{
           flexShrink: 0,
-          maxWidth: { xs: "min(100%, 16rem)", sm: "18rem" },
+          width: "fit-content",
+          maxWidth: { xs: "min(100%, 18rem)", sm: groups.length > 1 ? "22rem" : "18rem" },
           pt: 0.25,
           alignSelf: "flex-start",
         }}
@@ -716,7 +799,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
           <Box className={`conv-msg-usage-stats__meta conv-msg-usage-stats__meta--${align}`}>
             {modelLabel ? (
               <UsageSummaryChip
-                tag="Modelo"
+                tag="MODELO"
                 label={modelLabel}
                 className="conv-msg-usage-chip conv-msg-usage-chip--model"
                 title={meta?.modelo_autoswitch_vision
@@ -736,38 +819,57 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
             ) : null}
             {latencyLabel ? (
               <UsageSummaryChip
-                tag="Lat"
+                tag="LAT"
                 label={latencyLabel}
                 className="conv-msg-usage-chip conv-msg-usage-chip--latency"
                 title="Tiempo de respuesta"
               />
             ) : null}
+            {metaTokLabel && !hasUsage ? (
+              <UsageSummaryChip
+                tag="TOK"
+                label={metaTokLabel}
+                className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
+                title={`Tokens: ${metaTokLabel}`}
+              />
+            ) : null}
           </Box>
         ) : null}
-        {groups.map((group) => (
-          <Box key={group.key} className="conv-msg-usage-stats__group">
-            <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
-              {group.key === "prev" ? "Acum." : "Msg"}
-            </span>
-            <Box className="conv-msg-usage-stats__values">
-              <UsageSummaryChip
-                tag="USD"
-                label={group.summary.usdText}
-                className="conv-msg-usage-chip conv-msg-usage-chip--usd"
-                title="Costo USD"
-              />
-              <UsageSummaryChip
-                tag="Tok"
-                label={group.summary.tokensText}
-                className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
-                title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
-              />
-            </Box>
+        {groups.length > 0 ? (
+          <Box className={`conv-msg-usage-stats__groups conv-msg-usage-stats__groups--${align}`}>
+            {groups.map((group) => (
+              <Box key={group.key} className={`conv-msg-usage-stats__group conv-msg-usage-stats__group--${group.key}`}>
+                {align === "left" ? (
+                  <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
+                    {group.key === "prev" ? "Acum." : "Msg"}
+                  </span>
+                ) : null}
+                <Box className="conv-msg-usage-stats__values">
+                  <UsageSummaryChip
+                    tag="USD"
+                    label={group.summary.usdText}
+                    className="conv-msg-usage-chip conv-msg-usage-chip--usd"
+                    title="Costo USD"
+                  />
+                  <UsageSummaryChip
+                    tag="TOK"
+                    label={group.summary.tokensText}
+                    className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
+                    title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
+                  />
+                </Box>
+                {align === "right" ? (
+                  <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
+                    {group.key === "prev" ? "Acum." : "Msg"}
+                  </span>
+                ) : null}
+              </Box>
+            ))}
           </Box>
-        ))}
+        ) : null}
       </Box>
       <UsageStatsDialog
-        open={open}
+        open={open && hasUsage}
         onClose={() => setOpen(false)}
         stats={stats}
         msgLabel={msgLabel}
@@ -852,7 +954,7 @@ function resolveMsgImensaje(msg) {
 const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
   const { Alert, Box } = getMaterialUI();
   const meta = roleMetaFor(msg, compactMeta);
-  const title = roleTitle(msg, compactMeta ? chatUserName : undefined);
+  const title = roleTitle(msg, chatUserName);
   const fecha = msg.fecha ? String(msg.fecha) : "";
   const isUser = msg.esUsuario;
   const isOperativa = msg.esOperativa;
@@ -877,39 +979,61 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
       onRate={(butil) => onRateMessage({ ...msg, imensaje: msgImensaje }, butil)}
     />
   ) : null;
-  const showMetricsColumn = Boolean(showUsageStats && msg.usageStats);
+  const showMetricsColumn = Boolean(showUsageStats && sideLogPanelWorthShowing(msg));
   const showSideColumn = Boolean(showMetricsColumn || ratingRow);
-
-  const logsDetail = !compactMeta && showUsageStats;
-  const hideUsageInChips = Boolean(showUsageStats && msg.usageStats);
-  const operativaClass = isOperativa
-    ? `conv-msg--operativa${operativaEnter ? " conv-msg--operativa-enter" : ""}${logsDetail ? " conv-msg--operativa-logs" : ""}`
+  const hideUsageInChips = showMetricsColumn;
+  const fullLayout = !compactMeta;
+  const rowMaxWidth = showMetricsColumn
+    ? "100%"
+    : fullLayout
+      ? (isOperativa ? "min(96%, 52rem)" : isUser ? "min(96%, 44rem)" : "min(96%, 48rem)")
+      : isOperativa
+        ? "92%"
+        : "min(96%, 42rem)";
+  const cardMaxWidth = showMetricsColumn
+    ? (isOperativa ? "72%" : { xs: "100%", sm: "min(48rem, calc(100% - 11.5rem))" })
+    : "100%";
+  const roleClass = isOperativa
+    ? `conv-msg--operativa${operativaEnter ? " conv-msg--operativa-enter" : ""}`
     : "";
 
   return (
-    <Box
-      className={[logsDetail ? "conv-msg--logs-detail" : "", operativaClass].filter(Boolean).join(" ") || undefined}
-      sx={{
-        display: "flex",
-        justifyContent: isUser ? "flex-end" : "flex-start",
-        width: "100%",
-        mb: isOperativa ? (compactMeta ? 1 : 1.75) : logsDetail ? 2 : 2.5,
-      }}
-    >
-      <Box sx={{
-        display: "flex",
-        flexDirection: isUser ? "row-reverse" : "row",
-        alignItems: showSideColumn && ratingRow ? "stretch" : "flex-start",
-        gap: { xs: 1, sm: 1.25 },
-        maxWidth: isOperativa ? (compactMeta ? "88%" : "95%") : "95%",
-        minWidth: 0,
-        opacity: 1,
-      }}>
-        <Box sx={{
-          flex: 1,
+      <Box
+        className={[compactMeta ? "conv-msg--compact" : "", roleClass].filter(Boolean).join(" ") || undefined}
+        sx={{
+          display: "flex",
+          justifyContent: isUser ? "flex-end" : "flex-start",
+          width: "100%",
+          mb: isOperativa ? (compactMeta ? 1 : 1.75) : compactMeta ? 2.5 : 2,
+        }}
+      >
+      <Box
+        className={[
+          "conv-msg-row",
+          compactMeta ? "conv-msg-row--compact" : "",
+          showMetricsColumn ? "conv-msg-row--logs" : "",
+          isUser ? "conv-msg-row--user" : "conv-msg-row--assistant",
+        ].filter(Boolean).join(" ")}
+        sx={{
+          display: "flex",
+          flexDirection: isUser ? "row-reverse" : "row",
+          alignItems: showSideColumn ? "flex-start" : "flex-start",
+          gap: { xs: 0.75, sm: 1.25 },
+          width: showMetricsColumn ? "100%" : "fit-content",
+          maxWidth: showMetricsColumn ? "100%" : rowMaxWidth,
           minWidth: 0,
-          maxWidth: isOperativa && compactMeta ? "78%" : "100%",
-        }}>
+          opacity: 1,
+        }}
+      >
+        <Box
+          className="conv-msg-card-wrap"
+          sx={{
+            flex: "0 1 auto",
+            width: "fit-content",
+            maxWidth: cardMaxWidth,
+            minWidth: 0,
+          }}
+        >
           <SectionCard
             id={`conv-msg-${msg.idMsg}`}
             icon={meta.icon}
@@ -917,22 +1041,25 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             fecha={fecha || undefined}
             accent={meta.accent}
             align={isUser ? "right" : "left"}
-            muted={isOperativa && compactMeta}
+            operativa={isOperativa}
+            compact={compactMeta}
             streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
-            metaChips={compactMeta ? null : (
+            metaChips={!compactMeta && onMeta ? (
               <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips} align={isUser ? "right" : "left"} />
-            )}
+            ) : null}
           >
             {msg.streamFailed && msg.streamError && (
               <Alert severity="warning" sx={{ mb: 1.5, py: 0.25, fontSize: "0.78rem" }}>
                 {msg.streamError}
               </Alert>
             )}
-            {(msg.contenido?.trim() || msg.imagenes?.length || isStreaming) ? (
+            {(msg.contenido?.trim() || msg.imagenes?.length || msg.audios?.length || isStreaming) ? (
             <MsgBody
               text={msg.contenido}
               imagenes={msg.imagenes}
+              audios={msg.audios}
+              audiosTranscripcion={msg.audiosTranscripcion}
               align={isUser ? "right" : "left"}
               onImageClick={onImageClick}
               streaming={isStreaming}

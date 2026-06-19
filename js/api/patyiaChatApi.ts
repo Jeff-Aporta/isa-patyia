@@ -123,6 +123,7 @@ export type SendMessageInput = {
   prompt: string;
   iconversacion?: number;
   imagenes?: string[];
+  audios?: string[];
 };
 
 /** Normaliza a data URL base64 (formato esperado por POST /conversacion). */
@@ -142,11 +143,17 @@ export function buildConversacionPostBody(input: SendMessageInput): Record<strin
   const imagenes = (input.imagenes || [])
     .map(ensureBase64DataUrl)
     .filter(Boolean);
+  const audios = (input.audios || []).filter(Boolean);
+  const hasMedia = imagenes.length > 0 || audios.length > 0;
   const body: Record<string, unknown> = {
-    prompt: text || (imagenes.length ? "(imagen adjunta)" : ""),
+    prompt: text || (imagenes.length ? "(imagen adjunta)" : audios.length ? "(nota de voz)" : ""),
   };
   if (input.iconversacion) body.iconversacion = input.iconversacion;
   if (imagenes.length) body.imagenes = imagenes;
+  if (audios.length) body.audios = audios;
+  if (!String(body.prompt || "").trim() && hasMedia) {
+    body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
+  }
   return body;
 }
 
@@ -162,6 +169,14 @@ export function formatConversacionPostBodyPreview(
       if (s.length <= maxB64 + 24) return s;
       const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
       return `${s.slice(0, maxB64)}… [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, img ${i + 1}]`;
+    });
+  }
+  if (Array.isArray(clone.audios)) {
+    clone.audios = clone.audios.map((aud, i) => {
+      const s = String(aud ?? "");
+      if (s.length <= maxB64 + 24) return s;
+      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
+      return `${s.slice(0, maxB64)}… [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, audio ${i + 1}]`;
     });
   }
   return JSON.stringify(clone, null, 2);

@@ -31,6 +31,8 @@ export type ChatMensajeVista = {
   meta?: ChatMensajeMeta;
   nombreUsuario?: string;
   imagenes?: string[];
+  audios?: string[];
+  audiosTranscripcion?: string[];
   imensaje?: number;
   calificacion?: number;
   isStreaming?: boolean;
@@ -46,6 +48,11 @@ export type ConvLogSnapshot = {
 };
 
 export type ChatImageEntry = {
+  name: string;
+  dataUrl: string;
+};
+
+export type ChatAudioEntry = {
   name: string;
   dataUrl: string;
 };

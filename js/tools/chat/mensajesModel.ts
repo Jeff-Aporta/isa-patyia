@@ -422,22 +422,26 @@ export function appendStreamMsg(
 export function buildOptimisticUserMsg({
   text,
   imagenes,
+  audios,
   userName,
 }: {
   text?: string;
   imagenes?: string[];
+  audios?: string[];
   userName?: string;
 }): ChatMensajeVista {
   const imgs = (imagenes || []).filter(Boolean);
+  const audioUrls = (audios || []).filter(Boolean);
   return {
     idMsg: `pending-user-${Date.now()}`,
     rol: "user",
-    contenido: text || (imgs.length ? "(imagen adjunta)" : ""),
+    contenido: text || (imgs.length ? "(imagen adjunta)" : audioUrls.length ? "(nota de voz)" : ""),
     fecha: formatTs(new Date()),
     esUsuario: true,
     esOperativa: false,
     meta: userName ? { nombre_usuario: userName } : null,
     nombreUsuario: userName || undefined,
     imagenes: imgs.length ? imgs : undefined,
+    audios: audioUrls.length ? audioUrls : undefined,
   };
 }

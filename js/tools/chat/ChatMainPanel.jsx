@@ -1,15 +1,15 @@
 import { getMaterialUI, UI } from "../../core/platform.ts";
-import { ConvLogWebView } from "../../ui/ConvLogWebView.jsx";
 import { convLogSurfaceSx } from "../../core/convLog.ts";
+import { ConvLogThread } from "../../ui/ConvLogThread.jsx";
 import { ButtonIconify } from "../../ui/shared.jsx";
 import { ChatComposer } from "./ChatComposer.jsx";
 
 const {
-  Box, Typography, Button, IconButton, CircularProgress, Tooltip, Alert, Stack,
+  Box, Typography, Button, IconButton, Tooltip, Alert, Stack,
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, payloadPreviewOpen, postBodyPreview, inputRef, fileInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachImagesClick, onAttachImagesChange, onRemoveImage, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
+export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, fileInputRef, audioInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachImagesClick, onAttachImagesChange, onAttachAudiosClick, onAttachAudiosChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
   const isProdView = messageSource === "prod";
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -18,9 +18,11 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           direction="row"
           spacing={1}
           alignItems="center"
+          className="paty-chat-main-toolbar"
           sx={{
             px: 1,
             py: 0.5,
+            minHeight: 40,
             borderBottom: 1,
             borderColor: "divider",
             flexShrink: 0,
@@ -32,9 +34,43 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
               <Icon icon="mdi:menu-open" size={20} />
             </IconButton>
           </Tooltip>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
             Conversaciones
           </Typography>
+          {(selectedId || detail) ? (
+            <Tooltip title="Actualizar conversación" arrow>
+              <span>
+                <ButtonIconify
+                  icon="mdi:refresh"
+                  title="Actualizar"
+                  onClick={onRefreshConv}
+                  disabled={loadingThread}
+                  busy={loadingThread}
+                />
+              </span>
+            </Tooltip>
+          ) : null}
+        </Stack>
+      ) : (selectedId || detail) ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          className="paty-chat-main-toolbar paty-chat-main-toolbar--desktop"
+          sx={{ px: 2, py: 0.75, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
+        >
+          <Box sx={{ flex: 1 }} />
+          <Tooltip title="Actualizar conversación" arrow>
+            <span>
+              <ButtonIconify
+                icon="mdi:refresh"
+                title="Actualizar"
+                onClick={onRefreshConv}
+                disabled={loadingThread}
+                busy={loadingThread}
+              />
+            </span>
+          </Tooltip>
         </Stack>
       ) : null}
       {needsJwt && (
@@ -68,30 +104,9 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           Viendo conversaciones de otro usuario — lectura.
         </Alert>
       )}
-      {(selectedId || detail) && (
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{ px: 2, py: 0.75, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
-        >
-          <Box sx={{ flex: 1 }} />
-          <Tooltip title="Actualizar conversación" arrow>
-            <span>
-              <ButtonIconify
-                icon="mdi:refresh"
-                title="Actualizar"
-                onClick={onRefreshConv}
-                disabled={loadingThread}
-                busy={loadingThread}
-              />
-            </span>
-          </Tooltip>
-        </Stack>
-      )}
 
       {!showThread ? (
-        <Box sx={convLogSurfaceSx({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0 })}>
+        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...convLogSurfaceSx({ flex: 1 }) }}>
           <Box sx={{ textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }}>
             <Typography variant="body1">
               {canSend
@@ -103,36 +118,25 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           </Box>
         </Box>
       ) : (
-        <Box
-          ref={threadScrollRef}
+        <ConvLogThread
+          scrollRef={threadScrollRef}
           onScroll={onThreadScroll}
-          sx={{ ...convLogSurfaceSx(), flex: 1, minHeight: 0 }}
-        >
-          {loadingThread && !sending && !displayMensajes.length && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress size={28} />
-            </Box>
-          )}
-          {logError && (
-            <Alert severity="warning" sx={{ mb: 2 }}>{logError}</Alert>
-          )}
-          {displayMensajes.length > 0 && (
-            <ConvLogWebView
-              mensajes={displayMensajes}
-              onMeta={isProdView ? undefined : onMeta}
-              compactMeta={isProdView}
-              showUsageStats={!isProdView}
-              threadClassName={isProdView ? "" : "paty-chat-log-thread"}
-              chatUserName={chatUserName}
-              streamingMsgId={sending ? "stream-live" : null}
-              emptyHint="Sin mensajes en esta conversación."
-              canRate={canSend && Boolean(jwt?.token)}
-              onRateMessage={onRateMessage}
-              ratingMsgId={ratingMsgId}
-              threadKey={selectedId ?? "draft"}
-            />
-          )}
-        </Box>
+          mensajes={displayMensajes}
+          onMeta={isProdView ? undefined : onMeta}
+          compactMeta={false}
+          showUsageStats={!isProdView}
+          chatUserName={chatUserName}
+          surfaceClassName="paty-chat-thread-surface"
+          streamingMsgId={sending ? "stream-live" : null}
+          emptyHint="Sin mensajes en esta conversación."
+          canRate={canSend && Boolean(jwt?.token)}
+          onRateMessage={onRateMessage}
+          ratingMsgId={ratingMsgId}
+          threadKey={selectedId ?? "draft"}
+          loading={loadingThread}
+          loadingOnlyWhenEmpty={!sending}
+          error={logError}
+        />
       )}
 
       <ChatComposer
@@ -140,17 +144,24 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
         sending={sending}
         draft={draft}
         images={images}
+        audios={audios}
+        isRecording={isRecording}
         payloadPreviewOpen={payloadPreviewOpen}
         postBodyPreview={postBodyPreview}
         inputRef={inputRef}
         fileInputRef={fileInputRef}
+        audioInputRef={audioInputRef}
         onDraftChange={onDraftChange}
         onPaste={onPaste}
         onSend={onSend}
         onTogglePayloadPreview={onTogglePayloadPreview}
         onAttachImagesClick={onAttachImagesClick}
         onAttachImagesChange={onAttachImagesChange}
+        onAttachAudiosClick={onAttachAudiosClick}
+        onAttachAudiosChange={onAttachAudiosChange}
+        onToggleVoiceRecord={onToggleVoiceRecord}
         onRemoveImage={onRemoveImage}
+        onRemoveAudio={onRemoveAudio}
       />
 
       {!canSend && (selectedId || detail) && (

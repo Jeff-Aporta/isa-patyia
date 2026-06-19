@@ -34,10 +34,11 @@ export function convBelongsToJwtResolved(
   row: ConvOwnerRef | null | undefined,
   scope: BrowseScope | null | undefined,
   claims: PatyJwtClaims | null | undefined,
+  strictOwner = false,
 ): boolean {
   const owner = mergeConvOwnerFields(conv, row, scope);
   const t = String(owner.itercero ?? "").trim();
-  if (!t) return true;
+  if (!t) return strictOwner ? false : true;
   return convBelongsToJwt(owner, claims);
 }
 

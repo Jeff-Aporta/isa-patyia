@@ -23,6 +23,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
           pendingTiposLength={tool.pendingTipos.length}
           canPublish={tool.canPublish}
           saveTitle={tool.saveTitle}
+          importTitle={tool.importTitle}
           fileInputRef={tool.fileInputRef}
           onFileInput={tool.onFileInput}
           onImportClick={() => tool.fileInputRef.current?.click()}

@@ -11,6 +11,7 @@ export function ChatPayloadPreview({ open, body, endpoint, onClose }) {
     [body],
   );
   const imageCount = Array.isArray(body.imagenes) ? body.imagenes.length : 0;
+  const audioCount = Array.isArray(body.audios) ? body.audios.length : 0;
 
   if (!open) return null;
 
@@ -32,6 +33,11 @@ export function ChatPayloadPreview({ open, body, endpoint, onClose }) {
           {imageCount > 0 ? (
             <Typography variant="caption" className="paty-chat-payload-preview__meta">
               {imageCount} imagen{imageCount !== 1 ? "es" : ""} · base64
+            </Typography>
+          ) : null}
+          {audioCount > 0 ? (
+            <Typography variant="caption" className="paty-chat-payload-preview__meta">
+              {audioCount} audio{audioCount !== 1 ? "s" : ""} · base64
             </Typography>
           ) : null}
         </Box>
@@ -61,8 +67,8 @@ export function ChatPayloadPreview({ open, body, endpoint, onClose }) {
         />
       </Box>
       <Typography variant="caption" className="paty-chat-payload-preview__foot">
-        Vista previa en vivo — el envío incluye base64 completo en <code>imagenes[]</code>.
-        {" "}ISS acepta <code>data:image/(png|jpeg|webp|gif);base64,…</code> (máx. 10 imgs, ~5&nbsp;MB c/u).
+        Vista previa en vivo — el envío incluye base64 completo en <code>imagenes[]</code> y <code>audios[]</code>.
+        {" "}ISS acepta imágenes <code>data:image/(png|jpeg|webp|gif);base64,…</code> (máx. 10) y audios <code>data:audio/*;base64,…</code> (máx. 5, transcritos con Whisper).
       </Typography>
     </Paper>
   );

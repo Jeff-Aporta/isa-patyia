@@ -11,7 +11,7 @@ import { pathDepth } from "./treePathUtils.js";
 
 const { useState, useEffect, useCallback } = getReact();
 const {
-  Box, Stack, Typography, Button, IconButton, Tooltip, CircularProgress, Divider, Alert,
+  Box, Stack, Typography, Button, IconButton, Tooltip, CircularProgress, Alert,
 } = getMaterialUI();
 const { Icon } = UI;
 
@@ -141,52 +141,16 @@ export function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_AP
 
   return (
     <Box className="paty-task-convo">
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: "block" }}>
-        Documentación conversacional
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: "block", flexShrink: 0 }}>
+        Conversación
       </Typography>
 
-      {!readOnly ? (
-        <Box className="paty-task-convo__composer">
-          {replyTo ? (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Respondiendo a {replyTo.jlog?.author || replyTo.treePath}
-                {quotePath ? ` · citando ${quotePath}` : ""}
-              </Typography>
-              <Button size="small" onClick={() => { setReplyTo(null); setQuotePath(null); }}>Cancelar</Button>
-            </Stack>
-          ) : null}
-          <Box className="paty-task-convo__editor">
-            <PromptBodyEditor
-              body={draft}
-              canEdit={!busy}
-              editBlockReason={readOnly ? "Solo lectura" : "No disponible"}
-              onChange={setDraft}
-              placeholder="Escribe en Markdown… (doble clic para editar, imágenes: pegar como data URL)"
-              title="Nuevo mensaje"
-              loading={false}
-            />
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mr: "auto" }}>
-              Autor: {Session.username() || "—"}
-            </Typography>
-            <Button variant="contained" disabled={busy || !draft.trim()} onClick={handlePost}>
-              Publicar
-            </Button>
-          </Stack>
-        </Box>
-      ) : null}
-
       {error ? (
-        <Alert severity="warning" sx={{ mt: readOnly ? 0 : 1.5, mb: 1 }}>
+        <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
           No se pudo cargar el hilo: {error}
         </Alert>
       ) : null}
 
-      <Typography variant="caption" color="text.secondary" sx={{ mt: readOnly ? 0 : 1.5, mb: 0.5, display: "block" }}>
-        Hilo de mensajes
-      </Typography>
       <Box className="paty-task-convo__thread custom-scrollbar">
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
@@ -218,6 +182,39 @@ export function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_AP
           </Stack>
         ) : null}
       </Box>
+
+      {!readOnly ? (
+        <Box className="paty-task-convo__composer">
+          {replyTo ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Respondiendo a {replyTo.jlog?.author || replyTo.treePath}
+                {quotePath ? ` · citando ${quotePath}` : ""}
+              </Typography>
+              <Button size="small" onClick={() => { setReplyTo(null); setQuotePath(null); }}>Cancelar</Button>
+            </Stack>
+          ) : null}
+          <Box className="paty-task-convo__editor paty-task-convo__editor--reply">
+            <PromptBodyEditor
+              body={draft}
+              canEdit={!busy}
+              editBlockReason={readOnly ? "Solo lectura" : "No disponible"}
+              onChange={setDraft}
+              placeholder="Nuevo mensaje en Markdown… (doble clic para editar)"
+              title="Nuevo mensaje"
+              loading={false}
+            />
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end" sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mr: "auto" }}>
+              Autor: {Session.username() || "—"}
+            </Typography>
+            <Button variant="contained" disabled={busy || !draft.trim()} onClick={handlePost}>
+              Publicar
+            </Button>
+          </Stack>
+        </Box>
+      ) : null}
     </Box>
   );
 }

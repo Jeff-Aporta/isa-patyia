@@ -3,8 +3,8 @@ import { UI } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/shared.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
-import { ConvLogWebView, convLogNavItems } from "../ui/ConvLogWebView.jsx";
-import { convLogSurfaceSx } from "../core/convLog.ts";
+import { ConvLogThread } from "../ui/ConvLogThread.jsx";
+import { convLogNavItems } from "../ui/ConvLogWebView.jsx";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
 import { persistLogMeta, mergePartial } from "../core/urlState.ts";
@@ -585,9 +585,13 @@ export function LogViewer({ bootLog = {} }) {
           )}
         </Stack>
 
-        <Box sx={convLogSurfaceSx()}>
-          <ConvLogWebView mensajes={mensajes} onMeta={onMeta} />
-        </Box>
+        <ConvLogThread
+          mensajes={mensajes}
+          onMeta={onMeta}
+          showUsageStats
+          threadKey={convId || "log-paste"}
+          emptyHint="Recupera por ID o pega un log para ver el hilo."
+        />
       </Box>
 
       {isMobile ? (
@@ -599,7 +603,6 @@ export function LogViewer({ bootLog = {} }) {
           onClick={() => setEntradaOpen(true)}
           sx={{
             position: "absolute",
-            bottom: 12,
             left: 12,
             zIndex: 6,
             display: entradaOpen ? "none" : "flex",

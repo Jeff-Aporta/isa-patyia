@@ -1,6 +1,4 @@
-/**
- * Estado de la app en ?s= — esquema isa-patyia sobre url-state compartido.
- */
+/** Estado de la app en ?s= — esquema isa-patyia sobre url-state compartido. */
 import { isLocalMode, setLocalMode } from "./patyia.ts";
 
 const STATE_VERSION = 1;
@@ -12,9 +10,7 @@ function normalizeLog(raw: unknown) {
   return o;
 }
 
-function initial() {
-  return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {}, todos: {} };
-}
+function initial() { return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {}, todos: {} }; }
 
 function normalizeTool(raw: unknown) {
   if (raw === "prompts") return "prompts";
@@ -29,13 +25,10 @@ function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   const chat = raw.chat && typeof raw.chat === "object" ? raw.chat : {};
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
   return {
-    v: raw.v ?? STATE_VERSION,
-    tool,
-    local: !!raw.local,
+    v: raw.v ?? STATE_VERSION, tool, local: !!raw.local,
     log: normalizeLog(raw.log),
     prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
-    chat,
-    todos,
+    chat, todos,
   };
 }
 
@@ -133,11 +126,7 @@ export const subscribe = urlState.subscribe;
 export const PARAM = urlState.PARAM;
 
 /** Reinicia estado de la app y elimina por completo ?s= de la URL. */
-export function resetUrlState() {
-  const snap = urlState.reset();
-  stripUrlStateParam();
-  return snap;
-}
+export function resetUrlState() { const snap = urlState.reset(); stripUrlStateParam(); return snap; }
 
 /** Solo metadatos ligeros del visor de log (iconversacion), no el JSON completo. */
 export function persistLogMeta(convId: string) {

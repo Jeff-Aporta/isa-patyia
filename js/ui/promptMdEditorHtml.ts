@@ -16,14 +16,10 @@ function preserveHtml(el: Element): string {
   return el.outerHTML;
 }
 
-export function varChipHtml(name: string, opts: { editable?: boolean } = {}): string {
-  const editable = opts.editable !== false;
-  const del = editable
-    ? `<button type="button" class="prompt-var-chip__del" data-var-del="${escAttr(name)}" aria-label="Eliminar variable ${escAttr(name)}" tabindex="-1">×</button>`
-    : "";
+export function varChipHtml(name: string, _opts: { editable?: boolean } = {}): string {
   return (
     `<span class="prompt-var-chip" contenteditable="false" data-var="${escAttr(name)}" style="${varToneStyleAttr(name)}" title="${escAttr(name)}">`
-    + `<span class="prompt-var-chip__label">{{${escAttr(name)}}}</span>${del}</span>`
+    + `<span class="prompt-var-chip__label">{{${escAttr(name)}}}</span></span>`
   );
 }
 

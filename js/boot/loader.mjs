@@ -27,12 +27,16 @@ import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }
     h.assertStack();
     await loadIsaFrontPinned(h);
     await h.loadSharedUi(Babel);
-    await ensureLightboxZoom();
     if (isDist) {
       await import("../core/isa-setup.js");
+    } else {
+      await h.importAppModules(["js/core/isa-setup.ts"], Babel);
+    }
+    await ensureLightboxZoom();
+    if (isDist) {
       await import("../main.js");
     } else {
-      await h.importAppModules(["js/core/isa-setup.ts", "js/main.jsx"], Babel);
+      await h.importAppModules(["js/main.jsx"], Babel);
     }
   });
 }).catch((err) => {

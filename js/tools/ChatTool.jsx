@@ -99,17 +99,24 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onRefreshConv={() => chat.openConv(chat.selectedId)}
         draft={chat.draft}
         images={chat.images}
+        audios={chat.audios}
+        isRecording={chat.isRecording}
         payloadPreviewOpen={chat.payloadPreviewOpen}
         postBodyPreview={chat.postBodyPreview}
         inputRef={chat.inputRef}
         fileInputRef={chat.fileInputRef}
+        audioInputRef={chat.audioInputRef}
         onDraftChange={(e) => chat.setDraft(e.target.value)}
         onPaste={chat.onPaste}
         onSend={chat.onSend}
         onTogglePayloadPreview={() => chat.setPayloadPreviewOpen((v) => !v)}
         onAttachImagesClick={chat.onAttachImagesClick}
         onAttachImagesChange={chat.onAttachImagesChange}
+        onAttachAudiosClick={chat.onAttachAudiosClick}
+        onAttachAudiosChange={chat.onAttachAudiosChange}
+        onToggleVoiceRecord={chat.onToggleVoiceRecord}
         onRemoveImage={(idx) => chat.setImages((p) => p.filter((_, j) => j !== idx))}
+        onRemoveAudio={(idx) => chat.setAudios((p) => p.filter((_, j) => j !== idx))}
         onMeta={chat.onMeta}
         onRateMessage={chat.onRateMessage}
         messageSource={chat.messageSource}
@@ -120,12 +127,11 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         <Fab
           color="primary"
           size="medium"
-          className="paty-mobile-sidebar-fab"
+          className="paty-mobile-sidebar-fab paty-mobile-sidebar-fab--chat"
           aria-label="Abrir conversaciones"
           onClick={() => setSidebarOpen(true)}
           sx={{
             position: "absolute",
-            bottom: 12,
             left: 12,
             zIndex: 6,
             display: sidebarOpen ? "none" : "flex",

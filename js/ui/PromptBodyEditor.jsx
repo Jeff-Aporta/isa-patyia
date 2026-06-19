@@ -153,6 +153,79 @@ function restoreSurfaceCaret(root, offset) {
   requestAnimationFrame(() => setCaretOffset(root, offset));
 }
 
+function isVarChip(node) {
+  return node?.nodeType === Node.ELEMENT_NODE && node.classList?.contains("prompt-var-chip");
+}
+
+function previousMeaningfulSibling(node) {
+  let prev = node?.previousSibling ?? null;
+  while (prev) {
+    if (prev.nodeType === Node.TEXT_NODE && !prev.textContent) {
+      prev = prev.previousSibling;
+      continue;
+    }
+    return prev;
+  }
+  return null;
+}
+
+function nextMeaningfulSibling(node) {
+  let next = node?.nextSibling ?? null;
+  while (next) {
+    if (next.nodeType === Node.TEXT_NODE && !next.textContent) {
+      next = next.nextSibling;
+      continue;
+    }
+    return next;
+  }
+  return null;
+}
+
+function findVarChipBefore(range) {
+  const { startContainer, startOffset } = range;
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    if (startOffset > 0) return null;
+    const prev = previousMeaningfulSibling(startContainer);
+    return isVarChip(prev) ? prev : null;
+  }
+  if (startContainer.nodeType === Node.ELEMENT_NODE && startOffset > 0) {
+    const prev = startContainer.childNodes[startOffset - 1];
+    return isVarChip(prev) ? prev : null;
+  }
+  return null;
+}
+
+function findVarChipAfter(range) {
+  const { startContainer, startOffset } = range;
+  if (startContainer.nodeType === Node.TEXT_NODE) {
+    if (startOffset < (startContainer.textContent?.length ?? 0)) return null;
+    const next = nextMeaningfulSibling(startContainer);
+    return isVarChip(next) ? next : null;
+  }
+  if (startContainer.nodeType === Node.ELEMENT_NODE) {
+    const next = startContainer.childNodes[startOffset];
+    return isVarChip(next) ? next : null;
+  }
+  return null;
+}
+
+function findVarChipInSelection(range) {
+  if (range.collapsed) return null;
+  const root = range.commonAncestorContainer;
+  const host = root.nodeType === Node.ELEMENT_NODE ? root : root.parentElement;
+  if (isVarChip(host)) return host;
+  const chip = host?.querySelector?.(".prompt-var-chip");
+  if (chip && range.intersectsNode?.(chip)) return chip;
+  return null;
+}
+
+function findVarChipAtCaret(sel) {
+  const node = sel.anchorNode;
+  if (!node) return null;
+  if (isVarChip(node)) return node;
+  return node.parentElement?.closest?.(".prompt-var-chip") ?? null;
+}
+
 function getScrollContainer(el) {
   let node = el;
   while (node) {
@@ -514,23 +587,7 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
     }
   }
 
-  function onEditorMouseDown(e) {
-    const delBtn = e.target.closest?.("[data-var-del]");
-    if (!delBtn || !canEdit) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const chip = delBtn.closest(".prompt-var-chip");
-    if (!chip) return;
-    chip.remove();
-    const next = readSurface();
-    surfaceOrigin.current = true;
-    commit(next);
-    if (surfaceHasRawVarTokens(surfaceRef.current)) {
-      requestAnimationFrame(() => syncSurfaceFromValue(next, { preserveCaret: true }));
-    }
-  }
-
-  function onChipRename(oldName, newName) {
+  async function handleSave() {
     const next = renamePromptVariable(value, oldName, newName);
     commit(next);
     setRenameDlg({ open: false, name: "" });
@@ -592,8 +649,35 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
     }
   }
 
+  function tryRemoveVarChipOnKey(e) {
+    if (e.key !== "Backspace" && e.key !== "Delete") return false;
+    const surface = surfaceRef.current;
+    const sel = window.getSelection();
+    if (!surface || !sel?.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!surface.contains(range.commonAncestorContainer)) return false;
+
+    let chip = findVarChipAtCaret(sel);
+    if (!chip && !range.collapsed) chip = findVarChipInSelection(range);
+    if (!chip) {
+      chip = e.key === "Backspace" ? findVarChipBefore(range) : findVarChipAfter(range);
+    }
+    if (!chip) return false;
+
+    e.preventDefault();
+    chip.remove();
+    const next = readSurface();
+    surfaceOrigin.current = true;
+    commit(next);
+    if (surfaceHasRawVarTokens(surfaceRef.current)) {
+      requestAnimationFrame(() => syncSurfaceFromValue(next, { preserveCaret: true }));
+    }
+    return true;
+  }
+
   function onKeyDown(e) {
     if (!canEdit) return;
+    if (tryRemoveVarChipOnKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "a" && surfaceRef.current) {
       e.preventDefault();
@@ -728,7 +812,6 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
           onBlur={onEditorBlur}
           onMouseUp={captureEditorSelection}
           onKeyUp={captureEditorSelection}
-          onMouseDown={onEditorMouseDown}
           onCopy={onEditorCopy}
           onPaste={onEditorPaste}
           onClick={onEditorClick}

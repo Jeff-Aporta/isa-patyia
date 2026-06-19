@@ -1,4 +1,5 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
+import { PromptBodyEditor } from "../../ui/PromptBodyEditor.jsx";
 import { UserAssignAutocomplete } from "./UserAssignAutocomplete.jsx";
 import { TaskConvoThread } from "./TaskConvoThread.jsx";
 import { normalizeAssigneeUsername } from "./todosKanbanShared.js";
@@ -187,6 +188,7 @@ function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle
 export function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSave, onSaveSubtask, onDeleteSubtask, onAddSubtask, onSaveMilestone, onDeleteMilestone, onAddMilestone, onToggleMilestone, onComment }) {
   const [tab, setTab] = useState(0);
   const [title, setTitle] = useState("");
+  const [doc, setDoc] = useState("");
   const [assignedTo, setAssignedTo] = useState(null);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [msTitle, setMsTitle] = useState("");
@@ -199,6 +201,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
     if (!task || task.id === prevId.current) return;
     prevId.current = task.id;
     setTitle(task.title);
+    setDoc(task.descriptionDoc || "");
     setAssignedTo(normalizeAssigneeUsername(task.assignedTo) || null);
     setTab(0);
   }, [task]);
@@ -211,7 +214,13 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth className="paty-todos-task-dialog">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullScreen
+      scroll="paper"
+      className="paty-todos-task-dialog"
+    >
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <Icon icon="mdi:card-text-outline" size={22} />
         <Typography component="span" variant="h6" sx={{ flex: 1, fontWeight: 700, lineHeight: 1.3 }}>
@@ -230,10 +239,10 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
         ) : null}
         {loading ? <CircularProgress size={20} /> : null}
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent dividers className="paty-todos-task-dialog__content">
         {task ? (
-          <>
-            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Box className="paty-todos-task-dialog__inner">
+            <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, flexShrink: 0 }}>
               <Tab label="Detalle" />
               <Tab label={`Subtareas (${task.subtasks?.length ?? 0})`} />
               <Tab label={`Hitos (${task.milestones?.length ?? 0})`} />
@@ -241,8 +250,8 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
             </Tabs>
 
             {tab === 0 ? (
-              <Stack spacing={2}>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
+              <Stack spacing={2} className="paty-todos-task-dialog__detail">
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start" sx={{ flexShrink: 0 }}>
                   <TextField
                     label="Título"
                     fullWidth
@@ -250,6 +259,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     disabled={readOnly}
+                    InputLabelProps={{ shrink: true }}
                     sx={{ flex: 1, minWidth: 0 }}
                   />
                   <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
@@ -262,11 +272,36 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
                     />
                   </Box>
                 </Stack>
-                <TaskConvoThread
-                  contextKey={scrumTaskContext(task.id)}
-                  readOnly={readOnly}
-                />
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Box className="paty-todos-task-objective">
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: "block" }}>
+                    Objetivo
+                  </Typography>
+                  <Box className="paty-todos-task-objective__editor">
+                    <PromptBodyEditor
+                      body={doc}
+                      canEdit={!readOnly && !busy}
+                      editBlockReason="Solo lectura"
+                      onChange={setDoc}
+                      onPersist={async (next) => {
+                        const trimmed = String(next ?? "");
+                        setDoc(trimmed);
+                        if (!readOnly) {
+                          await run(async () => { await onSave({ descriptionDoc: trimmed }); });
+                        }
+                      }}
+                      placeholder="Objetivo de la tarea en Markdown… (doble clic para editar)"
+                      title="Objetivo"
+                      loading={loading}
+                    />
+                  </Box>
+                </Box>
+                <Box className="paty-todos-task-dialog__convo">
+                  <TaskConvoThread
+                    contextKey={scrumTaskContext(task.id)}
+                    readOnly={readOnly}
+                  />
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ flexShrink: 0 }}>
                   <Chip size="small" label={`Creada por ${task.createdBy}`} />
                   {task.completedAt ? <Chip size="small" color="success" label="Finalizada" /> : null}
                 </Stack>
@@ -274,6 +309,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
             ) : null}
 
             {tab === 1 ? (
+              <Box className="paty-todos-task-dialog__scroll">
               <Stack spacing={1}>
                 {(task.subtasks ?? []).map((st) => (
                   <SubtaskEditor
@@ -317,9 +353,11 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
                   </Stack>
                 ) : null}
               </Stack>
+              </Box>
             ) : null}
 
             {tab === 2 ? (
+              <Box className="paty-todos-task-dialog__scroll">
               <Stack spacing={1.5}>
                 {(task.milestones ?? []).map((ms) => (
                   <MilestoneEditor
@@ -360,9 +398,11 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
                   </Stack>
                 ) : null}
               </Stack>
+              </Box>
             ) : null}
 
             {tab === 3 ? (
+              <Box className="paty-todos-task-dialog__scroll">
               <Stack spacing={0}>
                 {!readOnly ? (
                   <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
@@ -401,8 +441,9 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
                   <Typography variant="body2" color="text.secondary">Sin eventos aún.</Typography>
                 ) : null}
               </Stack>
+              </Box>
             ) : null}
-          </>
+          </Box>
         ) : (
           <Typography color="text.secondary">Selecciona una tarea.</Typography>
         )}
@@ -417,6 +458,7 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
               await onSave({
                 title: title.trim(),
                 assignedTo: normalizeAssigneeUsername(assignedTo) || null,
+                descriptionDoc: doc,
               });
             })}
           >

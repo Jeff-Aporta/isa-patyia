@@ -5,10 +5,7 @@ export const PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 /** `{{nombre}` sin la segunda `}` de cierre (typo histórico en BD). */
 export const MALFORMED_PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}(?!\})/g;
 
-const INSTRUCCION_TIPO_SLOT_RES = [
-  /\{\{\s*instruccion_tipo\s*\}\}/i,
-  /\{\{\s*instrucion_tipo\s*\}\}/i,
-] as const;
+const INSTRUCCION_TIPO_SLOT_RES = [/\{\{\s*instruccion_tipo\s*\}\}/i, /\{\{\s*instrucion_tipo\s*\}\}/i] as const;
 
 export type PromptTextSegment = { type: "text"; value: string } | { type: "var"; name: string };
 
@@ -64,12 +61,7 @@ export function varToneStyleAttr(name: string): string {
 /** Estilos inline (MUI sx) con el mismo tono que los badges del editor. */
 export function varToneSx(name: string): Record<string, string | number> {
   const hue = varNameToHue(name);
-  return {
-    "--var-tone-h": hue,
-    backgroundColor: `hsl(${hue} 52% 42% / 0.22)`,
-    borderColor: `hsl(${hue} 48% 58%)`,
-    color: `hsl(${hue} 62% 72%)`,
-  };
+  return { "--var-tone-h": hue, backgroundColor: `hsl(${hue} 52% 42% / 0.22)`, borderColor: `hsl(${hue} 48% 58%)`, color: `hsl(${hue} 62% 72%)` };
 }
 
 function varReplaceRe(name: string): RegExp {

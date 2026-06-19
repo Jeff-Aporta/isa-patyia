@@ -2,6 +2,29 @@
 
 export const MAX_COLUMN_TASKS = 4;
 
+/** Columna legacy retirada del modelo SCRUM (solo pending + done). */
+export const IN_PROGRESS_COLUMN_KEY = "in_progress";
+
+/**
+ * Quita la columna "En progreso" y mueve sus tareas a Pendiente (tableros sin migrar).
+ * @param {import("../../api/todosApi.ts").TodoBoardFull | null | undefined} boardData
+ */
+export function normalizeTodoBoardData(boardData) {
+  if (!boardData?.columns?.length) return boardData ?? null;
+  const inProgress = boardData.columns.find((c) => c.columnKey === IN_PROGRESS_COLUMN_KEY);
+  if (!inProgress) return boardData;
+  const pending = boardData.columns.find((c) => c.columnKey === "pending");
+  const fallbackColumnId = pending?.id
+    ?? boardData.columns.find((c) => c.columnKey !== IN_PROGRESS_COLUMN_KEY)?.id;
+  const columns = boardData.columns.filter((c) => c.columnKey !== IN_PROGRESS_COLUMN_KEY);
+  const tasks = fallbackColumnId
+    ? boardData.tasks.map((t) => (
+      t.columnId === inProgress.id ? { ...t, columnId: fallbackColumnId } : t
+    ))
+    : boardData.tasks;
+  return { ...boardData, columns, tasks };
+}
+
 export function sortTasksByRecent(tasks) {
   return [...tasks].sort((a, b) => {
     const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();

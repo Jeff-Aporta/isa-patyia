@@ -1,7 +1,7 @@
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI, Session } from "../core/platform.ts";
 import * as LabSession from "../api/sessionApi.ts";
-import { patyiaBridgeBase } from "../core/patyia.ts";
+import { patyiaBridgeBase, buildUserAvatarUrl } from "../core/patyia.ts";
 import { toastSuccess, toastError, toastInfo } from "../core/platform.ts";
 
 const { useState, useEffect } = getReact();
@@ -165,25 +165,44 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
             const tok = session.sessionToken || Session.current()?.token;
             return tok ? { ...Session.authHeader?.() } : {};
           }}
+          buildAvatarUrl={buildUserAvatarUrl}
           unitTestTitle="Test unitario — iss-patyia-bridge"
         />
       );
     }
     const roleTip = session.role ? ` · rol ${session.role}` : "";
+    const avatarUrl = buildUserAvatarUrl(session.username, 64);
     return (
       <Box component="span" className="header-session-wrap" sx={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>
       <Stack direction="row" spacing={0.75} alignItems="center" className="header-session-btn">
         {signalDot}
         <Tooltip title={`${session.username}${roleTip}`} arrow>
-          <Chip
-            size="small"
-            variant="filled"
-            className="header-session-chip"
-            clickable
-            icon={compactHeader ? <Icon icon="mdi:account-circle" size={18} /> : undefined}
-            label={compactHeader ? undefined : session.username}
-            sx={HEADER_CHIP_SX}
-          />
+          {compactHeader ? (
+            <IconButton
+              size="small"
+              className="header-session-avatar-btn"
+              aria-label={`${session.username}${roleTip}`}
+            >
+              <img
+                className="header-session-avatar"
+                src={avatarUrl}
+                alt=""
+                decoding="async"
+                loading="lazy"
+                width={32}
+                height={32}
+              />
+            </IconButton>
+          ) : (
+            <Chip
+              size="small"
+              variant="filled"
+              className="header-session-chip"
+              clickable
+              label={session.username}
+              sx={HEADER_CHIP_SX}
+            />
+          )}
         </Tooltip>
         <Tooltip title="Cerrar sesión" arrow>
           <IconButton size="small" color="inherit" onClick={logout} aria-label="Cerrar sesión">
