@@ -483,9 +483,18 @@ html[data-mui-color-scheme="light"] .paty-todos-board-row__delete {
 }
 
 .paty-todos-board-row__meta {
+  display: block;
   text-align: right;
   white-space: nowrap;
-  line-height: 1.2;
+  line-height: 1.15;
+  font-size: 0.62rem !important;
+  font-weight: 500 !important;
+  color: var(--isa-text-secondary, #64748b) !important;
+  opacity: 0.85;
+}
+
+html[data-mui-color-scheme="light"] .paty-todos-board-row__meta {
+  color: #94a3b8 !important;
 }
 
 .paty-todos-board-row__preview {
