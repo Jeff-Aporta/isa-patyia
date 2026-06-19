@@ -341,16 +341,22 @@ html[data-mui-color-scheme="light"] .paty-chat-image-previews img {
   border-color: rgba(148, 163, 184, 0.4);
 }
 
-html[data-mui-color-scheme="light"] .paty-chat-payload-btn {
+html[data-mui-color-scheme="light"] .paty-chat-payload-btn,
+html[data-mui-color-scheme="light"] .paty-chat-attach-btn {
   color: #64748b !important;
-  border-color: rgba(148, 163, 184, 0.38) !important;
-  background: #fff !important;
+  background: transparent !important;
+  border: none !important;
 }
 
-html[data-mui-color-scheme="light"] .paty-chat-payload-btn:hover:not(:disabled) {
+html[data-mui-color-scheme="light"] .paty-chat-payload-btn:hover:not(:disabled),
+html[data-mui-color-scheme="light"] .paty-chat-attach-btn:hover:not(:disabled) {
   color: #4338ca !important;
-  border-color: rgba(99, 102, 241, 0.4) !important;
-  background: rgba(99, 102, 241, 0.06) !important;
+  background: transparent !important;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-payload-btn--active {
+  color: #4338ca !important;
+  background: transparent !important;
 }
 
 html[data-mui-color-scheme="light"] .paty-chat-input-wrap .MuiOutlinedInput-root {
@@ -466,29 +472,29 @@ html[data-mui-color-scheme="light"] .paty-chat-payload-preview__cm.isa-cm-panel 
   font-size: 0.62rem;
 }
 
-.paty-chat-payload-btn {
+.paty-chat-payload-btn,
+.paty-chat-attach-btn {
   flex-shrink: 0;
   margin-bottom: 2px;
   color: var(--muted, #94a3b8) !important;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 8px !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 50% !important;
 }
 
 .paty-chat-payload-btn--active {
   color: #a5b4fc !important;
-  border-color: rgba(99, 102, 241, 0.55) !important;
-  background: rgba(99, 102, 241, 0.14) !important;
+  background: transparent !important;
 }
 
-.paty-chat-payload-btn:hover:not(:disabled) {
+.paty-chat-payload-btn:hover:not(:disabled),
+.paty-chat-attach-btn:hover:not(:disabled) {
   color: #c4b5fd !important;
-  border-color: rgba(99, 102, 241, 0.45);
-  background: rgba(99, 102, 241, 0.1) !important;
+  background: transparent !important;
 }
 
-html[data-mui-color-scheme="light"] .paty-chat-payload-btn--active {
-  color: #4338ca !important;
-  background: rgba(99, 102, 241, 0.1) !important;
+.paty-chat-attach-btn:hover:not(:disabled) {
+  color: #7dd3fc !important;
 }
 
 .paty-chat-compose-readonly {
@@ -546,30 +552,6 @@ html[data-mui-color-scheme="light"] .paty-chat-compose-readonly {
   display: flex;
   gap: 0.55rem;
   align-items: flex-end;
-}
-
-.paty-chat-attach-btn {
-  flex-shrink: 0;
-  margin-bottom: 2px;
-  color: var(--muted, #94a3b8) !important;
-  border: 1px solid rgba(30, 144, 255, 0.22);
-  border-radius: 8px !important;
-}
-
-.paty-chat-attach-btn:hover:not(:disabled) {
-  color: #7dd3fc !important;
-  border-color: rgba(30, 144, 255, 0.45);
-  background: rgba(30, 144, 255, 0.1) !important;
-}
-
-html[data-mui-color-scheme="light"] .paty-chat-attach-btn {
-  color: #64748b !important;
-  border-color: rgba(30, 144, 255, 0.2);
-}
-
-html[data-mui-color-scheme="light"] .paty-chat-attach-btn:hover:not(:disabled) {
-  color: #0369a1 !important;
-  background: rgba(30, 144, 255, 0.08) !important;
 }
 
 .paty-chat-input-wrap .MuiButton-contained {
@@ -722,4 +704,141 @@ html[data-mui-color-scheme="light"] .conv-msg-rating__btn--up.conv-msg-rating__b
 
 html[data-mui-color-scheme="light"] .conv-msg-rating__btn--down.conv-msg-rating__btn--active {
   color: #dc2626 !important;
+}
+
+/* Hilo logs en chat — layout y espaciado (badges en app.css) */
+.paty-chat-log-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.paty-chat-log-thread .conv-msg--logs-detail {
+  scroll-margin-top: 72px;
+}
+
+.paty-chat-log-thread .conv-msg-card {
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.paty-chat-log-thread .conv-msg-card__meta-row,
+.paty-chat-log-thread .conv-msg-card__meta-row--right {
+  margin-left: 2.75rem;
+  margin-right: 0;
+  padding: 0;
+}
+
+.paty-chat-log-thread .conv-msg-card__meta-row--right {
+  margin-left: 0;
+  margin-right: 2.75rem;
+}
+
+.paty-chat-log-thread .conv-msg-usage-stats {
+  min-width: 10rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.35), rgba(15, 23, 42, 0.12));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg-usage-stats {
+  border-color: rgba(148, 163, 184, 0.32);
+  background: linear-gradient(160deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92));
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.paty-chat-log-thread .conv-msg-usage-stats--clickable {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+}
+
+.paty-chat-log-thread .conv-msg-usage-stats__meta {
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.18);
+}
+
+.paty-chat-log-thread .conv-msg-usage-stats__group + .conv-msg-usage-stats__group {
+  margin-top: 0.15rem;
+}
+
+.paty-chat-log-thread .conv-msg-card__footer {
+  background: rgba(148, 163, 184, 0.04);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg-card__footer {
+  background: rgba(241, 245, 249, 0.65);
+}
+
+.paty-chat-log-thread .conv-msg-body {
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.paty-chat-log-thread .conv-msg--operativa-logs {
+  scroll-margin-top: 72px;
+}
+
+.paty-chat-log-thread .conv-msg--operativa-logs > .MuiBox-root {
+  justify-content: center !important;
+}
+
+.paty-chat-log-thread .conv-msg--operativa-logs .conv-msg-card {
+  border-color: rgba(245, 158, 11, 0.38) !important;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.08));
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.08);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg--operativa-logs .conv-msg-card {
+  border-color: rgba(217, 119, 6, 0.32) !important;
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.65), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.08);
+}
+
+.paty-chat-log-thread .conv-msg--operativa-logs .conv-msg-body {
+  font-size: 0.86rem;
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg--operativa-logs .conv-msg-body {
+  color: #334155;
+}
+
+.conv-log-shell .conv-msg--operativa-logs {
+  justify-content: center !important;
+}
+
+.conv-log-shell .conv-msg--operativa-logs .conv-msg-card {
+  max-width: 720px;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+@media (max-width: 899px) {
+  .paty-chat-log-thread .conv-msg--logs-detail > .MuiBox-root {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .paty-chat-log-thread .conv-msg-side-column {
+    max-width: 100% !important;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: flex-start !important;
+  }
+
+  .paty-chat-log-thread .conv-msg-usage-stats {
+    flex: 1;
+    min-width: min(100%, 14rem);
+  }
+
+  .paty-chat-log-thread .conv-msg-card__meta-row,
+  .paty-chat-log-thread .conv-msg-card__meta-row--right {
+    margin-left: 0;
+    margin-right: 0;
+  }
 }
