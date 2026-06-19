@@ -205,3 +205,64 @@ html[data-mui-color-scheme="light"] .btn-iconify {
 .status-dot--orange {
   box-shadow: 0 0 8px rgba(251, 146, 60, 0.55);
 }
+
+/* Suplantación — mismo lenguaje visual que tool-panel / JWT modal */
+.isa-view-as-dialog .MuiDialogContent-root {
+  overflow: visible;
+}
+
+.isa-view-as-dialog__list.MuiPaper-root,
+html[data-mui-color-scheme="dark"] .isa-view-as-dialog__list.MuiPaper-root {
+  backdrop-filter: blur(10px);
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-top: 0 !important;
+}
+
+html[data-mui-color-scheme="dark"] .isa-view-as-dialog__list {
+  background: linear-gradient(145deg, rgba(15,34,54,0.98), rgba(11,18,32,0.99));
+  border: 1px solid rgba(30, 144, 255, 0.22);
+  border-top: none;
+}
+
+html[data-mui-color-scheme="light"] .isa-view-as-dialog__list {
+  background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(240,247,255,0.95));
+  border: 1px solid rgba(30, 144, 255, 0.16);
+  border-top: none;
+}
+
+.isa-view-as-dialog .MuiDialogContent-dividers {
+  border-color: rgba(30, 144, 255, 0.18);
+}
+
+html[data-mui-color-scheme="dark"] .isa-view-as-dialog .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(30, 144, 255, 0.28);
+}
+
+html[data-mui-color-scheme="light"] .isa-view-as-dialog .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(30, 144, 255, 0.22);
+}
+
+.isa-view-as-dialog .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #1e90ff;
+  box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.25);
+}
+
+.isa-view-as-dialog .MuiDialogActions-root .MuiButton-contained {
+  background: linear-gradient(135deg, #1e90ff, #6366f1);
+}
+
+html[data-mui-color-scheme="dark"] .isa-view-as-dialog__popper .MuiAutocomplete-paper,
+html[data-mui-color-scheme="dark"] .isa-view-as-dialog__popper .MuiPaper-root {
+  backdrop-filter: blur(10px);
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-top: 0 !important;
+}
+
+.isa-view-as-dialog__popper .MuiAutocomplete-paper,
+.isa-view-as-dialog__popper .MuiPaper-root {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-top: 0 !important;
+}
