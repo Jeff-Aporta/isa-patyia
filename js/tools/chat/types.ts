@@ -15,7 +15,6 @@ export type AuditScopeRow = {
   nombre?: string | null;
   esJwt?: boolean;
   esSesion?: boolean;
-  activateJwtOwner?: string;
 };
 
 export type ChatMensajeMeta = Record<string, unknown> | null;
