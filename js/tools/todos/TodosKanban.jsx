@@ -45,15 +45,7 @@ function columnAtPoint(columnIds, listRefs, clientX, clientY) {
   return null;
 }
 
-const TaskCard = memo(function TaskCard({
-  task,
-  columnId,
-  readOnly,
-  isOptimistic,
-  onOpen,
-  onPointerDragStart,
-  suppressClickRef,
-}) {
+const TaskCard = memo(function TaskCard({ task, columnId, readOnly, isOptimistic, onOpen, onPointerDragStart, suppressClickRef }) {
   const subCount = task.subtasks?.length ?? 0;
   const msCount = task.milestones?.length ?? 0;
   const openMs = (task.milestones ?? []).filter((m) => !m.completedAt).length;
@@ -171,14 +163,7 @@ function ColumnAddForm({ onAdd }) {
   );
 }
 
-export function TodosKanban({
-  boardData,
-  readOnly = false,
-  onOpenTask,
-  onQuickAdd,
-  onDragStart,
-  onDropColumn,
-}) {
+export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAdd, onDragStart, onDropColumn }) {
   const [dragOverCol, setDragOverCol] = useState(null);
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const listRefs = useRef({});
