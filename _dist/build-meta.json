@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-19T01:26:52.840Z",
+  "builtAt": "2026-06-19T02:41:01.158Z",
   "files": 74,
-  "bytesIn": 573751,
-  "bytesOut": 342588,
+  "bytesIn": 575191,
+  "bytesOut": 343283,
   "ratio": 0.597,
-  "hash": "46604a6a56b1",
+  "hash": "a2035cf2ed06",
   "entries": [
     {
       "src": "css/app.css",
@@ -15,8 +15,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 21908,
-      "bytesOut": 17806
+      "bytesIn": 21688,
+      "bytesOut": 17619
     },
     {
       "src": "css/theme.css",
@@ -261,8 +261,8 @@
     {
       "src": "js/tools/chat/mensajesModel.ts",
       "dist": "_dist/js/tools/chat/mensajesModel.js",
-      "bytesIn": 12043,
-      "bytesOut": 5528
+      "bytesIn": 12326,
+      "bytesOut": 5655
     },
     {
       "src": "js/tools/chat/threadScroll.ts",
@@ -279,8 +279,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 30717,
-      "bytesOut": 12575
+      "bytesIn": 31256,
+      "bytesOut": 12814
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",
@@ -423,8 +423,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 35928,
-      "bytesOut": 20903
+      "bytesIn": 36766,
+      "bytesOut": 21419
     },
     {
       "src": "js/ui/PromptBodyEditor.jsx",
