@@ -1,0 +1,1 @@
+function t(){return!!globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog}let o=null;function n(){return t()?Promise.resolve(globalThis.ISAComponents.LightboxZoom):(o||(o=import("../boot/cdn.mjs").then(e=>e.ensureLightboxZoom()).catch(e=>{throw o=null,e})),o)}export{n as ensureLightboxReady,t as isLightboxZoomReady};
