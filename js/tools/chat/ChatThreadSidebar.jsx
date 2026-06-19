@@ -11,45 +11,23 @@ const {
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatThreadSidebar({
-  jwt,
-  displayScope,
-  sessionUser,
-  canInteract,
-  viewOnly,
-  jwtLoading,
-  canSend,
-  needsJwt,
-  listScope,
-  sessionScopeLoading,
-  viewingAuditOther,
-  auditScope,
-  convListOwnerLabel,
-  convListHeader,
-  showJwtBadge,
-  loadingList,
-  rows,
-  selectedId,
-  convListMeta,
-  convListPage,
-  onOpenJwt,
-  onOpenAudit,
-  onNewChat,
-  onOpenConv,
-  onDelete,
-  onConvListPageChange,
-  drawerMode = false,
-  onClose,
-}) {
-  const handleOpenConv = (id) => {
-    onOpenConv(id);
-    onClose?.();
-  };
+function MessageSourceSwitch({ messageSource, onChange }) {
+  const isProd = messageSource === "prod";
+  const title = isProd ? "Modo producción (sin meta)" : "Modo logs (con meta)";
+  const hint = isProd ? "Clic para ver logs" : "Clic para ver producción";
+  const icon = isProd ? "mdi:earth" : "mdi:code-json";
+  return (
+    <Tooltip title={`${title} · ${hint}`}>
+      <IconButton color="inherit" size="small" onClick={() => onChange?.(isProd ? "logs" : "prod")} aria-label={title} aria-pressed={!isProd}>
+        <Icon icon={icon} size={18} />
+      </IconButton>
+    </Tooltip>
+  );
+}
 
-  const handleNewChat = () => {
-    onNewChat();
-    onClose?.();
-  };
+export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, canSend, needsJwt, listScope, sessionScopeLoading, viewingAuditOther, auditScope, convListOwnerLabel, convListHeader, showJwtBadge, loadingList, rows, selectedId, convListMeta, convListPage, messageSource = "logs", onMessageSourceChange, onOpenJwt, onOpenAudit, onNewChat, onOpenConv, onDelete, onConvListPageChange, drawerMode = false, onClose }) {
+  const handleOpenConv = (id) => { onOpenConv(id); onClose?.(); };
+  const handleNewChat = () => { onNewChat(); onClose?.(); };
 
   return (
     <Box
@@ -89,6 +67,7 @@ export function ChatThreadSidebar({
             </IconButton>
           </Tooltip>
         ) : null}
+        {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
         <Tooltip title="Cambiar token JWT">
           <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
             <Icon icon="mdi:key-variant" size={18} />
@@ -181,7 +160,7 @@ export function ChatThreadSidebar({
               <ListItemButton
                 key={r.iconversacion}
                 className="paty-chat-conv-item"
-                selected={selectedId === r.iconversacion}
+                selected={Number(selectedId) > 0 && Number(selectedId) === Number(r.iconversacion)}
                 onClick={() => handleOpenConv(r.iconversacion)}
                 title={convTip}
                 aria-label={convTip}
@@ -226,13 +205,7 @@ export function ChatThreadSidebar({
                   }}
                 />
                 {canSend && convBelongsToJwt(r, jwt.claims) ? (
-                  <IconButton
-                    size="small"
-                    aria-label="Eliminar"
-                    className="paty-chat-conv-item__delete"
-                    onClick={(e) => { e.stopPropagation(); onDelete(r.iconversacion); }}
-                    sx={{ flexShrink: 0, mr: 0 }}
-                  >
+                  <IconButton size="small" color="error" aria-label="Eliminar" className="paty-chat-conv-item__delete" onClick={(e) => { e.stopPropagation(); onDelete(r.iconversacion); }} sx={{ flexShrink: 0, mr: 0 }}>
                     <Icon icon="mdi:delete-outline" size={16} />
                   </IconButton>
                 ) : null}
