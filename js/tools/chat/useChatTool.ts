@@ -47,6 +47,7 @@ import {
   finalizeStreamInLog,
   appendStreamMsg,
   buildOptimisticUserMsg,
+  isEphemeralMsgId,
 } from "./mensajesModel.ts";
 import type {
   AuditScopeRow,
@@ -610,6 +611,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     const convIdBefore = selectedId;
     const userName = convOwnerDisplayLabel(displayScope, jwt, sessionUser);
     const logCountBefore = lastLogApiCountRef.current;
+    setDraft("");
+    setImages([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setLogMensajes((prev) => enrichLogVista(
       [...prev, buildOptimisticUserMsg({ text, imagenes, userName })],
       userName,
@@ -617,14 +621,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     try {
       const result = await sendConversacionStream(
         jwt,
-        { prompt: draft.trim(), iconversacion: selectedId || undefined, imagenes },
+        { prompt: text, iconversacion: selectedId || undefined, imagenes },
         (partial) => setStreamText(partial),
       );
       const finalText = String(result.respuesta || "").trim();
       if (finalText) setStreamText(finalText);
       const newId = Number(result.iconversacion) || convIdBefore;
-      setDraft("");
-      setImages([]);
       setLogMensajes((prev) => enrichLogVista(
         finalizeStreamInLog(prev, finalText),
         userName,
@@ -648,6 +650,20 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       }
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
+      if (text) setDraft(text);
+      if (imagenes.length) {
+        setImages(imagenes.map((dataUrl, i) => ({ name: `imagen-${i + 1}`, dataUrl })));
+      }
+      setLogMensajes((prev) => {
+        const copy = [...prev];
+        for (let i = copy.length - 1; i >= 0; i -= 1) {
+          if (isEphemeralMsgId(copy[i].idMsg) && copy[i].esUsuario) {
+            copy.splice(i, 1);
+            break;
+          }
+        }
+        return copy;
+      });
       setSending(false);
       setStreamText("");
     }
