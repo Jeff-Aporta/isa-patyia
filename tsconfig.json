@@ -19,6 +19,6 @@
     "js/**/*.jsx",
     "js/**/*.mjs",
     "js/global.d.ts",
-    "../../front-shared/cdn/types/**/*.d.ts"
+    "../../components/front-shared/cdn/types/**/*.d.ts"
   ]
 }

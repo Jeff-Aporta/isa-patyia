@@ -859,6 +859,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
           maxWidth: { xs: "min(100%, 18rem)", sm: groups.length > 1 ? "22rem" : "18rem" },
           pt: 0.25,
           alignSelf: "flex-start",
+          cursor: hasUsage ? "pointer" : undefined,
         }}
       >
         {showMetaBadges ? (

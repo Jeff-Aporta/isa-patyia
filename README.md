@@ -40,8 +40,9 @@ Detalle del CI y setup: [DEPLOY.md](DEPLOY.md).
 
 Cada fila es el **último preview de Cloudflare validado en `dev`** antes de integrar a `main`. La URL con hash queda congelada en ese deploy; [isa-patyia-dev.pages.dev](https://isa-patyia-dev.pages.dev/) siempre apunta al último push en `dev`.
 
-Al hacer merge a `main`, añadir una fila: fecha, enlace `https://xxxx.isa-patyia-dev.pages.dev` (GitHub → **Deployments** → `isa-patyia-dev (Production)` → **View deployment**), commit corto de `dev` y nota breve.
+Al hacer merge a `main`, **siempre** añadir una fila (obligatorio, antes de cerrar el merge): fecha, enlace `https://xxxx.isa-patyia-dev.pages.dev` (GitHub → **Deployments** → `isa-patyia-dev (Production)` → **View deployment**), commit corto de `dev` y nota breve. La fila nueva va **arriba** (más reciente primero).
 
 | Fecha merge | Preview Cloudflare (`dev`) | Commit `dev` | Notas |
 |-------------|----------------------------|--------------|-------|
+| 2026-06-19 | [93de6468.isa-patyia-dev.pages.dev](https://93de6468.isa-patyia-dev.pages.dev/) | `568a1a0` | Chat: sidebar, badges meta, selección conv; SCRUM home light y drag; fix guardar instrucciones; cursor en clickables |
 | 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) | `44930d4` | Primera integración dev→main: flujo dual CF/GH Pages, badges meta compactos, emoji 🧪 prueba workflow |

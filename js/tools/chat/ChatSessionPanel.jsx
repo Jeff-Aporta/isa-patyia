@@ -20,6 +20,7 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUs
       className="paty-chat-session paty-chat-session--clickable"
       role="button"
       tabIndex={0}
+      sx={{ cursor: "pointer" }}
       title="Filtrar conversaciones por usuario"
       aria-label="Filtrar conversaciones por usuario"
       onClick={() => onOpenAudit?.()}

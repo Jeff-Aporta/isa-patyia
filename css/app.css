@@ -792,6 +792,9 @@ body.conv-log-resize-active * {
   }
   &--clickable {
     cursor: pointer;
+    &, & * {
+      cursor: pointer;
+    }
     transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     &:focus-visible {
       outline: none;

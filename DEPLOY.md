@@ -12,7 +12,7 @@ Dos ramas, dos entornos estáticos independientes.
 1. Desarrollar y hacer push en **`dev`** → se publica automáticamente en Cloudflare Pages.
 2. Probar en la URL dev.
 3. Cuando esté aprobado: **merge `dev` → `main`** → GitHub Pages actualiza producción.
-4. Registrar el merge en la tabla **Historial de merges a producción** en [README.md](README.md) (URL `xxxx.isa-patyia-dev.pages.dev` del deploy validado).
+4. **Siempre** registrar el merge en la tabla **Historial de merges a producción** en [README.md](README.md) (URL `xxxx.isa-patyia-dev.pages.dev` del deploy validado en `dev`). No cerrar el merge sin esta fila.
 
 ```bash
 git checkout dev

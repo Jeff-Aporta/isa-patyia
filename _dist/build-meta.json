@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-19T14:45:55.497Z",
+  "builtAt": "2026-06-19T14:50:33.630Z",
   "files": 85,
-  "bytesIn": 708258,
-  "bytesOut": 411879,
-  "ratio": 0.582,
-  "hash": "f0bcca33162e",
+  "bytesIn": 709794,
+  "bytesOut": 412183,
+  "ratio": 0.581,
+  "hash": "f3b534df886a",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 72748,
-      "bytesOut": 51315
+      "bytesIn": 72793,
+      "bytesOut": 51336
     },
     {
       "src": "css/boot-loading.css",
@@ -21,8 +21,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 32100,
-      "bytesOut": 23236
+      "bytesIn": 32416,
+      "bytesOut": 23471
     },
     {
       "src": "css/theme.css",
@@ -33,7 +33,7 @@
     {
       "src": "css/todos-staging.css",
       "dist": "_dist/css/todos-staging.css",
-      "bytesIn": 27312,
+      "bytesIn": 28400,
       "bytesOut": 20484
     },
     {
@@ -237,8 +237,8 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 3202,
-      "bytesOut": 2217
+      "bytesIn": 3236,
+      "bytesOut": 2239
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
@@ -471,8 +471,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 45212,
-      "bytesOut": 25289
+      "bytesIn": 45265,
+      "bytesOut": 25315
     },
     {
       "src": "js/ui/ImageLightboxDialog.jsx",

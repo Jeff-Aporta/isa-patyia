@@ -295,6 +295,7 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     margin: 0;
   }
   &.MuiListItemButton-root {
+    cursor: pointer;
     justify-content: space-between;
     align-items: center;
     padding-left: 0 !important;
@@ -302,6 +303,9 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     border-radius: 0;
     border-bottom: 1px solid rgba(148, 163, 184, 0.1);
     transition: background-color 0.14s ease, color 0.14s ease;
+    &, & *:not(.paty-chat-conv-item__delete):not(.paty-chat-conv-item__delete *) {
+      cursor: pointer;
+    }
     &:hover {
       background: rgba(148, 163, 184, 0.05);
     }
@@ -363,6 +367,13 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
       color: #64748b !important;
       opacity: 0.5 !important;
     }
+  }
+}
+
+.paty-chat-shell,
+.conv-log-shell {
+  [role="button"]:not([aria-disabled="true"]):not(:disabled) {
+    cursor: pointer;
   }
 }
 
@@ -932,6 +943,9 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
   &--clickable {
     cursor: pointer;
     user-select: none;
+    &, & * {
+      cursor: pointer;
+    }
     transition:
     border-color 0.16s ease,
     background 0.16s ease,
