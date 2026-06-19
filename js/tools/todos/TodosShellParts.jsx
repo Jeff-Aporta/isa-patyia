@@ -21,14 +21,7 @@ export function TodosLoggedOutShell({ onNeedLogin }) {
   );
 }
 
-export function TodosBoardToolbar({
-  boardTitle,
-  boardMeta,
-  onHome,
-  onNewBoard,
-  onRefresh,
-  loadingBoard,
-}) {
+export function TodosBoardToolbar({ boardTitle, boardMeta, onHome, onNewBoard, onRefresh, loadingBoard }) {
   const publicSlug = boardMeta?.publicSlug;
   const myRole = boardMeta?.myRole;
 
