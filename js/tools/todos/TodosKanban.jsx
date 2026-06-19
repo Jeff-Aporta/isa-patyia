@@ -177,7 +177,7 @@ function ColumnAddForm({ onAdd }) {
   );
 }
 
-export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAdd, onDragStart, onDropColumn }) {
+export function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask, onQuickAdd, onDragStart, onDropColumn }) {
   const [dragOverCol, setDragOverCol] = useState(null);
   const [draggingTaskId, setDraggingTaskId] = useState(null);
   const [dragGhost, setDragGhost] = useState(null);
@@ -292,7 +292,7 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
   const { columns } = boardData;
 
   return (
-    <Box className={`paty-todos-kanban${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
+    <Box className={`paty-todos-kanban${preview ? " paty-todos-kanban--preview" : ""}${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
       {dragGhost ? (
         <DragGhost task={ghostTask} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} />
       ) : null}
@@ -362,7 +362,7 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
                 </Button>
               ) : null}
             </Box>
-            {!readOnly && col.columnKey === "pending" ? (
+            {!readOnly && !preview && col.columnKey === "pending" ? (
               <ColumnAddForm onAdd={(title) => onQuickAdd(col.id, title)} />
             ) : null}
           </Box>
