@@ -1,6 +1,6 @@
 import { getReact, getMaterialUI, UI, requestConfirm } from "../../core/platform.ts";
-import { BoardPreviewKanban } from "./BoardPreviewKanban.jsx";
-import { boardRoleChips, canDeleteBoard, readBoardExpandState, sortBoardsByRecent, writeBoardExpandState } from "./boardsHomeState.js";
+import { TodosKanban } from "./TodosKanban.jsx";
+import { boardRoleChips, canDeleteBoard, canEditBoard, readBoardExpandState, sortBoardsByRecent, writeBoardExpandState } from "./boardsHomeState.js";
 
 const { useState, useEffect, useMemo } = getReact();
 const { Box, Typography, Button, Stack, Chip, CircularProgress, Skeleton, Accordion, AccordionSummary, AccordionDetails, IconButton, Tooltip } = getMaterialUI();
@@ -20,10 +20,10 @@ function BoardPreviewSkeleton() {
     <Box className="paty-todos-kanban paty-todos-kanban--preview paty-todos-kanban--preview-loading">
       {[0, 1].map((i) => (
         <Box key={i} className="paty-todos-column paty-todos-column--pending">
-          <Skeleton variant="rounded" height={28} sx={{ m: 1.5 }} />
-          <Stack spacing={1} sx={{ px: 1, pb: 1 }}>
-            <Skeleton variant="rounded" height={96} />
-            <Skeleton variant="rounded" height={96} />
+          <Skeleton variant="rounded" height={24} className="paty-todos-column__head-skeleton" />
+          <Stack spacing={1} className="paty-todos-column__list paty-todos-column__list--skeleton">
+            <Skeleton variant="rounded" height={88} />
+            <Skeleton variant="rounded" height={88} />
           </Stack>
         </Box>
       ))}
@@ -31,9 +31,10 @@ function BoardPreviewSkeleton() {
   );
 }
 
-function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expanded, onToggleExpand, onOpenBoard, onOpenTask, onDeleteBoard, deleting }) {
+function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expanded, onToggleExpand, onOpenBoard, onOpenTask, onPreviewDragStart, onPreviewDropColumn, onDeleteBoard, deleting }) {
   const deletable = canDeleteBoard(board);
   const roleChips = boardRoleChips(board);
+  const canEdit = preview?.board ? canEditBoard(preview.board) : canEditBoard(board);
 
   function stopBubble(e) { e.stopPropagation(); }
 
@@ -51,66 +52,57 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
 
   return (
     <Accordion expanded={expanded} onChange={(_, next) => onToggleExpand(board.id, next)} className="paty-todos-board-acc" disableGutters elevation={0}>
-      <AccordionSummary expandIcon={<Icon icon="mdi:chevron-down" size={20} />} className="paty-todos-board-acc__summary">
-        <Box className="paty-todos-board-row__header">
-          <Box className="paty-todos-board-row__headline">
-            <Box className="paty-todos-board-row__title-wrap">
-              <Icon icon="mdi:view-column" size={20} />
-              <Typography
-                className="paty-todos-board-row__title paty-todos-board-row__title--link"
-                variant="subtitle1"
-                component="button"
-                type="button"
-                title={`Abrir ${board.title}`}
-                onClick={(e) => { stopBubble(e); onOpenBoard(board.id); }}
-              >
-                {board.title}
-              </Typography>
-            </Box>
-            {board.description && !expanded ? (
-              <Typography className="paty-todos-board-row__desc" variant="body2" color="text.secondary">
-                {board.description}
-              </Typography>
-            ) : null}
+      <AccordionSummary expandIcon={<Icon icon="mdi:chevron-down" size={18} />} className="paty-todos-board-acc__summary">
+        <Box className="paty-todos-board-row__header paty-todos-board-row__header--acc">
+          <Box className="paty-todos-board-row__title-wrap">
+            <Icon icon="mdi:view-column" size={15} />
+            <span
+              className="paty-todos-board-row__title paty-todos-board-row__title--link"
+              role="link"
+              tabIndex={0}
+              title={board.description ? `${board.title} — ${board.description}` : `Abrir ${board.title}`}
+              onClick={(e) => { stopBubble(e); onOpenBoard(board.id); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { stopBubble(e); onOpenBoard(board.id); } }}
+            >
+              {board.title}
+            </span>
           </Box>
-          <Box className="paty-todos-board-row__actions" onClick={stopBubble}>
-            <Box className="paty-todos-board-row__aside">
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap className="paty-todos-board-row__chips">
-                {board.visibility === "public" ? (
-                  <Chip
-                    size="small"
-                    className="paty-todos-board-card__chip paty-todos-board-card__chip--visibility paty-todos-board-card__chip--public"
-                    label="Público"
-                    icon={<Icon icon="mdi:earth" size={12} />}
-                  />
-                ) : (
-                  <Chip
-                    size="small"
-                    className="paty-todos-board-card__chip paty-todos-board-card__chip--visibility"
-                    label="Privado"
-                    icon={<Icon icon="mdi:lock-outline" size={12} />}
-                  />
-                )}
-              {roleChips.map((chip) => (
-                <Chip
-                  key={chip.id}
-                  size="small"
-                  className={`paty-todos-board-card__chip paty-todos-board-card__chip--${chip.variant}`}
-                  label={chip.label}
-                  variant={chip.variant === "role" ? "outlined" : "filled"}
-                  icon={<Icon icon={chip.icon} size={12} />}
-                />
-              ))}
-              </Stack>
-              <Typography className="paty-todos-board-row__meta" component="span" variant="caption">
-                {formatBoardDate(board.updatedAt)}
-              </Typography>
-            </Box>
+          <Stack direction="row" spacing={0.35} flexWrap="nowrap" useFlexGap className="paty-todos-board-row__chips" onClick={stopBubble}>
+            {board.visibility === "public" ? (
+              <Chip
+                size="small"
+                className="paty-todos-board-card__chip paty-todos-board-card__chip--visibility paty-todos-board-card__chip--public"
+                label="Público"
+                icon={<Icon icon="mdi:earth" size={11} />}
+              />
+            ) : (
+              <Chip
+                size="small"
+                className="paty-todos-board-card__chip paty-todos-board-card__chip--visibility"
+                label="Privado"
+                icon={<Icon icon="mdi:lock-outline" size={11} />}
+              />
+            )}
+            {roleChips.map((chip) => (
+              <Chip
+                key={chip.id}
+                size="small"
+                className={`paty-todos-board-card__chip paty-todos-board-card__chip--${chip.variant}`}
+                label={chip.label}
+                variant={chip.variant === "role" ? "outlined" : "filled"}
+                icon={<Icon icon={chip.icon} size={11} />}
+              />
+            ))}
+          </Stack>
+          <Box className="paty-todos-board-row__tail" onClick={stopBubble}>
+            <Typography className="paty-todos-board-row__meta" component="span" variant="caption">
+              {formatBoardDate(board.updatedAt)}
+            </Typography>
             {deletable ? (
               <Tooltip title="Eliminar tablero (solo admin global)">
                 <span>
                   <IconButton size="small" className="paty-todos-board-row__delete" aria-label="Eliminar tablero" disabled={deleting} onClick={handleDelete}>
-                    <Icon icon="mdi:delete-outline" size={18} />
+                    <Icon icon="mdi:delete-outline" size={16} />
                   </IconButton>
                 </span>
               </Tooltip>
@@ -124,9 +116,14 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
           {!previewReady && loadingPreviews ? (
             <BoardPreviewSkeleton />
           ) : preview ? (
-            <BoardPreviewKanban
+            <TodosKanban
+              preview
               boardData={preview}
+              readOnly={!canEdit}
               onOpenTask={(taskId) => onOpenTask(board.id, taskId)}
+              onQuickAdd={() => {}}
+              onDragStart={(taskId) => onPreviewDragStart(board.id, taskId)}
+              onDropColumn={(columnId) => onPreviewDropColumn(board.id, columnId)}
             />
           ) : previewReady ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 1 }}>
@@ -157,7 +154,7 @@ export function BoardsHomeToolbar({ loading, onNewBoard, onRefresh }) {
   );
 }
 
-export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loading, onOpenBoard, onOpenTask, onNewBoard, onDeleteBoard }) {
+export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loading, onOpenBoard, onOpenTask, onPreviewDragStart, onPreviewDropColumn, onNewBoard, onDeleteBoard }) {
   const sortedBoards = useMemo(() => sortBoardsByRecent(boards), [boards]);
   const [expandState, setExpandState] = useState(() => readBoardExpandState());
   const [deletingId, setDeletingId] = useState("");
@@ -217,7 +214,7 @@ export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false
     <Box className="paty-todos-boards-home">
       <Box className="paty-todos-boards-list">
         {sortedBoards.map((board) => (
-          <BoardAccordionRow key={board.id} board={board} preview={boardPreviews[board.id]} previewReady={Object.prototype.hasOwnProperty.call(boardPreviews, board.id)} loadingPreviews={loadingPreviews} expanded={isExpanded(board.id)} onToggleExpand={handleToggleExpand} onOpenBoard={onOpenBoard} onOpenTask={onOpenTask} onDeleteBoard={handleDeleteBoard} deleting={deletingId === board.id} />
+          <BoardAccordionRow key={board.id} board={board} preview={boardPreviews[board.id]} previewReady={Object.prototype.hasOwnProperty.call(boardPreviews, board.id)} loadingPreviews={loadingPreviews} expanded={isExpanded(board.id)} onToggleExpand={handleToggleExpand} onOpenBoard={onOpenBoard} onOpenTask={onOpenTask} onPreviewDragStart={onPreviewDragStart} onPreviewDropColumn={onPreviewDropColumn} onDeleteBoard={handleDeleteBoard} deleting={deletingId === board.id} />
         ))}
       </Box>
     </Box>
