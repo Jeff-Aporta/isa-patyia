@@ -587,9 +587,14 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
     }
   }
 
-  async function handleSave() {
+  function onChipRename(oldName, newName) {
     const next = renamePromptVariable(value, oldName, newName);
+    surfaceOrigin.current = true;
     commit(next);
+    if (!plainText) {
+      pendingSurfaceValue.current = next;
+      requestAnimationFrame(() => syncSurfaceFromValue(next, { preserveCaret: true }));
+    }
     setRenameDlg({ open: false, name: "" });
   }
 
