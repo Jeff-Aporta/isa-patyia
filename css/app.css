@@ -462,6 +462,151 @@ body.conv-log-resize-active * {
   border-radius: 0.5rem !important;
 }
 
+/* Badges unificados — meta del hilo y métricas */
+.conv-meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  min-height: 1.25rem;
+  padding: 0.1rem 0.42rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(148, 163, 184, 0.14);
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.conv-meta-badge__tag {
+  flex-shrink: 0;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.conv-meta-badge__tag::after {
+  content: "·";
+  margin-left: 0.3rem;
+  opacity: 0.45;
+  font-weight: 400;
+}
+
+.conv-meta-badge__val {
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conv-meta-badge--premisa {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+}
+
+.conv-meta-badge--context {
+  background: rgba(167, 139, 250, 0.14);
+  color: #c4b5fd;
+}
+
+.conv-meta-badge--operativa {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fcd34d;
+}
+
+.conv-meta-badge--metric {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+}
+
+.conv-meta-badge--model {
+  background: rgba(59, 130, 246, 0.14);
+  color: #93c5fd;
+}
+
+.conv-meta-badge--latency {
+  background: rgba(14, 165, 233, 0.12);
+  color: #bae6fd;
+}
+
+.conv-meta-badge--usd {
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+}
+
+.conv-meta-badge--tokens {
+  background: rgba(139, 92, 246, 0.12);
+  color: #ddd6fe;
+}
+
+.conv-meta-badge--error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge {
+  background: rgba(241, 245, 249, 0.95);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--premisa {
+  color: #0369a1;
+  background: rgba(224, 242, 254, 0.95);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--context {
+  color: #6d28d9;
+  background: rgba(237, 233, 254, 0.95);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--operativa {
+  color: #b45309;
+  background: rgba(254, 243, 199, 0.95);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--metric {
+  color: #475569;
+  background: rgba(241, 245, 249, 0.98);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--model {
+  color: #1d4ed8;
+  background: rgba(239, 246, 255, 0.98);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--latency {
+  color: #0369a1;
+  background: rgba(224, 242, 254, 0.95);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--usd {
+  color: #047857;
+  background: rgba(236, 253, 245, 0.98);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--tokens {
+  color: #5b21b6;
+  background: rgba(245, 243, 255, 0.98);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--error {
+  color: #b91c1c;
+  background: rgba(254, 242, 242, 0.98);
+}
+
+.conv-msg-card__meta-row {
+  margin-top: 0.45rem;
+  padding: 0;
+}
+
+.conv-msg-meta-chips {
+  row-gap: 0.35rem;
+  column-gap: 0.35rem;
+}
+
 .conv-msg-card .MuiAlert-root {
   border-radius: 0.5rem;
 }
@@ -553,41 +698,59 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-stats--clickable:focus-visib
 }
 
 .conv-msg-usage-chip--model {
-  border-color: rgba(96, 165, 250, 0.45) !important;
-  color: #93c5fd !important;
-  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
 }
 
 .conv-msg-usage-chip--latency {
-  border-color: rgba(125, 211, 252, 0.42) !important;
-  color: #bae6fd !important;
-  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--model {
-  border-color: rgba(59, 130, 246, 0.32) !important;
-  color: #1d4ed8 !important;
+  border-color: transparent !important;
+  color: inherit !important;
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--latency {
-  border-color: rgba(14, 165, 233, 0.32) !important;
-  color: #0369a1 !important;
+  border-color: transparent !important;
+  color: inherit !important;
 }
 
 .conv-msg-usage-stats__group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
 }
 
 .conv-msg-usage-stats--right .conv-msg-usage-stats__group {
-  flex-direction: row-reverse;
-  justify-content: flex-start;
+  direction: rtl;
+}
+
+.conv-msg-usage-stats--right .conv-msg-usage-stats__group > * {
+  direction: ltr;
 }
 
 .conv-msg-usage-stats--left .conv-msg-usage-stats__group {
-  flex-direction: row;
+  direction: ltr;
+}
+
+.conv-msg-usage-stats__values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.conv-msg-usage-stats--right .conv-msg-usage-stats__values {
+  justify-content: flex-end;
+}
+
+.conv-msg-usage-stats--left .conv-msg-usage-stats__values {
   justify-content: flex-start;
 }
 
@@ -596,31 +759,41 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-chip--latency {
 }
 
 .conv-msg-usage-chip--usd {
-  border-color: rgba(52, 211, 153, 0.45) !important;
-  color: #a7f3d0 !important;
-  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
 }
 
 .conv-msg-usage-chip--tokens {
-  border-color: rgba(167, 139, 250, 0.45) !important;
-  color: #ddd6fe !important;
-  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--usd {
-  border-color: rgba(16, 185, 129, 0.38) !important;
-  color: #047857 !important;
+  border-color: transparent !important;
+  color: inherit !important;
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--tokens {
-  border-color: rgba(139, 92, 246, 0.32) !important;
-  color: #5b21b6 !important;
+  border-color: transparent !important;
+  color: inherit !important;
 }
 
 .conv-msg-usage-stats__group-label {
   flex-shrink: 0;
-  font-family: "IBM Plex Sans", system-ui, sans-serif !important;
-  border-radius: 6px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.35rem;
+  min-height: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .conv-msg-usage-stats__group-label--msg {
@@ -654,9 +827,10 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-stats__group-label--prev {
 }
 
 .conv-msg-usage-chip {
-  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace !important;
-  border-radius: 6px !important;
-  background: rgba(15, 23, 42, 0.35) !important;
+  font-family: inherit !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
 }
 
 .conv-msg-usage-chip__inner {
