@@ -10,7 +10,6 @@ import {
   jwtUserShortName,
   resolveSessionBrowseScope,
   browseScopeKey,
-  activatePortalJwtAsAdmin,
 } from "../../core/patyia-jwt.ts";
 import {
   listConversaciones,
@@ -317,25 +316,6 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   }, [loggedIn, jwt, listScope?.itercero, listScope?.icontacto, convListPage, sessionScopeLoading]);
 
   const handleSelectAuditScope = useCallback((row: AuditScopeRow) => {
-    if (row.activateJwtOwner && canAdminJwt) {
-      setAuditDialogOpen(false);
-      setJwtLoading(true);
-      activatePortalJwtAsAdmin(row.activateJwtOwner, sessionUser || "", row.nombre)
-        .then((rec) => {
-          setJwt(rec);
-          setAuditScope(null);
-          setConvListPage(1);
-          setSelectedId(null);
-          setDetail(null);
-          setLogMensajes([]);
-          setStreamText("");
-          persistChatConvId(null);
-          toastSuccess(`JWT activo · ${row.activateJwtOwner}`);
-        })
-        .catch((e) => toastError(e instanceof Error ? e.message : String(e)))
-        .finally(() => setJwtLoading(false));
-      return;
-    }
     if (row.esJwt) {
       if (!jwt?.claims?.itercero) {
         setAuditDialogOpen(false);
@@ -388,7 +368,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     persistChatConvId(null);
     setAuditDialogOpen(false);
     toastInfo(`Filtro · ${row.nombre || row.icontacto}`);
-  }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser, canAdminJwt]);
+  }, [jwt?.claims?.itercero, jwt?.claims?.icontacto]);
 
   const applyThreadFromDetail = useCallback((
     d: PatyConversacionDetalle | null,
@@ -545,20 +525,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     try {
       if (prodMode) {
         const d = await getConversacion(jwt!, id);
-        if (!convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
-          toastWarning(impersonating
-            ? "Esta conversación no pertenece al usuario suplantado"
-            : "Esta conversación no pertenece al token activo");
-        }
         setDetail(d);
         applyThreadFromDetail(d, null, ownerLabel, { openAiDirect: true, stripMeta: true });
         return;
       }
       if (logsApiMode) {
         const { d, log, openAiDirect } = await fetchLogsModeDetail(jwt!, id, { freshLog, minMensajes });
-        if (d && !convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
-          toastWarning("Esta conversación no pertenece al token activo");
-        }
         if (d) {
           const row = rows.find((r) => convIdsEqual(r.iconversacion, id));
           setDetail({
