@@ -162,7 +162,6 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onClose={() => chat.setAuditDialogOpen(false)}
         jwt={chat.jwt}
         sessionUser={chat.sessionUser}
-        canAdminJwt={chat.canAdminJwt}
         currentScope={chat.auditCurrentScope}
         onSelect={chat.handleSelectAuditScope}
       />
