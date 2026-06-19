@@ -1,29 +1,15 @@
-export const PIN = "3b7a54e";
+export const PIN = "c9e1bd5";
 
-const isDevHost =
-  typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
+/** Siempre jsDelivr — no servir front-shared desde ruta local en dev. */
+export const CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn`;
 
-function devCdnBase() {
-  const base = document.querySelector("base")?.href || location.href;
-  return new URL("../../front-shared/cdn/", base).href.replace(/\/?$/, "/");
-}
-
-export const CDN = isDevHost
-  ? devCdnBase()
-  : `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn`;
-
-export const asset = (p) =>
-  isDevHost ? `${CDN}${p}` : `${CDN}/${p}?v=${PIN}`;
+export const asset = (p) => `${CDN}/${p}?v=${PIN}`;
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
 export const LIGHTBOX_ZOOM_REF = "1d8119f";
 
 export function lightboxZoomBase() {
-  const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost) {
-    return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
-  }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
 }
 
@@ -41,13 +27,14 @@ function ensureLightboxStylesheet(href) {
 }
 
 function ensureLightboxScript(src) {
-  if (document.querySelector("[data-isa-lb-zoom-js]") && globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog) {
+  if (globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog) {
     return Promise.resolve();
   }
+  const stale = document.querySelector("script[data-isa-lb-zoom-js]");
+  if (stale) stale.remove();
   return new Promise((resolve, reject) => {
     const el = document.createElement("script");
     el.src = src;
-    el.defer = true;
     el.setAttribute("data-isa-lb-zoom-js", "1");
     el.onload = () => {
       if (!globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog) {

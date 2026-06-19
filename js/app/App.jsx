@@ -52,15 +52,31 @@ export function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
+  const publicScrumView = isPublicScrumBoot(appBoot.todos);
 
   useEffect(() => {
     Assets.ensureMarked().catch(() => { /* fallback plaintext en mdToHtml */ });
   }, []);
 
   useEffect(() => {
-    if (tool === "chat") Assets.ensureChatStagingCss();
-    if (tool === "todos") Assets.ensureTodosCss();
-  }, [tool]);
+    if (tool === "chat" || tool === "log") Assets.ensureChatStagingCss();
+    if (tool === "todos" || publicScrumView) Assets.ensureTodosCss();
+  }, [tool, publicScrumView]);
+
+  useEffect(() => {
+    if (publicScrumView) {
+      document.documentElement.classList.add("paty-public-scrum");
+    } else {
+      document.documentElement.classList.remove("paty-public-scrum");
+    }
+    return () => document.documentElement.classList.remove("paty-public-scrum");
+  }, [publicScrumView]);
+
+  useEffect(() => {
+    if (publicScrumView && tool !== "todos") {
+      setTool("todos");
+    }
+  }, [publicScrumView, tool]);
 
   useEffect(() => {
     function onAuth() { setAuthTick((n) => n + 1); }
@@ -104,10 +120,12 @@ export function App() {
     <Shell
       ns="ISA"
       showTarget={false}
-      navRows={[
+      mobileBreakpoint="xs"
+      chromeless={publicScrumView}
+      navRows={publicScrumView ? [] : [
         { id: "tool", value: tool, onChange: selectTool, tabs: tools, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
-      toolbarEnd={(
+      toolbarEnd={publicScrumView ? null : (
         <LoginButton
           loginOpen={authOpen}
           onLoginOpenChange={setAuthOpen}
@@ -115,15 +133,21 @@ export function App() {
         />
       )}
     >
-      {tool === "log" && <LogViewer key={homeTick} bootLog={appBoot.log || {}} />}
-      {tool === "prompts" && (
-        <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
-      )}
-      {tool === "chat" && (
-        <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
-      )}
-      {tool === "todos" && canShowScrumTool(appBoot.todos) && (
+      {publicScrumView ? (
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
+      ) : (
+        <>
+          {tool === "log" && <LogViewer key={homeTick} bootLog={appBoot.log || {}} />}
+          {tool === "prompts" && (
+            <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+          {tool === "chat" && (
+            <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+          {tool === "todos" && canShowScrumTool(appBoot.todos) && (
+            <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+        </>
       )}
     </Shell>
   );
