@@ -2,7 +2,7 @@ import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { buildUserAvatarUrl } from "../../core/patyia.ts";
 
 const { useState, useEffect, useMemo } = getReact();
-const { Box, Typography, CircularProgress } = getMaterialUI();
+const { Box, Typography, CircularProgress, Chip } = getMaterialUI();
 const { Icon } = UI;
 
 export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerNick, canSend, jwtLoading, onOpenAudit }) {
@@ -52,22 +52,31 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUs
         </Typography>
         <Box className="paty-chat-session__flags" sx={{ flexWrap: "wrap", gap: 0.5 }}>
           {canSend ? (
-            <span className="paty-chat-session__flag paty-chat-session__flag--live">
-              <span className="status-dot status-dot--inline status-dot--green" aria-hidden />
-              Interactivo
-            </span>
+            <Chip
+              size="small"
+              label="Interactivo"
+              icon={<span className="status-dot status-dot--inline status-dot--green" aria-hidden />}
+              className="paty-chat-session__badge paty-chat-session__badge--live"
+            />
           ) : jwtLoading ? (
-            <span className="paty-chat-session__flag">
-              <CircularProgress size={10} sx={{ mr: 0.5 }} />
-              Token…
-            </span>
+            <Chip
+              size="small"
+              label="Token…"
+              icon={<CircularProgress size={10} color="inherit" />}
+              className="paty-chat-session__badge paty-chat-session__badge--loading"
+            />
           ) : (
-            <span className="paty-chat-session__flag paty-chat-session__flag--readonly">
-              <span className="status-dot status-dot--inline status-dot--orange" aria-hidden />
-              Solo lectura
-            </span>
+            <Chip
+              size="small"
+              label="Solo lectura"
+              icon={<span className="status-dot status-dot--inline status-dot--orange" aria-hidden />}
+              className="paty-chat-session__badge paty-chat-session__badge--readonly"
+            />
           )}
         </Box>
+      </Box>
+      <Box className="paty-chat-session__action" aria-hidden>
+        <Icon icon="mdi:account-filter-outline" size={17} />
       </Box>
     </Box>
   );
