@@ -1,15 +1,15 @@
 {
-  "builtAt": "2026-06-19T13:44:16.659Z",
+  "builtAt": "2026-06-19T14:02:27.864Z",
   "files": 86,
-  "bytesIn": 695836,
-  "bytesOut": 404786,
-  "ratio": 0.582,
-  "hash": "5ace94fd8982",
+  "bytesIn": 698919,
+  "bytesOut": 404776,
+  "ratio": 0.579,
+  "hash": "acb149dabbfa",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 66122,
+      "bytesIn": 69210,
       "bytesOut": 48787
     },
     {
@@ -195,8 +195,8 @@
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22727,
-      "bytesOut": 13377
+      "bytesIn": 22722,
+      "bytesOut": 13367
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
