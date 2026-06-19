@@ -194,7 +194,6 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
               >
                 {title}
               </Typography>
-              {metaChips}
             </Box>
           </Stack>
           {onMeta && (
@@ -205,6 +204,11 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
             </Tooltip>
           )}
         </Stack>
+        {metaChips ? (
+          <Box className={`conv-msg-card__meta-row${isRight ? " conv-msg-card__meta-row--right" : ""}`}>
+            {metaChips}
+          </Box>
+        ) : null}
       </Box>
       <Box sx={{ p: { xs: 2, sm: 2.5 } }}>{children}</Box>
       {(fecha || footerExtra) ? (
@@ -252,63 +256,62 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
   );
 }
 
-function MetaChipRow({ meta, isUser = false }) {
-  const { Stack, Chip } = getMaterialUI();
+function MetaBadge({ tag, label, tone = "neutral", title }) {
+  return (
+    <span className={`conv-meta-badge conv-meta-badge--${tone}`} title={title || label}>
+      {tag ? <span className="conv-meta-badge__tag">{tag}</span> : null}
+      <span className="conv-meta-badge__val">{label}</span>
+    </span>
+  );
+}
+
+function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "left" }) {
   if (!meta) return null;
   const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
   const chips = [];
 
+  if (meta.premisas?.length) {
+    for (const p of meta.premisas) {
+      chips.push({ key: `p-${p}`, tag: "Premisa", label: p, tone: "premisa", title: `Premisa: ${p}` });
+    }
+  }
   if (meta.extra?.operativa_key) {
-    chips.push({ key: "op", label: meta.extra.operativa_key, color: "warning", title: "consulta operativa" });
-  }
-  if (!isUser && meta.nombre_usuario) {
-    chips.push({ key: "user", label: `@${meta.nombre_usuario}`, variant: "outlined", title: "nombre_usuario" });
-  }
-  if (!isUser && meta.nombre_usuario && meta.nombre_usado_en_respuesta === false) {
-    chips.push({ key: "noname", label: "sin nombre", color: "warning", title: "Nombre enviado pero no usado" });
-  }
-  if (!isUser && meta.nombre_usado_en_respuesta === true) {
-    chips.push({ key: "named", label: "✓ nombre", color: "success", title: "Nombre usado" });
+    chips.push({ key: "op", tag: "Op", label: meta.extra.operativa_key, tone: "operativa", title: "Consulta operativa" });
   }
   if (meta.itdconsulta) {
-    chips.push({ key: "itd", label: meta.itdconsulta, variant: "outlined", title: "itdconsulta" });
+    chips.push({ key: "itd", tag: "TD", label: meta.itdconsulta, tone: "context", title: `itdconsulta: ${meta.itdconsulta}` });
   }
   if (!isUser && instructionKeyFromMeta(meta)) {
     const key = instructionKeyFromMeta(meta);
-    chips.push({ key: "pmpt", label: key, variant: "outlined", title: `iinstruccion: ${key}` });
+    chips.push({ key: "pmpt", tag: "Prompt", label: key, tone: "context", title: `Instrucción: ${key}` });
   }
-  if (meta.model) {
-    chips.push({ key: "model", label: meta.model, variant: "outlined", title: "model" });
+  if (!hideUsageMetrics && meta.model) {
+    chips.push({ key: "model", tag: "Modelo", label: meta.model, tone: "metric", title: "Modelo LLM" });
   }
-  if (meta.latency_ms != null && meta.latency_ms > 0) {
-    chips.push({ key: "lat", label: `${meta.latency_ms}ms`, variant: "outlined", title: "latency_ms" });
+  if (!hideUsageMetrics && meta.latency_ms != null && meta.latency_ms > 0) {
+    chips.push({ key: "lat", tag: "Lat", label: `${meta.latency_ms} ms`, tone: "metric", title: "Latencia" });
   }
-  if (tk?.total > 0) {
-    chips.push({ key: "tok", label: `${tk.total}t`, color: "secondary", title: `tokens total ${tk.total}` });
-  }
-  if (meta.premisas?.length) {
-    for (const p of meta.premisas) {
-      chips.push({ key: `p-${p}`, label: p, variant: "outlined", title: `premisa: ${p}` });
-    }
+  if (!hideUsageMetrics && tk?.total > 0) {
+    chips.push({ key: "tok", tag: "Tok", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
   }
   if (meta.stream_ok === false) {
-    chips.push({ key: "stream", label: "stream ✗", color: "error", title: meta.stream_error || "stream falló" });
+    chips.push({ key: "stream", tag: "Stream", label: "error", tone: "error", title: meta.stream_error || "Stream falló" });
   }
 
   if (!chips.length) return null;
 
+  const { Stack } = getMaterialUI();
   return (
-    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+    <Stack
+      direction="row"
+      spacing={0.5}
+      flexWrap="wrap"
+      useFlexGap
+      className="conv-msg-meta-chips"
+      sx={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}
+    >
       {chips.map((c) => (
-        <Chip
-          key={c.key}
-          size="small"
-          label={c.label}
-          color={c.color}
-          variant={c.variant || "filled"}
-          title={c.title}
-          sx={{ height: 22, "& .MuiChip-label": { px: 0.75, fontSize: "0.68rem" } }}
-        />
+        <MetaBadge key={c.key} tag={c.tag} label={c.label} tone={c.tone} title={c.title} />
       ))}
     </Stack>
   );
@@ -442,21 +445,13 @@ function ImageLightboxDialog({ open, src, onClose }) {
   );
 }
 
-function UsageSummaryChip({ label, className, title }) {
-  const { Chip } = getMaterialUI();
-  return (
-    <Chip
-      size="small"
-      variant="outlined"
-      title={title}
-      label={label}
-      className={className}
-      sx={{
-        height: 22,
-        "& .MuiChip-label": { px: 0.65, fontSize: "0.62rem", fontWeight: 600 },
-      }}
-    />
-  );
+function UsageSummaryChip({ label, className, title, tag }) {
+  const tone = className?.includes("--model") ? "model"
+    : className?.includes("--latency") ? "latency"
+      : className?.includes("--usd") ? "usd"
+        : className?.includes("--tokens") ? "tokens"
+          : "metric";
+  return <MetaBadge tag={tag} label={label} tone={tone} title={title} />;
 }
 
 function UsageBreakdownTable({ parts }) {
@@ -622,7 +617,7 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
 }
 
 function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
-  const { Box, Chip } = getMaterialUI();
+  const { Box } = getMaterialUI();
   const [open, setOpen] = useState(false);
   if (!stats) return null;
 
@@ -672,13 +667,15 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
           <Box className={`conv-msg-usage-stats__meta conv-msg-usage-stats__meta--${align}`}>
             {modelLabel ? (
               <UsageSummaryChip
+                tag="Modelo"
                 label={modelLabel}
                 className="conv-msg-usage-chip conv-msg-usage-chip--model"
-                title={modelRaw && modelRaw !== modelLabel ? `Modelo: ${modelRaw}` : "Modelo"}
+                title={modelRaw && modelRaw !== modelLabel ? `Modelo: ${modelRaw}` : "Modelo LLM"}
               />
             ) : null}
             {latencyLabel ? (
               <UsageSummaryChip
+                tag="Lat"
                 label={latencyLabel}
                 className="conv-msg-usage-chip conv-msg-usage-chip--latency"
                 title="Tiempo de respuesta"
@@ -688,27 +685,23 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
         ) : null}
         {groups.map((group) => (
           <Box key={group.key} className="conv-msg-usage-stats__group">
-            <Chip
-              size="small"
-              label={group.label}
-              className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}
-              sx={{
-                height: 22,
-                fontWeight: 700,
-                pointerEvents: "none",
-                "& .MuiChip-label": { px: 0.75, fontSize: "0.62rem", letterSpacing: "0.02em" },
-              }}
-            />
-            <UsageSummaryChip
-              label={group.summary.usdText}
-              className="conv-msg-usage-chip conv-msg-usage-chip--usd"
-              title="Costo USD total"
-            />
-            <UsageSummaryChip
-              label={group.summary.tokensText}
-              className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
-              title="Tokens total"
-            />
+            <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
+              {group.key === "prev" ? "Acum." : "Msg"}
+            </span>
+            <Box className="conv-msg-usage-stats__values">
+              <UsageSummaryChip
+                tag="USD"
+                label={group.summary.usdText}
+                className="conv-msg-usage-chip conv-msg-usage-chip--usd"
+                title="Costo USD"
+              />
+              <UsageSummaryChip
+                tag="Tok"
+                label={group.summary.tokensText}
+                className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
+                title="Tokens total"
+              />
+            </Box>
           </Box>
         ))}
       </Box>
@@ -826,18 +819,20 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   const showMetricsColumn = Boolean(showUsageStats && msg.usageStats);
   const showSideColumn = Boolean(showMetricsColumn || ratingRow);
 
+  const logsDetail = !compactMeta && showUsageStats;
+  const hideUsageInChips = Boolean(showUsageStats && msg.usageStats);
+  const operativaClass = isOperativa
+    ? `conv-msg--operativa${operativaEnter ? " conv-msg--operativa-enter" : ""}${logsDetail ? " conv-msg--operativa-logs" : ""}`
+    : "";
+
   return (
     <Box
-      className={
-        isOperativa && compactMeta
-          ? `conv-msg--operativa${operativaEnter ? " conv-msg--operativa-enter" : ""}`
-          : undefined
-      }
+      className={[logsDetail ? "conv-msg--logs-detail" : "", operativaClass].filter(Boolean).join(" ") || undefined}
       sx={{
         display: "flex",
-        justifyContent: isUser ? "flex-end" : "flex-start",
+        justifyContent: isOperativa && logsDetail ? "center" : isUser ? "flex-end" : "flex-start",
         width: "100%",
-        mb: isOperativa && compactMeta ? 1 : 2.5,
+        mb: isOperativa ? (compactMeta ? 1 : 1.75) : logsDetail ? 2 : 2.5,
       }}
     >
       <Box sx={{
@@ -845,14 +840,15 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
         flexDirection: isUser ? "row-reverse" : "row",
         alignItems: showSideColumn && ratingRow ? "stretch" : "flex-start",
         gap: { xs: 1, sm: 1.25 },
-        maxWidth: isOperativa && compactMeta ? "88%" : "95%",
+        maxWidth: isOperativa ? (logsDetail ? "min(720px, 96%)" : compactMeta ? "88%" : "95%") : "95%",
+        width: isOperativa && logsDetail ? "100%" : undefined,
         minWidth: 0,
         opacity: 1,
       }}>
         <Box sx={{
           flex: 1,
           minWidth: 0,
-          maxWidth: isOperativa && compactMeta ? "78%" : "90%",
+          maxWidth: isOperativa && compactMeta ? "78%" : "100%",
         }}>
           <SectionCard
             id={`conv-msg-${msg.idMsg}`}
@@ -864,7 +860,9 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             muted={isOperativa && compactMeta}
             streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
-            metaChips={compactMeta ? null : <MetaChipRow meta={msg.meta} isUser={isUser} />}
+            metaChips={compactMeta ? null : (
+              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips} align={isUser ? "right" : "left"} />
+            )}
           >
             {msg.streamFailed && msg.streamError && (
               <Alert severity="warning" sx={{ mb: 1.5, py: 0.25, fontSize: "0.78rem" }}>
@@ -921,7 +919,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   && prev.operativaEnter === next.operativaEnter
 ));
 
-export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null }) {
+export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
@@ -942,7 +940,7 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: "100%" }}>
+    <Box className={threadClassName || undefined} sx={{ width: "100%", maxWidth: "100%" }}>
       {mensajesConStats.map((m) => (
         <MensajeSection
           key={m.idMsg}
