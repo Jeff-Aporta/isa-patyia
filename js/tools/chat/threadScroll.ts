@@ -1,12 +1,21 @@
 import { getReact } from "../../core/platform.ts";
+import type { ChatMensajeVista, ConvLogSnapshot } from "./types.ts";
 
-const { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } = getReact();
+const { useEffect, useLayoutEffect, useCallback, useRef, useMemo } = getReact();
 
 const THREAD_SCROLL_NEAR_BOTTOM = 72;
 
+type ThreadScrollOptions = {
+  sending?: boolean;
+};
+
 /** Conserva distancia al fondo al insertar mensajes (p. ej. operativas) arriba del viewport. */
-export function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
-  const snapshotRef = useRef(null);
+export function useThreadScrollAnchor(
+  scrollRef: { current: HTMLElement | null },
+  mensajes: ChatMensajeVista[] | null | undefined,
+  { sending = false }: ThreadScrollOptions = {},
+) {
+  const snapshotRef = useRef<ConvLogSnapshot | null>(null);
 
   const mensajesKey = useMemo(
     () => (mensajes || []).map((m) => (
