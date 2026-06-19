@@ -72,6 +72,8 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
           loading={todos.loadingBoards}
           onOpenBoard={todos.selectBoard}
           onOpenTask={todos.openTaskFromPreview}
+          onPreviewDragStart={todos.onPreviewDragStart}
+          onPreviewDropColumn={todos.onPreviewDropColumn}
           onNewBoard={() => todos.setNewBoardOpen(true)}
           onDeleteBoard={async (id) => {
             try { await todos.onDeleteBoard(id); }
