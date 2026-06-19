@@ -1,18 +1,18 @@
-import { convBelongsToJwt, jwtUserShortName, jwtUserDisplayName } from "../../core/patyia-jwt.ts";
+import { convBelongsToJwt, jwtUserShortName, jwtUserDisplayName, type BrowseScope, type PatyJwtClaims, type PatyJwtRecord } from "../../core/patyia-jwt.ts";
 
-export function auditScopeKey(scope) {
+export function auditScopeKey(scope: BrowseScope | null | undefined): string {
   if (!scope) return "";
   return `${scope.itercero}|${scope.icontacto}`;
 }
 
-export function auditScopeIsOwnJwt(scope, claims) {
+export function auditScopeIsOwnJwt(scope: BrowseScope | null | undefined, claims: PatyJwtClaims | null | undefined): boolean {
   if (!claims?.itercero) return !scope;
   if (!scope) return true;
   return convBelongsToJwt(scope, claims);
 }
 
 /** Nick ISA / AUTH (username): dueño del JWT o sesión activa. */
-export function resolveOwnerNickname(jwt, sessionUser) {
+export function resolveOwnerNickname(jwt: PatyJwtRecord | null | undefined, sessionUser: string | null | undefined): string {
   const acting = String(jwt?.actingAsUsername ?? "").trim().toUpperCase();
   if (acting) return acting;
   const saved = String(jwt?.savedBy ?? "").trim().toUpperCase();
@@ -21,7 +21,7 @@ export function resolveOwnerNickname(jwt, sessionUser) {
 }
 
 /** Solo códigos tercero y contacto (sin nombre legible). */
-export function convOwnerCodesLabel(scope) {
+export function convOwnerCodesLabel(scope: BrowseScope | null | undefined): string {
   const t = String(scope?.itercero ?? "").trim();
   const c = String(scope?.icontacto ?? "").trim();
   if (t && c) return `${t} · ${c}`;
@@ -29,19 +29,26 @@ export function convOwnerCodesLabel(scope) {
 }
 
 /** Etiqueta del dueño: nick si existe; si no, códigos tercero/contacto. */
-export function convOwnerDisplayLabel(scope, jwt, sessionUser) {
+export function convOwnerDisplayLabel(
+  scope: BrowseScope | null | undefined,
+  jwt: PatyJwtRecord | null | undefined,
+  sessionUser: string | null | undefined,
+): string {
   const nick = resolveOwnerNickname(jwt, sessionUser);
   if (nick) return nick;
   const codes = convOwnerCodesLabel(scope);
   return codes || "Usuario";
 }
 
-export function activeConvOwnerScope(auditScope, claims) {
+export function activeConvOwnerScope(
+  auditScope: BrowseScope | null | undefined,
+  claims: PatyJwtClaims | null | undefined,
+): BrowseScope | null {
   if (auditScope?.itercero && auditScope?.icontacto) return auditScope;
   if (claims?.itercero) {
     return {
       itercero: claims.itercero,
-      icontacto: claims.icontacto,
+      icontacto: claims.icontacto ?? "",
       nombre: jwtUserDisplayName(claims) || jwtUserShortName(claims) || null,
     };
   }
@@ -49,16 +56,24 @@ export function activeConvOwnerScope(auditScope, claims) {
 }
 
 /** Etiqueta del dueño de las conversaciones listadas (auditoría, JWT ajeno o propio). */
-export function resolveConvListOwnerLabel(listScope, jwt, sessionUser) {
+export function resolveConvListOwnerLabel(
+  listScope: BrowseScope | null | undefined,
+  jwt: PatyJwtRecord | null | undefined,
+  sessionUser: string | null | undefined,
+): string {
   return convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
 }
 
 /** Línea bajo «Conversaciones»: nick o códigos (sin nombre completo del JWT). */
-export function resolveConvListHeader(listScope, jwt, sessionUser) {
+export function resolveConvListHeader(
+  listScope: BrowseScope | null | undefined,
+  jwt: PatyJwtRecord | null | undefined,
+  sessionUser: string | null | undefined,
+): string {
   return resolveConvListOwnerLabel(listScope, jwt, sessionUser);
 }
 
-export function formatAuditTs(v) {
+export function formatAuditTs(v: string | number | Date | null | undefined): string {
   if (!v) return "—";
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? String(v).slice(0, 16) : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
