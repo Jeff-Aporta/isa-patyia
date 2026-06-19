@@ -24,6 +24,15 @@ const scrumHttp = window.ISAFront.createCapFetch({
 
 export const SCRUM_APP_ID = "isa-patyia";
 
+export type BoardRole = "editor" | "readonly";
+export type BoardVisibility = "private" | "public";
+
+export type BoardMember = {
+  username: string;
+  boardRole: BoardRole;
+  createdAt?: string;
+};
+
 export type TodoBoard = {
   id: string;
   appId: string;
@@ -34,6 +43,14 @@ export type TodoBoard = {
   createdAt: string;
   updatedAt: string;
   active: boolean;
+  visibility: BoardVisibility;
+  publicSlug: string | null;
+  myRole: BoardRole | null;
+  isAdmin?: boolean;
+  canRead?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  readOnly?: boolean;
 };
 
 export type TodoColumn = {
@@ -85,6 +102,8 @@ export type TodoBoardFull = {
   board: TodoBoard;
   columns: TodoColumn[];
   tasks: TodoTask[];
+  members?: BoardMember[];
+  readOnly?: boolean;
 };
 
 function qs(extra?: Record<string, string>) {
@@ -92,18 +111,89 @@ function qs(extra?: Record<string, string>) {
   return `?${params.toString()}`;
 }
 
+export type AppUserOption = {
+  username: string;
+  displayName: string | null;
+};
+
+export async function searchScrumAppUsers(query = "", limit = 12) {
+  const params = new URLSearchParams({ app: SCRUM_APP_ID, limit: String(limit) });
+  if (query.trim()) params.set("q", query.trim());
+  const data = await scrumHttp.capFetch(`/scrum/users/search?${params.toString()}`, { method: "GET" });
+  return (data.users ?? []) as AppUserOption[];
+}
+
 export async function fetchTodoBoards(boardType = "scrum") {
   const data = await scrumHttp.capFetch(`/scrum/boards${qs({ boardType })}`, { method: "GET" });
   return (data.boards ?? []) as TodoBoard[];
 }
 
-export async function createTodoBoard(payload: { title: string; description?: string; boardType?: string }) {
+export async function createTodoBoard(payload: {
+  title: string;
+  description?: string;
+  boardType?: string;
+  visibility?: BoardVisibility;
+  members?: BoardMember[];
+}) {
   const data = await scrumHttp.capFetch(`/scrum/boards${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ boardType: "scrum", ...payload }),
   });
   return data as TodoBoardFull & { ok: boolean };
+}
+
+export async function updateTodoBoard(
+  boardId: string,
+  patch: { title?: string; description?: string | null; visibility?: BoardVisibility },
+) {
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}${qs()}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return data as TodoBoardFull & { ok: boolean };
+}
+
+export async function deleteTodoBoard(boardId: string) {
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}${qs()}`, { method: "DELETE" });
+  return data as { ok: boolean; id: string };
+}
+
+export async function fetchTodoBoardMembers(boardId: string) {
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}/members${qs()}`, { method: "GET" });
+  return (data.members ?? []) as BoardMember[];
+}
+
+export async function saveTodoBoardMembers(boardId: string, members: BoardMember[]) {
+  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}/members${qs()}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ members }),
+  });
+  return (data.members ?? []) as BoardMember[];
+}
+
+/** Vista pública read-only — no requiere sesión. */
+export async function fetchPublicTodoBoard(slug: string) {
+  const base = ORCH_ONLINE.replace(/\/$/, "");
+  const params = new URLSearchParams({ app: SCRUM_APP_ID });
+  const res = await fetch(`${base}/api/scrum/public/${encodeURIComponent(slug)}?${params}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return data as TodoBoardFull & { ok: boolean; readOnly: true };
+}
+
+export function buildPublicScrumUrl(publicSlug: string) {
+  const origin = typeof location !== "undefined" ? location.origin + location.pathname : "";
+  const snap = { v: 1, tool: "todos", local: false, log: {}, prompts: {}, chat: {}, todos: { publicSlug } };
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(snap))));
+  return `${origin}?s=${encodeURIComponent(b64)}`;
 }
 
 export async function fetchTodoBoard(boardId: string) {
@@ -174,6 +264,14 @@ export async function updateTodoMilestone(
     body: JSON.stringify(patch),
   });
   return data.milestone as TodoMilestone;
+}
+
+export async function deleteTodoTask(taskId: string) {
+  await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, { method: "DELETE" });
+}
+
+export async function deleteTodoMilestone(milestoneId: string) {
+  await scrumHttp.capFetch(`/scrum/milestones/${milestoneId}${qs()}`, { method: "DELETE" });
 }
 
 export async function addTodoComment(taskId: string, body: string) {

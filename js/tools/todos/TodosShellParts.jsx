@@ -1,6 +1,7 @@
-import { getMaterialUI, UI } from "../../core/platform.ts";
+import { getMaterialUI, UI, toastSuccess } from "../../core/platform.ts";
+import { buildPublicScrumUrl } from "../../api/todosApi.ts";
 
-const { Box, Typography, Button, Alert, Stack, Select, MenuItem, FormControl, InputLabel, CircularProgress } = getMaterialUI();
+const { Box, Typography, Button, Stack, Alert, CircularProgress, Tooltip, IconButton, Chip } = getMaterialUI();
 const { Icon } = UI;
 
 export function TodosLoggedOutShell({ onNeedLogin }) {
@@ -20,42 +21,60 @@ export function TodosLoggedOutShell({ onNeedLogin }) {
   );
 }
 
-export function TodosToolbar({
-  boards,
-  boardId,
+export function TodosBoardToolbar({
   boardTitle,
-  loadingBoards,
-  onSelectBoard,
+  boardMeta,
+  onHome,
   onNewBoard,
   onRefresh,
   loadingBoard,
 }) {
+  const publicSlug = boardMeta?.publicSlug;
+  const myRole = boardMeta?.myRole;
+
+  function copyPublicLink() {
+    if (!publicSlug) return;
+    const url = buildPublicScrumUrl(publicSlug);
+    navigator.clipboard.writeText(url);
+    toastSuccess("Enlace público copiado");
+  }
+
   return (
     <Box className="paty-todos-toolbar">
+      <Tooltip title="Volver a mis tableros">
+        <IconButton
+          size="small"
+          onClick={onHome}
+          className="paty-todos-back-btn"
+          aria-label="Volver a mis tableros"
+        >
+          <Icon icon="mdi:arrow-left" size={22} />
+        </IconButton>
+      </Tooltip>
       <Icon icon="mdi:view-column" size={22} />
       <span className="paty-todos-board-title">{boardTitle || "Tablero SCRUM"}</span>
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel id="paty-todos-board-label">Tablero</InputLabel>
-        <Select
-          labelId="paty-todos-board-label"
-          label="Tablero"
-          value={boardId || ""}
-          onChange={(e) => onSelectBoard(e.target.value)}
-          disabled={loadingBoards || !boards.length}
-        >
-          {boards.map((b) => (
-            <MenuItem key={b.id} value={b.id}>{b.title}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      {myRole === "readonly" ? (
+        <Chip size="small" label="Solo lectura" icon={<Icon icon="mdi:eye-outline" size={14} />} />
+      ) : null}
+      {boardMeta?.isAdmin ? (
+        <Chip size="small" color="default" label="Admin global" variant="outlined" />
+      ) : null}
+      <Box sx={{ flex: 1 }} />
       <Button size="small" variant="outlined" startIcon={<Icon icon="mdi:plus" size={16} />} onClick={onNewBoard}>
         Nuevo
       </Button>
+      {publicSlug ? (
+        <Tooltip title="Copiar enlace público (solo lectura)">
+          <IconButton size="small" onClick={copyPublicLink} aria-label="Copiar enlace público">
+            <Icon icon="mdi:link-variant" size={20} />
+          </IconButton>
+        </Tooltip>
+      ) : null}
       <Button
         size="small"
         variant="text"
         onClick={onRefresh}
-        disabled={loadingBoard || !boardId}
+        disabled={loadingBoard}
         startIcon={loadingBoard ? <CircularProgress size={14} /> : <Icon icon="mdi:refresh" size={16} />}
       >
         Actualizar

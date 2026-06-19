@@ -1,13 +1,20 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { mdToHtml } from "../../ui/shared.jsx";
+import { UserAssignAutocomplete } from "./UserAssignAutocomplete.jsx";
 
 const { useState, useEffect, useRef } = getReact();
 const {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, Typography,
   Tabs, Tab, Box, Accordion, AccordionSummary, AccordionDetails, Checkbox, FormControlLabel,
-  CircularProgress, Chip, Divider,
+  CircularProgress, Chip, Divider, IconButton, Tooltip,
 } = getMaterialUI();
 const { Icon } = UI;
+
+function formatShortId(id) {
+  const s = String(id ?? "");
+  if (s.length <= 5) return s;
+  return `…${s.slice(-5)}`;
+}
 
 function formatDt(iso) {
   if (!iso) return "";
@@ -18,13 +25,183 @@ function formatDt(iso) {
   }
 }
 
+function toDateInputValue(value) {
+  if (!value) return "";
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  try {
+    return new Date(s).toISOString().slice(0, 10);
+  } catch {
+    return "";
+  }
+}
+
+function SubtaskEditor({ subtask, readOnly, busy, onSave, onDelete }) {
+  const [title, setTitle] = useState(subtask.title);
+  const [doc, setDoc] = useState(subtask.descriptionDoc || "");
+
+  useEffect(() => {
+    setTitle(subtask.title);
+    setDoc(subtask.descriptionDoc || "");
+  }, [subtask.id, subtask.title, subtask.descriptionDoc]);
+
+  return (
+    <Accordion className="paty-todos-subtask-acc" disableGutters>
+      <AccordionSummary expandIcon={<Icon icon="mdi:chevron-down" size={18} />}>
+        {readOnly ? (
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{subtask.title}</Typography>
+        ) : (
+          <TextField
+            size="small"
+            fullWidth
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            placeholder="Título subtarea"
+          />
+        )}
+      </AccordionSummary>
+      <AccordionDetails>
+        <Stack spacing={1.5}>
+          <TextField
+            label="Documentación (Markdown)"
+            fullWidth
+            size="small"
+            multiline
+            minRows={3}
+            value={doc}
+            onChange={(e) => setDoc(e.target.value)}
+            disabled={readOnly}
+            placeholder="Opcional…"
+          />
+          {doc.trim() ? (
+            <Box sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider", typography: "body2" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>Vista previa</Typography>
+              <div dangerouslySetInnerHTML={{ __html: mdToHtml(doc) }} />
+            </Box>
+          ) : readOnly ? (
+            <Typography variant="caption" color="text.secondary">Sin documentación</Typography>
+          ) : null}
+          {!readOnly ? (
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                size="small"
+                variant="contained"
+                disabled={busy || !title.trim()}
+                onClick={() => onSave(subtask.id, { title: title.trim(), descriptionDoc: doc })}
+              >
+                Guardar
+              </Button>
+              <Tooltip title="Eliminar subtarea">
+                <IconButton
+                  size="small"
+                  color="error"
+                  disabled={busy}
+                  onClick={() => onDelete(subtask.id)}
+                  aria-label="Eliminar subtarea"
+                >
+                  <Icon icon="mdi:delete-outline" size={18} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          ) : null}
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle }) {
+  const [title, setTitle] = useState(milestone.title);
+  const [dueDate, setDueDate] = useState(toDateInputValue(milestone.dueDate));
+
+  useEffect(() => {
+    setTitle(milestone.title);
+    setDueDate(toDateInputValue(milestone.dueDate));
+  }, [milestone.id, milestone.title, milestone.dueDate]);
+
+  if (readOnly) {
+    return (
+      <Stack direction="row" alignItems="center" spacing={1} className="paty-todos-ms-row">
+        <Checkbox checked={!!milestone.completedAt} disabled />
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, textDecoration: milestone.completedAt ? "line-through" : "none" }}>
+            {milestone.title}
+          </Typography>
+          {milestone.dueDate ? (
+            <Typography variant="caption" color="text.secondary">Vence: {toDateInputValue(milestone.dueDate)}</Typography>
+          ) : null}
+        </Box>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} className="paty-todos-ms-row">
+      <FormControlLabel
+        control={(
+          <Checkbox
+            checked={!!milestone.completedAt}
+            onChange={(e) => onToggle(milestone.id, e.target.checked)}
+          />
+        )}
+        label=""
+        sx={{ mr: 0 }}
+      />
+      <TextField
+        size="small"
+        label="Hito"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        sx={{ flex: 1 }}
+      />
+      <TextField
+        size="small"
+        type="date"
+        label="Fecha"
+        InputLabelProps={{ shrink: true }}
+        value={dueDate}
+        onChange={(e) => setDueDate(e.target.value)}
+        sx={{ minWidth: 160 }}
+      />
+      <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={busy || !title.trim()}
+          onClick={() => onSave(milestone.id, { title: title.trim(), dueDate: dueDate || null })}
+        >
+          Guardar
+        </Button>
+        <Tooltip title="Eliminar hito">
+          <IconButton
+            size="small"
+            color="error"
+            disabled={busy}
+            onClick={() => onDelete(milestone.id)}
+            aria-label="Eliminar hito"
+          >
+            <Icon icon="mdi:delete-outline" size={18} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Stack>
+  );
+}
+
 export function TaskDetailDialog({
   open,
   task,
   loading,
+  readOnly = false,
   onClose,
   onSave,
+  onSaveSubtask,
+  onDeleteSubtask,
   onAddSubtask,
+  onSaveMilestone,
+  onDeleteMilestone,
   onAddMilestone,
   onToggleMilestone,
   onComment,
@@ -32,7 +209,7 @@ export function TaskDetailDialog({
   const [tab, setTab] = useState(0);
   const [title, setTitle] = useState("");
   const [doc, setDoc] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedTo, setAssignedTo] = useState(null);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [msTitle, setMsTitle] = useState("");
   const [msDate, setMsDate] = useState("");
@@ -45,7 +222,7 @@ export function TaskDetailDialog({
     prevId.current = task.id;
     setTitle(task.title);
     setDoc(task.descriptionDoc || "");
-    setAssignedTo(task.assignedTo || "");
+    setAssignedTo(task.assignedTo || null);
     setTab(0);
   }, [task]);
 
@@ -60,7 +237,20 @@ export function TaskDetailDialog({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth className="paty-todos-task-dialog">
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <Icon icon="mdi:card-text-outline" size={22} />
-        <span style={{ flex: 1 }}>{loading ? "Cargando…" : (task?.title || "Tarea")}</span>
+        <Typography component="span" variant="h6" sx={{ flex: 1, fontWeight: 700, lineHeight: 1.3 }}>
+          {loading ? "Cargando…" : (task?.title || "Tarea")}
+        </Typography>
+        {task?.id ? (
+          <Typography
+            component="span"
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontFamily: "monospace", letterSpacing: "0.02em", flexShrink: 0 }}
+            title={task.id}
+          >
+            {formatShortId(task.id)}
+          </Typography>
+        ) : null}
         {loading ? <CircularProgress size={20} /> : null}
       </DialogTitle>
       <DialogContent dividers>
@@ -75,14 +265,12 @@ export function TaskDetailDialog({
 
             {tab === 0 ? (
               <Stack spacing={2}>
-                <TextField label="Título" fullWidth size="small" value={title} onChange={(e) => setTitle(e.target.value)} />
-                <TextField
-                  label="Asignado a (usuario)"
-                  fullWidth
-                  size="small"
+                <TextField label="Título" fullWidth size="small" value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
+                <UserAssignAutocomplete
+                  label="Asignado a"
                   value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  placeholder="USUARIO_BD_AUTH"
+                  disabled={readOnly}
+                  onChange={setAssignedTo}
                 />
                 <TextField
                   label="Documentación (Markdown)"
@@ -91,6 +279,7 @@ export function TaskDetailDialog({
                   minRows={6}
                   value={doc}
                   onChange={(e) => setDoc(e.target.value)}
+                  disabled={readOnly}
                 />
                 {doc.trim() ? (
                   <Box sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider", typography: "body2" }}>
@@ -108,129 +297,119 @@ export function TaskDetailDialog({
             {tab === 1 ? (
               <Stack spacing={1}>
                 {(task.subtasks ?? []).map((st) => (
-                  <Accordion key={st.id} className="paty-todos-subtask-acc" disableGutters>
-                    <AccordionSummary expandIcon={<Icon icon="mdi:chevron-down" size={18} />}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{st.title}</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                        {st.descriptionDoc?.trim() ? null : "Sin documentación"}
-                      </Typography>
-                      {st.descriptionDoc?.trim() ? (
-                        <div dangerouslySetInnerHTML={{ __html: mdToHtml(st.descriptionDoc) }} />
-                      ) : null}
-                    </AccordionDetails>
-                  </Accordion>
+                  <SubtaskEditor
+                    key={st.id}
+                    subtask={st}
+                    readOnly={readOnly}
+                    busy={busy}
+                    onSave={(id, patch) => run(() => onSaveSubtask(id, patch))}
+                    onDelete={(id) => run(() => onDeleteSubtask(id))}
+                  />
                 ))}
                 <Divider sx={{ my: 1 }} />
-                <Stack direction="row" spacing={1}>
-                  <TextField
-                    size="small"
-                    fullWidth
-                    placeholder="Nueva subtarea…"
-                    value={subtaskTitle}
-                    onChange={(e) => setSubtaskTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && subtaskTitle.trim()) {
-                        run(async () => {
-                          await onAddSubtask(subtaskTitle);
-                          setSubtaskTitle("");
-                        });
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={busy || !subtaskTitle.trim()}
-                    onClick={() => run(async () => {
-                      await onAddSubtask(subtaskTitle);
-                      setSubtaskTitle("");
-                    })}
-                  >
-                    Añadir
-                  </Button>
-                </Stack>
+                {!readOnly ? (
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      placeholder="Nueva subtarea…"
+                      value={subtaskTitle}
+                      onChange={(e) => setSubtaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && subtaskTitle.trim()) {
+                          run(async () => {
+                            await onAddSubtask(subtaskTitle);
+                            setSubtaskTitle("");
+                          });
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="contained"
+                      size="small"
+                      disabled={busy || !subtaskTitle.trim()}
+                      onClick={() => run(async () => {
+                        await onAddSubtask(subtaskTitle);
+                        setSubtaskTitle("");
+                      })}
+                    >
+                      Añadir
+                    </Button>
+                  </Stack>
+                ) : null}
               </Stack>
             ) : null}
 
             {tab === 2 ? (
               <Stack spacing={1.5}>
                 {(task.milestones ?? []).map((ms) => (
-                  <Stack key={ms.id} direction="row" alignItems="center" spacing={1}>
-                    <FormControlLabel
-                      control={(
-                        <Checkbox
-                          checked={!!ms.completedAt}
-                          onChange={(e) => onToggleMilestone(ms.id, e.target.checked)}
-                        />
-                      )}
-                      label=""
-                      sx={{ mr: 0 }}
-                    />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, textDecoration: ms.completedAt ? "line-through" : "none" }}>
-                        {ms.title}
-                      </Typography>
-                      {ms.dueDate ? (
-                        <Typography variant="caption" color="text.secondary">Vence: {ms.dueDate}</Typography>
-                      ) : null}
-                    </Box>
-                  </Stack>
+                  <MilestoneEditor
+                    key={ms.id}
+                    milestone={ms}
+                    readOnly={readOnly}
+                    busy={busy}
+                    onSave={(id, patch) => run(() => onSaveMilestone(id, patch))}
+                    onDelete={(id) => run(() => onDeleteMilestone(id))}
+                    onToggle={(id, completed) => run(() => onToggleMilestone(id, completed))}
+                  />
                 ))}
                 <Divider sx={{ my: 1 }} />
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                  <TextField size="small" fullWidth label="Hito" value={msTitle} onChange={(e) => setMsTitle(e.target.value)} />
-                  <TextField
-                    size="small"
-                    type="date"
-                    label="Fecha"
-                    InputLabelProps={{ shrink: true }}
-                    value={msDate}
-                    onChange={(e) => setMsDate(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={busy || !msTitle.trim()}
-                    onClick={() => run(async () => {
-                      await onAddMilestone(msTitle, msDate || null);
-                      setMsTitle("");
-                      setMsDate("");
-                    })}
-                  >
-                    Añadir
-                  </Button>
-                </Stack>
+                {!readOnly ? (
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <TextField size="small" fullWidth label="Hito" value={msTitle} onChange={(e) => setMsTitle(e.target.value)} />
+                    <TextField
+                      size="small"
+                      type="date"
+                      label="Fecha"
+                      InputLabelProps={{ shrink: true }}
+                      value={msDate}
+                      onChange={(e) => setMsDate(e.target.value)}
+                      sx={{ minWidth: 160 }}
+                    />
+                    <Button
+                      variant="contained"
+                      size="small"
+                      disabled={busy || !msTitle.trim()}
+                      onClick={() => run(async () => {
+                        await onAddMilestone(msTitle, msDate || null);
+                        setMsTitle("");
+                        setMsDate("");
+                      })}
+                    >
+                      Añadir
+                    </Button>
+                  </Stack>
+                ) : null}
               </Stack>
             ) : null}
 
             {tab === 3 ? (
               <Stack spacing={0}>
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                  <TextField
-                    size="small"
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    placeholder="Comentario / nota de trazabilidad…"
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    disabled={busy || !comment.trim()}
-                    sx={{ alignSelf: "flex-end" }}
-                    onClick={() => run(async () => {
-                      await onComment(comment);
-                      setComment("");
-                    })}
-                  >
-                    Registrar
-                  </Button>
-                </Stack>
+                {!readOnly ? (
+                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      placeholder="Comentario / nota de trazabilidad…"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      disabled={busy || !comment.trim()}
+                      sx={{ alignSelf: "flex-end" }}
+                      onClick={() => run(async () => {
+                        await onComment(comment);
+                        setComment("");
+                      })}
+                    >
+                      Registrar
+                    </Button>
+                  </Stack>
+                ) : null}
                 {(task.events ?? []).map((ev) => (
                   <Box key={ev.id} className="paty-todos-event">
                     <div className="paty-todos-event__meta">
@@ -251,7 +430,7 @@ export function TaskDetailDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cerrar</Button>
-        {tab === 0 && task ? (
+        {tab === 0 && task && !readOnly ? (
           <Button
             variant="contained"
             disabled={busy || !title.trim()}
@@ -259,7 +438,7 @@ export function TaskDetailDialog({
               await onSave({
                 title: title.trim(),
                 descriptionDoc: doc,
-                assignedTo: assignedTo.trim() || null,
+                assignedTo: assignedTo || null,
               });
             })}
           >

@@ -3,11 +3,18 @@ import { useTodosTool } from "./todos/useTodosTool.ts";
 import { TodosKanban } from "./todos/TodosKanban.jsx";
 import { TaskDetailDialog } from "./todos/TaskDetailDialog.jsx";
 import { NewBoardDialog } from "./todos/NewBoardDialog.jsx";
-import { TodosLoggedOutShell, TodosToolbar } from "./todos/TodosShellParts.jsx";
+import { PublicScrumBoard } from "./todos/PublicScrumBoard.jsx";
+import { BoardsHome, BoardsHomeToolbar } from "./todos/BoardsHome.jsx";
+import { BoardSettingsPanel } from "./todos/BoardSettingsPanel.jsx";
+import { TodosLoggedOutShell, TodosBoardToolbar } from "./todos/TodosShellParts.jsx";
 
-const { Box, Alert, Typography, Button } = getMaterialUI();
+const { Box, Alert } = getMaterialUI();
 
 export function TodosTool({ bootTodos, onNeedLogin }) {
+  if (bootTodos?.publicSlug) {
+    return <PublicScrumBoard publicSlug={String(bootTodos.publicSlug)} />;
+  }
+
   const todos = useTodosTool({ bootTodos });
 
   if (!todos.loggedIn) {
@@ -18,39 +25,62 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
 
   return (
     <Box className="paty-todos-shell">
-      <TodosToolbar
-        boards={todos.boards}
-        boardId={todos.boardId}
-        boardTitle={boardTitle}
-        loadingBoards={todos.loadingBoards}
-        loadingBoard={todos.loadingBoard}
-        onSelectBoard={todos.selectBoard}
-        onNewBoard={() => todos.setNewBoardOpen(true)}
-        onRefresh={() => todos.reload()}
-      />
+      {todos.inBoardView ? (
+        <TodosBoardToolbar
+          boardTitle={boardTitle}
+          boardMeta={todos.boardData?.board}
+          loadingBoard={todos.loadingBoard}
+          onHome={todos.goHome}
+          onNewBoard={() => todos.setNewBoardOpen(true)}
+          onRefresh={() => todos.reload()}
+        />
+      ) : (
+        <BoardsHomeToolbar
+          loading={todos.loadingBoards}
+          onNewBoard={() => todos.setNewBoardOpen(true)}
+          onRefresh={() => todos.reloadBoards()}
+        />
+      )}
 
       {todos.error ? (
         <Alert severity="error" sx={{ m: 2 }} onClose={() => {}}>{todos.error}</Alert>
       ) : null}
 
-      {!todos.loadingBoards && !todos.boards.length ? (
-        <Box className="paty-todos-gate">
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            No hay tableros SCRUM. Crea el primero para empezar.
-          </Typography>
-          <Button variant="contained" onClick={() => todos.setNewBoardOpen(true)}>Crear tablero</Button>
-        </Box>
+      {todos.inBoardView ? (
+        <>
+          <BoardSettingsPanel
+            board={todos.boardData?.board}
+            readOnly={!todos.canEdit}
+            saving={todos.loadingBoard}
+            onSave={async (patch) => {
+              if (!todos.boardId) return;
+              try { await todos.onUpdateBoard(todos.boardId, patch); }
+              catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+            }}
+          />
+          <TodosKanban
+            boardData={todos.boardData}
+            readOnly={!todos.canEdit}
+            onOpenTask={todos.openTask}
+            onQuickAdd={(colId, title) => {
+              todos.onQuickAddTask(colId, title).catch((e) => {
+                toastError(e instanceof Error ? e.message : String(e));
+              });
+            }}
+            onDragStart={todos.onDragStart}
+            onDropColumn={todos.onDropColumn}
+          />
+        </>
       ) : (
-        <TodosKanban
-          boardData={todos.boardData}
-          onOpenTask={todos.openTask}
-          onQuickAdd={async (colId, title) => {
-            try { await todos.onQuickAddTask(colId, title); }
-            catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
-          }}
-          onDragStart={todos.onDragStart}
-          onDropColumn={async (colId) => {
-            try { await todos.onDropColumn(colId); }
+        <BoardsHome
+          boards={todos.boards}
+          boardPreviews={todos.boardPreviews}
+          loadingPreviews={todos.loadingPreviews}
+          loading={todos.loadingBoards}
+          onOpenBoard={todos.selectBoard}
+          onNewBoard={() => todos.setNewBoardOpen(true)}
+          onDeleteBoard={async (id) => {
+            try { await todos.onDeleteBoard(id); }
             catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
           }}
         />
@@ -60,8 +90,8 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
         open={todos.newBoardOpen}
         onClose={() => todos.setNewBoardOpen(false)}
         busy={false}
-        onCreate={async (title, description) => {
-          try { await todos.onCreateBoard(title, description); }
+        onCreate={async (payload) => {
+          try { await todos.onCreateBoard(payload); }
           catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
         }}
       />
@@ -70,13 +100,30 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
         open={!!todos.selectedTask || todos.taskLoading}
         task={todos.selectedTask}
         loading={todos.taskLoading}
+        readOnly={!todos.canEdit}
         onClose={todos.closeTask}
         onSave={async (patch) => {
           try { await todos.saveTask(patch); }
           catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
         }}
+        onSaveSubtask={async (id, patch) => {
+          try { await todos.saveSubtask(id, patch); }
+          catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+        }}
+        onDeleteSubtask={async (id) => {
+          try { await todos.deleteSubtask(id); }
+          catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+        }}
         onAddSubtask={async (title) => {
           try { await todos.addSubtask(title); }
+          catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+        }}
+        onSaveMilestone={async (id, patch) => {
+          try { await todos.saveMilestone(id, patch); }
+          catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+        }}
+        onDeleteMilestone={async (id) => {
+          try { await todos.deleteMilestone(id); }
           catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
         }}
         onAddMilestone={async (title, dueDate) => {
