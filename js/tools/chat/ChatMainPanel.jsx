@@ -9,42 +9,8 @@ const {
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatMainPanel({
-  jwt,
-  needsJwt,
-  viewingAuditOther,
-  selectedId,
-  detail,
-  canSend,
-  loadingThread,
-  sending,
-  showThread,
-  logError,
-  displayMensajes,
-  chatUserName,
-  ratingMsgId,
-  threadScrollRef,
-  onThreadScroll,
-  onOpenJwt,
-  onClearAuditFilter,
-  onRefreshConv,
-  draft,
-  images,
-  payloadPreviewOpen,
-  postBodyPreview,
-  inputRef,
-  fileInputRef,
-  onDraftChange,
-  onPaste,
-  onSend,
-  onTogglePayloadPreview,
-  onAttachImagesClick,
-  onAttachImagesChange,
-  onRemoveImage,
-  onMeta,
-  onRateMessage,
-  onOpenSidebar,
-}) {
+export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, payloadPreviewOpen, postBodyPreview, inputRef, fileInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachImagesClick, onAttachImagesChange, onRemoveImage, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
+  const isProdView = messageSource === "prod";
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {onOpenSidebar ? (
@@ -153,8 +119,10 @@ export function ChatMainPanel({
           {displayMensajes.length > 0 && (
             <ConvLogWebView
               mensajes={displayMensajes}
-              onMeta={onMeta}
-              compactMeta
+              onMeta={isProdView ? undefined : onMeta}
+              compactMeta={isProdView}
+              showUsageStats={!isProdView}
+              threadClassName={isProdView ? "" : "paty-chat-log-thread"}
               chatUserName={chatUserName}
               streamingMsgId={sending ? "stream-live" : null}
               emptyHint="Sin mensajes en esta conversación."
