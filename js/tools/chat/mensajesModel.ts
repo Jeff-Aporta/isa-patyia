@@ -232,10 +232,17 @@ export function mergeMensajesVista(
     if (isEphemeralMsgId(m.idMsg) || m.isStreaming) continue;
     prevById.set(m.idMsg, m);
   }
-  return next.map((m) => {
+  const merged = next.map((m) => {
     const old = prevById.get(m.idMsg);
     return old && mensajeVistaStableEqual(old, m) ? old : m;
   });
+  for (const m of prev || []) {
+    if (!isEphemeralMsgId(m.idMsg) || m.isStreaming) continue;
+    if (!m.esUsuario) continue;
+    const already = merged.some((n) => n.esUsuario && mensajeVistaStableEqual(m, n));
+    if (!already) merged.push(m);
+  }
+  return merged;
 }
 
 export function vistaFromLogAndDetail(
