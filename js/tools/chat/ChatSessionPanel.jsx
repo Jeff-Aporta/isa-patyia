@@ -5,15 +5,7 @@ const { useState, useEffect, useMemo } = getReact();
 const { Box, Typography, CircularProgress } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatSessionPanel({
-  claims,
-  displayScope,
-  sessionUser: _sessionUser,
-  ownerNick,
-  canSend,
-  jwtLoading,
-  onOpenAudit,
-}) {
+export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerNick, canSend, jwtLoading, onOpenAudit }) {
   const nick = String(ownerNick ?? "").trim().toUpperCase();
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
