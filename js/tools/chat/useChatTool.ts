@@ -14,6 +14,7 @@ import {
 import {
   listConversaciones,
   getConversacion,
+  getConversacionLogs,
   deleteConversacion,
   sendConversacionStream,
   buildConversacionPostBody,
@@ -22,8 +23,8 @@ import {
 import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge } from "../../api/apiClient.ts";
 import { logToMensajesVista } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
-import { mergePartial } from "../../core/urlState.ts";
-import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES } from "./constants.ts";
+import { persistChatConvId, persistChatMessageSource, getSnapshot, subscribe } from "../../core/urlState.ts";
+import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, readChatMessageSource, messageSourceFromUrl, type ChatMessageSource } from "./constants.ts";
 import { useThreadScrollAnchor } from "./threadScroll.ts";
 import {
   auditScopeIsOwnJwt,
@@ -38,53 +39,124 @@ import {
   attachCalificacionesOnly,
   countLogAssistants,
   countOpenAiAssistants,
+  logHasOperativas,
   openAiFallbackVista,
+  stripMetaFromVista,
   mergeMensajesVista,
   vistaFromLogAndDetail,
   finalizeStreamInLog,
   appendStreamMsg,
   buildOptimisticUserMsg,
-  fechaHoraToEpochSeconds,
 } from "./mensajesModel.ts";
+import type {
+  AuditScopeRow,
+  BrowseScope,
+  ChatImageEntry,
+  ChatMensajeVista,
+  ConvListMeta,
+  ConvLogPayload,
+  OpenConvOptions,
+  PatchThreadOptions,
+  PatyConversacionDetalle,
+  PatyConversacionRow,
+  PatyJwtRecord,
+  ThreadApplyOptions,
+  UseChatToolBoot,
+  ClipboardPasteEvent,
+  FileInputChangeEvent,
+} from "./types.ts";
 import { readImagesFromClipboard, filesToImageEntries } from "./images.ts";
 
 const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
 
-export function useChatTool({ bootChat }) {
-  const [jwt, setJwt] = useState(() => loadPatyJwt());
+function readBootConvId(bootChat?: UseChatToolBoot): number | null {
+  const fromBoot = Number(bootChat?.convId);
+  if (fromBoot > 0) return fromBoot;
+  const fromUrl = Number((getSnapshot().chat as Record<string, unknown>)?.convId);
+  return fromUrl > 0 ? fromUrl : null;
+}
+
+function convIdsEqual(a: number | null | undefined, b: number | null | undefined): boolean {
+  return Number(a) > 0 && Number(a) === Number(b);
+}
+
+function urlChatConvId(): number | null {
+  return readBootConvId();
+}
+
+function isNotFoundError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  return /not found|\b404\b/i.test(msg);
+}
+
+type LogsModeFetch = {
+  d: PatyConversacionDetalle | null;
+  log: ConvLogPayload | null;
+  openAiDirect: boolean;
+};
+
+/** GET /conversacion/{id}/logs + bridge CONVERSACION_LOG (operativas solo están en el log). */
+async function fetchLogsModeDetail(
+  jwt: PatyJwtRecord,
+  id: number,
+  { freshLog = false, minMensajes = 0 }: { freshLog?: boolean; minMensajes?: number } = {},
+): Promise<LogsModeFetch> {
+  const loadLog = () => (freshLog
+    ? fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
+    : fetchConvLogById(id).catch(() => null));
+
+  try {
+    const d = await getConversacionLogs(jwt, id);
+    const log = await loadLog();
+    const assistantsInLog = countLogAssistants(log);
+    const assistantsInApi = countOpenAiAssistants(d);
+    const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
+    const useLog = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+    return { d, log: useLog ? log : null, openAiDirect: !useLog };
+  } catch (e) {
+    if (!isNotFoundError(e)) throw e;
+  }
+  const log = await loadLog();
+  const d = await getConversacion(jwt, id).catch(() => null);
+  return { d, log, openAiDirect: false };
+}
+
+export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
+  const [jwt, setJwt] = useState<PatyJwtRecord | null>(() => loadPatyJwt());
   const [jwtOpen, setJwtOpen] = useState(false);
   const [jwtLoading, setJwtLoading] = useState(false);
   const [authTick, setAuthTick] = useState(0);
-  const [rows, setRows] = useState([]);
-  const [selectedId, setSelectedId] = useState(() => Number(bootChat?.convId) || null);
-  const [detail, setDetail] = useState(null);
+  const [rows, setRows] = useState<PatyConversacionRow[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(() => readBootConvId(bootChat));
+  const [detail, setDetail] = useState<PatyConversacionDetalle | PatyConversacionRow | null>(null);
   const [loadingList, setLoadingList] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState<ChatImageEntry[]>([]);
   const [streamText, setStreamText] = useState("");
-  const [logMensajes, setLogMensajes] = useState([]);
-  const [ratingMsgId, setRatingMsgId] = useState(null);
+  const [logMensajes, setLogMensajes] = useState<ChatMensajeVista[]>([]);
+  const [ratingMsgId, setRatingMsgId] = useState<string | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [logError, setLogError] = useState("");
   const [metaOpen, setMetaOpen] = useState(false);
-  const [metaMsg, setMetaMsg] = useState(null);
+  const [metaMsg, setMetaMsg] = useState<ChatMensajeVista | null>(null);
   const [payloadPreviewOpen, setPayloadPreviewOpen] = useState(false);
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
   /** null = contacto del JWT activo; otro valor = auditoría de ese tercero/contacto */
-  const [auditScope, setAuditScope] = useState(null);
+  const [auditScope, setAuditScope] = useState<BrowseScope | null>(null);
   /** Contacto resuelto del usuario ISA PatyIA (sin JWT). */
-  const [sessionBrowseScope, setSessionBrowseScope] = useState(null);
+  const [sessionBrowseScope, setSessionBrowseScope] = useState<BrowseScope | null>(null);
   const [sessionScopeLoading, setSessionScopeLoading] = useState(false);
   const [convListPage, setConvListPage] = useState(1);
-  const [convListMeta, setConvListMeta] = useState(null);
-  const inputRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const threadScrollRef = useRef(null);
+  const [convListMeta, setConvListMeta] = useState<ConvListMeta | null>(null);
+  const [messageSource, setMessageSource] = useState<ChatMessageSource>(() => readChatMessageSource(bootChat));
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const threadScrollRef = useRef<HTMLDivElement | null>(null);
   const lastLogApiCountRef = useRef(0);
-  const skipThreadReloadRef = useRef(null);
+  const skipThreadReloadRef = useRef<number | null>(null);
   /** Conv recién creada al enviar — esperar a que aparezca en la lista antes de reconciliar. */
-  const pendingListConvRef = useRef(null);
+  const pendingListConvRef = useRef<number | null>(null);
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
@@ -123,8 +195,15 @@ export function useChatTool({ bootChat }) {
       return;
     }
     let cancelled = false;
-    setJwtLoading(true);
-    clearPatyJwtLocal({ silent: true });
+    const u = sessionUser.trim().toUpperCase();
+    const cached = loadPatyJwt();
+    if (cached?.token && cached.savedBy?.toUpperCase() === u) {
+      setJwt(cached);
+      setJwtLoading(false);
+    } else {
+      setJwt(null);
+      setJwtLoading(true);
+    }
     hydratePatyJwtFromServer(sessionUser)
       .then((rec) => { if (!cancelled) setJwt(rec); })
       .finally(() => { if (!cancelled) setJwtLoading(false); });
@@ -184,7 +263,7 @@ export function useChatTool({ bootChat }) {
     }
   }, [loggedIn, jwt, listScope?.itercero, listScope?.icontacto, convListPage, sessionScopeLoading]);
 
-  const handleSelectAuditScope = useCallback((row) => {
+  const handleSelectAuditScope = useCallback((row: AuditScopeRow) => {
     if (row.activateJwtOwner && canAdminJwt) {
       setAuditDialogOpen(false);
       setJwtLoading(true);
@@ -197,7 +276,7 @@ export function useChatTool({ bootChat }) {
           setDetail(null);
           setLogMensajes([]);
           setStreamText("");
-          mergePartial({ chat: { convId: null } });
+          persistChatConvId(null);
           toastSuccess(`JWT activo · ${row.activateJwtOwner}`);
         })
         .catch((e) => toastError(e instanceof Error ? e.message : String(e)))
@@ -219,7 +298,7 @@ export function useChatTool({ bootChat }) {
       setLogMensajes([]);
       setStreamText("");
       setLogError("");
-      mergePartial({ chat: { convId: null } });
+      persistChatConvId(null);
       setAuditDialogOpen(false);
       toastInfo("Conversaciones de tu JWT");
       return;
@@ -234,12 +313,16 @@ export function useChatTool({ bootChat }) {
       setLogMensajes([]);
       setStreamText("");
       setLogError("");
-      mergePartial({ chat: { convId: null } });
+      persistChatConvId(null);
       setAuditDialogOpen(false);
       toastInfo(`Conversaciones · ${row.nombre || sessionUser || "sesión"}`);
       return;
     }
-    const next = { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre || null };
+    const next: BrowseScope = {
+      itercero: String(row.itercero ?? ""),
+      icontacto: String(row.icontacto ?? ""),
+      nombre: row.nombre || null,
+    };
     setAuditScope(next);
     setConvListPage(1);
     setConvListMeta(null);
@@ -249,39 +332,59 @@ export function useChatTool({ bootChat }) {
     setLogMensajes([]);
     setStreamText("");
     setLogError("");
-    mergePartial({ chat: { convId: null } });
+    persistChatConvId(null);
     setAuditDialogOpen(false);
     toastInfo(`Filtro · ${row.nombre || row.icontacto}`);
   }, [jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser, canAdminJwt]);
 
-  const applyThreadFromDetail = useCallback((d, log, name) => {
+  const applyThreadFromDetail = useCallback((
+    d: PatyConversacionDetalle | null,
+    log: ConvLogPayload | null,
+    name: string,
+    { openAiDirect = false, stripMeta = false }: ThreadApplyOptions = {},
+  ) => {
     const rated = d?.mensajesCalificados || [];
     const logAssistants = countLogAssistants(log);
     const openAiAssistants = countOpenAiAssistants(d);
-    const logComplete = log?.mensajes?.length && logAssistants >= openAiAssistants;
+    const logComplete = Boolean(log?.mensajes?.length && logAssistants >= openAiAssistants);
+    const buildFromLog = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+    const finalizeVista = (vista: ChatMensajeVista[]) => (
+      stripMeta ? stripMetaFromVista(vista) : vista
+    );
 
     if (log?.mensajes?.length) {
       lastLogApiCountRef.current = log.mensajes.length;
     }
 
-    if (logComplete) {
-      let vista = enrichLogVista(logToMensajesVista(log), name);
+    if (buildFromLog) {
+      let vista = enrichLogVista(logToMensajesVista(log) as ChatMensajeVista[], name);
       if (d?.mensajesOpenAI?.length) {
         vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
       } else if (rated.length) {
         vista = attachCalificacionesOnly(vista, rated);
       }
+      setLogMensajes(finalizeVista(vista));
+      setLogError("");
+      return;
+    }
+
+    if (openAiDirect && d?.mensajesOpenAI?.length) {
+      const vista = finalizeVista(attachCalificacionesToVista(
+        enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+        d.mensajesOpenAI,
+        rated,
+      ));
       setLogMensajes(vista);
       setLogError("");
       return;
     }
 
     if (d?.mensajesOpenAI?.length) {
-      const vista = attachCalificacionesToVista(
+      const vista = finalizeVista(attachCalificacionesToVista(
         enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
         d.mensajesOpenAI,
         rated,
-      );
+      ));
       setLogMensajes(vista);
       setLogError("");
       return;
@@ -294,7 +397,7 @@ export function useChatTool({ bootChat }) {
       } else if (rated.length) {
         vista = attachCalificacionesOnly(vista, rated);
       }
-      setLogMensajes(vista);
+      setLogMensajes(finalizeVista(vista));
       setLogError("");
       return;
     }
@@ -305,14 +408,36 @@ export function useChatTool({ bootChat }) {
     }
   }, []);
 
-  const patchThreadAfterSend = useCallback(async (id, { minLogMensajes = 0, ownerLabel } = {}) => {
+  const patchThreadAfterSend = useCallback(async (id: number, { minLogMensajes = 0, ownerLabel }: PatchThreadOptions = {}) => {
     if (!loggedIn || !id) return;
     const name = ownerLabel || convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
-    const useLogOnly = !jwt?.token || viewingAuditOther;
+    const useLogBridge = !jwt?.token || viewingAuditOther;
+    const prodMode = messageSource === "prod" && Boolean(jwt?.token) && !viewingAuditOther;
+    const logsApiMode = messageSource === "logs" && Boolean(jwt?.token) && !viewingAuditOther;
     try {
+      if (prodMode) {
+        const d = await getConversacion(jwt!, id).catch(() => null);
+        if (d) {
+          setDetail(d);
+          applyThreadFromDetail(d, null, name, { openAiDirect: true, stripMeta: true });
+        }
+        return;
+      }
+      if (logsApiMode) {
+        try {
+          const { d, log, openAiDirect } = await fetchLogsModeDetail(jwt!, id, { freshLog: true, minMensajes: minLogMensajes });
+          if (d) {
+            setDetail(d);
+            applyThreadFromDetail(d, log, name, { openAiDirect });
+          } else if (log?.mensajes?.length) {
+            applyThreadFromDetail(null, log, name);
+          }
+        } catch { /* enriquecimiento en segundo plano */ }
+        return;
+      }
       const logResult = await fetchConvLogByIdWithRetry(id, { minMensajes: minLogMensajes }).catch(() => null);
       let d = null;
-      if (!useLogOnly) {
+      if (!useLogBridge) {
         d = await getConversacion(jwt, id).catch(() => null);
         if (d) setDetail(d);
       }
@@ -327,22 +452,51 @@ export function useChatTool({ bootChat }) {
     } catch {
       /* enriquecimiento en segundo plano; el hilo local ya muestra la respuesta */
     }
-  }, [loggedIn, jwt, viewingAuditOther, listScope]);
+  }, [loggedIn, jwt, viewingAuditOther, listScope, messageSource, applyThreadFromDetail]);
 
-  const openConv = useCallback(async (id, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0 } = {}) => {
+  const openConv = useCallback(async (id: number, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0, sourceOverride }: OpenConvOptions = {}) => {
     if (!loggedIn || !id) return;
+    skipThreadReloadRef.current = id;
     setSelectedId(id);
-    mergePartial({ chat: { convId: id } });
+    persistChatConvId(id);
     if (!silent) setLoadingThread(true);
-    if (!keepStream) setStreamText("");
+    if (!keepStream) {
+      setStreamText("");
+      setLogMensajes([]);
+    }
     setLogError("");
     const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
-    const useLogOnly = !jwt?.token || viewingAuditOther;
+    const useLogBridge = !jwt?.token || viewingAuditOther;
+    const activeSource = sourceOverride ?? messageSource;
+    const prodMode = activeSource === "prod" && Boolean(jwt?.token) && !viewingAuditOther;
+    const logsApiMode = activeSource === "logs" && Boolean(jwt?.token) && !viewingAuditOther;
     const minMensajes = freshLog
       ? Math.max(minLogMensajes, lastLogApiCountRef.current + 2)
       : 0;
     try {
-      if (useLogOnly) {
+      if (prodMode) {
+        const d = await getConversacion(jwt!, id);
+        if (!convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
+          toastWarning("Esta conversación no pertenece al token activo");
+        }
+        setDetail(d);
+        applyThreadFromDetail(d, null, ownerLabel, { openAiDirect: true, stripMeta: true });
+        return;
+      }
+      if (logsApiMode) {
+        const { d, log, openAiDirect } = await fetchLogsModeDetail(jwt!, id, { freshLog, minMensajes });
+        if (d && !convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
+          toastWarning("Esta conversación no pertenece al token activo");
+        }
+        if (d) setDetail(d);
+        else {
+          const row = rows.find((r) => r.iconversacion === id);
+          setDetail(row || { iconversacion: id, titulo: `Conv #${id}` });
+        }
+        applyThreadFromDetail(d, log, ownerLabel, { openAiDirect });
+        return;
+      }
+      if (useLogBridge) {
         const logResult = freshLog
           ? await fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
           : await fetchConvLogById(id).catch(() => null);
@@ -351,16 +505,6 @@ export function useChatTool({ bootChat }) {
         applyThreadFromDetail(null, logResult, ownerLabel);
         return;
       }
-      const detailPromise = getConversacion(jwt, id);
-      const logPromise = freshLog
-        ? fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
-        : fetchConvLogById(id).catch(() => null);
-      const [d, logResult] = await Promise.all([detailPromise, logPromise]);
-      if (!convBelongsToJwt(d, jwt.claims) && !Session.can("patyia.chat.audit")) {
-        toastWarning("Esta conversación no pertenece al token activo");
-      }
-      setDetail(d);
-      applyThreadFromDetail(d, logResult, ownerLabel);
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
       setDetail(null);
@@ -368,48 +512,57 @@ export function useChatTool({ bootChat }) {
     } finally {
       if (!silent) setLoadingThread(false);
     }
-  }, [loggedIn, jwt, sessionUser, viewingAuditOther, listScope, rows, applyThreadFromDetail]);
+  }, [loggedIn, jwt, sessionUser, viewingAuditOther, listScope, rows, messageSource, applyThreadFromDetail]);
 
-  useEffect(() => { reloadList(); }, [reloadList, authTick]);
+  const onMessageSourceChange = useCallback((next: ChatMessageSource) => {
+    if (next === messageSource) return;
+    persistChatMessageSource(next);
+    setMessageSource(next);
+    if (selectedId) {
+      void openConv(selectedId, { silent: false, sourceOverride: next });
+    }
+  }, [messageSource, selectedId, openConv]);
 
-  /** Si la conv abierta no está en el sidebar, elegir la primera o vaciar. */
+  useEffect(() => subscribe((snap) => {
+    const chat = snap.chat as Record<string, unknown> | undefined;
+    const urlId = Number(chat?.convId) || null;
+    setSelectedId((prev) => (prev === urlId ? prev : urlId));
+    const urlSource = messageSourceFromUrl(chat);
+    if (urlSource) setMessageSource((prev) => (prev === urlSource ? prev : urlSource));
+  }), []);
+
+  useEffect(() => {
+    if (jwtLoading) return;
+    reloadList();
+  }, [reloadList, authTick, jwtLoading]);
+
+  /** Si la conv abierta no está en el sidebar aún, mantener selección URL (F5 / carga async). */
   useEffect(() => {
     if (loadingList || jwtLoading || sending) return;
     if (!selectedId) return;
 
     if (pendingListConvRef.current === selectedId) {
-      if (rows.some((r) => r.iconversacion === selectedId)) {
+      if (rows.some((r) => convIdsEqual(r.iconversacion, selectedId))) {
         pendingListConvRef.current = null;
       }
       return;
     }
 
-    if (rows.some((r) => r.iconversacion === selectedId)) return;
-
-    if (rows.length > 0) {
-      const first = rows[0].iconversacion;
-      skipThreadReloadRef.current = first;
-      setSelectedId(first);
-      mergePartial({ chat: { convId: first } });
-      return;
-    }
-
-    setSelectedId(null);
-    setDetail(null);
-    setLogMensajes([]);
-    setStreamText("");
-    setLogError("");
-    mergePartial({ chat: { convId: null } });
+    if (rows.length === 0) return;
+    if (rows.some((r) => convIdsEqual(r.iconversacion, selectedId))) return;
+    if (convIdsEqual(urlChatConvId(), selectedId)) return;
   }, [rows, loadingList, jwtLoading, sending, selectedId]);
 
   useEffect(() => {
-    if (!selectedId || jwtLoading || loadingList) return;
+    if (!selectedId || loadingList) return;
+    if (jwtLoading && !jwt?.token) return;
     if (skipThreadReloadRef.current === selectedId) {
       skipThreadReloadRef.current = null;
       return;
     }
     if (pendingListConvRef.current === selectedId) return;
-    if (!rows.some((r) => r.iconversacion === selectedId)) return;
+    const inList = rows.some((r) => convIdsEqual(r.iconversacion, selectedId));
+    if (!inList && rows.length > 0 && !convIdsEqual(urlChatConvId(), selectedId)) return;
     openConv(selectedId);
   }, [selectedId, jwtLoading, jwt?.token, openConv, rows, loadingList]);
 
@@ -420,11 +573,11 @@ export function useChatTool({ bootChat }) {
     setStreamText("");
     setLogMensajes([]);
     setLogError("");
-    mergePartial({ chat: { convId: null } });
+    persistChatConvId(null);
     inputRef.current?.focus();
   }
 
-  async function onDelete(id) {
+  async function onDelete(id: number) {
     if (!canSend) return;
     const conv = rows.find((r) => r.iconversacion === id);
     if (conv && !convBelongsToJwt(conv, jwt?.claims)) {
@@ -483,7 +636,7 @@ export function useChatTool({ bootChat }) {
           pendingListConvRef.current = newId;
           skipThreadReloadRef.current = newId;
           setSelectedId(newId);
-          mergePartial({ chat: { convId: newId } });
+          persistChatConvId(newId);
         }
         void reloadList();
         void patchThreadAfterSend(newId, {
@@ -500,7 +653,7 @@ export function useChatTool({ bootChat }) {
     }
   }
 
-  async function appendImagesFromFiles(files) {
+  async function appendImagesFromFiles(files: FileList | File[] | null | undefined) {
     if (!files?.length) return;
     try {
       const added = await filesToImageEntries(Array.from(files));
@@ -520,7 +673,7 @@ export function useChatTool({ bootChat }) {
     }
   }
 
-  async function onPaste(e) {
+  async function onPaste(e: ClipboardPasteEvent) {
     if (!canSend) return;
     const files = readImagesFromClipboard(e.clipboardData?.items);
     if (!files.length) return;
@@ -532,17 +685,17 @@ export function useChatTool({ bootChat }) {
     fileInputRef.current?.click();
   }
 
-  async function onAttachImagesChange(e) {
+  async function onAttachImagesChange(e: FileInputChangeEvent) {
     await appendImagesFromFiles(e.target.files);
     e.target.value = "";
   }
 
-  const onMeta = useCallback((msg) => {
+  const onMeta = useCallback((msg: ChatMensajeVista) => {
     setMetaMsg(msg);
     setMetaOpen(true);
   }, []);
 
-  const onRateMessage = useCallback(async (msg, butil) => {
+  const onRateMessage = useCallback(async (msg: ChatMensajeVista, butil: boolean) => {
     if (!canSend || !jwt?.token || !selectedId) return;
     if (msg.calificacion !== undefined) return;
     const imensaje = Number(msg.imensaje);
@@ -582,17 +735,13 @@ export function useChatTool({ bootChat }) {
     () => convOwnerDisplayLabel(displayScope, jwt, sessionUser),
     [displayScope, jwt, sessionUser],
   );
-  const selectedInList = useMemo(
-    () => Boolean(selectedId && rows.some((r) => r.iconversacion === selectedId)),
-    [selectedId, rows],
-  );
   const displayMensajes = useMemo(
     () => appendStreamMsg(logMensajes, streamText, sending),
     [logMensajes, sending, streamText],
   );
   const showThread = Boolean(
     sending
-    || (selectedInList && (detail || logMensajes.length || loadingThread)),
+    || (selectedId && (loadingThread || detail || logMensajes.length > 0)),
   );
 
   const onThreadScroll = useThreadScrollAnchor(threadScrollRef, displayMensajes, { sending });
@@ -666,6 +815,7 @@ export function useChatTool({ bootChat }) {
     auditDialogOpen,
     convListPage,
     convListMeta,
+    messageSource,
     chatUserName,
     convListOwnerLabel,
     convListHeader,
@@ -696,6 +846,7 @@ export function useChatTool({ bootChat }) {
     onAttachImagesChange,
     onMeta,
     onRateMessage,
+    onMessageSourceChange,
     setDraft,
     setImages,
   };
