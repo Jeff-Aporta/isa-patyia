@@ -290,9 +290,7 @@ function RenameVarDialog({ open, name, existing, onClose, onConfirm }) {
   );
 }
 
-function PromptEditorDialog({
-  open, onClose, title, body, canEdit, onSave, onDraft, tipo,
-}) {
+function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDraft, tipo }) {
   const surfaceRef = useRef(null);
   const plainTextRef = useRef(null);
   const dialogContentRef = useRef(null);
@@ -721,17 +719,7 @@ function PromptEditorDialog({
 }
 
 /** Vista previa del cuerpo + editor WYSIWYG al entrar o doble clic. */
-export function PromptBodyEditor({
-  body,
-  canEdit,
-  editBlockReason,
-  onChange,
-  onPersist,
-  placeholder,
-  tipo,
-  title,
-  loading = false,
-}) {
+export function PromptBodyEditor({ body, canEdit, editBlockReason, onChange, onPersist, placeholder, tipo, title, loading = false }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const previewRef = useRef(null);
   const previewHtml = useMemo(() => {
