@@ -129,6 +129,7 @@ export const bootState = urlState.boot;
 export const getSnapshot = urlState.getSnapshot;
 export const mergePartial = urlState.mergePartial;
 export const hrefFor = urlState.hrefFor;
+export const subscribe = urlState.subscribe;
 export const PARAM = urlState.PARAM;
 
 /** Reinicia estado de la app y elimina por completo ?s= de la URL. */
@@ -144,4 +145,21 @@ export function persistLogMeta(convId: string) {
   const id = convId || "";
   if (String((snap.log as Record<string, unknown>)?.convId ?? "") === id) return snap;
   return mergePartial({ log: { convId: id } });
+}
+
+/** Conversación activa del chat staging — iconversacion en ?s=.chat.convId */
+export function persistChatConvId(convId: number | null | undefined) {
+  const snap = getSnapshot();
+  const id = convId != null && Number(convId) > 0 ? Number(convId) : null;
+  const prev = Number((snap.chat as Record<string, unknown>)?.convId) || null;
+  if (prev === id) return snap;
+  return mergePartial({ tool: "chat", chat: { convId: id } });
+}
+
+/** Fuente de mensajes del chat — prod | logs en ?s=.chat.messageSource */
+export function persistChatMessageSource(source: "prod" | "logs") {
+  const snap = getSnapshot();
+  const prev = (snap.chat as Record<string, unknown>)?.messageSource;
+  if (prev === source) return snap;
+  return mergePartial({ tool: "chat", chat: { messageSource: source } });
 }
