@@ -36,6 +36,16 @@ Aplicación web para apoyo operativo de **PatyIA**: visor de logs, instrucciones
 
 Detalle del CI y setup: [DEPLOY.md](DEPLOY.md).
 
+### Historial de merges a producción
+
+Cada fila es el **último preview de Cloudflare validado en `dev`** antes de integrar a `main`. La URL con hash queda congelada en ese deploy; [isa-patyia-dev.pages.dev](https://isa-patyia-dev.pages.dev/) siempre apunta al último push en `dev`.
+
+Al hacer merge a `main`, añadir una fila: fecha, enlace `https://xxxx.isa-patyia-dev.pages.dev` (GitHub → **Deployments** → `isa-patyia-dev (Production)` → **View deployment**), commit corto de `dev` y nota breve.
+
+| Fecha merge | Preview Cloudflare (`dev`) | Commit `dev` | Notas |
+|-------------|----------------------------|--------------|-------|
+| 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) | `44930d4` | Primera integración dev→main: flujo dual CF/GH Pages, badges meta compactos, emoji 🧪 prueba workflow |
+
 <p align="center">
   <sub>Jeff-Aporta · PatyIA · <a href="https://github.com/Jeff-Aporta/isa-patyia">isa-patyia</a></sub>
 </p>
