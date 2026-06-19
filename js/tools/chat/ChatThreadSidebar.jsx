@@ -172,7 +172,6 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
                   justifyContent: "space-between",
                   alignItems: "center",
                   gap: 0.5,
-                  "&.Mui-selected": { bgcolor: "action.selected" },
                 }}
               >
                 <ListItemText
@@ -194,14 +193,14 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
                       color="text.secondary"
                       noWrap
                       className="paty-chat-conv-item__meta"
-                      sx={{ pointerEvents: "none", display: "block", lineHeight: 1.35 }}
+                      sx={{ pointerEvents: "none", display: "block", lineHeight: 1.3, opacity: 0.5 }}
                     >
                       {`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
                     </Typography>
                   )}
                   slotProps={{
-                    primary: { sx: { pointerEvents: "none", mb: 0.25 } },
-                    secondary: { sx: { pointerEvents: "none", m: 0 } },
+                    primary: { sx: { pointerEvents: "none", mb: 0.2 } },
+                    secondary: { sx: { pointerEvents: "none", m: 0, opacity: 0.5 } },
                   }}
                 />
                 {canSend && convBelongsToJwt(r, jwt.claims) ? (
