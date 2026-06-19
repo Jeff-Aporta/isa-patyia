@@ -50,6 +50,7 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
   const [taskLoading, setTaskLoading] = useState(false);
   const [newBoardOpen, setNewBoardOpen] = useState(false);
   const dragTaskId = useRef<string | null>(null);
+  const previewDragRef = useRef<{ boardId: string; taskId: string } | null>(null);
   const boardDataRef = useRef<TodoBoardFull | null>(null);
 
   useEffect(() => {
@@ -423,8 +424,52 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     }
   }
 
+  async function moveTaskInPreview(previewBoardId: string, taskId: string, columnId: string) {
+    const snapshot = boardPreviews[previewBoardId];
+    if (!snapshot) return;
+    const task = snapshot.tasks.find((t) => t.id === taskId);
+    if (!task || task.columnId === columnId) return;
+
+    const doneCol = snapshot.columns.find((c) => c.columnKey === "done");
+    const completedAt =
+      doneCol && columnId === doneCol.id ? new Date().toISOString() : null;
+
+    setBoardPreviews((prev) => {
+      const current = prev[previewBoardId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [previewBoardId]: patchTaskInBoard(current, taskId, { columnId, completedAt }),
+      };
+    });
+    if (boardDataRef.current?.board?.id === previewBoardId) {
+      setBoardData((prev) => patchTaskInBoard(prev, taskId, { columnId, completedAt }));
+    }
+    try {
+      const updated = await updateTodoTask(taskId, { columnId });
+      setBoardPreviews((prev) => {
+        const current = prev[previewBoardId];
+        if (!current) return prev;
+        return { ...prev, [previewBoardId]: replaceTaskInBoard(current, taskId, updated) };
+      });
+      if (boardDataRef.current?.board?.id === previewBoardId) {
+        setBoardData((prev) => replaceTaskInBoard(prev, taskId, updated));
+      }
+    } catch (e) {
+      setBoardPreviews((prev) => ({ ...prev, [previewBoardId]: snapshot }));
+      if (boardDataRef.current?.board?.id === previewBoardId) {
+        setBoardData(snapshot);
+      }
+      toastError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   function onDragStart(taskId: string) {
     dragTaskId.current = taskId;
+  }
+
+  function onPreviewDragStart(previewBoardId: string, taskId: string) {
+    previewDragRef.current = { boardId: previewBoardId, taskId };
   }
 
   function onDropColumn(columnId: string) {
@@ -432,6 +477,13 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     dragTaskId.current = null;
     if (!taskId) return;
     void moveTask(taskId, columnId);
+  }
+
+  function onPreviewDropColumn(previewBoardId: string, columnId: string) {
+    const drag = previewDragRef.current;
+    previewDragRef.current = null;
+    if (!drag || drag.boardId !== previewBoardId) return;
+    void moveTaskInPreview(previewBoardId, drag.taskId, columnId);
   }
 
   function syncBoardMembers(members: BoardMember[]) {
@@ -481,6 +533,8 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     postComment,
     onDragStart,
     onDropColumn,
+    onPreviewDragStart,
+    onPreviewDropColumn,
     reload: () => boardId && loadBoard(boardId),
     syncBoardMembers,
   };
