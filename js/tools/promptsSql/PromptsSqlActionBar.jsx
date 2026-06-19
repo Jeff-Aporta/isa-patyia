@@ -3,21 +3,7 @@ import { ButtonIconify } from "../../ui/shared.jsx";
 
 const { Typography, Stack, Chip, CircularProgress } = getMaterialUI();
 
-export function PromptsSqlActionBar({
-  filledCount,
-  instruccionKeysLength,
-  loadBusy,
-  actionBusy,
-  hasLocalChanges,
-  pendingTiposLength,
-  canPublish,
-  saveTitle,
-  fileInputRef,
-  onFileInput,
-  onImportClick,
-  onDiscardAll,
-  onSaveAll,
-}) {
+export function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, actionBusy, hasLocalChanges, pendingTiposLength, canPublish, saveTitle, fileInputRef, onFileInput, onImportClick, onDiscardAll, onSaveAll }) {
   return (
     <div className="panel-head">
       <Typography variant="subtitle1" fontWeight={600}>Instrucciones · mapeo</Typography>
