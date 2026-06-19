@@ -11,15 +11,17 @@ function optionLabel(row) {
   return row.displayName ? `${row.displayName} (${row.username})` : row.username;
 }
 
-export function UserAssignAutocomplete({ value, onChange, disabled = false, label = "Asignado a" }) {
+export function UserAssignAutocomplete({ value, onChange, disabled = false, label = "Asignado a", compact = false }) {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [invalidHint, setInvalidHint] = useState("");
   const debounceRef = useRef(null);
   const requestIdRef = useRef(0);
+  const resolveAttemptRef = useRef("");
 
   const selected = value
-    ? options.find((o) => o.username === value) ?? { username: value, displayName: null }
+    ? options.find((o) => o.username === value) ?? null
     : null;
 
   const runSearch = useCallback(async (query) => {
@@ -29,8 +31,10 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
       const users = await searchScrumAppUsers(query, 12);
       if (id !== requestIdRef.current) return;
       setOptions(users);
+      return users;
     } catch {
       if (id === requestIdRef.current) setOptions([]);
+      return [];
     } finally {
       if (id === requestIdRef.current) setLoading(false);
     }
@@ -45,12 +49,37 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
 
   useEffect(() => {
     if (!value) {
+      resolveAttemptRef.current = "";
       setInputValue("");
+      setInvalidHint("");
       return;
     }
     const match = options.find((o) => o.username === value);
-    setInputValue(match ? optionLabel(match) : value);
-  }, [value, options]);
+    if (match) {
+      setInputValue(optionLabel(match));
+      setInvalidHint("");
+      return;
+    }
+    if (resolveAttemptRef.current === value) return;
+    resolveAttemptRef.current = value;
+    let cancelled = false;
+    runSearch(value).then((users) => {
+      if (cancelled) return;
+      const resolved = users?.find((u) => u.username === value);
+      if (resolved) {
+        setOptions((prev) => (
+          prev.some((o) => o.username === resolved.username) ? prev : [...prev, resolved]
+        ));
+        setInputValue(optionLabel(resolved));
+        setInvalidHint("");
+      } else {
+        setInputValue("");
+        setInvalidHint(`"${value}" no está registrado en isa-patyia`);
+        onChange(null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [value, options, runSearch, onChange]);
 
   useEffect(() => {
     return () => {
@@ -83,6 +112,9 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
       openOnFocus
       autoHighlight
       clearOnBlur={false}
+      freeSolo={false}
+      selectOnFocus
+      handleHomeEndKeys
       loading={loading}
       options={options}
       value={selected}
@@ -90,7 +122,7 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
       filterOptions={(x) => x}
       getOptionLabel={optionLabel}
       isOptionEqualToValue={(a, b) => String(a?.username) === String(b?.username)}
-      noOptionsText={loading ? "Buscando…" : "Sin usuarios"}
+      noOptionsText={loading ? "Buscando…" : "Sin usuarios registrados"}
       loadingText="Buscando…"
       onOpen={() => {
         if (!options.length) runSearch(inputValue);
@@ -98,11 +130,13 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
       onInputChange={(_e, text, reason) => {
         if (reason === "reset") return;
         setInputValue(text);
+        setInvalidHint("");
         scheduleSearch(text);
       }}
       onChange={(_e, row) => {
         onChange(row?.username ?? null);
         setInputValue(row ? optionLabel(row) : "");
+        setInvalidHint("");
       }}
       renderOption={(props, row) => (
         <Box component="li" {...props} key={row.username} sx={{ display: "flex", flexDirection: "column", py: 0.75 }}>
@@ -119,7 +153,8 @@ export function UserAssignAutocomplete({ value, onChange, disabled = false, labe
           {...params}
           label={label}
           placeholder="Buscar integrante…"
-          helperText="Usuarios con acceso a isa-patyia"
+          error={!!invalidHint}
+          helperText={invalidHint || (compact ? undefined : "Solo usuarios registrados en isa-patyia")}
         />
       )}
     />

@@ -1,13 +1,14 @@
-import { getMaterialUI, toastError } from "../core/platform.ts";
+import { getReact, getMaterialUI, toastError } from "../core/platform.ts";
 import { useTodosTool } from "./todos/useTodosTool.ts";
 import { TodosKanban } from "./todos/TodosKanban.jsx";
 import { TaskDetailDialog } from "./todos/TaskDetailDialog.jsx";
 import { NewBoardDialog } from "./todos/NewBoardDialog.jsx";
 import { PublicScrumBoard } from "./todos/PublicScrumBoard.jsx";
 import { BoardsHome, BoardsHomeToolbar } from "./todos/BoardsHome.jsx";
-import { BoardSettingsPanel } from "./todos/BoardSettingsPanel.jsx";
+import { BoardSettingsDialog } from "./todos/BoardSettingsDialog.jsx";
 import { TodosLoggedOutShell, TodosBoardToolbar } from "./todos/TodosShellParts.jsx";
 
+const { useState } = getReact();
 const { Box, Alert } = getMaterialUI();
 
 export function TodosTool({ bootTodos, onNeedLogin }) {
@@ -16,6 +17,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
   }
 
   const todos = useTodosTool({ bootTodos });
+  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
 
   if (!todos.loggedIn) {
     return <TodosLoggedOutShell onNeedLogin={onNeedLogin} />;
@@ -33,6 +35,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
           onHome={todos.goHome}
           onNewBoard={() => todos.setNewBoardOpen(true)}
           onRefresh={() => todos.reload()}
+          onOpenSettings={() => setBoardSettingsOpen(true)}
         />
       ) : (
         <BoardsHomeToolbar
@@ -48,16 +51,6 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
 
       {todos.inBoardView ? (
         <>
-          <BoardSettingsPanel
-            board={todos.boardData?.board}
-            readOnly={!todos.canEdit}
-            saving={todos.loadingBoard}
-            onSave={async (patch) => {
-              if (!todos.boardId) return;
-              try { await todos.onUpdateBoard(todos.boardId, patch); }
-              catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
-            }}
-          />
           <TodosKanban
             boardData={todos.boardData}
             readOnly={!todos.canEdit}
@@ -78,6 +71,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
           loadingPreviews={todos.loadingPreviews}
           loading={todos.loadingBoards}
           onOpenBoard={todos.selectBoard}
+          onOpenTask={todos.openTaskFromPreview}
           onNewBoard={() => todos.setNewBoardOpen(true)}
           onDeleteBoard={async (id) => {
             try { await todos.onDeleteBoard(id); }
@@ -85,6 +79,19 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
           }}
         />
       )}
+
+      <BoardSettingsDialog
+        open={boardSettingsOpen}
+        onClose={() => setBoardSettingsOpen(false)}
+        board={todos.boardData?.board}
+        readOnly={!todos.canEdit}
+        saving={todos.loadingBoard}
+        onSave={async (patch) => {
+          if (!todos.boardId) return;
+          try { await todos.onUpdateBoard(todos.boardId, patch); }
+          catch (e) { toastError(e instanceof Error ? e.message : String(e)); }
+        }}
+      />
 
       <NewBoardDialog
         open={todos.newBoardOpen}

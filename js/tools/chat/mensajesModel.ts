@@ -1,4 +1,4 @@
-import { logToMensajesVista, resolveOpenAiMensajeText } from "../../core/convLog.ts";
+import { logToMensajesVista, resolveOpenAiMensajeText, isStreamErrorCode, isStreamErrorDisplay, formatStreamError } from "../../core/convLog.ts";
 import type {
   ChatMensajeVista,
   ConvLogPayload,
@@ -40,18 +40,46 @@ function butilToCalificacion(butil: boolean | number | string | null | undefined
   return butil === true || butil === 1 || butil === "1" ? 1 : 0;
 }
 
+const FILE_ID_REF_RE = /^\[file_id:/i;
+
+/** Solo refs que el hilo puede mostrar (thumbnail / lightbox). */
+export function filterDisplayableImagenes(list: string[] | null | undefined): string[] {
+  return (list || []).filter((src) => {
+    const s = String(src || "").trim();
+    if (!s || FILE_ID_REF_RE.test(s)) return false;
+    return s.startsWith("data:image/") || /^https?:\/\//i.test(s);
+  });
+}
+
+function mergeDisplayableImagenes(...lists: (string[] | undefined)[]): string[] | undefined {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const list of lists) {
+    for (const src of filterDisplayableImagenes(list)) {
+      if (!seen.has(src)) {
+        seen.add(src);
+        out.push(src);
+      }
+    }
+  }
+  return out.length ? out : undefined;
+}
+
 /** Imágenes del mensaje OpenAI: campo top-level; meta solo respaldo legacy. */
 export function resolveMensajeImagenes(m: PatyMensaje | null | undefined): string[] | undefined {
+  let raw: string[] | undefined;
   if (Array.isArray(m?.imagenes) && m.imagenes.length) {
-    return m.imagenes.filter(Boolean);
+    raw = m.imagenes.filter(Boolean);
+  } else {
+    const meta = m?.meta;
+    const others = meta && typeof meta === "object"
+      ? meta.others as Record<string, unknown> | undefined
+      : undefined;
+    if (others && Array.isArray(others.imagenes_adjuntas) && others.imagenes_adjuntas.length) {
+      raw = others.imagenes_adjuntas.filter(Boolean) as string[];
+    }
   }
-  const meta = m?.meta;
-  if (!meta || typeof meta !== "object") return undefined;
-  const others = meta.others as Record<string, unknown> | undefined;
-  if (others && Array.isArray(others.imagenes_adjuntas) && others.imagenes_adjuntas.length) {
-    return others.imagenes_adjuntas.filter(Boolean) as string[];
-  }
-  return undefined;
+  return mergeDisplayableImagenes(raw);
 }
 
 type CalificadoLite = {
@@ -124,6 +152,65 @@ export function attachCalificacionesOnly(
       ...(match.imensaje ? { imensaje: match.imensaje } : {}),
       calificacion: butilToCalificacion(match.butil),
     };
+  });
+}
+
+/** Copia imagenes_adjuntas de mensajesOpenAI a la vista usuario (log bridge puede no traerlas). */
+export function attachUserImagenesFromOpenAi(
+  vista: ChatMensajeVista[] | null | undefined,
+  openAiMsgs: PatyMensaje[] | null | undefined,
+): ChatMensajeVista[] {
+  let oi = 0;
+  return (vista || []).map((v) => {
+    if (!v.esUsuario) return v;
+    const msgs = openAiMsgs || [];
+    while (oi < msgs.length && !String(msgs[oi]?.autor || "").toLowerCase().includes("usuario")) oi += 1;
+    const raw = msgs[oi];
+    oi += 1;
+    const imagenes = mergeDisplayableImagenes(v.imagenes, resolveMensajeImagenes(raw));
+    if (!imagenes?.length) return v;
+    if (v.imagenes?.length === imagenes.length && v.imagenes.every((u, i) => u === imagenes[i])) return v;
+    return { ...v, imagenes };
+  });
+}
+
+/** En modo log, reemplaza códigos de error del CONVERSACION_LOG por el texto del hilo OpenAI. */
+export function attachAssistantTextFromOpenAi(
+  vista: ChatMensajeVista[] | null | undefined,
+  openAiMsgs: PatyMensaje[] | null | undefined,
+): ChatMensajeVista[] {
+  const openAiByImensaje = new Map<number, string>();
+  let seqAssistant = 0;
+  for (const raw of openAiMsgs || []) {
+    if (!String(raw?.autor || "").toLowerCase().includes("asistente")) continue;
+    const text = String(resolveOpenAiMensajeText(raw) ?? "").trim();
+    if (!text || isStreamErrorDisplay(text)) continue;
+    const im = Number(raw.imensaje);
+    if (im > 0) openAiByImensaje.set(im, text);
+    else openAiByImensaje.set(-(++seqAssistant), text);
+  }
+
+  let seqFallback = 0;
+  return (vista || []).map((v) => {
+    if (v.esUsuario || v.esOperativa) return v;
+    const im = Number(v.imensaje);
+    const openAiText = (im > 0 ? openAiByImensaje.get(im) : undefined)
+      ?? openAiByImensaje.get(-(++seqFallback))
+      ?? "";
+    const logText = String(v.contenido ?? "").trim();
+    const logBad = !logText || isStreamErrorDisplay(logText);
+    if (openAiText && logBad) {
+      return { ...v, contenido: openAiText };
+    }
+    if (isStreamErrorDisplay(logText)) {
+      return {
+        ...v,
+        contenido: "",
+        streamFailed: v.streamFailed ?? true,
+        streamError: v.streamError ?? formatStreamError(logText),
+      };
+    }
+    return v;
   });
 }
 
@@ -255,21 +342,30 @@ export function vistaFromLogAndDetail(
   let vista = enrichLogVista(logToMensajesVista(log) as ChatMensajeVista[], name);
   if (d?.mensajesOpenAI?.length) {
     vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+    vista = attachAssistantTextFromOpenAi(vista, d.mensajesOpenAI);
+    vista = attachUserImagenesFromOpenAi(vista, d.mensajesOpenAI);
   } else if (rated.length) {
     vista = attachCalificacionesOnly(vista, rated);
   }
   return vista;
 }
 
-export function finalizeStreamInLog(mensajes: ChatMensajeVista[] | null | undefined, finalText: string): ChatMensajeVista[] {
-  return appendStreamMsg(mensajes, finalText, true).map((m) => {
+export function finalizeStreamInLog(
+  mensajes: ChatMensajeVista[] | null | undefined,
+  finalText: string,
+  stream?: { failed?: boolean; error?: string },
+): ChatMensajeVista[] {
+  const safeFinal = isStreamErrorDisplay(finalText) ? "" : String(finalText ?? "").trim();
+  return appendStreamMsg(mensajes, safeFinal, true).map((m) => {
     if (m.idMsg !== "stream-live" && !m.isStreaming) return m;
+    const prev = isStreamErrorDisplay(m.contenido) ? "" : String(m.contenido ?? "").trim();
     return {
       ...m,
       idMsg: m.idMsg === "stream-live" ? `assistant-final-${Date.now()}` : m.idMsg,
-      contenido: finalText || m.contenido,
+      contenido: safeFinal || prev,
       isStreaming: false,
       fecha: m.fecha || formatTs(new Date()),
+      ...(stream?.failed ? { streamFailed: true, streamError: stream.error } : {}),
     };
   });
 }

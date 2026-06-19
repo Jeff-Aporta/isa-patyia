@@ -37,7 +37,7 @@ export function canDeleteBoard(board) {
   return !!board?.isAdmin;
 }
 
-/** Chips de rol para la fila del tablero (rol en tablero + admin global). */
+/** Chips de rol para la fila del tablero (rol en tablero). */
 export function boardRoleChips(board) {
   const chips = [];
   if (board?.myRole === "editor") {
@@ -45,14 +45,6 @@ export function boardRoleChips(board) {
   }
   if (board?.myRole === "readonly") {
     chips.push({ id: "readonly", label: "Solo lectura", icon: "mdi:eye-outline", variant: "role" });
-  }
-  if (board?.isAdmin) {
-    chips.push({
-      id: "global-admin",
-      label: "Admin global",
-      icon: "mdi:shield-account-outline",
-      variant: "global-admin",
-    });
   }
   return chips;
 }

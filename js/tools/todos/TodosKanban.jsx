@@ -1,7 +1,13 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
+import {
+  MAX_COLUMN_TASKS,
+  formatTaskDate,
+  groupTasksByColumn,
+  taskModDate,
+} from "./todosKanbanShared.js";
 
 const { useState, useMemo, useRef, useEffect, memo } = getReact();
-const { Box, Paper, Typography, TextField, Button, Stack, Chip } = getMaterialUI();
+const { Box, Paper, Typography, TextField, Button, Stack } = getMaterialUI();
 const { Icon } = UI;
 
 const DRAG_THRESHOLD_PX = 6;
@@ -45,15 +51,55 @@ function columnAtPoint(columnIds, listRefs, clientX, clientY) {
   return null;
 }
 
-const TaskCard = memo(function TaskCard({ task, columnId, readOnly, isOptimistic, onOpen, onPointerDragStart, suppressClickRef }) {
-  const subCount = task.subtasks?.length ?? 0;
-  const msCount = task.milestones?.length ?? 0;
-  const openMs = (task.milestones ?? []).filter((m) => !m.completedAt).length;
+function TaskCardBody({ task }) {
+  const modDate = formatTaskDate(taskModDate(task));
+  return (
+    <>
+      <Typography className="paty-todos-card__date" component="div" variant="caption" color="text.secondary">
+        {modDate}
+      </Typography>
+      <Typography className="paty-todos-card__title" component="div" variant="body2">
+        {task.title}
+      </Typography>
+      <Typography className="paty-todos-card__assignee" component="div" variant="caption" color="text.secondary">
+        {task.assignedTo || "Sin asignar"}
+      </Typography>
+      <Typography className="paty-todos-card__date paty-todos-card__date--bottom" component="div" variant="caption" color="text.secondary">
+        {modDate}
+      </Typography>
+    </>
+  );
+}
+
+function DragGhost({ task, x, y, width }) {
+  if (!task) return null;
+  return (
+    <Paper
+      className="paty-todos-card paty-todos-card--ghost"
+      elevation={8}
+      style={{
+        position: "fixed",
+        left: x,
+        top: y,
+        width,
+        zIndex: 10000,
+        pointerEvents: "none",
+      }}
+      aria-hidden
+    >
+      <TaskCardBody task={task} />
+    </Paper>
+  );
+}
+
+const TaskCard = memo(function TaskCard({
+  task, columnId, readOnly, isOptimistic, isDragSource, onOpen, onPointerDragStart, suppressClickRef,
+}) {
   const canDrag = !readOnly && !isOptimistic;
 
   return (
     <Paper
-      className={`paty-todos-card${isOptimistic ? " paty-todos-card--optimistic" : ""}${canDrag ? " paty-todos-card--draggable" : ""}`}
+      className={`paty-todos-card${isOptimistic ? " paty-todos-card--optimistic" : ""}${canDrag ? " paty-todos-card--draggable" : ""}${isDragSource ? " paty-todos-card--drag-source" : ""}`}
       elevation={0}
       onPointerDown={(e) => {
         if (!canDrag) return;
@@ -71,35 +117,7 @@ const TaskCard = memo(function TaskCard({ task, columnId, readOnly, isOptimistic
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onOpen(task.id); }}
     >
-      <Typography className="paty-todos-card__title" component="div" variant="body2">
-        {task.title}
-      </Typography>
-      <div className="paty-todos-card__meta">
-        {task.assignedTo ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={task.assignedTo}
-            icon={<Icon icon="mdi:account-outline" size={12} />}
-          />
-        ) : null}
-        {subCount ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={String(subCount)}
-            icon={<Icon icon="mdi:checkbox-multiple-marked-outline" size={12} />}
-          />
-        ) : null}
-        {msCount ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={`${openMs}/${msCount}`}
-            icon={<Icon icon="mdi:flag-outline" size={12} />}
-          />
-        ) : null}
-      </div>
+      <TaskCardBody task={task} />
     </Paper>
   );
 });
@@ -166,21 +184,18 @@ function ColumnAddForm({ onAdd }) {
 export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAdd, onDragStart, onDropColumn }) {
   const [dragOverCol, setDragOverCol] = useState(null);
   const [draggingTaskId, setDraggingTaskId] = useState(null);
+  const [dragGhost, setDragGhost] = useState(null);
+  const [expandedCols, setExpandedCols] = useState(() => new Set());
   const listRefs = useRef({});
   const dragRef = useRef(null);
   const cardElRef = useRef(null);
   const suppressClickRef = useRef(false);
 
-  const tasksByColumn = useMemo(() => {
-    if (!boardData) return new Map();
-    const map = new Map();
-    for (const col of boardData.columns) map.set(col.id, []);
-    for (const task of boardData.tasks) {
-      const list = map.get(task.columnId);
-      if (list) list.push(task);
-    }
-    return map;
-  }, [boardData]);
+  const tasksByColumn = useMemo(() => groupTasksByColumn(boardData), [boardData]);
+  const ghostTask = useMemo(() => {
+    if (!dragGhost?.taskId) return null;
+    return boardData?.tasks?.find((t) => t.id === dragGhost.taskId) ?? null;
+  }, [dragGhost, boardData?.tasks]);
 
   const columnIds = useMemo(
     () => (boardData?.columns ?? []).map((c) => c.id),
@@ -192,7 +207,7 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
     dragRef.current = null;
     setDraggingTaskId(null);
     setDragOverCol(null);
-    cardElRef.current?.classList.remove("paty-todos-card--dragging");
+    setDragGhost(null);
     cardElRef.current = null;
 
     if (!state?.moved) return;
@@ -234,9 +249,28 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
       if (!state.moved) {
         state.moved = true;
         setDraggingTaskId(state.taskId);
-        cardElRef.current?.classList.add("paty-todos-card--dragging");
+        const rect = cardElRef.current?.getBoundingClientRect();
+        if (rect) {
+          state.offsetX = e.clientX - rect.left;
+          state.offsetY = e.clientY - rect.top;
+          state.ghostWidth = rect.width;
+          setDragGhost({
+            taskId: state.taskId,
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+          });
+        }
       }
       e.preventDefault();
+      if (state.ghostWidth != null) {
+        setDragGhost({
+          taskId: state.taskId,
+          x: e.clientX - state.offsetX,
+          y: e.clientY - state.offsetY,
+          width: state.ghostWidth,
+        });
+      }
       const colId = columnAtPoint(columnIds, listRefs, e.clientX, e.clientY);
       setDragOverCol(colId);
     }
@@ -263,8 +297,17 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
 
   return (
     <Box className={`paty-todos-kanban${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
+      {dragGhost ? (
+        <DragGhost task={ghostTask} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} />
+      ) : null}
       {columns.map((col) => {
         const colTasks = tasksByColumn.get(col.id) ?? [];
+        const isExpanded = expandedCols.has(col.id);
+        const hasMore = colTasks.length > MAX_COLUMN_TASKS;
+        const visibleTasks = isExpanded || !hasMore
+          ? colTasks
+          : colTasks.slice(0, MAX_COLUMN_TASKS);
+        const hiddenCount = hasMore && !isExpanded ? colTasks.length - MAX_COLUMN_TASKS : 0;
         const isOver = dragOverCol === col.id;
         const theme = themeForColumn(col.columnKey);
         return (
@@ -285,18 +328,43 @@ export function TodosKanban({ boardData, readOnly = false, onOpenTask, onQuickAd
               data-column-id={col.id}
               className={`paty-todos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
             >
-              {colTasks.map((task) => (
+              {visibleTasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
                   columnId={col.id}
                   readOnly={readOnly}
                   isOptimistic={String(task.id).startsWith("optimistic-")}
+                  isDragSource={draggingTaskId === task.id}
                   onOpen={onOpenTask}
                   onPointerDragStart={handlePointerDragStart}
                   suppressClickRef={suppressClickRef}
                 />
               ))}
+              {hiddenCount > 0 ? (
+                <Button
+                  fullWidth
+                  size="small"
+                  className="paty-todos-column__show-all"
+                  onClick={() => setExpandedCols((prev) => new Set(prev).add(col.id))}
+                >
+                  Ver todo ({colTasks.length})
+                </Button>
+              ) : null}
+              {isExpanded && hasMore ? (
+                <Button
+                  fullWidth
+                  size="small"
+                  className="paty-todos-column__show-all"
+                  onClick={() => setExpandedCols((prev) => {
+                    const next = new Set(prev);
+                    next.delete(col.id);
+                    return next;
+                  })}
+                >
+                  Ver menos
+                </Button>
+              ) : null}
             </Box>
             {!readOnly && col.columnKey === "pending" ? (
               <ColumnAddForm onAdd={(title) => onQuickAdd(col.id, title)} />

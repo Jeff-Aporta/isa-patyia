@@ -21,13 +21,14 @@ import {
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
 import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge } from "../../api/apiClient.ts";
-import { logToMensajesVista } from "../../core/convLog.ts";
+import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
 import { persistChatConvId, persistChatMessageSource, getSnapshot, subscribe } from "../../core/urlState.ts";
 import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, readChatMessageSource, messageSourceFromUrl, type ChatMessageSource } from "./constants.ts";
 import { useThreadScrollAnchor } from "./threadScroll.ts";
 import {
   auditScopeIsOwnJwt,
+  convBelongsToJwtResolved,
   convOwnerDisplayLabel,
   activeConvOwnerScope,
   resolveConvListOwnerLabel,
@@ -36,6 +37,8 @@ import {
 import {
   enrichLogVista,
   attachCalificacionesToVista,
+  attachUserImagenesFromOpenAi,
+  attachAssistantTextFromOpenAi,
   attachCalificacionesOnly,
   countLogAssistants,
   countOpenAiAssistants,
@@ -66,7 +69,7 @@ import type {
   ClipboardPasteEvent,
   FileInputChangeEvent,
 } from "./types.ts";
-import { readImagesFromClipboard, filesToImageEntries } from "./images.ts";
+import { readImagesFromClipboard, filesToImageEntries, hasHeicLikeFiles } from "./images.ts";
 
 const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
 
@@ -361,6 +364,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       let vista = enrichLogVista(logToMensajesVista(log) as ChatMensajeVista[], name);
       if (d?.mensajesOpenAI?.length) {
         vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+        vista = attachAssistantTextFromOpenAi(vista, d.mensajesOpenAI);
+        vista = attachUserImagenesFromOpenAi(vista, d.mensajesOpenAI);
       } else if (rated.length) {
         vista = attachCalificacionesOnly(vista, rated);
       }
@@ -370,10 +375,13 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
 
     if (openAiDirect && d?.mensajesOpenAI?.length) {
-      const vista = finalizeVista(attachCalificacionesToVista(
-        enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+      const vista = finalizeVista(attachUserImagenesFromOpenAi(
+        attachCalificacionesToVista(
+          enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+          d.mensajesOpenAI,
+          rated,
+        ),
         d.mensajesOpenAI,
-        rated,
       ));
       setLogMensajes(vista);
       setLogError("");
@@ -381,10 +389,13 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
 
     if (d?.mensajesOpenAI?.length) {
-      const vista = finalizeVista(attachCalificacionesToVista(
-        enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+      const vista = finalizeVista(attachUserImagenesFromOpenAi(
+        attachCalificacionesToVista(
+          enrichLogVista(openAiFallbackVista(d.mensajesOpenAI, name), name),
+          d.mensajesOpenAI,
+          rated,
+        ),
         d.mensajesOpenAI,
-        rated,
       ));
       setLogMensajes(vista);
       setLogError("");
@@ -395,6 +406,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       let vista = enrichLogVista(logToMensajesVista(log), name);
       if (d?.mensajesOpenAI?.length) {
         vista = attachCalificacionesToVista(vista, d.mensajesOpenAI, rated);
+        vista = attachAssistantTextFromOpenAi(vista, d.mensajesOpenAI);
+        vista = attachUserImagenesFromOpenAi(vista, d.mensajesOpenAI);
       } else if (rated.length) {
         vista = attachCalificacionesOnly(vista, rated);
       }
@@ -428,7 +441,13 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
         try {
           const { d, log, openAiDirect } = await fetchLogsModeDetail(jwt!, id, { freshLog: true, minMensajes: minLogMensajes });
           if (d) {
-            setDetail(d);
+            const row = rows.find((r) => convIdsEqual(r.iconversacion, id));
+            setDetail({
+              ...row,
+              ...d,
+              itercero: d.itercero ?? row?.itercero,
+              icontacto: d.icontacto ?? row?.icontacto,
+            });
             applyThreadFromDetail(d, log, name, { openAiDirect });
           } else if (log?.mensajes?.length) {
             applyThreadFromDetail(null, log, name);
@@ -453,7 +472,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } catch {
       /* enriquecimiento en segundo plano; el hilo local ya muestra la respuesta */
     }
-  }, [loggedIn, jwt, viewingAuditOther, listScope, messageSource, applyThreadFromDetail]);
+  }, [loggedIn, jwt, viewingAuditOther, listScope, messageSource, applyThreadFromDetail, rows, sessionUser]);
 
   const openConv = useCallback(async (id: number, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0, sourceOverride }: OpenConvOptions = {}) => {
     if (!loggedIn || !id) return;
@@ -489,7 +508,15 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
         if (d && !convBelongsToJwt(d, jwt!.claims) && !Session.can("patyia.chat.audit")) {
           toastWarning("Esta conversación no pertenece al token activo");
         }
-        if (d) setDetail(d);
+        if (d) {
+          const row = rows.find((r) => convIdsEqual(r.iconversacion, id));
+          setDetail({
+            ...row,
+            ...d,
+            itercero: d.itercero ?? row?.itercero,
+            icontacto: d.icontacto ?? row?.icontacto,
+          });
+        }
         else {
           const row = rows.find((r) => r.iconversacion === id);
           setDetail(row || { iconversacion: id, titulo: `Conv #${id}` });
@@ -601,7 +628,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     if (!canSend || !jwt) return;
     const text = draft.trim();
     if (!text && !images.length) return;
-    if (selectedId && detail && !convBelongsToJwt(detail, jwt.claims)) {
+    if (selectedId && !convBelongsToJwtResolved(
+      detail,
+      rows.find((r) => convIdsEqual(r.iconversacion, selectedId)),
+      displayScope,
+      jwt.claims,
+    )) {
       toastError("No puedes enviar mensajes en conversaciones de otro contacto");
       return;
     }
@@ -626,11 +658,17 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       );
       const finalText = String(result.respuesta || "").trim();
       if (finalText) setStreamText(finalText);
+      const streamMeta = (result as { meta?: { stream_ok?: boolean; stream_error?: string } }).meta;
+      const streamFailed = streamMeta?.stream_ok === false;
+      const streamError = formatStreamError(streamMeta?.stream_error);
       const newId = Number(result.iconversacion) || convIdBefore;
       setLogMensajes((prev) => enrichLogVista(
-        finalizeStreamInLog(prev, finalText),
+        finalizeStreamInLog(prev, finalText, streamFailed ? { failed: true, error: streamError } : undefined),
         userName,
       ));
+      if (streamFailed) {
+        toastWarning(streamError || "La respuesta no se completó correctamente.");
+      }
       setSending(false);
       setStreamText("");
       if (newId) {
@@ -672,7 +710,11 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   async function appendImagesFromFiles(files: FileList | File[] | null | undefined) {
     if (!files?.length) return;
     try {
-      const added = await filesToImageEntries(Array.from(files));
+      const list = Array.from(files);
+      if (hasHeicLikeFiles(list)) {
+        toastWarning("HEIC/HEIF no se admite; usa PNG, JPEG, WebP o GIF");
+      }
+      const added = await filesToImageEntries(list);
       if (!added.length) {
         toastWarning("Solo se admiten imágenes (PNG, JPEG, WebP, GIF)");
         return;

@@ -1,6 +1,7 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
-import { mdToHtml } from "../../ui/shared.jsx";
 import { UserAssignAutocomplete } from "./UserAssignAutocomplete.jsx";
+import { TaskConvoThread } from "./TaskConvoThread.jsx";
+import { scrumTaskContext } from "../../api/treeMsgsApi.ts";
 
 const { useState, useEffect, useRef } = getReact();
 const {
@@ -75,14 +76,6 @@ function SubtaskEditor({ subtask, readOnly, busy, onSave, onDelete }) {
             disabled={readOnly}
             placeholder="Opcional…"
           />
-          {doc.trim() ? (
-            <Box sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider", typography: "body2" }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>Vista previa</Typography>
-              <div dangerouslySetInnerHTML={{ __html: mdToHtml(doc) }} />
-            </Box>
-          ) : readOnly ? (
-            <Typography variant="caption" color="text.secondary">Sin documentación</Typography>
-          ) : null}
           {!readOnly ? (
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button
@@ -193,7 +186,6 @@ function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle
 export function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSave, onSaveSubtask, onDeleteSubtask, onAddSubtask, onSaveMilestone, onDeleteMilestone, onAddMilestone, onToggleMilestone, onComment }) {
   const [tab, setTab] = useState(0);
   const [title, setTitle] = useState("");
-  const [doc, setDoc] = useState("");
   const [assignedTo, setAssignedTo] = useState(null);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [msTitle, setMsTitle] = useState("");
@@ -206,7 +198,6 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
     if (!task || task.id === prevId.current) return;
     prevId.current = task.id;
     setTitle(task.title);
-    setDoc(task.descriptionDoc || "");
     setAssignedTo(task.assignedTo || null);
     setTab(0);
   }, [task]);
@@ -250,28 +241,30 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
 
             {tab === 0 ? (
               <Stack spacing={2}>
-                <TextField label="Título" fullWidth size="small" value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
-                <UserAssignAutocomplete
-                  label="Asignado a"
-                  value={assignedTo}
-                  disabled={readOnly}
-                  onChange={setAssignedTo}
-                />
-                <TextField
-                  label="Documentación (Markdown)"
-                  fullWidth
-                  multiline
-                  minRows={6}
-                  value={doc}
-                  onChange={(e) => setDoc(e.target.value)}
-                  disabled={readOnly}
-                />
-                {doc.trim() ? (
-                  <Box sx={{ p: 1.5, borderRadius: 1, border: 1, borderColor: "divider", typography: "body2" }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>Vista previa</Typography>
-                    <div dangerouslySetInnerHTML={{ __html: mdToHtml(doc) }} />
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
+                  <TextField
+                    label="Título"
+                    fullWidth
+                    size="small"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    disabled={readOnly}
+                    sx={{ flex: 1, minWidth: 0 }}
+                  />
+                  <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+                    <UserAssignAutocomplete
+                      label="Asignado a"
+                      value={assignedTo}
+                      disabled={readOnly}
+                      compact
+                      onChange={setAssignedTo}
+                    />
                   </Box>
-                ) : null}
+                </Stack>
+                <TaskConvoThread
+                  contextKey={scrumTaskContext(task.id)}
+                  readOnly={readOnly}
+                />
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Chip size="small" label={`Creada por ${task.createdBy}`} />
                   {task.completedAt ? <Chip size="small" color="success" label="Finalizada" /> : null}
@@ -422,7 +415,6 @@ export function TaskDetailDialog({ open, task, loading, readOnly = false, onClos
             onClick={() => run(async () => {
               await onSave({
                 title: title.trim(),
-                descriptionDoc: doc,
                 assignedTo: assignedTo || null,
               });
             })}

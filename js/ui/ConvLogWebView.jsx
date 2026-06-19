@@ -4,6 +4,7 @@
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
+import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
@@ -256,6 +257,85 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
   );
 }
 
+function modelBadgeLabel(raw, maxLen = 28) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  return s.length > maxLen ? shortId(s, 16, 10) : s;
+}
+
+function visionAutoswitchBadge(meta) {
+  if (!meta?.modelo_autoswitch_vision) return null;
+  const configured = String(meta.modelo_configurado ?? "").trim();
+  const used = String(meta.model ?? "").trim();
+  if (!configured) {
+    return {
+      tag: "Visión",
+      label: "autoswitch",
+      title: used
+        ? `Autoswitch visión activo · modelo usado: ${used}`
+        : "Autoswitch visión por imágenes adjuntas",
+    };
+  }
+  const label = modelBadgeLabel(configured);
+  return {
+    tag: "Config",
+    label,
+    title: used && configured !== used
+      ? `Autoswitch visión: ${configured} → ${used}`
+      : `Modelo configurado (${configured}); autoswitch visión por imágenes adjuntas`,
+  };
+}
+
+function buildUsageDialogCtxItems(meta) {
+  const latency = formatLatencySeconds(meta?.latency_ms);
+  const items = [];
+  if (meta?.ts) {
+    items.push({ key: "ts", label: "ts", value: meta.ts, mono: true });
+  }
+
+  if (meta?.modelo_autoswitch_vision) {
+    const from = String(meta.modelo_configurado ?? "").trim();
+    const to = String(meta.model ?? "").trim();
+    if (from && to) {
+      items.push({
+        key: "vision_sw",
+        label: "autoswitch visión",
+        value: from === to ? `${from} (sin cambio de modelo)` : `${from} → ${to}`,
+        mono: true,
+        wide: true,
+        vision: true,
+      });
+    } else {
+      if (from) {
+        items.push({ key: "model_from", label: "modelo configurado", value: from, mono: true, vision: true });
+      }
+      if (to) {
+        items.push({ key: "model_to", label: "modelo usado", value: to, mono: true, vision: true });
+      }
+      if (!from && !to) {
+        items.push({
+          key: "vision_sw",
+          label: "autoswitch visión",
+          value: "activo (imágenes adjuntas)",
+          mono: false,
+          wide: true,
+          vision: true,
+        });
+      }
+    }
+  } else if (meta?.model) {
+    items.push({ key: "model", label: "model", value: meta.model, mono: true });
+  }
+
+  if (latency) {
+    items.push({ key: "latency", label: "latency", value: latency, mono: true });
+  }
+  if (meta?.itdconsulta) {
+    items.push({ key: "itd", label: "itdconsulta", value: meta.itdconsulta, mono: true });
+  }
+  return items;
+}
+
 function MetaBadge({ tag, label, tone = "neutral", title }) {
   return (
     <span className={`conv-meta-badge conv-meta-badge--${tone}`} title={title || label}>
@@ -286,7 +366,19 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
     chips.push({ key: "pmpt", tag: "Prompt", label: key, tone: "context", title: `Instrucción: ${key}` });
   }
   if (!hideUsageMetrics && meta.model) {
-    chips.push({ key: "model", tag: "Modelo", label: meta.model, tone: "metric", title: "Modelo LLM" });
+    chips.push({
+      key: "model",
+      tag: "Modelo",
+      label: meta.model,
+      tone: "model",
+      title: meta.modelo_autoswitch_vision ? "Modelo usado (autoswitch visión)" : "Modelo LLM",
+    });
+  }
+  if (!hideUsageMetrics && meta.modelo_autoswitch_vision) {
+    const sw = visionAutoswitchBadge(meta);
+    if (sw) {
+      chips.push({ key: "vision-sw", tag: sw.tag, label: sw.label, tone: "vision", title: sw.title });
+    }
   }
   if (!hideUsageMetrics && meta.latency_ms != null && meta.latency_ms > 0) {
     chips.push({ key: "lat", tag: "Lat", label: `${meta.latency_ms} ms`, tone: "metric", title: "Latencia" });
@@ -363,13 +455,13 @@ function MsgBody({ text, imagenes, align = "left", onImageClick, streaming = fal
 }
 
 function ConvMsgImages({ items, align = "right", onImageClick }) {
-  const { Box, Typography } = getMaterialUI();
+  const { Box } = getMaterialUI();
   const renderable = (items || []).filter((src) => {
     const s = String(src || "").trim();
+    if (/^\[file_id:/i.test(s)) return false;
     return s.startsWith("data:image/") || s.startsWith("http://") || s.startsWith("https://");
   });
-  const fileRefs = (items || []).filter((src) => /^\[file_id:/i.test(String(src || "").trim()));
-  if (!renderable.length && !fileRefs.length) return null;
+  if (!renderable.length) return null;
   return (
     <Box
       className={`conv-msg-images conv-msg-images--${align}`}
@@ -392,87 +484,13 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
           <img src={src} alt={`Adjunto ${idx + 1}`} loading="lazy" />
         </button>
       ))}
-      {fileRefs.map((ref, idx) => (
-        <Box
-          key={`file-${idx}-${ref}`}
-          className="conv-msg-image-file-ref"
-          sx={{
-            px: 1.25,
-            py: 0.75,
-            borderRadius: 1,
-            border: "1px dashed",
-            borderColor: "divider",
-            fontSize: "0.78rem",
-            color: "text.secondary",
-            maxWidth: 220,
-          }}
-        >
-          <Typography variant="caption" component="span" display="block">
-            Imagen adjunta (referencia OpenAI)
-          </Typography>
-        </Box>
-      ))}
     </Box>
   );
 }
 
-function ImageLightboxDialog({ open, src, onClose }) {
-  const { Dialog, DialogContent, IconButton, Box } = getMaterialUI();
-  const { Icon } = UI;
-  if (!src) return null;
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth={false}
-      className="conv-image-lightbox"
-      PaperProps={{
-        sx: {
-          bgcolor: "transparent",
-          boxShadow: "none",
-          overflow: "visible",
-          m: 1,
-          maxWidth: "min(96vw, 1200px)",
-        },
-      }}
-    >
-      <DialogContent sx={{ p: 0, position: "relative", overflow: "hidden" }}>
-        <IconButton
-          aria-label="Cerrar imagen"
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 2,
-            bgcolor: "rgba(0,0,0,0.45)",
-            color: "#fff",
-            "&:hover": { bgcolor: "rgba(0,0,0,0.65)" },
-          }}
-        >
-          <Icon icon="mdi:close" size={22} />
-        </IconButton>
-        <Box
-          component="img"
-          src={src}
-          alt="Imagen adjunta"
-          sx={{
-            display: "block",
-            maxWidth: "min(96vw, 1200px)",
-            maxHeight: "90vh",
-            width: "auto",
-            height: "auto",
-            borderRadius: "0.5rem",
-            mx: "auto",
-          }}
-        />
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function UsageSummaryChip({ label, className, title, tag }) {
-  const tone = className?.includes("--model") ? "model"
+  const tone = className?.includes("--vision") ? "vision"
+    : className?.includes("--model") ? "model"
     : className?.includes("--latency") ? "latency"
       : className?.includes("--usd") ? "usd"
         : className?.includes("--tokens") ? "tokens"
@@ -520,13 +538,7 @@ function UsageBreakdownTable({ parts }) {
 function UsageDialogMetaPanel({ meta, tokens }) {
   const { Box } = getMaterialUI();
   const tk = tokens || {};
-  const latency = formatLatencySeconds(meta?.latency_ms);
-  const ctxItems = [
-    meta?.ts ? { key: "ts", label: "ts", value: meta.ts, mono: true } : null,
-    meta?.model ? { key: "model", label: "model", value: meta.model, mono: true } : null,
-    latency ? { key: "latency", label: "latency", value: latency, mono: true } : null,
-    meta?.itdconsulta ? { key: "itd", label: "itdconsulta", value: meta.itdconsulta, mono: true } : null,
-  ].filter(Boolean);
+  const ctxItems = buildUsageDialogCtxItems(meta);
 
   const tokItems = [
     { key: "in", label: "in", value: Number(tk.input ?? 0) || 0 },
@@ -543,7 +555,14 @@ function UsageDialogMetaPanel({ meta, tokens }) {
       {ctxItems.length > 0 ? (
         <div className="conv-usage-dialog__ctx-grid">
           {ctxItems.map((item) => (
-            <div key={item.key} className="conv-usage-dialog__ctx-item">
+            <div
+              key={item.key}
+              className={[
+                "conv-usage-dialog__ctx-item",
+                item.wide ? "conv-usage-dialog__ctx-item--wide" : "",
+                item.vision ? "conv-usage-dialog__ctx-item--vision" : "",
+              ].filter(Boolean).join(" ") || undefined}
+            >
               <span className="conv-usage-dialog__ctx-k">{item.label}</span>
               <span className={`conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`}>
                 {item.value}
@@ -601,6 +620,7 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
   const showMetaPanel = Boolean(
     meta?.ts
     || meta?.model
+    || meta?.modelo_autoswitch_vision
     || formatLatencySeconds(meta?.latency_ms)
     || meta?.itdconsulta
     || (Number(stats.tokens?.total ?? 0) > 0)
@@ -652,9 +672,10 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   const showPrev = usageHasData(stats.previousTokens, stats.previousCost);
 
   const modelRaw = String(meta?.model ?? "").trim();
-  const modelLabel = modelRaw ? (modelRaw.length > 28 ? shortId(modelRaw, 16, 10) : modelRaw) : "";
+  const modelLabel = modelRaw ? modelBadgeLabel(modelRaw) : "";
   const latencyLabel = formatLatencySeconds(meta?.latency_ms);
-  const showMetaBadges = Boolean(modelLabel || latencyLabel);
+  const autoswitchBadge = visionAutoswitchBadge(meta);
+  const showMetaBadges = Boolean(modelLabel || latencyLabel || autoswitchBadge);
 
   const groups = [
     { key: "msg", label: "Mensaje", summary: msgSummary },
@@ -696,7 +717,19 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
                 tag="Modelo"
                 label={modelLabel}
                 className="conv-msg-usage-chip conv-msg-usage-chip--model"
-                title={modelRaw && modelRaw !== modelLabel ? `Modelo: ${modelRaw}` : "Modelo LLM"}
+                title={meta?.modelo_autoswitch_vision
+                  ? (modelRaw && modelRaw !== modelLabel
+                    ? `Modelo usado (autoswitch visión): ${modelRaw}`
+                    : "Modelo usado tras autoswitch visión")
+                  : (modelRaw && modelRaw !== modelLabel ? `Modelo: ${modelRaw}` : "Modelo LLM")}
+              />
+            ) : null}
+            {autoswitchBadge ? (
+              <UsageSummaryChip
+                tag={autoswitchBadge.tag}
+                label={autoswitchBadge.label}
+                className="conv-msg-usage-chip conv-msg-usage-chip--vision"
+                title={autoswitchBadge.title}
               />
             ) : null}
             {latencyLabel ? (
@@ -894,6 +927,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
                 {msg.streamError}
               </Alert>
             )}
+            {(msg.contenido?.trim() || msg.imagenes?.length || isStreaming) ? (
             <MsgBody
               text={msg.contenido}
               imagenes={msg.imagenes}
@@ -901,6 +935,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
               onImageClick={onImageClick}
               streaming={isStreaming}
             />
+            ) : null}
           </SectionCard>
         </Box>
         {showSideColumn && (

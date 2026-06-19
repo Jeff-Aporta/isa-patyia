@@ -1,10 +1,11 @@
-import { getReact, getMaterialUI, CodeMirrorPanel } from "../../core/platform.ts";
+import { getReact, getMaterialUI, CodeMirrorPanel, UI } from "../../core/platform.ts";
 import { formatConversacionPostBodyPreview } from "../../api/patyiaChatApi.ts";
 
 const { useMemo } = getReact();
+const { Icon } = UI;
 
-export function ChatPayloadPreview({ open, body, endpoint }) {
-  const { Box, Typography, Paper } = getMaterialUI();
+export function ChatPayloadPreview({ open, body, endpoint, onClose }) {
+  const { Box, Typography, Paper, IconButton, Tooltip } = getMaterialUI();
   const previewJson = useMemo(
     () => formatConversacionPostBodyPreview(body),
     [body],
@@ -21,17 +22,29 @@ export function ChatPayloadPreview({ open, body, endpoint }) {
       aria-label="Vista previa del body POST"
     >
       <Box className="paty-chat-payload-preview__head">
-        <Typography variant="caption" className="paty-chat-payload-preview__method">
-          POST
-        </Typography>
-        <Typography variant="caption" component="code" className="paty-chat-payload-preview__path">
-          {endpoint}
-        </Typography>
-        {imageCount > 0 ? (
-          <Typography variant="caption" className="paty-chat-payload-preview__meta">
-            {imageCount} imagen{imageCount !== 1 ? "es" : ""} · base64
+        <Box className="paty-chat-payload-preview__head-main">
+          <Typography variant="caption" className="paty-chat-payload-preview__method">
+            POST
           </Typography>
-        ) : null}
+          <Typography variant="caption" component="code" className="paty-chat-payload-preview__path">
+            {endpoint}
+          </Typography>
+          {imageCount > 0 ? (
+            <Typography variant="caption" className="paty-chat-payload-preview__meta">
+              {imageCount} imagen{imageCount !== 1 ? "es" : ""} · base64
+            </Typography>
+          ) : null}
+        </Box>
+        <Tooltip title="Cerrar vista previa">
+          <IconButton
+            size="small"
+            className="paty-chat-payload-preview__close"
+            aria-label="Cerrar vista previa del body POST"
+            onClick={onClose}
+          >
+            <Icon icon="mdi:close" size={18} />
+          </IconButton>
+        </Tooltip>
       </Box>
       <Box className="paty-chat-payload-preview__body">
         <CodeMirrorPanel

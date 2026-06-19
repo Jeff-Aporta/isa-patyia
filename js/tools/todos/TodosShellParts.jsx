@@ -21,7 +21,9 @@ export function TodosLoggedOutShell({ onNeedLogin }) {
   );
 }
 
-export function TodosBoardToolbar({ boardTitle, boardMeta, onHome, onNewBoard, onRefresh, loadingBoard }) {
+export function TodosBoardToolbar({
+  boardTitle, boardMeta, onHome, onNewBoard, onRefresh, onOpenSettings, loadingBoard,
+}) {
   const publicSlug = boardMeta?.publicSlug;
   const myRole = boardMeta?.myRole;
 
@@ -49,9 +51,16 @@ export function TodosBoardToolbar({ boardTitle, boardMeta, onHome, onNewBoard, o
       {myRole === "readonly" ? (
         <Chip size="small" label="Solo lectura" icon={<Icon icon="mdi:eye-outline" size={14} />} />
       ) : null}
-      {boardMeta?.isAdmin ? (
-        <Chip size="small" color="default" label="Admin global" variant="outlined" />
-      ) : null}
+      <Tooltip title="Detalles del tablero">
+        <IconButton
+          size="small"
+          onClick={onOpenSettings}
+          aria-label="Detalles del tablero"
+          className="paty-todos-settings-btn"
+        >
+          <Icon icon="mdi:cog-outline" size={20} />
+        </IconButton>
+      </Tooltip>
       <Box sx={{ flex: 1 }} />
       <Button size="small" variant="outlined" startIcon={<Icon icon="mdi:plus" size={16} />} onClick={onNewBoard}>
         Nuevo

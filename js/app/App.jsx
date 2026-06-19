@@ -16,7 +16,7 @@ const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
   { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
-  { id: "todos", label: "Scrum", icon: "mdi:view-column" },
+  { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
 ];
 
 function canAccessScrum() {
@@ -28,14 +28,15 @@ function isPublicScrumBoot(todos) {
 }
 
 function canShowScrumTool(todos) {
-  return canAccessScrum() || isPublicScrumBoot(todos);
+  return canAccessScrum() || isPublicScrumBoot(todos) || !!Session.isLoggedIn?.();
 }
 
 function scrumTabMeta() {
-  const allowed = canAccessScrum();
+  const loggedIn = !!Session.isLoggedIn?.();
+  const allowed = canAccessScrum() || loggedIn;
   return {
     disabled: !allowed,
-    disabledTitle: allowed ? "" : "En desarrollo",
+    disabledTitle: allowed ? "" : "Inicia sesión para acceder a DevFlow",
   };
 }
 
@@ -91,7 +92,7 @@ export function App() {
   const tools = ALL_TOOLS.map((t) => (t.id === "todos" ? { ...t, ...scrumTabMeta() } : t));
 
   function selectTool(id) {
-    if (id === "todos" && !canAccessScrum()) return;
+    if (id === "todos" && !canShowScrumTool(getSnapshot().todos)) return;
     setTool(id);
     mergePartial({ tool: id });
   }

@@ -117,6 +117,31 @@ export const getReact = () => window.ISAFront.getReact();
 export const getReactDOM = () => window.ISAFront.getReactDOM();
 export const getMaterialUI = (): MaterialUIApi => window.ISAFront.getMaterialUI();
 
+function lightboxApi() {
+  const api = window.ISAComponents?.LightboxZoom;
+  if (!api?.LightboxZoomDialog) {
+    throw new Error("ISAComponents.LightboxZoom no cargado — recargue sin caché (Ctrl+Shift+R).");
+  }
+  return api;
+}
+
+/** Visor lightbox-zoom (@isa-components/lightbox). */
+export const LightboxZoom = {
+  get LightboxZoomDialog() { return lightboxApi().LightboxZoomDialog; },
+  get LightboxZoomImage() { return lightboxApi().LightboxZoomImage; },
+  get useLightboxZoom() { return lightboxApi().useLightboxZoom; },
+  get ZOOM_MIN() { return lightboxApi().ZOOM_MIN; },
+  get ZOOM_MAX() { return lightboxApi().ZOOM_MAX; },
+  get PAN_STEP() { return lightboxApi().PAN_STEP; },
+};
+
+/** Alias legacy (migración desde ISAFront.Lightbox). */
+export const Lightbox = {
+  get ImageLightboxDialog() { return lightboxApi().LightboxZoomDialog; },
+  get LightboxImage() { return lightboxApi().LightboxZoomImage; },
+  get useImageLightboxZoom() { return lightboxApi().useLightboxZoom; },
+};
+
 /** Puente a ISAFront.CodeMirrorPanel (front-shared). */
 export function CodeMirrorPanel(props: Record<string, unknown>) {
   const Panel = window.ISAFront?.CodeMirrorPanel;

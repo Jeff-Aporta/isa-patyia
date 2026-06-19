@@ -11,6 +11,36 @@ export function auditScopeIsOwnJwt(scope: BrowseScope | null | undefined, claims
   return convBelongsToJwt(scope, claims);
 }
 
+type ConvOwnerRef = {
+  itercero?: string | number;
+  icontacto?: string | number;
+};
+
+/** Une dueño de conv desde detalle, fila del listado o alcance activo (JWT/auditoría). */
+export function mergeConvOwnerFields(
+  conv: ConvOwnerRef | null | undefined,
+  row: ConvOwnerRef | null | undefined,
+  scope: BrowseScope | null | undefined,
+): ConvOwnerRef {
+  return {
+    itercero: conv?.itercero ?? row?.itercero ?? scope?.itercero,
+    icontacto: conv?.icontacto ?? row?.icontacto ?? scope?.icontacto,
+  };
+}
+
+/** Bloquea solo si hay itercero/icontacto conocidos y no coinciden con el JWT. */
+export function convBelongsToJwtResolved(
+  conv: ConvOwnerRef | null | undefined,
+  row: ConvOwnerRef | null | undefined,
+  scope: BrowseScope | null | undefined,
+  claims: PatyJwtClaims | null | undefined,
+): boolean {
+  const owner = mergeConvOwnerFields(conv, row, scope);
+  const t = String(owner.itercero ?? "").trim();
+  if (!t) return true;
+  return convBelongsToJwt(owner, claims);
+}
+
 /** Nick ISA / AUTH (username): dueño del JWT o sesión activa. */
 export function resolveOwnerNickname(jwt: PatyJwtRecord | null | undefined, sessionUser: string | null | undefined): string {
   const acting = String(jwt?.actingAsUsername ?? "").trim().toUpperCase();

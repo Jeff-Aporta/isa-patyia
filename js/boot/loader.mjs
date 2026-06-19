@@ -1,4 +1,4 @@
-import { asset } from "./cdn.mjs";
+import { asset, ensureLightboxZoom } from "./cdn.mjs";
 
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
@@ -27,6 +27,7 @@ import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }
     h.assertStack();
     await loadIsaFrontPinned(h);
     await h.loadSharedUi(Babel);
+    await ensureLightboxZoom();
     if (isDist) {
       await import("../core/isa-setup.js");
       await import("../main.js");

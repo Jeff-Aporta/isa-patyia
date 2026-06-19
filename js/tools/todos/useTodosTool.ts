@@ -236,6 +236,31 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     }
   }
 
+  /** Abre tarea desde la vista previa del home sin salir del listado de tableros. */
+  async function openTaskFromPreview(boardId: string, taskId: string) {
+    const preview = boardPreviews[boardId];
+    const cached = preview?.tasks.find((t) => t.id === taskId);
+    if (cached) setSelectedTask(cached);
+    setTaskLoading(!cached);
+    if (!boardDataRef.current || boardDataRef.current.board?.id !== boardId) {
+      try {
+        const data = preview ?? await fetchTodoBoard(boardId);
+        setBoardData(data);
+      } catch {
+        /* permisos de edición pueden quedar limitados */
+      }
+    }
+    try {
+      const task = await fetchTodoTask(taskId);
+      setSelectedTask(task);
+    } catch (e) {
+      if (!cached) setSelectedTask(null);
+      toastError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTaskLoading(false);
+    }
+  }
+
   async function saveTask(patch: {
     title?: string;
     descriptionDoc?: string;
@@ -424,6 +449,7 @@ export function useTodosTool({ bootTodos }: { bootTodos?: BootTodos }) {
     onDeleteBoard,
     onQuickAddTask,
     openTask,
+    openTaskFromPreview,
     closeTask: () => setSelectedTask(null),
     saveTask,
     saveSubtask,

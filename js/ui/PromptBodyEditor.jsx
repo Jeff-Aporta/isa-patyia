@@ -2,6 +2,12 @@ import { getReact, getMaterialUI } from "../core/platform.ts";
 import { mdToHtml } from "../core/platform.ts";
 import { bodyPreviewHtml, bodyToEditorHtml, editorHtmlToBody, surfaceHasRawVarTokens } from "./promptMdEditorHtml.ts";
 import {
+  clipboardImageDataUrl,
+  insertImageNodeAtSelection,
+  insertTextAtTextarea,
+  markdownImage,
+} from "./mdImagePaste.ts";
+import {
   renamePromptVariable,
   extractPromptVariables,
   isValidVarName,
@@ -545,6 +551,35 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
     e.clipboardData.setData("text/plain", md);
   }
 
+  async function onEditorPaste(e) {
+    if (!canEdit) return;
+    const dataUrl = await clipboardImageDataUrl(e);
+    if (!dataUrl) return;
+    e.preventDefault();
+    captureEditorSelection();
+    surfaceRef.current?.focus();
+    restoreEditorRange();
+    insertImageNodeAtSelection(dataUrl);
+    pushChange();
+  }
+
+  async function onPlainTextPaste(e) {
+    if (!canEdit) return;
+    const dataUrl = await clipboardImageDataUrl(e);
+    if (!dataUrl) return;
+    e.preventDefault();
+    const ta = plainTextRef.current;
+    if (!ta) return;
+    const snippet = `${markdownImage("imagen", dataUrl)}\n\n`;
+    const { next, pos } = insertTextAtTextarea(ta, snippet);
+    surfaceOrigin.current = true;
+    commit(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  }
+
   function onPlainTextKeyDown(e) {
     if (!canEdit) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -671,6 +706,7 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
               commit(e.target.value);
             }}
             onKeyDown={onPlainTextKeyDown}
+            onPaste={onPlainTextPaste}
             disabled={!canEdit}
             spellCheck={false}
             placeholder="Markdown y {{variables}} en texto plano…"
@@ -694,6 +730,7 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
           onKeyUp={captureEditorSelection}
           onMouseDown={onEditorMouseDown}
           onCopy={onEditorCopy}
+          onPaste={onEditorPaste}
           onClick={onEditorClick}
           onKeyDown={onKeyDown}
         />

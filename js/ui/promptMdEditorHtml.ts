@@ -69,6 +69,11 @@ function inlineMd(node: Node): string {
       return `\`${inner()}\``;
     case "a":
       return inner();
+    case "img": {
+      const alt = el.getAttribute("alt") || "imagen";
+      const src = el.getAttribute("src") || "";
+      return src ? `![${alt}](${src})` : "";
+    }
     case "br":
       return "\n";
     default:
@@ -118,6 +123,11 @@ function blockMd(el: Element): string {
         .join("\n") + "\n\n";
     case "hr":
       return "---\n\n";
+    case "img": {
+      const alt = el.getAttribute("alt") || "imagen";
+      const src = el.getAttribute("src") || "";
+      return src ? `![${alt}](${src})\n\n` : "";
+    }
     case "div": {
       if (el.classList.contains("md-table-wrap")) return el.innerHTML ? `${el.textContent?.trim() || ""}\n\n` : "";
       return [...el.childNodes].map((n) => {

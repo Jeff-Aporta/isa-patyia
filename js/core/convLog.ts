@@ -31,12 +31,57 @@ type FlatConvLogMensaje = {
   stream_error?: string;
   nombre_usado_en_respuesta?: boolean;
   modelo_configurado?: string;
+  modelo_autoswitch_vision?: boolean;
   premisas?: string[];
   prompt_chars?: number;
   response_chars?: number;
 };
 
 type NormalizeMetaOptions = { isUser?: boolean };
+
+const STREAM_ERROR_LABELS: Record<string, string> = {
+  stream_incomplete_or_error: "La respuesta del modelo no se completó. Vuelve a intentar o reduce el tamaño de las imágenes.",
+  stream_failed: "El stream de respuesta falló. Vuelve a intentar.",
+  stream_empty_no_response: "El modelo no devolvió texto. Revisa la consulta o inténtalo de nuevo.",
+};
+
+export function formatStreamError(code: string | null | undefined): string | undefined {
+  const raw = String(code ?? "").trim();
+  if (!raw) return undefined;
+  if (STREAM_ERROR_LABELS[raw]) return STREAM_ERROR_LABELS[raw];
+  if (/^[a-z0-9_]+$/i.test(raw) && raw.includes("_")) {
+    return "No se pudo completar la respuesta del asistente. Vuelve a intentar.";
+  }
+  return raw;
+}
+
+export function isStreamErrorCode(text: string | null | undefined): boolean {
+  const raw = String(text ?? "").trim();
+  if (!raw) return false;
+  if (raw in STREAM_ERROR_LABELS) return true;
+  return /^stream_[a-z0-9_]+$/i.test(raw);
+}
+
+/** Texto amigable de error de stream (no debe mostrarse como cuerpo del mensaje). */
+export function isStreamErrorDisplay(text: string | null | undefined): boolean {
+  const raw = String(text ?? "").trim();
+  if (!raw) return false;
+  if (isStreamErrorCode(raw)) return true;
+  return Object.values(STREAM_ERROR_LABELS).includes(raw);
+}
+
+function resolveAssistantLogContenido(others: Record<string, unknown>, receive: unknown, fallbackText?: unknown): string {
+  const fromReceive = dedupeAssistantText(textFromOpenAIReceive(receive));
+  if (fromReceive && !isStreamErrorDisplay(fromReceive)) return fromReceive;
+
+  const fromOthers = dedupeAssistantText(String(others?.response_text ?? ""));
+  if (fromOthers && !isStreamErrorDisplay(fromOthers)) return fromOthers;
+
+  const fromFallback = dedupeAssistantText(String(fallbackText ?? ""));
+  if (fromFallback && !isStreamErrorDisplay(fromFallback)) return fromFallback;
+
+  return "";
+}
 
 function pushImage(images: string[], ref: unknown) {
     const n = String(ref ?? "").trim();
@@ -70,20 +115,10 @@ function pushImage(images: string[], ref: unknown) {
 
   function mergeUserImagenes(send, others, fallbackText) {
     const fb = typeof send?.text === "string" ? send.text : fallbackText;
-    const { text, images } = extractUserVisionFromSendInput(send?.input ?? send?.text, fb);
-    const adj = Array.isArray(others?.imagenes_adjuntas)
+    const { text } = extractUserVisionFromSendInput(send?.input ?? send?.text, fb);
+    const imagenes = Array.isArray(others?.imagenes_adjuntas)
       ? others.imagenes_adjuntas.filter(isDisplayableImageRef)
       : [];
-    const fromSend = images.filter(isDisplayableImageRef);
-    const seen = new Set();
-    const imagenes = [];
-    for (const u of [...adj, ...fromSend]) {
-      const n = String(u).trim();
-      if (n && !seen.has(n)) {
-        seen.add(n);
-        imagenes.push(n);
-      }
-    }
     return { text: stripOmittedVisionFromText(text), imagenes };
   }
 
@@ -101,9 +136,6 @@ function pushImage(images: string[], ref: unknown) {
         pushImage(images, part.image_url.url);
       }
       else if (typeof part.url === "string") pushImage(images, part.url);
-      else if (typeof part.file_id === "string") {
-        pushImage(images, `[file_id:${part.file_id}]`);
-      }
     }
   }
 
@@ -219,7 +251,7 @@ function pushImage(images: string[], ref: unknown) {
   /** Resuelve texto visible de un ítem mensajesOpenAI (API PatyIA). */
   function resolveOpenAiMensajeText(m) {
     const direct = String(m?.mensaje ?? "").trim();
-    if (direct) return direct;
+    if (direct && !isStreamErrorDisplay(direct)) return direct;
     const meta = m?.meta && typeof m.meta === "object" ? m.meta : null;
     if (!meta) return "";
     const isUser = String(m?.autor ?? "").toLowerCase().includes("usuario") || meta.role === "user";
@@ -234,8 +266,9 @@ function pushImage(images: string[], ref: unknown) {
     if (fromReceive) return fromReceive;
     const others = meta.others && typeof meta.others === "object" ? meta.others : null;
     const fromOthers = String(others?.response_text ?? "").trim();
-    if (fromOthers) return fromOthers;
-    return String(meta.response_text ?? meta.text ?? "").trim();
+    if (fromOthers && !isStreamErrorCode(fromOthers)) return fromOthers;
+    const tail = String(meta.response_text ?? meta.text ?? "").trim();
+    return isStreamErrorCode(tail) ? "" : tail;
   }
 
   function tokensFromUsage(usage) {
@@ -304,22 +337,14 @@ function pushImage(images: string[], ref: unknown) {
     };
 
     if (m.role === "user") {
-      const { text, images } = extractUserVisionFromSendInput(s?.input, typeof s?.text === "string" ? s.text : "");
+      const { text } = extractUserVisionFromSendInput(s?.input, typeof s?.text === "string" ? s.text : "");
       if (text) {
         flat.text = stripOmittedVisionFromText(text);
         flat.prompt_text = flat.text;
       }
-      const adj = Array.isArray(o.imagenes_adjuntas) ? o.imagenes_adjuntas.filter(isDisplayableImageRef) : [];
-      const merged = [...adj, ...images.filter(isDisplayableImageRef)];
-      const seen = new Set();
-      const imagenes = [];
-      for (const u of merged) {
-        const n = String(u).trim();
-        if (n && !seen.has(n)) {
-          seen.add(n);
-          imagenes.push(n);
-        }
-      }
+      const imagenes = Array.isArray(o.imagenes_adjuntas)
+        ? o.imagenes_adjuntas.filter(isDisplayableImageRef)
+        : [];
       if (imagenes.length) flat.imagenes = imagenes;
       const prompt = s?.prompt;
       if (prompt?.id) flat.prompt_id = prompt.id;
@@ -332,7 +357,7 @@ function pushImage(images: string[], ref: unknown) {
       if (txt) flat.text = txt;
       if (typeof r?.model === "string") flat.model = r.model;
     } else if (m.role === "assistant") {
-      const txt = o.response_text ?? textFromOpenAIReceive(r);
+      const txt = resolveAssistantLogContenido(o as Record<string, unknown>, r);
       if (txt) {
         flat.text = txt;
         flat.response_text = txt;
@@ -348,6 +373,7 @@ function pushImage(images: string[], ref: unknown) {
     if (o.stream_error) flat.stream_error = o.stream_error;
     if (o.nombre_usado_en_respuesta !== undefined) flat.nombre_usado_en_respuesta = o.nombre_usado_en_respuesta;
     if (o.modelo_configurado) flat.modelo_configurado = o.modelo_configurado;
+    if (o.modelo_autoswitch_vision) flat.modelo_autoswitch_vision = true;
     if (o.prompt_id && !flat.prompt_id) flat.prompt_id = o.prompt_id;
     if (o.premisas) flat.premisas = o.premisas;
     if (typeof o.prompt_chars === "number") flat.prompt_chars = o.prompt_chars;
@@ -531,6 +557,7 @@ function pushImage(images: string[], ref: unknown) {
       itdconsulta: typeof raw.itdconsulta === "string" ? raw.itdconsulta : undefined,
       model: typeof raw.model === "string" ? raw.model : undefined,
       modelo_configurado: typeof raw.modelo_configurado === "string" ? raw.modelo_configurado : undefined,
+      modelo_autoswitch_vision: raw.modelo_autoswitch_vision === true ? true : undefined,
       prompt_id: isUser ? undefined : (typeof raw.prompt_id === "string" ? raw.prompt_id : undefined),
       premisas: Array.isArray(raw.premisas) ? raw.premisas.map(String) : undefined,
       tokens,
@@ -542,7 +569,7 @@ function pushImage(images: string[], ref: unknown) {
       prompt_chars: isUser ? undefined : (typeof raw.prompt_chars === "number" ? raw.prompt_chars : undefined),
       response_chars: typeof raw.response_chars === "number" ? raw.response_chars : undefined,
       stream_ok: raw.stream_ok,
-      stream_error: typeof raw.stream_error === "string" ? raw.stream_error : undefined,
+      stream_error: formatStreamError(typeof raw.stream_error === "string" ? raw.stream_error : undefined),
       extra: raw.operativa_key
         ? {
             operativa_key: String(raw.operativa_key),
@@ -579,8 +606,14 @@ function pushImage(images: string[], ref: unknown) {
       contenido = merged.text;
       imagenes = merged.imagenes;
     } else {
-      contenido = dedupeAssistantText(String(others.response_text ?? textFromOpenAIReceive(receive) ?? m.text ?? ""));
+      contenido = resolveAssistantLogContenido(others as Record<string, unknown>, receive, m.text);
     }
+
+    const streamErrorRaw = typeof others.stream_error === "string"
+      ? others.stream_error
+      : (isStreamErrorCode(others.response_text) ? String(others.response_text) : undefined);
+    const streamFailed = others.stream_ok === false || Boolean(streamErrorRaw);
+    const streamError = formatStreamError(streamErrorRaw);
 
     const opKey = others.operativa_key ?? send?.key ?? m.operativa_key;
     const flat = m.send != null || m.receive != null ? flattenConvLogMensaje(m) : m;
@@ -604,8 +637,8 @@ function pushImage(images: string[], ref: unknown) {
       esUsuario,
       esOperativa,
       meta,
-      streamFailed: others.stream_ok === false,
-      streamError: others.stream_error,
+      streamFailed,
+      streamError,
       ...(logImensaje ? { imensaje: logImensaje } : {}),
     };
   }

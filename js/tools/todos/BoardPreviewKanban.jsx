@@ -1,7 +1,13 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
+import {
+  MAX_COLUMN_TASKS,
+  formatTaskDate,
+  groupTasksByColumn,
+  taskModDate,
+} from "./todosKanbanShared.js";
 
-const { useMemo } = getReact();
-const { Box, Paper, Typography, Chip } = getMaterialUI();
+const { useMemo, useState } = getReact();
+const { Box, Paper, Typography, Button } = getMaterialUI();
 const { Icon } = UI;
 
 const COLUMN_THEME = {
@@ -25,57 +31,37 @@ function themeForColumn(columnKey) {
   };
 }
 
-function PreviewTaskCard({ task }) {
-  const subCount = task.subtasks?.length ?? 0;
-  const msCount = task.milestones?.length ?? 0;
-  const openMs = (task.milestones ?? []).filter((m) => !m.completedAt).length;
+function PreviewTaskCard({ task, onOpen }) {
+  const modDate = formatTaskDate(taskModDate(task));
 
   return (
-    <Paper className="paty-todos-card" elevation={0}>
+    <Paper
+      className="paty-todos-card paty-todos-card--preview-clickable"
+      elevation={0}
+      onClick={() => onOpen(task.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpen(task.id); }}
+    >
+      <Typography className="paty-todos-card__date" component="div" variant="caption" color="text.secondary">
+        {modDate}
+      </Typography>
       <Typography className="paty-todos-card__title" component="div" variant="body2">
         {task.title}
       </Typography>
-      <div className="paty-todos-card__meta">
-        {task.assignedTo ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={task.assignedTo}
-            icon={<Icon icon="mdi:account-outline" size={12} />}
-          />
-        ) : null}
-        {subCount ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={String(subCount)}
-            icon={<Icon icon="mdi:checkbox-multiple-marked-outline" size={12} />}
-          />
-        ) : null}
-        {msCount ? (
-          <Chip
-            size="small"
-            className="paty-todos-card__chip"
-            label={`${openMs}/${msCount}`}
-            icon={<Icon icon="mdi:flag-outline" size={12} />}
-          />
-        ) : null}
-      </div>
+      <Typography className="paty-todos-card__assignee" component="div" variant="caption" color="text.secondary">
+        {task.assignedTo || "Sin asignar"}
+      </Typography>
+      <Typography className="paty-todos-card__date paty-todos-card__date--bottom" component="div" variant="caption" color="text.secondary">
+        {modDate}
+      </Typography>
     </Paper>
   );
 }
 
-export function BoardPreviewKanban({ boardData }) {
-  const tasksByColumn = useMemo(() => {
-    if (!boardData) return new Map();
-    const map = new Map();
-    for (const col of boardData.columns) map.set(col.id, []);
-    for (const task of boardData.tasks) {
-      const list = map.get(task.columnId);
-      if (list) list.push(task);
-    }
-    return map;
-  }, [boardData]);
+export function BoardPreviewKanban({ boardData, onOpenTask }) {
+  const [expandedCols, setExpandedCols] = useState(() => new Set());
+  const tasksByColumn = useMemo(() => groupTasksByColumn(boardData), [boardData]);
 
   if (!boardData) return null;
 
@@ -85,6 +71,12 @@ export function BoardPreviewKanban({ boardData }) {
     <Box className="paty-todos-kanban paty-todos-kanban--preview">
       {columns.map((col) => {
         const colTasks = tasksByColumn.get(col.id) ?? [];
+        const isExpanded = expandedCols.has(col.id);
+        const hasMore = colTasks.length > MAX_COLUMN_TASKS;
+        const visibleTasks = isExpanded || !hasMore
+          ? colTasks
+          : colTasks.slice(0, MAX_COLUMN_TASKS);
+        const hiddenCount = hasMore && !isExpanded ? colTasks.length - MAX_COLUMN_TASKS : 0;
         const theme = themeForColumn(col.columnKey);
         return (
           <Box
@@ -99,10 +91,44 @@ export function BoardPreviewKanban({ boardData }) {
               </span>
               <span className="paty-todos-column__count">{colTasks.length}</span>
             </Box>
-            <Box className="paty-todos-column__list">
-              {colTasks.map((task) => (
-                <PreviewTaskCard key={task.id} task={task} />
+            <Box className="paty-todos-column__list" data-column-id={col.id}>
+              {visibleTasks.map((task) => (
+                <PreviewTaskCard
+                  key={task.id}
+                  task={task}
+                  onOpen={onOpenTask}
+                />
               ))}
+              {hiddenCount > 0 ? (
+                <Button
+                  fullWidth
+                  size="small"
+                  className="paty-todos-column__show-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedCols((prev) => new Set(prev).add(col.id));
+                  }}
+                >
+                  Ver todo ({colTasks.length})
+                </Button>
+              ) : null}
+              {isExpanded && hasMore ? (
+                <Button
+                  fullWidth
+                  size="small"
+                  className="paty-todos-column__show-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedCols((prev) => {
+                      const next = new Set(prev);
+                      next.delete(col.id);
+                      return next;
+                    });
+                  }}
+                >
+                  Ver menos
+                </Button>
+              ) : null}
             </Box>
           </Box>
         );

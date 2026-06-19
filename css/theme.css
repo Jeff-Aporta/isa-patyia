@@ -211,6 +211,10 @@ html[data-mui-color-scheme="light"] .btn-iconify {
   overflow: visible;
 }
 
+.isa-view-as-dialog__popper {
+  z-index: 1400;
+}
+
 .isa-view-as-dialog__list.MuiPaper-root,
 html[data-mui-color-scheme="dark"] .isa-view-as-dialog__list.MuiPaper-root {
   backdrop-filter: blur(10px);

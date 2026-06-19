@@ -22,8 +22,8 @@ function BoardPreviewSkeleton() {
         <Box key={i} className="paty-todos-column paty-todos-column--pending">
           <Skeleton variant="rounded" height={28} sx={{ m: 1.5 }} />
           <Stack spacing={1} sx={{ px: 1, pb: 1 }}>
-            <Skeleton variant="rounded" height={52} />
-            <Skeleton variant="rounded" height={52} />
+            <Skeleton variant="rounded" height={96} />
+            <Skeleton variant="rounded" height={96} />
           </Stack>
         </Box>
       ))}
@@ -31,7 +31,7 @@ function BoardPreviewSkeleton() {
   );
 }
 
-function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expanded, onToggleExpand, onOpenBoard, onDeleteBoard, deleting }) {
+function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expanded, onToggleExpand, onOpenBoard, onOpenTask, onDeleteBoard, deleting }) {
   const deletable = canDeleteBoard(board);
   const roleChips = boardRoleChips(board);
 
@@ -124,7 +124,10 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
           {!previewReady && loadingPreviews ? (
             <BoardPreviewSkeleton />
           ) : preview ? (
-            <BoardPreviewKanban boardData={preview} />
+            <BoardPreviewKanban
+              boardData={preview}
+              onOpenTask={(taskId) => onOpenTask(board.id, taskId)}
+            />
           ) : previewReady ? (
             <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 1 }}>
               No se pudo cargar la vista previa del tablero.
@@ -154,7 +157,7 @@ export function BoardsHomeToolbar({ loading, onNewBoard, onRefresh }) {
   );
 }
 
-export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loading, onOpenBoard, onNewBoard, onDeleteBoard }) {
+export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loading, onOpenBoard, onOpenTask, onNewBoard, onDeleteBoard }) {
   const sortedBoards = useMemo(() => sortBoardsByRecent(boards), [boards]);
   const [expandState, setExpandState] = useState(() => readBoardExpandState());
   const [deletingId, setDeletingId] = useState("");
@@ -214,7 +217,7 @@ export function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false
     <Box className="paty-todos-boards-home">
       <Box className="paty-todos-boards-list">
         {sortedBoards.map((board) => (
-          <BoardAccordionRow key={board.id} board={board} preview={boardPreviews[board.id]} previewReady={Object.prototype.hasOwnProperty.call(boardPreviews, board.id)} loadingPreviews={loadingPreviews} expanded={isExpanded(board.id)} onToggleExpand={handleToggleExpand} onOpenBoard={onOpenBoard} onDeleteBoard={handleDeleteBoard} deleting={deletingId === board.id} />
+          <BoardAccordionRow key={board.id} board={board} preview={boardPreviews[board.id]} previewReady={Object.prototype.hasOwnProperty.call(boardPreviews, board.id)} loadingPreviews={loadingPreviews} expanded={isExpanded(board.id)} onToggleExpand={handleToggleExpand} onOpenBoard={onOpenBoard} onOpenTask={onOpenTask} onDeleteBoard={handleDeleteBoard} deleting={deletingId === board.id} />
         ))}
       </Box>
     </Box>

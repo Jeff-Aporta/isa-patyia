@@ -128,8 +128,14 @@ html[data-mui-color-scheme="light"] .paty-todos-column {
 /* Tarjetas glass */
 .paty-todos-card {
   border-radius: 10px !important;
-  padding: 10px 11px 9px !important;
+  padding: 8px 11px 7px !important;
   cursor: grab;
+  min-height: 96px;
+  height: 96px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background: rgba(255, 255, 255, 0.07) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow:
@@ -161,11 +167,36 @@ html[data-mui-color-scheme="light"] .paty-todos-card {
     inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
-.paty-todos-card:active,
-.paty-todos-card--dragging {
+.paty-todos-card:active {
   cursor: grabbing;
-  transform: scale(0.98) rotate(-0.5deg);
-  opacity: 0.88;
+}
+
+.paty-todos-card--drag-source {
+  opacity: 0.28;
+  transform: scale(0.97);
+  border-style: dashed !important;
+  border-color: color-mix(in srgb, var(--col-accent, #38bdf8) 45%, rgba(255, 255, 255, 0.25)) !important;
+  box-shadow: none !important;
+}
+
+.paty-todos-card--ghost {
+  cursor: grabbing;
+  opacity: 0.96;
+  transform: rotate(-2deg) scale(1.03);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  border-color: color-mix(in srgb, var(--col-accent, #38bdf8) 50%, rgba(255, 255, 255, 0.3)) !important;
+  transition: none;
+  will-change: left, top;
+}
+
+html[data-mui-color-scheme="light"] .paty-todos-card--ghost {
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.18),
+    0 4px 10px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
 }
 
 .paty-todos-card--optimistic {
@@ -183,8 +214,52 @@ html[data-mui-color-scheme="light"] .paty-todos-card {
   font-size: 0.88rem !important;
   font-weight: 600 !important;
   line-height: 1.35 !important;
-  margin-bottom: 6px !important;
+  margin: 0 !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   word-break: break-word;
+}
+
+.paty-todos-card__date {
+  font-size: 0.65rem !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.paty-todos-card__date--bottom {
+  text-align: right;
+}
+
+.paty-todos-card__assignee {
+  font-size: 0.68rem !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paty-todos-column__show-all {
+  flex-shrink: 0;
+  justify-content: center !important;
+  text-transform: none !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  color: var(--isa-text-muted, rgba(148, 163, 184, 0.95)) !important;
+  border-radius: 8px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+.paty-todos-column__show-all:hover {
+  background: color-mix(in srgb, var(--col-accent, #38bdf8) 10%, transparent) !important;
 }
 
 .paty-todos-card__meta {
@@ -230,6 +305,68 @@ html[data-mui-color-scheme="light"] .paty-todos-card {
 
 .paty-todos-task-dialog .MuiDialogContent-root {
   padding-top: 8px !important;
+}
+
+.paty-todos-task-doc {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+}
+
+.paty-task-convo {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+}
+
+.paty-task-convo__thread {
+  flex: 1;
+  min-height: 200px;
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--isa-border, rgba(148, 163, 184, 0.18));
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--isa-surface-muted, rgba(15, 23, 42, 0.35));
+}
+
+html[data-mui-color-scheme="light"] .paty-task-convo__thread {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.paty-task-msg {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-mui-color-scheme="light"] .paty-task-msg {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.paty-task-msg__quote {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border-left: 3px solid rgba(56, 189, 248, 0.45);
+  border-radius: 0 6px 6px 0;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.paty-task-msg__body {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.paty-todos-task-doc .prompt-body-preview {
+  min-height: 240px;
+  border: 1px solid var(--isa-border, rgba(148, 163, 184, 0.18));
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--isa-surface-muted, rgba(15, 23, 42, 0.35));
+}
+
+html[data-mui-color-scheme="light"] .paty-todos-task-doc .prompt-body-preview {
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .paty-todos-subtask-acc .MuiAccordionSummary-root {
@@ -430,30 +567,6 @@ html[data-mui-color-scheme="light"] .paty-todos-board-row {
   text-underline-offset: 3px;
 }
 
-.paty-todos-board-settings {
-  flex-shrink: 0;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--isa-border, rgba(148, 163, 184, 0.18));
-}
-
-.paty-todos-board-settings__acc {
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.paty-todos-board-settings__acc::before {
-  display: none !important;
-}
-
-.paty-todos-board-settings__acc .MuiAccordionSummary-root {
-  min-height: 40px !important;
-  padding: 0 4px !important;
-}
-
-.paty-todos-board-settings__acc .MuiAccordionDetails-root {
-  padding: 0 4px 12px !important;
-}
-
 .paty-todos-board-row__edit {
   margin-bottom: 0;
 }
@@ -499,9 +612,8 @@ html[data-mui-color-scheme="light"] .paty-todos-board-row__meta {
 
 .paty-todos-board-row__preview {
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   border-radius: 10px;
-  pointer-events: none;
 }
 
 .paty-todos-kanban--preview {
@@ -515,26 +627,35 @@ html[data-mui-color-scheme="light"] .paty-todos-board-row__meta {
 .paty-todos-kanban--preview .paty-todos-column {
   flex: 0 0 220px;
   max-width: 220px;
-  max-height: 240px;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
 }
 
 .paty-todos-kanban--preview .paty-todos-column__head {
   padding: 10px 10px 6px;
   font-size: 0.72rem;
+  flex-shrink: 0;
 }
 
 .paty-todos-kanban--preview .paty-todos-column__list {
   padding: 6px;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
 }
 
 .paty-todos-kanban--preview .paty-todos-card {
-  cursor: default;
-  pointer-events: none;
-  padding: 8px 9px 7px !important;
+  cursor: pointer;
+  padding: 7px 9px 6px !important;
+  min-height: 88px;
+  height: 88px;
 }
 
-.paty-todos-kanban--preview .paty-todos-card:hover {
+.paty-todos-kanban--preview .paty-todos-card--preview-clickable:hover {
   transform: none;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.12),
@@ -543,7 +664,6 @@ html[data-mui-color-scheme="light"] .paty-todos-board-row__meta {
 
 .paty-todos-kanban--preview .paty-todos-card__title {
   font-size: 0.8rem !important;
-  margin-bottom: 4px !important;
 }
 
 .paty-todos-kanban--preview-loading .paty-todos-column {

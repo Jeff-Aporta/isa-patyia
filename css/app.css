@@ -528,6 +528,11 @@ body.conv-log-resize-active * {
   color: #93c5fd;
 }
 
+.conv-meta-badge--vision {
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+}
+
 .conv-meta-badge--latency {
   background: rgba(14, 165, 233, 0.12);
   color: #bae6fd;
@@ -575,6 +580,11 @@ html[data-mui-color-scheme="light"] .conv-meta-badge--metric {
 html[data-mui-color-scheme="light"] .conv-meta-badge--model {
   color: #1d4ed8;
   background: rgba(239, 246, 255, 0.98);
+}
+
+html[data-mui-color-scheme="light"] .conv-meta-badge--vision {
+  color: #7e22ce;
+  background: rgba(250, 245, 255, 0.98);
 }
 
 html[data-mui-color-scheme="light"] .conv-meta-badge--latency {
@@ -647,9 +657,6 @@ html[data-mui-color-scheme="light"] .conv-meta-badge--error {
   object-fit: cover;
 }
 
-.conv-image-lightbox .MuiBackdrop-root {
-  background-color: rgba(0, 0, 0, 0.82);
-}
 
 .conv-msg-usage-stats {
   display: flex;
@@ -703,6 +710,12 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-stats--clickable:focus-visib
   font-family: inherit !important;
 }
 
+.conv-msg-usage-chip--vision {
+  border-color: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
+}
+
 .conv-msg-usage-chip--latency {
   border-color: transparent !important;
   color: inherit !important;
@@ -710,6 +723,11 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-stats--clickable:focus-visib
 }
 
 html[data-mui-color-scheme="light"] .conv-msg-usage-chip--model {
+  border-color: transparent !important;
+  color: inherit !important;
+}
+
+html[data-mui-color-scheme="light"] .conv-msg-usage-chip--vision {
   border-color: transparent !important;
   color: inherit !important;
 }
@@ -940,6 +958,21 @@ html[data-mui-color-scheme="light"] .conv-msg-usage-chip {
   border-radius: 8px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(15, 23, 42, 0.28);
+}
+
+.conv-usage-dialog__ctx-item--wide {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(5.5rem, 8rem) 1fr;
+}
+
+.conv-usage-dialog__ctx-item--vision {
+  border-color: rgba(168, 85, 247, 0.38);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+html[data-mui-color-scheme="light"] .conv-usage-dialog__ctx-item--vision {
+  border-color: rgba(168, 85, 247, 0.28);
+  background: rgba(250, 245, 255, 0.98);
 }
 
 html[data-mui-color-scheme="light"] .conv-usage-dialog__ctx-item {
@@ -2336,6 +2369,16 @@ code {
   border: none;
   border-top: 1px solid rgba(148, 163, 184, 0.25);
   margin: 1rem 0;
+}
+
+.prompt-md-preview img,
+.prompt-md-editor-surface img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.65rem 0;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .prompt-md-preview table {
