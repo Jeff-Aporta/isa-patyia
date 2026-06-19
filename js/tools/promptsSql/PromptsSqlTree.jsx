@@ -4,18 +4,7 @@ import { hasPendingChanges } from "./helpers.ts";
 
 const { Tabs, Tab } = getMaterialUI();
 
-export function PromptsSqlTree({
-  instruccionKeys,
-  prompts,
-  activeTab,
-  onActiveTabChange,
-  dragOver,
-  onDragEnter,
-  onDragLeave,
-  onDragOverZone,
-  onDrop,
-  children,
-}) {
+export function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTabChange, dragOver, onDragEnter, onDragLeave, onDragOverZone, onDrop, children }) {
   return (
     <div
       className={`prompt-tabs-layout${dragOver ? " prompt-tabs-layout--drop-active" : ""}`}
