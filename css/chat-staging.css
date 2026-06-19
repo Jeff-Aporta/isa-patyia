@@ -781,10 +781,6 @@ html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg-card__footer
   scroll-margin-top: 72px;
 }
 
-.paty-chat-log-thread .conv-msg--operativa-logs > .MuiBox-root {
-  justify-content: center !important;
-}
-
 .paty-chat-log-thread .conv-msg--operativa-logs .conv-msg-card {
   border-color: rgba(245, 158, 11, 0.38) !important;
   background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.08));
@@ -807,12 +803,7 @@ html[data-mui-color-scheme="light"] .paty-chat-log-thread .conv-msg--operativa-l
   color: #334155;
 }
 
-.conv-log-shell .conv-msg--operativa-logs {
-  justify-content: center !important;
-}
-
 .conv-log-shell .conv-msg--operativa-logs .conv-msg-card {
-  max-width: 720px;
   border-color: rgba(245, 158, 11, 0.35) !important;
 }
 
