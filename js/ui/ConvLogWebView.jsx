@@ -363,7 +363,13 @@ function MsgBody({ text, imagenes, align = "left", onImageClick, streaming = fal
 }
 
 function ConvMsgImages({ items, align = "right", onImageClick }) {
-  const { Box } = getMaterialUI();
+  const { Box, Typography } = getMaterialUI();
+  const renderable = (items || []).filter((src) => {
+    const s = String(src || "").trim();
+    return s.startsWith("data:image/") || s.startsWith("http://") || s.startsWith("https://");
+  });
+  const fileRefs = (items || []).filter((src) => /^\[file_id:/i.test(String(src || "").trim()));
+  if (!renderable.length && !fileRefs.length) return null;
   return (
     <Box
       className={`conv-msg-images conv-msg-images--${align}`}
@@ -375,7 +381,7 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
         justifyContent: align === "right" ? "flex-end" : "flex-start",
       }}
     >
-      {items.map((src, idx) => (
+      {renderable.map((src, idx) => (
         <button
           key={`${idx}-${src.slice(0, 32)}`}
           type="button"
@@ -385,6 +391,26 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
         >
           <img src={src} alt={`Adjunto ${idx + 1}`} loading="lazy" />
         </button>
+      ))}
+      {fileRefs.map((ref, idx) => (
+        <Box
+          key={`file-${idx}-${ref}`}
+          className="conv-msg-image-file-ref"
+          sx={{
+            px: 1.25,
+            py: 0.75,
+            borderRadius: 1,
+            border: "1px dashed",
+            borderColor: "divider",
+            fontSize: "0.78rem",
+            color: "text.secondary",
+            maxWidth: 220,
+          }}
+        >
+          <Typography variant="caption" component="span" display="block">
+            Imagen adjunta (referencia OpenAI)
+          </Typography>
+        </Box>
       ))}
     </Box>
   );
@@ -830,7 +856,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
       className={[logsDetail ? "conv-msg--logs-detail" : "", operativaClass].filter(Boolean).join(" ") || undefined}
       sx={{
         display: "flex",
-        justifyContent: isOperativa && logsDetail ? "center" : isUser ? "flex-end" : "flex-start",
+        justifyContent: isUser ? "flex-end" : "flex-start",
         width: "100%",
         mb: isOperativa ? (compactMeta ? 1 : 1.75) : logsDetail ? 2 : 2.5,
       }}
@@ -840,8 +866,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
         flexDirection: isUser ? "row-reverse" : "row",
         alignItems: showSideColumn && ratingRow ? "stretch" : "flex-start",
         gap: { xs: 1, sm: 1.25 },
-        maxWidth: isOperativa ? (logsDetail ? "min(720px, 96%)" : compactMeta ? "88%" : "95%") : "95%",
-        width: isOperativa && logsDetail ? "100%" : undefined,
+        maxWidth: isOperativa ? (compactMeta ? "88%" : "95%") : "95%",
         minWidth: 0,
         opacity: 1,
       }}>
