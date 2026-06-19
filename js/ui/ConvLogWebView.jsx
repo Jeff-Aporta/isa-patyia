@@ -102,72 +102,104 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
         operativa ? "conv-msg-card--operativa" : "conv-msg-card--neon",
       ].filter(Boolean).join(" ")}
       elevation={0}
-      sx={{
-        borderRadius: fullNeon ? "0.75rem" : "0.5rem",
-        overflow: "hidden",
-        border: 1,
-        borderColor: softMuted ? "action.disabled" : `${color}40`,
-        bgcolor: softMuted ? "action.hover" : "background.paper",
-        boxShadow: softMuted
-          ? "none"
-          : fullNeon
-            ? (t) => (t.palette.mode === "dark"
-              ? `0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px ${color}28`
-              : `0 8px 32px rgba(15, 23, 42, 0.08), 0 0 0 1px ${color}20`)
+      sx={(theme) => {
+        const isLight = theme.palette.mode === "light";
+        const base = {
+          borderRadius: fullNeon ? "0.75rem" : "0.5rem",
+          overflow: "hidden",
+          border: 1,
+          scrollMarginTop: 12,
+          width: fullNeon ? "fit-content" : "100%",
+          maxWidth: "100%",
+        };
+        if (softMuted) {
+          return {
+            ...base,
+            borderColor: theme.palette.action.disabled,
+            bgcolor: theme.palette.action.hover,
+            boxShadow: "none",
+            transition: "none",
+          };
+        }
+        if (isLight) {
+          return {
+            ...base,
+            borderColor: `${color}52`,
+            bgcolor: operativa ? "#fffbeb" : "#ffffff",
+            boxShadow: "none",
+            transition: "none",
+          };
+        }
+        return {
+          ...base,
+          borderColor: `${color}40`,
+          bgcolor: "background.paper",
+          boxShadow: fullNeon
+            ? `0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px ${color}28`
             : operativa
               ? `0 4px 20px ${color}18`
-              : (t) => (t.palette.mode === "dark"
-                ? `0 4px 24px rgba(0, 0, 0, 0.22), 0 0 0 1px ${color}22`
-                : `0 8px 28px rgba(15, 23, 42, 0.07), 0 0 0 1px ${color}1a`),
-        scrollMarginTop: 12,
-        width: fullNeon ? "fit-content" : "100%",
-        maxWidth: "100%",
-        transition: fullNeon ? "transform 0.2s ease, box-shadow 0.2s ease" : "none",
-        ...(fullNeon && !softMuted ? {
-          "&:hover": {
-            transform: { sm: "translateY(-2px)" },
-            boxShadow: (t) => (t.palette.mode === "dark"
-              ? `0 8px 32px rgba(0, 0, 0, 0.35), 0 0 24px ${color}22`
-              : `0 16px 48px rgba(15, 23, 42, 0.1), 0 0 20px ${color}18`),
-          },
-        } : {}),
+              : `0 4px 24px rgba(0, 0, 0, 0.22), 0 0 0 1px ${color}22`,
+          transition: fullNeon ? "transform 0.2s ease, box-shadow 0.2s ease" : "none",
+          ...(fullNeon ? {
+            "&:hover": {
+              transform: { sm: "translateY(-2px)" },
+              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.35), 0 0 24px ${color}22`,
+            },
+          } : {}),
+        };
       }}
     >
       <Box
         className="conv-msg-card__header"
-        sx={{
-          px: compact ? { xs: 1.25, sm: 1.5 } : { xs: 2, sm: 2.5 },
-          py: compact ? 1 : 1.5,
-          borderBottom: 1,
-          borderColor: "divider",
-          ...(fullNeon
-            ? {
-              background: (t) => (t.palette.mode === "dark"
-                ? (isRight
-                  ? `linear-gradient(270deg, ${color}28, transparent 72%)`
-                  : `linear-gradient(90deg, ${color}28, transparent 72%)`)
-                : (isRight
-                  ? `linear-gradient(270deg, ${color}1a, transparent 72%)`
-                  : `linear-gradient(90deg, ${color}1a, transparent 72%)`)),
+        sx={(theme) => {
+          const isLight = theme.palette.mode === "light";
+          const base = {
+            px: compact ? { xs: 1.25, sm: 1.5 } : { xs: 2, sm: 2.5 },
+            py: compact ? 1 : 1.5,
+            borderBottom: 1,
+            borderColor: "divider",
+          };
+          if (fullNeon) {
+            if (isLight) {
+              return {
+                ...base,
+                bgcolor: `${color}12`,
+                ...(isRight
+                  ? { borderRight: 4, borderRightColor: color }
+                  : { borderLeft: 4, borderLeftColor: color }),
+              };
+            }
+            return {
+              ...base,
+              background: isRight
+                ? `linear-gradient(270deg, ${color}28, transparent 72%)`
+                : `linear-gradient(90deg, ${color}28, transparent 72%)`,
               ...(isRight
                 ? { borderRight: 4, borderRightColor: color }
                 : { borderLeft: 4, borderLeftColor: color }),
-            }
-            : operativa
-              ? {
-                background: (t) => (t.palette.mode === "dark"
-                  ? `linear-gradient(90deg, ${color}30, transparent 72%)`
-                  : `linear-gradient(90deg, ${color}22, transparent 72%)`),
-              }
-              : {
-                background: (t) => (t.palette.mode === "dark"
-                  ? (isRight
-                    ? `linear-gradient(270deg, ${color}24, transparent 72%)`
-                    : `linear-gradient(90deg, ${color}24, transparent 72%)`)
-                  : (isRight
-                    ? `linear-gradient(270deg, ${color}18, transparent 72%)`
-                    : `linear-gradient(90deg, ${color}18, transparent 72%)`)),
-              }),
+            };
+          }
+          if (operativa) {
+            return {
+              ...base,
+              bgcolor: isLight ? `${color}14` : undefined,
+              background: isLight
+                ? undefined
+                : `linear-gradient(90deg, ${color}30, transparent 72%)`,
+            };
+          }
+          if (isLight) {
+            return {
+              ...base,
+              bgcolor: `${color}10`,
+            };
+          }
+          return {
+            ...base,
+            background: isRight
+              ? `linear-gradient(270deg, ${color}24, transparent 72%)`
+              : `linear-gradient(90deg, ${color}24, transparent 72%)`,
+          };
         }}
       >
         <Stack
@@ -186,22 +218,27 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
           >
             <Box
               className="conv-msg-card__icon"
-              sx={{
-                width: compact ? 28 : 32,
-                height: compact ? 28 : 32,
-                borderRadius: fullNeon ? "0.5rem" : "0.375rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: operativa || !softMuted
-                  ? `linear-gradient(135deg, ${color}, ${color}99)`
-                  : `${color}88`,
-                color: "#fff",
-                boxShadow: fullNeon
-                  ? `0 4px 16px ${color}55`
-                  : operativa || !softMuted ? `0 4px 14px ${color}44` : "none",
-                flexShrink: 0,
-                mt: 0.1,
+              sx={(theme) => {
+                const isLight = theme.palette.mode === "light";
+                return {
+                  width: compact ? 28 : 32,
+                  height: compact ? 28 : 32,
+                  borderRadius: fullNeon ? "0.5rem" : "0.375rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: operativa || !softMuted
+                    ? `linear-gradient(135deg, ${color}, ${color}99)`
+                    : `${color}88`,
+                  color: "#fff",
+                  boxShadow: isLight
+                    ? "none"
+                    : fullNeon
+                      ? `0 4px 16px ${color}55`
+                      : operativa || !softMuted ? `0 4px 14px ${color}44` : "none",
+                  flexShrink: 0,
+                  mt: 0.1,
+                };
               }}
             >
               <Icon icon={icon} size={18} />
@@ -376,12 +413,26 @@ function compactMetaLabel(value, maxLen = 14) {
   return `${v.slice(0, maxLen - 1)}…`;
 }
 
+const META_CHIP_TONE_CLASS = {
+  context: "conv-msg-meta-chip--context",
+  premisa: "conv-msg-meta-chip--premisa",
+  operativa: "conv-msg-meta-chip--operativa",
+  model: "conv-msg-meta-chip--model",
+  metric: "conv-msg-meta-chip--metric",
+  error: "conv-msg-meta-chip--error",
+  vision: "conv-msg-meta-chip--vision",
+  neutral: "",
+};
+
 function MetaBadge({ tag, label, tone = "neutral", title }) {
+  const toneClass = META_CHIP_TONE_CLASS[tone] || "";
   return (
-    <span className={`conv-meta-badge conv-meta-badge--${tone}`} title={title || label}>
-      {tag ? <span className="conv-meta-badge__tag">{tag}</span> : null}
-      <span className="conv-meta-badge__val">{compactMetaLabel(label)}</span>
-    </span>
+    <UsageSummaryChip
+      tag={tag}
+      label={compactMetaLabel(label)}
+      title={title || label}
+      className={`conv-msg-usage-chip conv-msg-meta-chip ${toneClass}`.trim()}
+    />
   );
 }
 
@@ -392,13 +443,12 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
 
   if (meta.premisas?.length) {
     for (const p of meta.premisas) {
-      chips.push({ key: `p-${p}`, tag: "P", label: p, tone: "premisa", title: `Premisa: ${p}` });
+      chips.push({ key: `p-${p}`, label: p, tone: "premisa", title: `Premisa: ${p}` });
     }
   }
   if (meta.extra?.operativa_key) {
     chips.push({
       key: "op",
-      tag: "Op",
       label: meta.extra.operativa_key,
       tone: "operativa",
       title: `Consulta operativa: ${meta.extra.operativa_key}`,
@@ -408,19 +458,17 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
   if (meta.itdconsulta) {
     chips.push({
       key: "itd",
-      tag: "TD",
       label: meta.itdconsulta,
       tone: "context",
       title: `itdconsulta: ${meta.itdconsulta}`,
     });
   }
   if (instrKey && instrKey !== meta.extra?.operativa_key && instrKey !== meta.itdconsulta) {
-    chips.push({ key: "pmpt", tag: "Pr", label: instrKey, tone: "context", title: `Instrucción: ${instrKey}` });
+    chips.push({ key: "pmpt", label: instrKey, tone: "context", title: `Instrucción: ${instrKey}` });
   }
   if (!hideUsageMetrics && meta.model) {
     chips.push({
       key: "model",
-      tag: "M",
       label: meta.model,
       tone: "model",
       title: meta.modelo_autoswitch_vision ? "Modelo usado (autoswitch visión)" : "Modelo LLM",
@@ -429,17 +477,17 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
   if (!hideUsageMetrics && meta.modelo_autoswitch_vision) {
     const sw = visionAutoswitchBadge(meta);
     if (sw) {
-      chips.push({ key: "vision-sw", tag: sw.tag, label: sw.label, tone: "vision", title: sw.title });
+      chips.push({ key: "vision-sw", label: sw.label, tone: "vision", title: sw.title });
     }
   }
   if (!hideUsageMetrics && meta.latency_ms != null && meta.latency_ms > 0) {
-    chips.push({ key: "lat", tag: "L", label: `${meta.latency_ms}ms`, tone: "metric", title: "Latencia" });
+    chips.push({ key: "lat", label: `${meta.latency_ms}ms`, tone: "metric", title: "Latencia" });
   }
   if (!hideUsageMetrics && tk?.total > 0) {
-    chips.push({ key: "tok", tag: "T", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
+    chips.push({ key: "tok", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
   }
   if (meta.stream_ok === false) {
-    chips.push({ key: "stream", tag: "!", label: "err", tone: "error", title: meta.stream_error || "Stream falló" });
+    chips.push({ key: "stream", label: "err", tone: "error", title: meta.stream_error || "Stream falló" });
   }
 
   if (!chips.length) return null;
@@ -574,11 +622,12 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
 }
 
 function UsageSummaryChip({ label, className = "", title, tag }) {
+  const showVal = label != null && String(label).trim() !== "";
   return (
-    <span className={className || "conv-msg-usage-chip"} title={title || label}>
+    <span className={className || "conv-msg-usage-chip"} title={title || (showVal ? label : tag)}>
       <span className="conv-msg-usage-chip__inner">
         {tag ? <span className="conv-msg-usage-chip__key">{tag}</span> : null}
-        <span className="conv-msg-usage-chip__val">{label}</span>
+        {showVal ? <span className="conv-msg-usage-chip__val">{label}</span> : null}
       </span>
     </span>
   );
@@ -856,30 +905,27 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
           <Box className={`conv-msg-usage-stats__groups conv-msg-usage-stats__groups--${align}`}>
             {groups.map((group) => (
               <Box key={group.key} className={`conv-msg-usage-stats__group conv-msg-usage-stats__group--${group.key}`}>
-                {align === "left" ? (
-                  <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
-                    {group.key === "prev" ? "Acum." : "Msg"}
-                  </span>
-                ) : null}
-                <Box className="conv-msg-usage-stats__values">
-                  <UsageSummaryChip
-                    tag="USD"
-                    label={group.summary.usdText}
-                    className="conv-msg-usage-chip conv-msg-usage-chip--usd"
-                    title="Costo USD"
-                  />
-                  <UsageSummaryChip
-                    tag="TOK"
-                    label={group.summary.tokensText}
-                    className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
-                    title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
-                  />
-                </Box>
-                {align === "right" ? (
-                  <span className={`conv-msg-usage-stats__group-label conv-msg-usage-stats__group-label--${group.key}`}>
-                    {group.key === "prev" ? "Acum." : "Msg"}
-                  </span>
-                ) : null}
+                <UsageSummaryChip
+                  tag={group.key === "prev" ? "ACUM" : "MSG"}
+                  className={[
+                    "conv-msg-usage-chip",
+                    "conv-msg-usage-chip--scope",
+                    group.key === "msg" ? "conv-msg-usage-chip--scope-msg" : "conv-msg-usage-chip--scope-prev",
+                  ].join(" ")}
+                  title={group.label}
+                />
+                <UsageSummaryChip
+                  tag="USD"
+                  label={group.summary.usdText}
+                  className="conv-msg-usage-chip conv-msg-usage-chip--usd"
+                  title="Costo USD"
+                />
+                <UsageSummaryChip
+                  tag="TOK"
+                  label={group.summary.tokensText}
+                  className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
+                  title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
+                />
               </Box>
             ))}
           </Box>
