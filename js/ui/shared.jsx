@@ -12,18 +12,7 @@ import { mdToHtml } from "../core/platform.ts";
 export { mdToHtml } from "../core/platform.ts";
 
 /** Botón con icono Iconify (mismo patrón que ISP ButtonIconify). */
-export function ButtonIconify({
-  icon,
-  title = "",
-  label = "",
-  onClick,
-  disabled = false,
-  busy = false,
-  color = "",
-  variant = "",
-  className = "",
-  type = "button",
-}) {
+export function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
   const shown = busy ? "mdi:loading" : icon;
   const variantCls = variant ? `btn-iconify--${variant}` : "";
   const colorCls = color ? `btn-iconify--${color}` : "";
