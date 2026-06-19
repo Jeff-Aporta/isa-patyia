@@ -23,6 +23,7 @@
   "styles": [
     "shared-base",
     "shared-feedback",
+    "local:css/boot-loading.css",
     "local:css/theme.css",
     "local:css/app.css"
   ],
