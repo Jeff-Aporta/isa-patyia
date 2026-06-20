@@ -7,9 +7,13 @@ export const asset = (p) => `${CDN}/${p}?v=${PIN}`;
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
-export const LIGHTBOX_ZOOM_REF = "1d8119f";
+export const LIGHTBOX_ZOOM_REF = "f4fba38";
 
 export function lightboxZoomBase() {
+  const base = document.querySelector("base")?.href || location.href;
+  if (isDevHost) {
+    return new URL("../../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+  }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
 }
 
@@ -56,3 +60,46 @@ export async function ensureLightboxZoom(base = lightboxZoomBase()) {
   return globalThis.ISAComponents.LightboxZoom;
 }
 /* @isa-lightbox-boot:end */
+
+/* @isa-swagger-boot:start */
+/** @jeff-aporta/swagger-viewer — pin: sync-component-refs.mjs */
+export const SWAGGER_VIEWER_REF = "a0f3a1b";
+
+export function swaggerViewerBase() {
+  const base = document.querySelector("base")?.href || location.href;
+  if (isDevHost) {
+    return new URL("../../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
+  }
+  return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/swagger-viewer@${SWAGGER_VIEWER_REF}/cdn/`;
+}
+
+function ensureSwaggerStylesheet(href) {
+  if (document.querySelector("[data-isa-sw-css]")) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.setAttribute("data-isa-sw-css", "1");
+    link.onload = () => resolve();
+    link.onerror = () => reject(new Error("No se pudo cargar " + href));
+    document.head.appendChild(link);
+  });
+}
+
+export async function ensureSwaggerViewerCss(base = swaggerViewerBase()) {
+  const b = base.endsWith("/") ? base : base + "/";
+  await ensureSwaggerStylesheet(b + "swagger-viewer.min.css");
+  return b;
+}
+
+export async function ensureSwaggerViewer(base = swaggerViewerBase()) {
+  const b = await ensureSwaggerViewerCss(base);
+  if (!globalThis.ISAComponents?.Swagger?.bootSwaggerApp) {
+    await import(b + "swagger-viewer.min.js");
+  }
+  if (!globalThis.ISAComponents?.Swagger?.bootSwaggerApp) {
+    throw new Error("Swagger no registró ISAComponents.Swagger");
+  }
+  return globalThis.ISAComponents.Swagger;
+}
+/* @isa-swagger-boot:end */

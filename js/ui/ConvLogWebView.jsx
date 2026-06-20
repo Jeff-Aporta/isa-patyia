@@ -413,6 +413,16 @@ function compactMetaLabel(value, maxLen = 14) {
   return `${v.slice(0, maxLen - 1)}…`;
 }
 
+/** Evita chip duplicado cuando el título ya muestra la misma clave (p. ej. OP · generarTitulo). */
+function chipRedundantWithTitle(label, cardTitle) {
+  const chip = String(label ?? "").trim();
+  const title = String(cardTitle ?? "").trim();
+  if (!chip || !title) return false;
+  if (chip === title) return true;
+  const titleKey = title.replace(/^OP\s*·\s*/i, "").trim();
+  return chip === titleKey;
+}
+
 const META_CHIP_TONE_CLASS = {
   context: "conv-msg-meta-chip--context",
   premisa: "conv-msg-meta-chip--premisa",
@@ -436,17 +446,18 @@ function MetaBadge({ tag, label, tone = "neutral", title }) {
   );
 }
 
-function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "left" }) {
+function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "left", cardTitle = "" }) {
   if (!meta) return null;
   const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
   const chips = [];
 
   if (meta.premisas?.length) {
     for (const p of meta.premisas) {
+      if (chipRedundantWithTitle(p, cardTitle)) continue;
       chips.push({ key: `p-${p}`, label: p, tone: "premisa", title: `Premisa: ${p}` });
     }
   }
-  if (meta.extra?.operativa_key) {
+  if (meta.extra?.operativa_key && !chipRedundantWithTitle(meta.extra.operativa_key, cardTitle)) {
     chips.push({
       key: "op",
       label: meta.extra.operativa_key,
@@ -455,7 +466,7 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
     });
   }
   const instrKey = !isUser ? instructionKeyFromMeta(meta) : null;
-  if (meta.itdconsulta) {
+  if (meta.itdconsulta && !chipRedundantWithTitle(meta.itdconsulta, cardTitle)) {
     chips.push({
       key: "itd",
       label: meta.itdconsulta,
@@ -463,7 +474,7 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
       title: `itdconsulta: ${meta.itdconsulta}`,
     });
   }
-  if (instrKey && instrKey !== meta.extra?.operativa_key && instrKey !== meta.itdconsulta) {
+  if (instrKey && instrKey !== meta.extra?.operativa_key && instrKey !== meta.itdconsulta && !chipRedundantWithTitle(instrKey, cardTitle)) {
     chips.push({ key: "pmpt", label: instrKey, tone: "context", title: `Instrucción: ${instrKey}` });
   }
   if (!hideUsageMetrics && meta.model) {
@@ -817,13 +828,13 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   if (!showMetaBadges && !hasUsage) return null;
 
   const msgSummary = hasUsage ? formatUsageSummary(stats.tokens, stats.cost) : null;
-  const prevSummary = hasUsage ? formatUsageSummary(stats.previousTokens, stats.previousCost) : null;
-  const showPrev = hasUsage && usageHasData(stats.previousTokens, stats.previousCost);
+  const cumSummary = hasUsage ? formatUsageSummary(stats.cumulativeTokens, stats.cumulativeCost) : null;
+  const showCum = hasUsage && usageHasData(stats.cumulativeTokens, stats.cumulativeCost);
 
   const groups = hasUsage
     ? [
       { key: "msg", label: "Mensaje", summary: msgSummary },
-      ...(showPrev ? [{ key: "prev", label: "Acumulado", summary: prevSummary }] : []),
+      ...(showCum ? [{ key: "cum", label: "Acumulado", summary: cumSummary }] : []),
     ]
     : [];
 
@@ -860,6 +871,27 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
           pt: 0.25,
           alignSelf: "flex-start",
           cursor: hasUsage ? "pointer" : undefined,
+          ...(hasUsage ? {
+            transition: "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.16s ease",
+            "&:hover": {
+              borderColor: "rgba(0, 229, 255, 0.72)",
+              background: "linear-gradient(165deg, rgba(14, 26, 48, 0.98), rgba(20, 32, 58, 0.92))",
+              boxShadow: "0 0 0 1px rgba(0, 229, 255, 0.35), 0 12px 36px rgba(30, 144, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+              transform: "translateY(-2px)",
+            },
+            "&:active": {
+              transform: "translateY(0)",
+              boxShadow: "0 0 0 1px rgba(0, 229, 255, 0.22), 0 4px 16px rgba(30, 144, 255, 0.18)",
+            },
+            'html[data-mui-color-scheme="light"] &:hover': {
+              borderColor: "rgba(30, 144, 255, 0.48)",
+              background: "linear-gradient(165deg, #f0f9ff, #eef2ff)",
+              boxShadow: "0 0 0 1px rgba(30, 144, 255, 0.16), 0 8px 24px rgba(30, 144, 255, 0.14)",
+            },
+            'html[data-mui-color-scheme="light"] &:active': {
+              background: "#e0f2fe",
+            },
+          } : {}),
         }}
       >
         {showMetaBadges ? (
@@ -907,7 +939,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
             {groups.map((group) => (
               <Box key={group.key} className={`conv-msg-usage-stats__group conv-msg-usage-stats__group--${group.key}`}>
                 <UsageSummaryChip
-                  tag={group.key === "prev" ? "ACUM" : "MSG"}
+                  tag={group.key === "msg" ? "MSG" : "ACUM"}
                   className={[
                     "conv-msg-usage-chip",
                     "conv-msg-usage-chip--scope",
@@ -925,7 +957,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
                   tag="TOK"
                   label={group.summary.tokensText}
                   className="conv-msg-usage-chip conv-msg-usage-chip--tokens"
-                  title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados antes de este mensaje"}
+                  title={group.key === "msg" ? "Tokens de este mensaje" : "Tokens acumulados del hilo (incluye este mensaje)"}
                 />
               </Box>
             ))}
@@ -1110,7 +1142,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
             metaChips={!compactMeta && onMeta ? (
-              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips} align={isUser ? "right" : "left"} />
+              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips} align={isUser ? "right" : "left"} cardTitle={title} />
             ) : null}
           >
             {msg.streamFailed && msg.streamError && (

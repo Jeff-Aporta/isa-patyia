@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-19T14:50:33.630Z",
+  "builtAt": "2026-06-19T23:05:09.984Z",
   "files": 85,
-  "bytesIn": 709794,
-  "bytesOut": 412183,
+  "bytesIn": 713906,
+  "bytesOut": 414570,
   "ratio": 0.581,
-  "hash": "f3b534df886a",
+  "hash": "17c103a6d4d9",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 72793,
-      "bytesOut": 51336
+      "bytesIn": 73606,
+      "bytesOut": 51908
     },
     {
       "src": "css/boot-loading.css",
@@ -21,8 +21,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 32416,
-      "bytesOut": 23471
+      "bytesIn": 32869,
+      "bytesOut": 23766
     },
     {
       "src": "css/theme.css",
@@ -51,8 +51,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 7447,
-      "bytesOut": 3183
+      "bytesIn": 9239,
+      "bytesOut": 3899
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -123,8 +123,8 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 33028,
-      "bytesOut": 16622
+      "bytesIn": 32877,
+      "bytesOut": 16466
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -189,8 +189,8 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 6347,
-      "bytesOut": 4280
+      "bytesIn": 6169,
+      "bytesOut": 4144
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -201,8 +201,8 @@
     {
       "src": "js/tools/PromptsSqlTool.jsx",
       "dist": "_dist/js/tools/PromptsSqlTool.js",
-      "bytesIn": 4084,
-      "bytesOut": 2827
+      "bytesIn": 4079,
+      "bytesOut": 2822
     },
     {
       "src": "js/tools/TodosTool.jsx",
@@ -213,8 +213,8 @@
     {
       "src": "js/tools/chat/ChatComposer.jsx",
       "dist": "_dist/js/tools/chat/ChatComposer.js",
-      "bytesIn": 6932,
-      "bytesOut": 4628
+      "bytesIn": 6177,
+      "bytesOut": 4130
     },
     {
       "src": "js/tools/chat/ChatLoggedOutShell.jsx",
@@ -225,8 +225,8 @@
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 6950,
-      "bytesOut": 4436
+      "bytesIn": 6719,
+      "bytesOut": 4288
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -237,14 +237,14 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 3236,
-      "bytesOut": 2239
+      "bytesIn": 4298,
+      "bytesOut": 3000
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 10582,
-      "bytesOut": 6453
+      "bytesIn": 10727,
+      "bytesOut": 6589
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",
@@ -303,8 +303,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 36283,
-      "bytesOut": 14889
+      "bytesIn": 36060,
+      "bytesOut": 14837
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",
@@ -369,8 +369,8 @@
     {
       "src": "js/tools/promptsSql/usePromptsSqlTool.ts",
       "dist": "_dist/js/tools/promptsSql/usePromptsSqlTool.js",
-      "bytesIn": 12043,
-      "bytesOut": 5797
+      "bytesIn": 11576,
+      "bytesOut": 5603
     },
     {
       "src": "js/tools/todos/BoardSettingsDialog.jsx",
@@ -471,8 +471,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 45265,
-      "bytesOut": 25315
+      "bytesIn": 47122,
+      "bytesOut": 26411
     },
     {
       "src": "js/ui/ImageLightboxDialog.jsx",

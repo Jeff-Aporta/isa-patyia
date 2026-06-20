@@ -91,9 +91,63 @@ export type PostMensajeCalificadoInput = {
   butil: boolean;
 };
 
-export async function listConversaciones(jwt: PatyJwtRecord): Promise<PatyConversacionRow[]> {
-  const body = await jsonFetch<{ conversaciones?: PatyConversacionRow[] }>("/conversaciones", jwt);
-  return Array.isArray(body.conversaciones) ? body.conversaciones : [];
+export type ListConversacionesInput = {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  search?: string;
+  itercero?: string;
+  icontacto?: string;
+};
+
+export type ListConversacionesResult = {
+  conversaciones: PatyConversacionRow[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+function buildConversacionesListPath(input: ListConversacionesInput = {}): string {
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 100)));
+  const offset = (page - 1) * limit;
+  const filtro: Record<string, unknown> = {
+    limit,
+    offset,
+    sort: input.sort || "-fhultact",
+  };
+  if (input.search?.trim()) filtro.search = input.search.trim();
+  const qs = new URLSearchParams();
+  qs.set("filtro", JSON.stringify(filtro));
+  const itercero = String(input.itercero ?? "").trim();
+  const icontacto = String(input.icontacto ?? "").trim();
+  if (itercero && icontacto) {
+    qs.set("itercero", itercero);
+    qs.set("icontacto", icontacto);
+  }
+  return `/conversaciones?${qs.toString()}`;
+}
+
+export async function listConversaciones(
+  jwt: PatyJwtRecord,
+  input: ListConversacionesInput = {},
+): Promise<ListConversacionesResult> {
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 100)));
+  const body = await jsonFetch<{
+    conversaciones?: PatyConversacionRow[];
+    total?: number;
+    page?: number;
+    limit?: number;
+    pages?: number;
+  }>(buildConversacionesListPath(input), jwt);
+  const conversaciones = Array.isArray(body.conversaciones) ? body.conversaciones : [];
+  const total = Number(body.total ?? 0) || 0;
+  const resLimit = Number(body.limit ?? limit) || limit;
+  const resPage = Number(body.page ?? page) || page;
+  const pages = Number(body.pages ?? 0) || (total > 0 ? Math.ceil(total / resLimit) : 0);
+  return { conversaciones, total, page: resPage, limit: resLimit, pages };
 }
 
 export async function getConversacion(jwt: PatyJwtRecord, id: number): Promise<PatyConversacionDetalle> {

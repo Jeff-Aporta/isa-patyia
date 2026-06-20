@@ -70,8 +70,8 @@ import type {
   ClipboardPasteEvent,
   FileInputChangeEvent,
 } from "./types.ts";
-import { readImagesFromClipboard, filesToImageEntries, hasHeicLikeFiles } from "./images.ts";
-import { createVoiceRecorder, filesToAudioEntries, isVoiceRecordingSupported } from "./audio.ts";
+import { readImagesFromClipboard, filesToImageEntries, hasHeicLikeFiles, isChatImageFile } from "./images.ts";
+import { createVoiceRecorder, filesToAudioEntries, isVoiceRecordingSupported, isChatAudioFile } from "./audio.ts";
 
 const { useState, useEffect, useCallback, useRef, useMemo } = getReact();
 
@@ -159,8 +159,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const [convListMeta, setConvListMeta] = useState<ConvListMeta | null>(null);
   const [messageSource, setMessageSource] = useState<ChatMessageSource>(() => readChatMessageSource(bootChat));
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const attachInputRef = useRef<HTMLInputElement | null>(null);
   const voiceRecorderRef = useRef(createVoiceRecorder());
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
   const lastLogApiCountRef = useRef(0);
@@ -280,28 +279,18 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     if (!loggedIn) return;
     setLoadingList(true);
     try {
+      const page = convListPage;
+      const limit = CONV_LIST_PAGE_SIZE;
+      const scope = listScope?.itercero && listScope?.icontacto
+        ? { itercero: listScope.itercero, icontacto: listScope.icontacto }
+        : null;
+
       if (jwt?.token) {
-        if (listScope?.itercero && listScope?.icontacto) {
-          const res = await fetchConversacionesBridge({
-            itercero: listScope.itercero,
-            icontacto: listScope.icontacto,
-            page: convListPage,
-            limit: CONV_LIST_PAGE_SIZE,
-          });
-          setRows(res.conversaciones);
-          setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
-        } else {
-          const list = await listConversaciones(jwt);
-          setRows(list);
-          setConvListMeta(null);
-        }
-      } else if (listScope?.itercero && listScope?.icontacto) {
-        const res = await fetchConversacionesBridge({
-          itercero: listScope.itercero,
-          icontacto: listScope.icontacto,
-          page: convListPage,
-          limit: CONV_LIST_PAGE_SIZE,
-        });
+        const res = await listConversaciones(jwt, { page, limit, ...(scope || {}) });
+        setRows(res.conversaciones);
+        setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
+      } else if (scope) {
+        const res = await fetchConversacionesBridge({ ...scope, page, limit });
         setRows(res.conversaciones);
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else {
@@ -671,8 +660,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setDraft("");
     setImages([]);
     setAudios([]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (audioInputRef.current) audioInputRef.current.value = "";
+    if (attachInputRef.current) attachInputRef.current.value = "";
     setLogMensajes((prev) => enrichLogVista(
       [...prev, buildOptimisticUserMsg({ text, imagenes, audios: audioUrls, userName })],
       userName,
@@ -689,6 +677,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       const streamFailed = streamMeta?.stream_ok === false;
       const streamError = formatStreamError(streamMeta?.stream_error);
       const newId = Number(result.iconversacion) || convIdBefore;
+      const tituloStream = String(result.titulo || "").trim();
       setLogMensajes((prev) => enrichLogVista(
         finalizeStreamInLog(prev, finalText, streamFailed ? { failed: true, error: streamError } : undefined),
         userName,
@@ -699,6 +688,14 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       setSending(false);
       setStreamText("");
       if (newId) {
+        if (tituloStream) {
+          setRows((prev) => prev.map((r) => (
+            convIdsEqual(r.iconversacion, newId) ? { ...r, titulo: tituloStream } : r
+          )));
+          setDetail((d) => (
+            d && convIdsEqual(d.iconversacion, newId) ? { ...d, titulo: tituloStream } : d
+          ));
+        }
         if (newId !== convIdBefore) {
           pendingListConvRef.current = newId;
           skipThreadReloadRef.current = newId;
@@ -820,12 +817,22 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
   }
 
-  function onAttachAudiosClick() {
-    audioInputRef.current?.click();
+  function onAttachClick() {
+    attachInputRef.current?.click();
   }
 
-  async function onAttachAudiosChange(e: FileInputChangeEvent) {
-    await appendAudiosFromFiles(e.target.files);
+  async function onAttachChange(e: FileInputChangeEvent) {
+    const files = e.target.files;
+    if (!files?.length) return;
+    const list = Array.from(files);
+    const imageFiles = list.filter(isChatImageFile);
+    const audioFiles = list.filter(isChatAudioFile);
+    const unsupported = list.filter((f) => !isChatImageFile(f) && !isChatAudioFile(f));
+    if (unsupported.length) {
+      toastWarning("Solo se admiten imágenes y audios");
+    }
+    if (imageFiles.length) await appendImagesFromFiles(imageFiles);
+    if (audioFiles.length) await appendAudiosFromFiles(audioFiles);
     e.target.value = "";
   }
 
@@ -835,15 +842,6 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     if (!files.length) return;
     e.preventDefault();
     await appendImagesFromFiles(files);
-  }
-
-  function onAttachImagesClick() {
-    fileInputRef.current?.click();
-  }
-
-  async function onAttachImagesChange(e: FileInputChangeEvent) {
-    await appendImagesFromFiles(e.target.files);
-    e.target.value = "";
   }
 
   const onMeta = useCallback((msg: ChatMensajeVista) => {
@@ -984,8 +982,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     ratingMsgId,
     threadScrollRef,
     inputRef,
-    fileInputRef,
-    audioInputRef,
+    attachInputRef,
     postBodyPreview,
     auditCurrentScope,
     onThreadScroll,
@@ -1002,10 +999,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     onDelete,
     onSend,
     onPaste,
-    onAttachImagesClick,
-    onAttachImagesChange,
-    onAttachAudiosClick,
-    onAttachAudiosChange,
+    onAttachClick,
+    onAttachChange,
     onToggleVoiceRecord,
     onMeta,
     onRateMessage,

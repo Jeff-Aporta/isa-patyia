@@ -104,16 +104,13 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         payloadPreviewOpen={chat.payloadPreviewOpen}
         postBodyPreview={chat.postBodyPreview}
         inputRef={chat.inputRef}
-        fileInputRef={chat.fileInputRef}
-        audioInputRef={chat.audioInputRef}
+        attachInputRef={chat.attachInputRef}
         onDraftChange={(e) => chat.setDraft(e.target.value)}
         onPaste={chat.onPaste}
         onSend={chat.onSend}
         onTogglePayloadPreview={() => chat.setPayloadPreviewOpen((v) => !v)}
-        onAttachImagesClick={chat.onAttachImagesClick}
-        onAttachImagesChange={chat.onAttachImagesChange}
-        onAttachAudiosClick={chat.onAttachAudiosClick}
-        onAttachAudiosChange={chat.onAttachAudiosChange}
+        onAttachClick={chat.onAttachClick}
+        onAttachChange={chat.onAttachChange}
         onToggleVoiceRecord={chat.onToggleVoiceRecord}
         onRemoveImage={(idx) => chat.setImages((p) => p.filter((_, j) => j !== idx))}
         onRemoveAudio={(idx) => chat.setAudios((p) => p.filter((_, j) => j !== idx))}

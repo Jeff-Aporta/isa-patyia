@@ -9,7 +9,7 @@ const {
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, fileInputRef, audioInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachImagesClick, onAttachImagesChange, onAttachAudiosClick, onAttachAudiosChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
+export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
   const isProdView = messageSource === "prod";
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -149,16 +149,13 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
         payloadPreviewOpen={payloadPreviewOpen}
         postBodyPreview={postBodyPreview}
         inputRef={inputRef}
-        fileInputRef={fileInputRef}
-        audioInputRef={audioInputRef}
+        attachInputRef={attachInputRef}
         onDraftChange={onDraftChange}
         onPaste={onPaste}
         onSend={onSend}
         onTogglePayloadPreview={onTogglePayloadPreview}
-        onAttachImagesClick={onAttachImagesClick}
-        onAttachImagesChange={onAttachImagesChange}
-        onAttachAudiosClick={onAttachAudiosClick}
-        onAttachAudiosChange={onAttachAudiosChange}
+        onAttachClick={onAttachClick}
+        onAttachChange={onAttachChange}
         onToggleVoiceRecord={onToggleVoiceRecord}
         onRemoveImage={onRemoveImage}
         onRemoveAudio={onRemoveAudio}

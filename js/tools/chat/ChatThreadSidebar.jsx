@@ -102,8 +102,8 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
 
       <Divider sx={{ my: 1 }} />
 
-      <Box className="conv-log-sidebar-block" sx={{ flex: 1, minHeight: 0, overflow: "auto", pb: 1.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block", fontWeight: 600 }}>
+      <Box className="conv-log-sidebar-block paty-chat-sidebar-list-head" sx={{ flexShrink: 0, pb: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600 }}>
           Conversaciones
           {(jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? (
             <Stack
@@ -149,6 +149,9 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
             </Typography>
           ) : null}
         </Typography>
+      </Box>
+
+      <Box className="conv-log-sidebar-block paty-chat-sidebar-list-scroll" sx={{ flex: 1, minHeight: 0, overflow: "auto", pb: 1.5 }}>
         <List dense disablePadding>
           {loadingList && !rows.length && (
             <Box sx={{ py: 2, textAlign: "center" }}><CircularProgress size={22} /></Box>

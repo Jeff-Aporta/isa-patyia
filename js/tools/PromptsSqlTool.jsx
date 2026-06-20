@@ -60,7 +60,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
           <PromptsSqlMapeoTable
             activeTipo={tool.activeTipo}
-            instruccionKeys={tool.instruccionKeysTable}
+            instruccionKeys={tool.instruccionKeys}
             prompts={tool.prompts}
             mapped={tool.mapped}
             canEdit={tool.canEdit}

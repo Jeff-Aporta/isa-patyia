@@ -507,19 +507,6 @@ function pushImage(images: string[], ref: unknown) {
     return undefined;
   }
 
-  function userInputTokensForTurn(mensajes, index, userInputByTurno) {
-    const turno = turnoFromVistaMsg(mensajes[index]);
-    if (turno != null && userInputByTurno.has(turno)) {
-      return userInputByTurno.get(turno);
-    }
-    for (let i = index - 1; i >= 0; i -= 1) {
-      const prev = mensajes[i];
-      if (prev?.esUsuario) return readRawMessageTokens(prev);
-      if (!prev?.esOperativa && !prev?.esUsuario) break;
-    }
-    return undefined;
-  }
-
   function attachUsageStats(mensajes) {
     const list = mensajes || [];
     const userInputByTurno = new Map();
@@ -534,24 +521,39 @@ function pushImage(images: string[], ref: unknown) {
 
     let cumulativeTokens = { ...ZERO_TOKENS };
     let cumulativeCost = { ...ZERO_COST };
+    let flushedTurno: number | undefined;
 
-    return list.map((m, index) => {
+    return list.map((m) => {
       if (m.esUsuario) return { ...m, usageStats: undefined };
+
+      const turno = turnoFromVistaMsg(m);
+      if (turno != null && turno !== flushedTurno) {
+        const userInput = userInputByTurno.get(turno);
+        if (userInput && usageHasData(userInput, null)) {
+          cumulativeTokens = accumulateTokens(cumulativeTokens, userInput);
+        }
+        flushedTurno = turno;
+      }
 
       const previousTokens = { ...cumulativeTokens };
       const previousCost = { ...cumulativeCost };
-      let tokens = readRawMessageTokens(m);
+      const tokens = readRawMessageTokens(m);
       const cost = readMessageCost(m);
-
-      if (!m.esOperativa) {
-        const userInput = userInputTokensForTurn(list, index, userInputByTurno);
-        if (userInput) tokens = accumulateTokens({ ...userInput }, tokens);
-      }
 
       cumulativeTokens = accumulateTokens(cumulativeTokens, tokens);
       cumulativeCost = accumulateCost(cumulativeCost, cost);
 
-      return { ...m, usageStats: { tokens, cost, previousTokens, previousCost, cumulativeTokens: { ...cumulativeTokens }, cumulativeCost: { ...cumulativeCost } } };
+      return {
+        ...m,
+        usageStats: {
+          tokens,
+          cost,
+          previousTokens,
+          previousCost,
+          cumulativeTokens: { ...cumulativeTokens },
+          cumulativeCost: { ...cumulativeCost },
+        },
+      };
     });
   }
 
@@ -561,6 +563,7 @@ function pushImage(images: string[], ref: unknown) {
 
   function sideLogPanelWorthShowing(msg) {
     if (!msg) return false;
+    if (msg.esUsuario) return false;
     const meta = msg.meta;
     if (meta) {
       const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
