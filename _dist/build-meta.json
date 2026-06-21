@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-19T23:05:09.984Z",
+  "builtAt": "2026-06-21T21:07:05.774Z",
   "files": 85,
-  "bytesIn": 713906,
-  "bytesOut": 414570,
+  "bytesIn": 722427,
+  "bytesOut": 419393,
   "ratio": 0.581,
-  "hash": "17c103a6d4d9",
+  "hash": "8f4cde9507b6",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 73606,
-      "bytesOut": 51908
+      "bytesIn": 76255,
+      "bytesOut": 53966
     },
     {
       "src": "css/boot-loading.css",
@@ -39,8 +39,8 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 7566,
-      "bytesOut": 3649
+      "bytesIn": 7605,
+      "bytesOut": 3678
     },
     {
       "src": "js/api/labApi.ts",
@@ -51,8 +51,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 9239,
-      "bytesOut": 3899
+      "bytesIn": 10792,
+      "bytesOut": 4492
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -93,20 +93,20 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 5625,
-      "bytesOut": 3233
+      "bytesIn": 5682,
+      "bytesOut": 3265
     },
     {
       "src": "js/auth/LabAuth.jsx",
       "dist": "_dist/js/auth/LabAuth.js",
-      "bytesIn": 12192,
-      "bytesOut": 7264
+      "bytesIn": 12575,
+      "bytesOut": 7420
     },
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 2191,
-      "bytesOut": 1337
+      "bytesIn": 4095,
+      "bytesOut": 2584
     },
     {
       "src": "js/boot/loader.mjs",
@@ -123,8 +123,8 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 32877,
-      "bytesOut": 16466
+      "bytesIn": 32896,
+      "bytesOut": 16485
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -201,8 +201,8 @@
     {
       "src": "js/tools/PromptsSqlTool.jsx",
       "dist": "_dist/js/tools/PromptsSqlTool.js",
-      "bytesIn": 4079,
-      "bytesOut": 2822
+      "bytesIn": 4577,
+      "bytesOut": 3037
     },
     {
       "src": "js/tools/TodosTool.jsx",
@@ -297,14 +297,14 @@
     {
       "src": "js/tools/chat/types.ts",
       "dist": "_dist/js/tools/chat/types.js",
-      "bytesIn": 2508,
+      "bytesIn": 2510,
       "bytesOut": 0
     },
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 36060,
-      "bytesOut": 14837
+      "bytesIn": 36574,
+      "bytesOut": 15069
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",
@@ -319,10 +319,10 @@
       "bytesOut": 2703
     },
     {
-      "src": "js/tools/promptsSql/MapeoRowDot.jsx",
-      "dist": "_dist/js/tools/promptsSql/MapeoRowDot.js",
-      "bytesIn": 728,
-      "bytesOut": 653
+      "src": "js/tools/promptsSql/PromptInstructionDot.jsx",
+      "dist": "_dist/js/tools/promptsSql/PromptInstructionDot.js",
+      "bytesIn": 1057,
+      "bytesOut": 660
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlActionBar.jsx",
@@ -333,14 +333,14 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlEditorPane.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlEditorPane.js",
-      "bytesIn": 6415,
-      "bytesOut": 3415
+      "bytesIn": 6950,
+      "bytesOut": 3641
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlTree.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlTree.js",
-      "bytesIn": 2253,
-      "bytesOut": 1573
+      "bytesIn": 2109,
+      "bytesOut": 1525
     },
     {
       "src": "js/tools/promptsSql/cloudRows.ts",
@@ -483,8 +483,8 @@
     {
       "src": "js/ui/PromptBodyEditor.jsx",
       "dist": "_dist/js/ui/PromptBodyEditor.js",
-      "bytesIn": 31459,
-      "bytesOut": 16267
+      "bytesIn": 31642,
+      "bytesOut": 16324
     },
     {
       "src": "js/ui/bootShimmer.ts",

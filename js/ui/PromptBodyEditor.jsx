@@ -844,7 +844,10 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
 }
 
 /** Vista previa del cuerpo + editor WYSIWYG al entrar o doble clic. */
-export function PromptBodyEditor({ body, canEdit, editBlockReason, onChange, onPersist, placeholder, tipo, title, loading = false }) {
+export function PromptBodyEditor({
+  body, canEdit, editBlockReason, onChange, onPersist, placeholder, tipo, title, loading = false,
+  editorOpenSignal = 0,
+}) {
   const [editorOpen, setEditorOpen] = useState(false);
   const previewRef = useRef(null);
   const previewHtml = useMemo(() => {
@@ -852,6 +855,11 @@ export function PromptBodyEditor({ body, canEdit, editBlockReason, onChange, onP
     if (!text) return "";
     return bodyPreviewHtml(body);
   }, [body]);
+
+  useEffect(() => {
+    if (!editorOpenSignal || !canEdit || loading) return;
+    setEditorOpen(true);
+  }, [editorOpenSignal, canEdit, loading]);
 
   function openEditor() {
     if (!canEdit) return;

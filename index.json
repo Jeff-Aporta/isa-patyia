@@ -37,5 +37,24 @@
   "libs": [
     "iconify",
     "loader-mjs"
-  ]
+  ],
+  "readme": {
+    "repoName": "isa-patyia",
+    "tagline": "Chat con PatyIA, instrucciones Prompts→SQL, logs y DevFlow.",
+    "prodUrl": "https://jeff-aporta.github.io/isa-patyia/",
+    "badges": ["cloudflare-pages", "github-pages-prod", "github-repo", "react", "mui", "typescript"],
+    "demoLines": [
+      "**Dev (rama `dev`):** https://isa-patyia-dev.pages.dev/",
+      "",
+      "**Producción (rama `main`):** https://jeff-aporta.github.io/isa-patyia/",
+      "",
+      "Detalle de CI y ramas: [DEPLOY.md](DEPLOY.md)."
+    ],
+    "features": [
+      "**Visor de log**: trazas y mensajes de conversaciones PatyIA",
+      "**Prompts → SQL**: edición e importación de instrucciones staging",
+      "**Chat**: conversaciones con PatyIA",
+      "**DevFlow**: tablero kanban SCRUM"
+    ]
+  }
 }

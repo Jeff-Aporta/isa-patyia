@@ -1,5 +1,8 @@
 export const PIN = "c9e1bd5";
 
+const isDevHost =
+  typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
+
 /** Siempre jsDelivr — no servir front-shared desde ruta local en dev. */
 export const CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn`;
 
@@ -12,7 +15,7 @@ export const LIGHTBOX_ZOOM_REF = "f4fba38";
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
   if (isDevHost) {
-    return new URL("../../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
 }
@@ -68,7 +71,7 @@ export const SWAGGER_VIEWER_REF = "fefe32c";
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
   if (isDevHost) {
-    return new URL("../../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
+    return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/swagger-viewer@${SWAGGER_VIEWER_REF}/cdn/`;
 }

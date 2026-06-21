@@ -2,7 +2,7 @@ import { getMaterialUI } from "../../core/platform.ts";
 import { ButtonIconify } from "../../ui/shared.jsx";
 import { PromptBodyEditor } from "../../ui/PromptBodyEditor.jsx";
 import * as PromptsSql from "../../api/promptsSql.ts";
-import { MapeoRowDot } from "./MapeoRowDot.jsx";
+import { MapeoRowDot } from "./PromptInstructionDot.jsx";
 import {
   formatCharsTokens,
   jconfigEqual,
@@ -14,7 +14,9 @@ const {
   TextField, Stack, FormControl, Select, MenuItem,
 } = getMaterialUI();
 
-export function PromptsSqlBodyEditor({ activeTipo, activePrompt, canEdit, editBlockReason, loadBusy, onBodyChange, onPersist }) {
+export function PromptsSqlBodyEditor({
+  activeTipo, activePrompt, canEdit, editBlockReason, loadBusy, onBodyChange, onPersist, editorOpenSignal,
+}) {
   return (
     <div className="tab-editor">
       <PromptBodyEditor
@@ -27,12 +29,16 @@ export function PromptsSqlBodyEditor({ activeTipo, activePrompt, canEdit, editBl
         tipo={activeTipo}
         title={activeTipo.replace(/_/g, " ")}
         loading={loadBusy}
+        editorOpenSignal={editorOpenSignal}
       />
     </div>
   );
 }
 
-export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, mapped, canEdit, loggedIn, modelSelectOptions, onSelectTipo, onUpdateConfig, onOpenJconfig, onConfirmResetConfig }) {
+export function PromptsSqlMapeoTable({
+  activeTipo, instruccionKeys, prompts, mapped, canEdit, loggedIn, loadBusy,
+  modelSelectOptions, onSelectTipo, onRowDoubleClick, onUpdateConfig, onOpenJconfig, onConfirmResetConfig,
+}) {
   return (
       <div className="prompt-mapeo-block">
         <TableContainer className="prompt-mapeo-scroll custom-scrollbar">
@@ -58,7 +64,7 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                   chars: (p?.body || "").length,
                   status: p?.body?.trim() ? "ok" : "sin_mapeo",
                 };
-                const stopRowClick = (e) => e.stopPropagation();
+                const stopRowEvent = (e) => e.stopPropagation();
                 const atDefaultConfig = jconfigEqual(jc, PromptsSql.DEFAULT_JCONFIG);
 
                 return (
@@ -67,7 +73,13 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                     hover
                     selected={tipo === activeTipo}
                     onClick={() => onSelectTipo(tipo)}
+                    onDoubleClick={() => {
+                      if (!canEdit || loadBusy) return;
+                      onSelectTipo(tipo);
+                      onRowDoubleClick?.(tipo);
+                    }}
                     sx={{ cursor: "pointer" }}
+                    title={canEdit && !loadBusy ? "Doble clic para editar" : undefined}
                   >
                     <TableCell>
                       <span className="prompt-mapeo-tipo">
@@ -80,8 +92,8 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                       {formatCharsTokens(p?.body)}
                     </TableCell>
 
-                    <TableCell onClick={stopRowClick}>
-                      <FormControl size="small" sx={{ minWidth: 148 }} onClick={stopRowClick} disabled={!canEdit}>
+                    <TableCell onClick={stopRowEvent} onDoubleClick={stopRowEvent}>
+                      <FormControl size="small" sx={{ minWidth: 148 }} onClick={stopRowEvent} disabled={!canEdit}>
                         <Select
                           value={modelValue}
                           onChange={(e) => onUpdateConfig(tipo, { model: e.target.value })}
@@ -96,7 +108,7 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                       </FormControl>
                     </TableCell>
 
-                    <TableCell onClick={stopRowClick}>
+                    <TableCell onClick={stopRowEvent} onDoubleClick={stopRowEvent}>
                       <TextField
                         {...unitIntervalFieldProps(
                           jc.temperature,
@@ -107,7 +119,7 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                       />
                     </TableCell>
 
-                    <TableCell onClick={stopRowClick}>
+                    <TableCell onClick={stopRowEvent} onDoubleClick={stopRowEvent}>
                       <TextField
                         {...unitIntervalFieldProps(
                           jc.top_p,
@@ -118,7 +130,7 @@ export function PromptsSqlMapeoTable({ activeTipo, instruccionKeys, prompts, map
                       />
                     </TableCell>
 
-                    <TableCell align="center" className="prompt-mapeo-actions" onClick={stopRowClick}>
+                    <TableCell align="center" className="prompt-mapeo-actions" onClick={stopRowEvent} onDoubleClick={stopRowEvent}>
                       <Stack direction="row" spacing={0.25} justifyContent="center" useFlexGap>
                         <ButtonIconify
                           icon="mdi:code-json"

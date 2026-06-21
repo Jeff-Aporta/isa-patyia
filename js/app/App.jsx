@@ -116,22 +116,25 @@ export function App() {
   const Shell = window.ISAFront?.Layout?.AppShell;
   if (!Shell) throw new Error("AppShell no cargado — revisar loader.mjs");
 
+  const toolbarTools = publicScrumView ? null : (
+    <LoginButton
+      loginOpen={authOpen}
+      onLoginOpenChange={setAuthOpen}
+      onLoggedIn={() => setAuthTick((n) => n + 1)}
+    />
+  );
+
   return (
     <Shell
       ns="ISA"
+      title="PatyIA"
       showTarget={false}
       mobileBreakpoint="xs"
       chromeless={publicScrumView}
+      toolbarExtra={toolbarTools}
       navRows={publicScrumView ? [] : [
-        { id: "tool", value: tool, onChange: selectTool, tabs: tools, tabHref: (id) => hrefFor({ tool: id }) },
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: tools, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
-      toolbarEnd={publicScrumView ? null : (
-        <LoginButton
-          loginOpen={authOpen}
-          onLoginOpenChange={setAuthOpen}
-          onLoggedIn={() => setAuthTick((n) => n + 1)}
-        />
-      )}
     >
       {publicScrumView ? (
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />

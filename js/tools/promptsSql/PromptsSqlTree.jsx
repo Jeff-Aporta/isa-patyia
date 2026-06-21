@@ -1,6 +1,6 @@
 import { getMaterialUI } from "../../core/platform.ts";
 import { ICON_BY_TIPO } from "./constants.ts";
-import { hasPendingChanges } from "./helpers.ts";
+import { PromptInstructionDot } from "./PromptInstructionDot.jsx";
 
 const { Tabs, Tab } = getMaterialUI();
 
@@ -44,23 +44,18 @@ export function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTa
           },
         }}
       >
-        {instruccionKeys.map((tipo) => {
-          const p = prompts[tipo];
-          const has = Boolean(p?.body?.trim());
-          const dirty = hasPendingChanges(p);
-          return (
+        {instruccionKeys.map((tipo) => (
             <Tab
               key={tipo}
               label={(
                 <span className="tab-label">
                   <iconify-icon icon={ICON_BY_TIPO[tipo] || "mdi:file-document-outline"} width="0.9em" height="0.9em" />
                   <span>{tipo.replace(/_/g, " ")}</span>
-                  {has && <span className={`tab-dot${dirty ? " tab-dot--dirty" : ""}`} />}
+                  <PromptInstructionDot tipo={tipo} prompts={prompts} showWhenEmpty="none" />
                 </span>
               )}
             />
-          );
-        })}
+          ))}
       </Tabs>
 
       {children}

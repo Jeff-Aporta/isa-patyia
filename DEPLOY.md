@@ -12,7 +12,7 @@ Dos ramas, dos entornos estáticos independientes.
 1. Desarrollar y hacer push en **`dev`** → se publica automáticamente en Cloudflare Pages.
 2. Probar en la URL dev.
 3. Cuando esté aprobado: **merge `dev` → `main`** → GitHub Pages actualiza producción.
-4. **Siempre** registrar el merge en la tabla **Historial de merges a producción** en [README.md](README.md) (URL `xxxx.isa-patyia-dev.pages.dev` del deploy validado en `dev`). No cerrar el merge sin esta fila.
+4. **Siempre** registrar el merge en la tabla **Historial de merges a producción** (abajo). No cerrar el merge sin esta fila.
 
 ```bash
 git checkout dev
@@ -62,3 +62,14 @@ node gen-front-index.mjs --slug isa-patyia
 
 **Actions → Deploy ISA PatyIA front → Run workflow**  
 Opción `target`: `auto` (según rama), `github-pages` o `cloudflare-dev`.
+
+## Historial de merges a producción
+
+Cada fila es el **último preview de Cloudflare validado en `dev`** antes de integrar a `main`. La URL con hash queda congelada en ese deploy; [isa-patyia-dev.pages.dev](https://isa-patyia-dev.pages.dev/) siempre apunta al último push en `dev`.
+
+Al hacer merge a `main`, **siempre** añadir una fila (obligatorio, antes de cerrar el merge): fecha, enlace `https://xxxx.isa-patyia-dev.pages.dev` (GitHub → **Deployments** → `isa-patyia-dev (Production)` → **View deployment**), commit corto de `dev` y nota breve. La fila nueva va **arriba** (más reciente primero).
+
+| Fecha merge | Preview Cloudflare (`dev`) | Commit `dev` | Notas |
+|-------------|----------------------------|--------------|-------|
+| 2026-06-19 | [93de6468.isa-patyia-dev.pages.dev](https://93de6468.isa-patyia-dev.pages.dev/) | `568a1a0` | Chat: sidebar, badges meta, selección conv; SCRUM home light y drag; fix guardar instrucciones; cursor en clickables |
+| 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) | `44930d4` | Primera integración dev→main: flujo dual CF/GH Pages, badges meta compactos, emoji 🧪 prueba workflow |

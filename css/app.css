@@ -2006,8 +2006,12 @@ body.conv-log-resize-active * {
 
 .panel-body-tabs {
   & .prompt-instrucciones-zone {
-    flex: 1 1 52%;
-    min-height: 14rem;
+    flex: 6 1 0;
+    min-height: 0;
+  }
+  & .prompt-mapeo-block {
+    flex: 4 1 0;
+    min-height: 0;
   }
   & .prompt-mapeo-scroll .MuiTableBody-root .MuiTableCell-root {
     font-size: 0.8rem;
@@ -2118,9 +2122,28 @@ body.conv-log-resize-active * {
   }
   &--editable {
     cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+    & .prompt-md-preview,
+    & .prompt-body-preview__empty {
+      cursor: pointer;
+    }
     &:hover {
-      border-color: rgba(30, 144, 255, 0.45);
-      box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.12);
+      border-color: rgba(30, 144, 255, 0.55);
+      background: rgba(30, 144, 255, 0.1);
+      box-shadow:
+        0 0 0 1px rgba(30, 144, 255, 0.22),
+        inset 0 0 28px rgba(30, 144, 255, 0.07);
+    }
+    &:hover .prompt-md-preview,
+    &:hover .prompt-body-preview__empty {
+      cursor: pointer;
+    }
+    &:focus-visible {
+      outline: 2px solid rgba(30, 144, 255, 0.55);
+      outline-offset: 2px;
     }
   }
   &__empty {
@@ -2171,11 +2194,50 @@ body.conv-log-resize-active * {
     }
     &--editable {
       &:hover {
-        border-color: rgba(30, 144, 255, 0.38);
-        box-shadow: 0 0 0 1px rgba(30, 144, 255, 0.12);
+        border-color: rgba(30, 144, 255, 0.42);
+        background: rgba(30, 144, 255, 0.06);
+        box-shadow:
+          0 0 0 1px rgba(30, 144, 255, 0.16),
+          inset 0 0 24px rgba(30, 144, 255, 0.05);
       }
     }
   }
+}
+
+/* Preview editable — reglas planas (doble clic → editor). */
+.prompt-body-preview.prompt-body-preview--editable {
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.prompt-body-preview.prompt-body-preview--editable .prompt-md-preview,
+.prompt-body-preview.prompt-body-preview--editable .prompt-body-preview__empty {
+  cursor: pointer;
+}
+.prompt-body-preview.prompt-body-preview--editable:hover {
+  border-color: rgba(30, 144, 255, 0.55);
+  background: rgba(30, 144, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(30, 144, 255, 0.22),
+    inset 0 0 28px rgba(30, 144, 255, 0.07);
+}
+.prompt-body-preview.prompt-body-preview--editable:hover .prompt-md-preview,
+.prompt-body-preview.prompt-body-preview--editable:hover .prompt-body-preview__empty,
+.prompt-body-preview.prompt-body-preview--editable:hover * {
+  cursor: pointer;
+}
+.prompt-body-preview.prompt-body-preview--editable:focus-visible {
+  outline: 2px solid rgba(30, 144, 255, 0.55);
+  outline-offset: 2px;
+}
+html[data-mui-color-scheme="light"] .prompt-body-preview.prompt-body-preview--editable:hover {
+  border-color: rgba(30, 144, 255, 0.45);
+  background: rgba(30, 144, 255, 0.07);
+  box-shadow:
+    0 0 0 1px rgba(30, 144, 255, 0.14),
+    inset 0 0 20px rgba(30, 144, 255, 0.04);
 }
 
 .prompt-chat-body {
@@ -2285,8 +2347,8 @@ body.conv-log-resize-active * {
 }
 
 .prompt-instrucciones-zone {
-  flex: 1 1 52%;
-  min-height: 14rem;
+  flex: 6 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -2303,8 +2365,8 @@ body.conv-log-resize-active * {
 }
 
 .prompt-mapeo-block {
-  flex: 1 1 auto;
-  min-height: 10rem;
+  flex: 4 1 0;
+  min-height: 0;
   padding-top: 0.15rem;
   overflow: hidden;
   display: flex;
@@ -2917,9 +2979,37 @@ body.conv-log-resize-active * {
   height: 6px;
   border-radius: 50%;
   background: #4ade80;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.35);
   &--dirty {
     background: #fb923c;
+    box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.4);
   }
+  &--empty {
+    background: #64748b;
+    box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.35);
+  }
+}
+
+.tab-dot.tab-dot--dirty {
+  background: #fb923c;
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.4);
+}
+
+.tab-dot.tab-dot--empty {
+  background: #64748b;
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.35);
+}
+
+.prompt-mapeo-tipo .tab-dot {
+  width: 8px;
+  height: 8px;
+}
+
+.tab-label .tab-dot {
+  flex-shrink: 0;
 }
 
 .tab-editor {

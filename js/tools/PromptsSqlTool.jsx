@@ -1,4 +1,5 @@
 import { getMaterialUI } from "../core/platform.ts";
+import { getReact } from "../core/platform.ts";
 import { usePromptsSqlTool } from "./promptsSql/usePromptsSqlTool.ts";
 import { PromptsSqlActionBar } from "./promptsSql/PromptsSqlActionBar.jsx";
 import { PromptsSqlTree } from "./promptsSql/PromptsSqlTree.jsx";
@@ -7,9 +8,17 @@ import { FileImportMapDialog } from "./promptsSql/FileImportMapDialog.jsx";
 import { JconfigDetailDialog } from "./promptsSql/JconfigDetailDialog.jsx";
 
 const { Paper, Alert } = getMaterialUI();
+const { useState, useCallback } = getReact();
 
 export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const tool = usePromptsSqlTool({ bootPrompts, onNeedLogin });
+  const [editorOpenSignal, setEditorOpenSignal] = useState(0);
+
+  const handleMapeoRowDoubleClick = useCallback(() => {
+    if (tool.canEdit && !tool.loadBusy) {
+      setEditorOpenSignal((n) => n + 1);
+    }
+  }, [tool.canEdit, tool.loadBusy]);
 
   return (
     <div className="tool-grid tool-grid-prompts tool-grid-prompts--solo">
@@ -52,6 +61,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
                 canEdit={tool.canEdit}
                 editBlockReason={tool.editBlockReason}
                 loadBusy={tool.loadBusy}
+                editorOpenSignal={editorOpenSignal}
                 onBodyChange={(body) => tool.updateBody(tool.activeTipo, body)}
                 onPersist={(body) => tool.saveOneInstruction(tool.activeTipo, body)}
               />
@@ -65,8 +75,10 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
             mapped={tool.mapped}
             canEdit={tool.canEdit}
             loggedIn={tool.loggedIn}
+            loadBusy={tool.loadBusy}
             modelSelectOptions={tool.modelSelectOptions}
             onSelectTipo={(tipo) => tool.setActiveTab(tool.instruccionKeys.indexOf(tipo))}
+            onRowDoubleClick={handleMapeoRowDoubleClick}
             onUpdateConfig={tool.updateConfig}
             onOpenJconfig={(tipo) => tool.setJconfigDlg({ open: true, tipo })}
             onConfirmResetConfig={tool.confirmResetConfig}

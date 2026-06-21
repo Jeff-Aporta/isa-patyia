@@ -20,6 +20,8 @@ const HEADER_CHIP_SX = {
   "& .MuiChip-label": { px: 0.25, py: 0.25 },
 };
 
+const CONTAPYME_LOGIN_ID_HELPER = "Puede omitir @contapyme.com; se envía en minúsculas.";
+
 function PasswordField({ Icon, label, value, onChange, onEnter, size = "small", autoFocus = false }) {
   const [showPass, setShowPass] = useState(false);
   return (
@@ -77,7 +79,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
   const { useRealtimeStatus, RealtimeStatusDot } = UI;
-  const { tip, tone, reconnect } = useRealtimeStatus();
+  const { tip, tone, reconnect, state } = useRealtimeStatus();
   const theme = useTheme();
   const compactHeader = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -120,7 +122,7 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
   }
 
   const session = LabSession.getSession();
-  const signalDot = <RealtimeStatusDot tone={tone} tip={tip} onReconnect={reconnect} />;
+  const signalDot = <RealtimeStatusDot state={state} tone={tone} tip={tip} onReconnect={reconnect} />;
 
   if (session) {
     const UserSessionMenu = window.ISAFront?.UI?.UserSessionMenu;
@@ -239,7 +241,17 @@ export function LoginButton({ onLoggedIn, loginOpen, onLoginOpenChange }) {
         <DialogContent>
           {err ? <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert> : null}
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} fullWidth autoFocus size="small" />
+            <TextField
+              label="Usuario"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+              fullWidth
+              autoFocus
+              size="small"
+              autoComplete="username"
+              helperText={CONTAPYME_LOGIN_ID_HELPER}
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+            />
             <PasswordField
               Icon={Icon}
               label="Contraseña"
