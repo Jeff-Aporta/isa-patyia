@@ -6,7 +6,8 @@ import { NewBoardDialog } from "./todos/NewBoardDialog.jsx";
 import { PublicScrumBoard } from "./todos/PublicScrumBoard.jsx";
 import { BoardsHome, BoardsHomeToolbar } from "./todos/BoardsHome.jsx";
 import { BoardSettingsDialog } from "./todos/BoardSettingsDialog.jsx";
-import { TodosLoggedOutShell, TodosBoardToolbar } from "./todos/TodosShellParts.jsx";
+import { TodosBoardToolbar } from "./todos/TodosShellParts.jsx";
+import { TodosPublicHome } from "./todos/TodosPublicHome.jsx";
 
 const { useState } = getReact();
 const { Box, Alert } = getMaterialUI();
@@ -20,7 +21,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
 
   if (!todos.loggedIn) {
-    return <TodosLoggedOutShell onNeedLogin={onNeedLogin} />;
+    return <TodosPublicHome onNeedLogin={onNeedLogin} />;
   }
 
   const boardTitle = todos.boardData?.board?.title ?? "";

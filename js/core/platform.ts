@@ -158,12 +158,51 @@ export function toastInfo(text: string, timeout?: number) { fb()?.toast?.info?.(
 export function toastWarning(text: string, timeout?: number) { fb()?.toast?.warning?.(text, timeout); }
 export function requestConfirm(opts: Record<string, unknown>) { return fb()?.confirm?.(opts) ?? Promise.resolve(false); }
 
+function patchIsaPatyiaAuthEvents(): void {
+  const Session = window.ISA?.Session;
+  if (!Session?.login || !Session?.logout) return;
+  const origLogin = Session.login.bind(Session);
+  const origLogout = Session.logout.bind(Session);
+  Session.login = async (u: string, p: string) => {
+    const session = await origLogin(u, p);
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+    return session;
+  };
+  Session.logout = () => {
+    origLogout();
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+  };
+}
+
+function patyiaBridgeBaseForLogin(): string {
+  const local = window.ISA?.Config?.isLocal?.() ?? false;
+  const base = local
+    ? "http://127.0.0.1:4500"
+    : "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
+  return base.replace(/\/$/, "");
+}
+
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
 export function bootstrapIsaPatyia(): void {
   window.ISAFront.registerApp({
-    ns: "ISA", app: "isa-patyia", theme: true, widgets: { targetStyle: "chip" },
-    session: true, auth: false, realtime: { enabled: () => false, autoStart: false }, toast: true,
+    ns: "ISA",
+    app: "isa-patyia",
+    theme: true,
+    widgets: { targetStyle: "chip" },
+    session: true,
+    auth: false,
+    toast: true,
+    loginButton: {
+      runUnitTestUrl: () => `${patyiaBridgeBaseForLogin()}/api/run-unit-test`,
+      getAuthHeaders: () => {
+        const tok = window.ISA?.Session?.current?.()?.token;
+        return tok ? window.ISA!.Session.authHeader() : {};
+      },
+      unitTestTitle: "Test unitario — iss-patyia-bridge",
+    },
   });
+
+  patchIsaPatyiaAuthEvents();
 
   if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
     window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);

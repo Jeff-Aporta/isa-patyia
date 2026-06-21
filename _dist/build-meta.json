@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-21T21:07:05.774Z",
+  "builtAt": "2026-06-21T23:06:57.333Z",
   "files": 85,
-  "bytesIn": 722427,
-  "bytesOut": 419393,
+  "bytesIn": 714385,
+  "bytesOut": 415046,
   "ratio": 0.581,
-  "hash": "8f4cde9507b6",
+  "hash": "f5689111233f",
   "entries": [
     {
       "src": "css/app.css",
@@ -81,8 +81,8 @@
     {
       "src": "js/api/todosApi.ts",
       "dist": "_dist/js/api/todosApi.js",
-      "bytesIn": 8637,
-      "bytesOut": 3809
+      "bytesIn": 9405,
+      "bytesOut": 4148
     },
     {
       "src": "js/api/treeMsgsApi.ts",
@@ -93,20 +93,14 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 5682,
-      "bytesOut": 3265
-    },
-    {
-      "src": "js/auth/LabAuth.jsx",
-      "dist": "_dist/js/auth/LabAuth.js",
-      "bytesIn": 12575,
-      "bytesOut": 7420
+      "bytesIn": 4889,
+      "bytesOut": 2916
     },
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4095,
-      "bytesOut": 2584
+      "bytesIn": 3958,
+      "bytesOut": 2553
     },
     {
       "src": "js/boot/loader.mjs",
@@ -153,8 +147,8 @@
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 7657,
-      "bytesOut": 4870
+      "bytesIn": 8806,
+      "bytesOut": 5502
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -207,8 +201,8 @@
     {
       "src": "js/tools/TodosTool.jsx",
       "dist": "_dist/js/tools/TodosTool.js",
-      "bytesIn": 6019,
-      "bytesOut": 3703
+      "bytesIn": 6058,
+      "bytesOut": 3739
     },
     {
       "src": "js/tools/chat/ChatComposer.jsx",
@@ -419,6 +413,12 @@
       "dist": "_dist/js/tools/todos/TodosKanban.js",
       "bytesIn": 11948,
       "bytesOut": 6235
+    },
+    {
+      "src": "js/tools/todos/TodosPublicHome.jsx",
+      "dist": "_dist/js/tools/todos/TodosPublicHome.js",
+      "bytesIn": 3507,
+      "bytesOut": 2446
     },
     {
       "src": "js/tools/todos/TodosShellParts.jsx",

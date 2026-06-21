@@ -174,6 +174,29 @@ export async function saveTodoBoardMembers(boardId: string, members: BoardMember
   return (data.members ?? []) as BoardMember[];
 }
 
+/** Catálogo de tableros públicos — no requiere sesión. */
+export async function fetchPublicTodoBoards(boardType = "scrum") {
+  const base = ORCH_ONLINE.replace(/\/$/, "");
+  const params = new URLSearchParams({ app: SCRUM_APP_ID, boardType });
+  const res = await fetch(`${base}/api/scrum/public?${params}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return (data.boards ?? []) as Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    publicSlug: string;
+    updatedAt: string;
+    visibility: "public";
+    readOnly: true;
+  }>;
+}
+
 /** Vista pública read-only — no requiere sesión. */
 export async function fetchPublicTodoBoard(slug: string) {
   const base = ORCH_ONLINE.replace(/\/$/, "");

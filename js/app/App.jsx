@@ -1,7 +1,6 @@
 import { getReact, getReactDOM } from "../core/platform.ts";
 import { mergePartial, bootState, getSnapshot, hrefFor } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
-import { LoginButton } from "../auth/LabAuth.jsx";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
@@ -10,7 +9,6 @@ import { Session } from "../core/platform.ts";
 import { Assets } from "../core/platform.ts";
 
 const BRAND_HOME_EVENT = "isa:brand-home";
-const SCRUM_CAP = "patyia.scrum";
 
 const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
@@ -19,29 +17,13 @@ const ALL_TOOLS = [
   { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
 ];
 
-function canAccessScrum() {
-  return Session.can(SCRUM_CAP);
-}
-
 function isPublicScrumBoot(todos) {
   return !!String(todos?.publicSlug ?? "").trim();
 }
 
-function canShowScrumTool(todos) {
-  return canAccessScrum() || isPublicScrumBoot(todos) || !!Session.isLoggedIn?.();
-}
-
-function scrumTabMeta() {
-  const loggedIn = !!Session.isLoggedIn?.();
-  const allowed = canAccessScrum() || loggedIn;
-  return {
-    disabled: !allowed,
-    disabledTitle: allowed ? "" : "Inicia sesión para acceder a DevFlow",
-  };
-}
-
 export function App() {
   const { useState, useEffect } = getReact();
+  const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState(boot);
   const [tool, setTool] = useState(() => {
@@ -89,13 +71,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (tool === "todos" && !canShowScrumTool(appBoot.todos)) {
-      setTool("log");
-      mergePartial({ tool: "log" });
-    }
-  }, [tool, authTick, appBoot.todos]);
-
-  useEffect(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
       setTool("log");
@@ -105,10 +80,7 @@ export function App() {
     return () => window.removeEventListener(BRAND_HOME_EVENT, onBrandHome);
   }, []);
 
-  const tools = ALL_TOOLS.map((t) => (t.id === "todos" ? { ...t, ...scrumTabMeta() } : t));
-
   function selectTool(id) {
-    if (id === "todos" && !canShowScrumTool(getSnapshot().todos)) return;
     setTool(id);
     mergePartial({ tool: id });
   }
@@ -120,7 +92,10 @@ export function App() {
     <LoginButton
       loginOpen={authOpen}
       onLoginOpenChange={setAuthOpen}
-      onLoggedIn={() => setAuthTick((n) => n + 1)}
+      onLoggedIn={() => {
+        setAuthTick((n) => n + 1);
+        window.dispatchEvent(new Event("isa-patyia:auth"));
+      }}
     />
   );
 
@@ -133,7 +108,7 @@ export function App() {
       chromeless={publicScrumView}
       toolbarExtra={toolbarTools}
       navRows={publicScrumView ? [] : [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: tools, tabHref: (id) => hrefFor({ tool: id }) },
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: ALL_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
     >
       {publicScrumView ? (
@@ -147,8 +122,8 @@ export function App() {
           {tool === "chat" && (
             <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
-          {tool === "todos" && canShowScrumTool(appBoot.todos) && (
-            <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
+          {tool === "todos" && (
+            <TodosTool key={`${homeTick}-${authTick}`} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
         </>
       )}
