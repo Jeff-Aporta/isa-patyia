@@ -89,8 +89,8 @@ export async function fetchConvLogById(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
   try {
-    const data = await capFetch(`/patyia/conversacion/${convId}/log`, { method: "GET" });
-    const log = (data.log ?? data.body?.log) as Record<string, unknown> | undefined;
+    const data = await capFetch(`/patyia/conversacion/logs/${convId}`, { method: "GET" });
+    const log = (data.convLog ?? data.log ?? data.body?.convLog ?? data.body?.log) as Record<string, unknown> | undefined;
     if (!log || !Array.isArray(log.mensajes)) {
       throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
     }
