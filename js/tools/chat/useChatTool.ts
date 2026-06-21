@@ -15,6 +15,8 @@ import {
   listConversaciones,
   getConversacion,
   getConversacionLogs,
+  getConversacionLogsWithRetry,
+  convLogFromDetalle,
   deleteConversacion,
   sendConversacionStream,
   buildConversacionPostBody,
@@ -101,19 +103,20 @@ type LogsModeFetch = {
   openAiDirect: boolean;
 };
 
-/** GET /conversacion/{id}/logs + bridge CONVERSACION_LOG (operativas solo están en el log). */
+/** GET /conversacion/logs/{id} — mensajesOpenAI + convLog en una sola respuesta. */
 async function fetchLogsModeDetail(
   jwt: PatyJwtRecord,
   id: number,
   { freshLog = false, minMensajes = 0 }: { freshLog?: boolean; minMensajes?: number } = {},
 ): Promise<LogsModeFetch> {
-  const loadLog = () => (freshLog
-    ? fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null)
-    : fetchConvLogById(id).catch(() => null));
+  const loadDetail = () => (freshLog
+    ? getConversacionLogsWithRetry(jwt, id, { minMensajes }).catch(() => null)
+    : getConversacionLogs(jwt, id).catch(() => null));
 
   try {
-    const d = await getConversacionLogs(jwt, id);
-    const log = await loadLog();
+    const d = await loadDetail();
+    if (!d) return { d: null, log: null, openAiDirect: false };
+    const log = convLogFromDetalle(d, id) as ConvLogPayload | null;
     const assistantsInLog = countLogAssistants(log);
     const assistantsInApi = countOpenAiAssistants(d);
     const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
@@ -122,9 +125,8 @@ async function fetchLogsModeDetail(
   } catch (e) {
     if (!isNotFoundError(e)) throw e;
   }
-  const log = await loadLog();
   const d = await getConversacion(jwt, id).catch(() => null);
-  return { d, log, openAiDirect: false };
+  return { d, log: null, openAiDirect: false };
 }
 
 export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
