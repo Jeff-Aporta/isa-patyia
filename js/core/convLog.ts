@@ -729,7 +729,7 @@ function pushImage(images: string[], ref: unknown) {
 
   function parseLogInput(raw) {
     const trimmed = String(raw ?? "").trim();
-    if (!trimmed) throw new Error("Pega el contenido de conv-*.json o la respuesta del API /log.");
+    if (!trimmed) throw new Error("Pega el contenido de conv-*.json o la respuesta del API /conversacion/logs/{id}.");
     const parsed = JSON.parse(trimmed);
     if (parsed.log && Array.isArray(parsed.log.mensajes)) {
       return {
