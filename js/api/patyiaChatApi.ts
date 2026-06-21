@@ -77,9 +77,18 @@ export type PatyMensajeCalificado = {
   iconversacion?: number;
 };
 
+export type PatyConvLogPayload = {
+  iconversacion?: number;
+  mensajes?: unknown[];
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: unknown;
+};
+
 export type PatyConversacionDetalle = PatyConversacionRow & {
   mensajesOpenAI?: PatyMensaje[];
   mensajesCalificados?: PatyMensajeCalificado[];
+  convLog?: PatyConvLogPayload | null;
   hilo?: string;
   respuesta?: string;
 };
@@ -154,9 +163,40 @@ export async function getConversacion(jwt: PatyJwtRecord, id: number): Promise<P
   return jsonFetch<PatyConversacionDetalle>(`/conversacion/${id}`, jwt);
 }
 
-/** Mensajes con meta (GET /conversacion/{id}/logs) — visor ISA PatyIA. */
+/** Mensajes con meta + convLog (GET /conversacion/logs/{id}) — visor ISA PatyIA. */
 export async function getConversacionLogs(jwt: PatyJwtRecord, id: number): Promise<PatyConversacionDetalle> {
-  return jsonFetch<PatyConversacionDetalle>(`/conversacion/${id}/logs`, jwt);
+  return jsonFetch<PatyConversacionDetalle>(`/conversacion/logs/${id}`, jwt);
+}
+
+export function convLogFromDetalle(detail: PatyConversacionDetalle | null | undefined, id?: number): PatyConvLogPayload | null {
+  const raw = detail?.convLog;
+  if (!raw || !Array.isArray(raw.mensajes) || !raw.mensajes.length) return null;
+  const convId = Number(raw.iconversacion ?? detail?.iconversacion ?? id ?? 0);
+  return { ...raw, iconversacion: convId > 0 ? convId : raw.iconversacion };
+}
+
+/** Reintenta hasta que convLog tenga minMensajes (p. ej. tras POST /conversacion). */
+export async function getConversacionLogsWithRetry(
+  jwt: PatyJwtRecord,
+  id: number,
+  { minMensajes = 0, attempts = 8, delayMs = 300 }: { minMensajes?: number; attempts?: number; delayMs?: number } = {},
+): Promise<PatyConversacionDetalle> {
+  let last: PatyConversacionDetalle | null = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const detail = await getConversacionLogs(jwt, id);
+      last = detail;
+      const n = convLogFromDetalle(detail, id)?.mensajes?.length ?? 0;
+      if (!minMensajes || n >= minMensajes) return detail;
+    } catch (e) {
+      if (i === attempts - 1 && !last) throw e;
+    }
+    if (i < attempts - 1) {
+      await new Promise((resolve) => { setTimeout(resolve, delayMs); });
+    }
+  }
+  if (!last) throw new Error(`Log conv-${id} no encontrado`);
+  return last;
 }
 
 export async function deleteConversacion(jwt: PatyJwtRecord, id: number): Promise<void> {
