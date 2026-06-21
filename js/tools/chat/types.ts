@@ -68,7 +68,7 @@ export type ConvLogPayload = {
 };
 
 export type ThreadApplyOptions = {
-  /** Usar mensajesOpenAI del GET PatyIA (prod o /logs) sin mezclar CONVERSACION_LOG del bridge. */
+  /** Usar mensajesOpenAI del GET /conversacion/logs/{id} (incluye convLog en la misma respuesta). */
   openAiDirect?: boolean;
   /** Quitar meta/usageStats del hilo (vista prod; defensa si staging aún devuelve meta). */
   stripMeta?: boolean;
