@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI } from "../core/platform.ts";
+import { getReact, getMaterialUI, getIsaSplitView } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/shared.jsx";
@@ -11,82 +11,12 @@ import { persistLogMeta, mergePartial } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../core/platform.ts";
 import { mobileDrawerPaperProps } from "../ui/mobileDrawer.ts";
 
-const { useState, useCallback, useMemo, useEffect, useRef } = getReact();
+const { useState, useCallback, useMemo, useEffect } = getReact();
 const {
   Box, Typography, TextField, Stack, Alert, Chip, Divider, Tooltip,
-  List, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions,
+  List, ListItemButton, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   Drawer, Fab, IconButton, useTheme, useMediaQuery,
 } = getMaterialUI();
-
-const SIDEBAR_WIDTH_KEY = "isa-patyia:log-sidebar-width";
-const SIDEBAR_DEFAULT = 400;
-const SIDEBAR_MIN = 220;
-const SIDEBAR_MAX = 560;
-
-function clampSidebarWidth(w) {
-  return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
-}
-
-function readSidebarWidth() {
-  try {
-    const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
-    if (Number.isFinite(n)) {
-      const w = clampSidebarWidth(n);
-      if (w === SIDEBAR_MIN) {
-        try {
-          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_DEFAULT));
-        } catch (_) { /* ignore */ }
-        return SIDEBAR_DEFAULT;
-      }
-      return w;
-    }
-  } catch (_) { /* ignore */ }
-  return SIDEBAR_DEFAULT;
-}
-
-function useResizableSidebarWidth() {
-  const [width, setWidth] = useState(() => readSidebarWidth());
-  const [dragging, setDragging] = useState(false);
-  const dragRef = useRef({ startX: 0, startW: SIDEBAR_DEFAULT });
-
-  const onResizeStart = useCallback((e) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    dragRef.current = { startX: e.clientX, startW: width };
-    setDragging(true);
-  }, [width]);
-
-  useEffect(() => {
-    if (!dragging) return undefined;
-    document.body.classList.add("conv-log-resize-active");
-
-    function onMove(ev) {
-      const dx = ev.clientX - dragRef.current.startX;
-      setWidth(clampSidebarWidth(dragRef.current.startW + dx));
-    }
-
-    function onUp() {
-      setDragging(false);
-      setWidth((w) => {
-        const next = clampSidebarWidth(w);
-        try {
-          localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next));
-        } catch (_) { /* ignore */ }
-        return next;
-      });
-    }
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      document.body.classList.remove("conv-log-resize-active");
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [dragging]);
-
-  return { width, dragging, onResizeStart };
-}
 
 function MsgNavList({ items, selectedId, onSelect }) {
   const { Icon } = UI;
@@ -208,56 +138,62 @@ function ResumenDialog({ open, onClose, logInfo, navItems, selectedId, onSelectM
           }}
         />
       </DialogContent>
-      <DialogActions>
-        <ButtonIconify icon="mdi:close" title="Cerrar" onClick={onClose} />
+      <DialogActions sx={{ px: 2, py: 1.25 }}>
+        <Button onClick={onClose} sx={{ textTransform: "none", fontWeight: 600 }}>Cerrar</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, onResizeStart, convId, loading, jsonInput, error, canClear, onConvIdChange, onConvIdKeyDown, recuperarPorId, parsearPegado, limpiar, onJsonInputChange }) {
+function LogEntradaPanel({
+  drawerMode = false,
+  onClose,
+  convId,
+  loading,
+  jsonInput,
+  error,
+  canClear,
+  onConvIdChange,
+  onConvIdKeyDown,
+  recuperarPorId,
+  parsearPegado,
+  limpiar,
+  onJsonInputChange,
+}) {
   const { Icon } = UI;
   return (
     <Box
       className="conv-log-sidebar"
       sx={{
-        position: "relative",
-        width: drawerMode ? "100%" : { xs: "100%", md: sidebarWidth },
-        flexShrink: 0,
-        borderRight: drawerMode ? 0 : { md: 0 },
-        borderBottom: drawerMode ? 0 : { xs: 1, md: 0 },
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        display: drawerMode ? "flex" : { xs: "none", md: "flex" },
+        display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        height: "100%",
-        maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
+        height: drawerMode ? "100%" : "auto",
+        flex: drawerMode ? 1 : undefined,
         overflow: "hidden",
         boxSizing: "border-box",
       }}
     >
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        className="conv-log-sidebar-block"
-        sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
-      >
-        <Icon icon="mdi:database-import-outline" size={20} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
-          Entrada
-        </Typography>
-        {onClose ? (
-          <Tooltip title="Cerrar panel">
-            <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
-              <Icon icon="mdi:close" size={18} />
-            </IconButton>
-          </Tooltip>
-        ) : null}
-      </Stack>
+      {drawerMode ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          justifyContent="flex-end"
+          className="conv-log-sidebar-block"
+          sx={{ py: 0.5, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+        >
+          {onClose ? (
+            <Tooltip title="Cerrar panel">
+              <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
+                <Icon icon="mdi:close" size={18} />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </Stack>
+      ) : null}
 
-      <Box className="conv-log-sidebar-block" sx={{ pt: 1.5, flexShrink: 0 }}>
+      <Box className="conv-log-sidebar-block" sx={{ pt: drawerMode ? 1 : 0, flexShrink: 0 }}>
         <Box className="conv-log-action-grp" role="group" aria-label="Acciones de entrada de log">
           <TextField
             className="conv-log-action-grp__input"
@@ -328,27 +264,16 @@ function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, 
           />
         </Box>
       </Box>
-      {!drawerMode ? (
-        <Box
-          className={`conv-log-resize-handle${dragging ? " is-dragging" : ""}`}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Redimensionar panel Entrada"
-          title="Arrastrar para cambiar ancho"
-          onMouseDown={onResizeStart}
-          sx={{ display: { xs: "none", md: "block" } }}
-        />
-      ) : null}
     </Box>
   );
 }
 
 export function LogViewer({ bootLog = {} }) {
+  const IsaSplitView = getIsaSplitView();
   const { Icon } = UI;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [entradaOpen, setEntradaOpen] = useState(false);
-  const { width: sidebarWidth, dragging, onResizeStart } = useResizableSidebarWidth();
   const [jsonInput, setJsonInput] = useState(bootLog.jsonInput || "");
   const [convId, setConvId] = useState(bootLog.convId || "");
   const [error, setError] = useState("");
@@ -482,9 +407,6 @@ export function LogViewer({ bootLog = {} }) {
   }, []);
 
   const entradaProps = {
-    sidebarWidth,
-    dragging,
-    onResizeStart,
     convId,
     loading,
     jsonInput,
@@ -498,27 +420,8 @@ export function LogViewer({ bootLog = {} }) {
     onJsonInputChange: setJsonInput,
   };
 
-  return (
-    <Box
-      className="conv-log-shell"
-      sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: { xs: "column", md: "row" }, position: "relative" }}
-    >
-      <LogEntradaPanel {...entradaProps} />
-
-      {isMobile ? (
-        <Drawer
-          anchor="left"
-          open={entradaOpen}
-          onClose={() => setEntradaOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          PaperProps={mobileDrawerPaperProps("paty-mobile-sidebar-drawer")}
-        >
-          <LogEntradaPanel {...entradaProps} drawerMode onClose={() => setEntradaOpen(false)} />
-        </Drawer>
-      ) : null}
-
-      {/* Hilo recuperado — driver JSX (estilo ticket web) */}
-      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+  const mainPanel = (
+    <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         {isMobile ? (
           <Stack
             direction="row"
@@ -592,8 +495,43 @@ export function LogViewer({ bootLog = {} }) {
           threadKey={convId || "log-paste"}
           emptyHint="Recupera por ID o pega un log para ver el hilo."
         />
-      </Box>
+    </Box>
+  );
 
+  return (
+    <Box
+      className="conv-log-shell"
+      sx={{ display: "flex", height: "100%", minHeight: 0, flexDirection: "column", position: "relative" }}
+    >
+      {isMobile ? (
+        <>
+          <Drawer
+            anchor="left"
+            open={entradaOpen}
+            onClose={() => setEntradaOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            PaperProps={mobileDrawerPaperProps("paty-mobile-sidebar-drawer")}
+          >
+            <LogEntradaPanel {...entradaProps} drawerMode onClose={() => setEntradaOpen(false)} />
+          </Drawer>
+          {mainPanel}
+        </>
+      ) : (
+        <IsaSplitView
+          className="conv-log-shell-split"
+          sx={{ flex: 1, minHeight: 0 }}
+          panelClassName="conv-log-sidebar"
+          storageKey="isa-patyia:log-sidebar-width"
+          defaultWidth={400}
+          maxWidth={560}
+          panelTitle="Entrada"
+          panelIcon="mdi:database-import-outline"
+          UI={UI}
+          panel={<LogEntradaPanel {...entradaProps} />}
+        >
+          {mainPanel}
+        </IsaSplitView>
+      )}
       {isMobile ? (
         <Fab
           color="primary"

@@ -1,16 +1,34 @@
-import { asset, ensureLightboxZoom } from "./cdn.mjs";
+import { PIN, CDN, ensureLightboxZoom } from "./cdn.mjs";
 
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 
+/** URLs canónicas front-shared — no usar rutas locales relativas al <base>. */
+const BOOT_LOADER_URL = `${CDN}/boot-loader.mjs?v=${PIN}`;
+const ISA_FRONT_BUNDLE_URL = `${CDN}/_dist/isa/js/index.min.js?v=${PIN}`;
+
+async function importBootLoader() {
+  try {
+    return await import(BOOT_LOADER_URL);
+  } catch (cdnErr) {
+    if (!/localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname)) throw cdnErr;
+    try {
+      const local = new URL("../../../../../components/front-shared/cdn/boot-loader.mjs", import.meta.url).href;
+      return await import(local);
+    } catch {
+      throw cdnErr;
+    }
+  }
+}
+
 /** Producción jsDelivr: bundle _dist (esbuild). Fuente isa/js/index.js importa .jsx y falla en el navegador. */
 async function loadIsaFrontPinned(h) {
   if (isDist) {
-    await import(asset("_dist/isa/js/index.min.js"));
+    await import(ISA_FRONT_BUNDLE_URL);
   } else {
     await h.loadIsaFront();
     if (!window.ISAFront?.ensureCodeMirrorLoaded) {
-      await import(asset("_dist/isa/js/index.min.js"));
+      await import(ISA_FRONT_BUNDLE_URL);
     }
   }
   if (!window.ISAFront?.ensureCodeMirrorLoaded) {
@@ -18,7 +36,7 @@ async function loadIsaFrontPinned(h) {
   }
 }
 
-import(asset("boot-loader.mjs")).then(({ mountBoot, getBabel, importBootHelper }) => {
+importBootLoader().then(({ mountBoot, getBabel, importBootHelper }) => {
   mountBoot(async () => {
     if (bootHold) return;
     const h = await importBootHelper();

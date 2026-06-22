@@ -4,8 +4,44 @@ export const CHAT_SIDEBAR_W = 320;
 export const MAX_CHAT_IMAGES = 10;
 export const MAX_CHAT_AUDIOS = 5;
 export const TERCEROS_AUDIT_PAGE_SIZE = 15;
-export const CONV_LIST_PAGE_SIZE = 100;
+/** Opciones de paginación del sidebar de conversaciones (30 por defecto). */
+export const CONV_LIST_PAGE_SIZE_OPTIONS = [30, 15, 50] as const;
+export type ConvListPageSize = (typeof CONV_LIST_PAGE_SIZE_OPTIONS)[number];
+export const CONV_LIST_PAGE_SIZE_LS_KEY = "patyia:chat:conv-list-page-size:v2";
+const CONV_LIST_PAGE_SIZE_LS_KEY_LEGACY = "patyia:chat:conv-list-page-size";
+export const CONV_LIST_PAGE_SIZE_DEFAULT: ConvListPageSize = 30;
 
+export function parseConvListPageSize(raw: unknown): ConvListPageSize {
+  if (raw == null || raw === "") return CONV_LIST_PAGE_SIZE_DEFAULT;
+  const n = Number(raw);
+  return (CONV_LIST_PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
+    ? (n as ConvListPageSize)
+    : CONV_LIST_PAGE_SIZE_DEFAULT;
+}
+
+export function readConvListPageSize(): ConvListPageSize {
+  try {
+    const stored = localStorage.getItem(CONV_LIST_PAGE_SIZE_LS_KEY);
+    if (stored != null && stored !== "") return parseConvListPageSize(stored);
+    const legacy = localStorage.getItem(CONV_LIST_PAGE_SIZE_LS_KEY_LEGACY);
+    if (legacy === "50") {
+      persistConvListPageSize(50);
+      return 50;
+    }
+    return CONV_LIST_PAGE_SIZE_DEFAULT;
+  } catch {
+    return CONV_LIST_PAGE_SIZE_DEFAULT;
+  }
+}
+
+export function persistConvListPageSize(size: ConvListPageSize): void {
+  try {
+    localStorage.setItem(CONV_LIST_PAGE_SIZE_LS_KEY, String(size));
+  } catch { /* ignore */ }
+}
+
+/** @deprecated usar readConvListPageSize() */
+export const CONV_LIST_PAGE_SIZE = CONV_LIST_PAGE_SIZE_DEFAULT;
 export type ChatMessageSource = "prod" | "logs";
 
 export function parseChatMessageSource(raw: unknown): ChatMessageSource {
@@ -23,5 +59,18 @@ export function readChatMessageSource(bootChat?: { messageSource?: unknown }): C
 /** null si la URL no define messageSource (no resetear el default en memoria). */
 export function messageSourceFromUrl(chat: Record<string, unknown> | undefined): ChatMessageSource | null {
   if (chat?.messageSource === "prod" || chat?.messageSource === "logs") return chat.messageSource;
+  return null;
+}
+
+export function readChatJailbreak(bootChat?: { jailbreak?: unknown }): boolean {
+  if (bootChat?.jailbreak === true) return true;
+  const chat = getSnapshot().chat as Record<string, unknown> | undefined;
+  return chat?.jailbreak === true;
+}
+
+/** null si la URL no define jailbreak. */
+export function jailbreakFromUrl(chat: Record<string, unknown> | undefined): boolean | null {
+  if (chat?.jailbreak === true) return true;
+  if (chat?.jailbreak === false) return false;
   return null;
 }

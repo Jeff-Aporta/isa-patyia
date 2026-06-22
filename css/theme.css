@@ -29,6 +29,18 @@
   --conv-log-mesh-light:
   radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30, 144, 255, 0.12), transparent 55%),
   linear-gradient(180deg, #f0f6ff 0%, #f8fafc 100%);
+  --isa-glass-body-dark:
+  radial-gradient(ellipse 85% 55% at 10% -5%, rgba(99, 102, 241, 0.16), transparent 52%),
+  radial-gradient(ellipse 65% 45% at 98% 12%, rgba(0, 229, 255, 0.09), transparent 48%),
+  linear-gradient(165deg, rgba(30, 144, 255, 0.08) 0%, rgba(99, 102, 241, 0.04) 38%, rgba(15, 23, 42, 0.55) 100%);
+  --isa-glass-body-light:
+  radial-gradient(ellipse 85% 55% at 10% -5%, rgba(30, 144, 255, 0.1), transparent 52%),
+  radial-gradient(ellipse 65% 45% at 98% 12%, rgba(99, 102, 241, 0.06), transparent 48%),
+  linear-gradient(165deg, rgba(30, 144, 255, 0.04) 0%, rgba(248, 250, 252, 0.92) 55%, rgba(255, 255, 255, 0.96) 100%);
+  --isa-glass-inner-dark:
+  linear-gradient(160deg, rgba(30, 144, 255, 0.1) 0%, rgba(99, 102, 241, 0.05) 48%, rgba(15, 23, 42, 0.34) 100%);
+  --isa-glass-inner-light:
+  linear-gradient(160deg, rgba(30, 144, 255, 0.04) 0%, rgba(248, 250, 252, 0.92) 55%, rgba(255, 255, 255, 0.94) 100%);
 }
 
 * {

@@ -2,13 +2,13 @@ import { getReact, getMaterialUI } from "../core/platform.ts";
 import {
   tokensFromUsage,
   formatUsageUsd,
+  formatUsageTokens,
   formatUsageBreakdownParts,
-  formatTokensWithUsd,
   usageHasData,
 } from "../core/convLog.ts";
 import { CodeMirrorPanel } from "../core/platform.ts";
-import { mdToHtml } from "../core/platform.ts";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
+import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogTabsSx, resolveMetaDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
 
 export { mdToHtml } from "../core/platform.ts";
 
@@ -35,7 +35,7 @@ export function ButtonIconify({ icon, title = "", label = "", onClick, disabled 
 }
 
 const { useState, useEffect, useMemo } = getReact();
-const { createTheme, Dialog, DialogTitle, DialogContent, Tabs, Tab, Box, Typography } = getMaterialUI();
+const { createTheme, Tabs, Tab, Box, Typography, DialogContent } = getMaterialUI();
 
 function isOpenAiPmptId(id) {
   return /^pmpt_/i.test(String(id ?? "").trim());
@@ -75,7 +75,19 @@ function buildUsageRowMetrics(tokens, cost) {
   });
 }
 
-function MetaUsageGrid({ sections }) {
+function UsageMetricCell({ tok, usd, showUsd = true }) {
+  const tokLabel = formatUsageTokens(tok);
+  const usdLabel = showUsd ? formatUsageUsd(usd) : null;
+  const empty = tokLabel === "—" && (!showUsd || usdLabel === "—");
+  return (
+    <span className={`meta-prompt-stat__usage-grid-cell${empty ? " meta-prompt-stat__usage-grid-cell--empty" : ""}`}>
+      <span className="meta-prompt-stat__usage-tok">{tokLabel}</span>
+      {showUsd ? <span className="meta-prompt-stat__usage-usd">{usdLabel}</span> : null}
+    </span>
+  );
+}
+
+function MetaUsageGrid({ sections, hideRowLabels = false, className = "" }) {
   const rows = (sections || []).map((s) => ({
     ...s,
     metrics: buildUsageRowMetrics(s.tokens, s.cost),
@@ -87,12 +99,15 @@ function MetaUsageGrid({ sections }) {
 
   if (!visibleCols.length) return null;
 
-  const gridTemplateColumns = `5.5rem repeat(${visibleCols.length}, minmax(6.25rem, 1fr))`;
+  const gridTemplateColumns = hideRowLabels
+    ? `repeat(${visibleCols.length}, minmax(5.5rem, 1fr))`
+    : `5.75rem repeat(${visibleCols.length}, minmax(5.5rem, 1fr))`;
+  const gridStyle = { gridTemplateColumns };
 
   return (
-    <div className="meta-prompt-stat__usage-grid" style={{ gridTemplateColumns }}>
-      <div className="meta-prompt-stat__usage-grid-head">
-        <span className="meta-prompt-stat__usage-grid-corner" aria-hidden="true" />
+    <div className={`meta-prompt-stat__usage-grid ${className}`.trim()}>
+      <div className="meta-prompt-stat__usage-grid-head" style={gridStyle}>
+        {!hideRowLabels ? <span className="meta-prompt-stat__usage-grid-corner" aria-hidden="true" /> : null}
         {visibleCols.map((col) => (
           <span key={col.key} className="meta-prompt-stat__usage-grid-col-h">
             {col.label}
@@ -100,23 +115,33 @@ function MetaUsageGrid({ sections }) {
         ))}
       </div>
       {rows.map((row) => (
-        <div key={row.key} className={`meta-prompt-stat__usage-grid-row meta-prompt-stat__usage-grid-row--${row.key}`}>
-          <span className={`meta-prompt-stat__usage-group-label meta-prompt-stat__usage-group-label--${row.key}`}>
-            {row.label}
-          </span>
+        <div key={row.key} className={`meta-prompt-stat__usage-grid-row meta-prompt-stat__usage-grid-row--${row.key}`} style={gridStyle}>
+          {!hideRowLabels ? (
+            <span className={`meta-prompt-stat__usage-group-label meta-prompt-stat__usage-group-label--${row.key}`}>
+              {row.label}
+            </span>
+          ) : null}
           {visibleCols.map((col) => {
             const metric = row.metrics.find((m) => m.key === col.key);
             const usd = col.key === "reason" ? 0 : (metric?.usd ?? 0);
             return (
-              <span key={col.key} className="meta-prompt-stat__usage-grid-cell">
-                {formatTokensWithUsd(metric?.tok ?? 0, usd)}
-              </span>
+              <UsageMetricCell
+                key={col.key}
+                tok={metric?.tok ?? 0}
+                usd={usd}
+                showUsd={col.key !== "reason"}
+              />
             );
           })}
         </div>
       ))}
     </div>
   );
+}
+
+/** Cuadrícula neon de tokens/USD — reutilizable en meta y diálogo de uso. */
+export function UsageMetricsGrid(props) {
+  return MetaUsageGrid(props);
 }
 
 function filterDisplayableImages(list) {
@@ -339,10 +364,20 @@ export function MetaDialog({
       <div className="meta-prompt-panel custom-scrollbar">
         <PromptSummaryCard meta={resolvedMeta} tokens={tk} usageStats={usageStats} isUserMessage={isUserMessage} />
         {promptMarkdown ? (
-          <div
-            className="prompt-md-preview msg-body meta-prompt-md"
-            dangerouslySetInnerHTML={{ __html: mdToHtml(promptMarkdown) }}
-          />
+          <Box className="meta-prompt-exact-wrap">
+            <CodeMirrorPanel
+              value={promptMarkdown}
+              readOnly
+              lineWrapping
+              lineNumbers
+              minHeight="8rem"
+              maxHeight="min(52dvh, 28rem)"
+              copyTitle="Copiar prompt exacto"
+              enableFullPage
+              fullPageTitle={isUserMessage ? "Consulta · texto exacto" : "Prompt · texto exacto"}
+              className="meta-prompt-exact-cm"
+            />
+          </Box>
         ) : null}
         {userImagenes.length ? (
           <MetaDialogImages items={userImagenes} onImageClick={setLightboxSrc} topGap={promptMarkdown ? 1.25 : 0} />
@@ -358,21 +393,32 @@ export function MetaDialog({
     );
   }
 
+  const headerMeta = resolveMetaDialogHeader(title, isUserMessage);
+
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle sx={{ pb: hasPrompt ? 0 : undefined }}>{title}</DialogTitle>
+      <GlassDialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        header={(
+          <GlassDialogHeader
+            icon={headerMeta.icon}
+            title={headerMeta.title}
+            subtitle={headerMeta.subtitle}
+            accent={headerMeta.accent}
+            onClose={onClose}
+          />
+        )}
+      >
         {hasPrompt && (
-          <Tabs
-            value={tab}
-            onChange={(_, next) => setTab(next)}
-            sx={{ px: 2, minHeight: 42, borderBottom: 1, borderColor: "divider" }}
-          >
+          <Tabs value={tab} onChange={(_, next) => setTab(next)} sx={glassDialogTabsSx()}>
             <Tab label="Trazabilidad" />
             <Tab label={promptTabLabel} />
           </Tabs>
         )}
-        <DialogContent dividers sx={{ p: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <DialogContent dividers sx={glassDialogContentSx()}>
           <Box sx={{ display: tab === 0 || !hasPrompt ? "block" : "none", minHeight: 0 }}>
             {renderMetaGrid()}
           </Box>
@@ -382,7 +428,8 @@ export function MetaDialog({
             </Box>
           )}
         </DialogContent>
-      </Dialog>
+        <GlassDialogCloseActions onClose={onClose} />
+      </GlassDialog>
       <ImageLightboxDialog open={Boolean(lightboxSrc)} src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </>
   );

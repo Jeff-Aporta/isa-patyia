@@ -1,13 +1,14 @@
 import { getMaterialUI, UI } from "../../core/platform.ts";
 import { convBelongsToJwt } from "../../core/patyia-jwt.ts";
-import { CHAT_SIDEBAR_W } from "./constants.ts";
+import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTIONS } from "./constants.ts";
 import { formatTs } from "./mensajesModel.ts";
 import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
+import { ConvSearchAutocomplete } from "./ConvSearchAutocomplete.jsx";
 import { resolveOwnerNickname } from "./auditScope.ts";
 
 const {
   Box, Typography, Button, IconButton, List, ListItemButton, ListItemText,
-  CircularProgress, Tooltip, Stack, Divider, Chip,
+  CircularProgress, Tooltip, Stack, Divider, Chip, Select, MenuItem, FormControl,
 } = getMaterialUI();
 const { Icon } = UI;
 
@@ -25,7 +26,27 @@ function MessageSourceSwitch({ messageSource, onChange }) {
   );
 }
 
-export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, canSend, needsJwt, listScope, sessionScopeLoading, viewingAuditOther, auditScope, convListOwnerLabel, convListHeader, showJwtBadge, loadingList, rows, selectedId, convListMeta, convListPage, messageSource = "logs", onMessageSourceChange, onOpenJwt, onOpenAudit, onNewChat, onOpenConv, onDelete, onConvListPageChange, drawerMode = false, onClose }) {
+function JailbreakSwitch({ jailbreak, onChange }) {
+  const active = Boolean(jailbreak);
+  const title = active
+    ? "Respuesta libre activa · clic para modo normal"
+    : "Modo normal · clic para respuesta libre (pruebas)";
+  return (
+    <Tooltip title={title}>
+      <IconButton
+        color={active ? "warning" : "inherit"}
+        size="small"
+        onClick={() => onChange?.(!active)}
+        aria-label={active ? "Desactivar respuesta libre" : "Activar respuesta libre"}
+        aria-pressed={active}
+      >
+        <Icon icon={active ? "mdi:lock-open-variant" : "mdi:lock-outline"} size={18} />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, canSend, needsJwt, listScope, sessionScopeLoading, viewingAuditOther, auditScope, convListOwnerLabel, convListHeader, showJwtBadge, loadingList, rows, selectedId, convListMeta, convListPage, convListPageSize = CONV_LIST_PAGE_SIZE_DEFAULT, convListSearch = "", onConvListSearchChange, messageSource = "logs", jailbreak = false, onMessageSourceChange, onJailbreakChange, onOpenJwt, onOpenAudit, onNewChat, onOpenConv, onDelete, onConvListPageChange, onConvListPageSizeChange, drawerMode = false, onClose }) {
   const handleOpenConv = (id) => { onOpenConv(id); onClose?.(); };
   const handleNewChat = () => { onNewChat(); onClose?.(); };
 
@@ -57,9 +78,7 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
         sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
       >
         <Icon icon="mdi:chat-outline" size={20} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>
-          Paty IA · staging
-        </Typography>
+        <Box sx={{ flex: 1 }} />
         {onClose ? (
           <Tooltip title="Cerrar panel">
             <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
@@ -68,6 +87,7 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
           </Tooltip>
         ) : null}
         {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
+        {onJailbreakChange ? <JailbreakSwitch jailbreak={jailbreak} onChange={onJailbreakChange} /> : null}
         <Tooltip title="Cambiar token JWT">
           <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
             <Icon icon="mdi:key-variant" size={18} />
@@ -103,7 +123,7 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
       <Divider sx={{ my: 1 }} />
 
       <Box className="conv-log-sidebar-block paty-chat-sidebar-list-head" sx={{ flexShrink: 0, pb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600, mb: 0.5 }}>
           Conversaciones
           {(jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? (
             <Stack
@@ -149,9 +169,22 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
             </Typography>
           ) : null}
         </Typography>
+        <ConvSearchAutocomplete
+          rows={rows}
+          loading={loadingList}
+          search={convListSearch}
+          onSearchChange={onConvListSearchChange}
+          selectedId={selectedId}
+          onSelectConv={handleOpenConv}
+          disabled={needsJwt && !listScope?.icontacto}
+        />
       </Box>
 
-      <Box className="conv-log-sidebar-block paty-chat-sidebar-list-scroll" sx={{ flex: 1, minHeight: 0, overflow: "auto", pb: 1.5 }}>
+      <Box
+        className="conv-log-sidebar-block paty-chat-sidebar-list-scroll"
+        sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <Box className="paty-chat-sidebar-list-inner" sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <List dense disablePadding>
           {loadingList && !rows.length && (
             <Box sx={{ py: 2, textAlign: "center" }}><CircularProgress size={22} /></Box>
@@ -215,30 +248,99 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
             );
           })}
         </List>
-        {convListMeta && convListMeta.pages > 1 ? (
-          <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="space-between" sx={{ mt: 1, px: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              {convListMeta.total.toLocaleString("es-CO")} · pág. {convListMeta.page}/{convListMeta.pages}
-            </Typography>
-            <Stack direction="row" spacing={0.25}>
-              <IconButton
-                size="small"
-                aria-label="Página anterior"
-                disabled={loadingList || convListPage <= 1}
-                onClick={() => onConvListPageChange((p) => Math.max(1, p - 1))}
+        </Box>
+        {convListMeta ? (
+          <Box className="conv-log-sidebar-block paty-chat-sidebar-list-foot paty-chat-sidebar-list-foot--sticky" sx={{ flexShrink: 0, pt: 0.5, pb: 0.5, px: 0 }}>
+            <Box className="paty-chat-conv-pager" role="navigation" aria-label="Paginación de conversaciones">
+              <Typography
+                component="span"
+                variant="caption"
+                className="paty-chat-conv-pager__meta"
+                aria-label={`Página ${convListMeta.page} de ${Math.max(convListMeta.pages, 1)}`}
               >
-                <Icon icon="mdi:chevron-left" size={18} />
-              </IconButton>
-              <IconButton
-                size="small"
-                aria-label="Página siguiente"
-                disabled={loadingList || convListPage >= convListMeta.pages}
-                onClick={() => onConvListPageChange((p) => p + 1)}
-              >
-                <Icon icon="mdi:chevron-right" size={18} />
-              </IconButton>
-            </Stack>
-          </Stack>
+                {convListMeta.page}/{Math.max(convListMeta.pages, 1)}
+              </Typography>
+              <Stack direction="row" spacing={0.35} alignItems="center" className="paty-chat-conv-pager__controls">
+                {onConvListPageSizeChange ? (
+                  <Tooltip title="Conversaciones por página">
+                    <FormControl className="paty-chat-conv-pager__size" sx={{ m: 0, minWidth: 44 }}>
+                      <Select
+                        value={convListPageSize}
+                        onChange={(e) => onConvListPageSizeChange(Number(e.target.value))}
+                        aria-label="Conversaciones por página"
+                        disabled={loadingList}
+                        variant="outlined"
+                        sx={{
+                          height: "24px !important",
+                          minHeight: "24px !important",
+                          maxHeight: "24px !important",
+                          fontSize: "0.58rem",
+                          "&.MuiInputBase-root": {
+                            height: "24px !important",
+                            minHeight: "24px !important",
+                            maxHeight: "24px !important",
+                          },
+                          "& .MuiOutlinedInput-notchedOutline": { top: 0 },
+                          "& .MuiSelect-select": {
+                            py: "0 !important",
+                            px: "5px !important",
+                            pr: "14px !important",
+                            minHeight: "22px !important",
+                            height: "22px !important",
+                            maxHeight: "22px !important",
+                            lineHeight: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            boxSizing: "border-box",
+                          },
+                          "& .MuiSelect-icon": {
+                            fontSize: "0.8rem",
+                            right: 1,
+                            top: "calc(50% - 0.4rem)",
+                          },
+                        }}
+                        MenuProps={{ PaperProps: { sx: { "& .MuiMenuItem-root": { minHeight: 24, py: 0.2, fontSize: "0.68rem" } } } }}
+                      >
+                        {CONV_LIST_PAGE_SIZE_OPTIONS.map((n) => (
+                          <MenuItem key={n} value={n}>{n}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Tooltip>
+                ) : null}
+                {convListMeta.pages > 1 ? (
+                  <Stack direction="row" spacing={0.5} className="paty-chat-conv-pager__nav">
+                    <Tooltip title="Página anterior">
+                      <span>
+                        <IconButton
+                          size="small"
+                          className="paty-chat-conv-pager__btn"
+                          aria-label="Página anterior"
+                          disabled={loadingList || convListPage <= 1}
+                          onClick={() => onConvListPageChange((p) => Math.max(1, p - 1))}
+                        >
+                          <Icon icon="mdi:chevron-left" size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="Página siguiente">
+                      <span>
+                        <IconButton
+                          size="small"
+                          className="paty-chat-conv-pager__btn"
+                          aria-label="Página siguiente"
+                          disabled={loadingList || convListPage >= convListMeta.pages}
+                          onClick={() => onConvListPageChange((p) => p + 1)}
+                        >
+                          <Icon icon="mdi:chevron-right" size={16} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                ) : null}
+              </Stack>
+            </Box>
+          </Box>
         ) : null}
       </Box>
     </Box>

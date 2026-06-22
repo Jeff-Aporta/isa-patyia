@@ -93,6 +93,60 @@ function stripUrlStateParam() {
   } catch { /* ignore */ }
 }
 
+/** Migra ?tool=log&log.convId=… → ?s= (b64url JSON) antes de leer el estado. */
+function migrateLegacyFlatQuery() {
+  if (typeof window === "undefined" || !window.ISAFront?.b64urlEncode) return;
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.has(URL_STATE_PARAM)) return;
+    const tool = url.searchParams.get("tool");
+    const legacyKeys = [...url.searchParams.keys()].filter(
+      (k) => k === "tool" || k === "local" || k.includes("."),
+    );
+    if (!legacyKeys.length) return;
+
+    const next: Record<string, unknown> = {
+      v: STATE_VERSION,
+      tool: normalizeTool(tool),
+      local: url.searchParams.get("local") === "1" || url.searchParams.get("local") === "true",
+      log: {},
+      prompts: {},
+      chat: {},
+      todos: {},
+    };
+
+    for (const [key, raw] of url.searchParams.entries()) {
+      if (key === "tool" || key === "local") continue;
+      const dot = key.indexOf(".");
+      if (dot < 0) continue;
+      const section = key.slice(0, dot);
+      const field = key.slice(dot + 1);
+      if (section !== "log" && section !== "prompts" && section !== "chat" && section !== "todos") continue;
+      const bag = (next[section] as Record<string, unknown>) || {};
+      if (field === "convId" && (section === "chat" || section === "log")) {
+        const n = Number(raw);
+        bag.convId = Number.isFinite(n) && n > 0 ? n : String(raw ?? "").trim();
+      } else if (field === "jailbreak") {
+        bag.jailbreak = raw === "1" || raw === "true";
+      } else if (field === "boardId" || field === "milestoneId" || field === "taskId") {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) bag[field] = n;
+      } else {
+        bag[field] = raw;
+      }
+      next[section] = bag;
+    }
+
+    legacyKeys.forEach((k) => url.searchParams.delete(k));
+    const slim = slimForUrl(next);
+    const json = JSON.stringify(slim);
+    if (json !== "{}") url.searchParams.set(URL_STATE_PARAM, window.ISAFront.b64urlEncode(json));
+    history.replaceState(null, "", url);
+  } catch { /* ignore */ }
+}
+
+migrateLegacyFlatQuery();
+
 const urlState = window.ISAFront.createUrlState({
   param: URL_STATE_PARAM,
   debounceMs: 350,
@@ -151,4 +205,12 @@ export function persistChatMessageSource(source: "prod" | "logs") {
   const prev = (snap.chat as Record<string, unknown>)?.messageSource;
   if (prev === source) return snap;
   return mergePartial({ tool: "chat", chat: { messageSource: source } });
+}
+
+/** Jailbreak staging — respuesta libre en ?s=.chat.jailbreak */
+export function persistChatJailbreak(enabled: boolean) {
+  const snap = getSnapshot();
+  const prev = !!(snap.chat as Record<string, unknown>)?.jailbreak;
+  if (prev === enabled) return snap;
+  return mergePartial({ tool: "chat", chat: { jailbreak: enabled } });
 }

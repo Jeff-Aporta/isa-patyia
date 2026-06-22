@@ -3,9 +3,10 @@
  */
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
-import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta } from "./shared.jsx";
+import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetricsGrid } from "./shared.jsx";
+import { GlassDialog, GlassDialogHeader, glassDialogContentSx, resolveUsageDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
-import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageBreakdownParts, formatUsageSummary, formatLatencySeconds, formatTokensWithUsd, usageHasData } from "../core/convLog.ts";
+import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageSummary, formatLatencySeconds, usageHasData } from "../core/convLog.ts";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
 
@@ -446,11 +447,9 @@ function MetaBadge({ tag, label, tone = "neutral", title }) {
   );
 }
 
-function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "left", cardTitle = "" }) {
-  if (!meta) return null;
-  const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
+function buildMetaClassificationChips(meta, cardTitle = "", { isUser = false } = {}) {
+  if (!meta) return [];
   const chips = [];
-
   if (meta.premisas?.length) {
     for (const p of meta.premisas) {
       if (chipRedundantWithTitle(p, cardTitle)) continue;
@@ -465,7 +464,6 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
       title: `Consulta operativa: ${meta.extra.operativa_key}`,
     });
   }
-  const instrKey = !isUser ? instructionKeyFromMeta(meta) : null;
   if (meta.itdconsulta && !chipRedundantWithTitle(meta.itdconsulta, cardTitle)) {
     chips.push({
       key: "itd",
@@ -474,10 +472,19 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
       title: `itdconsulta: ${meta.itdconsulta}`,
     });
   }
+  const instrKey = !isUser ? instructionKeyFromMeta(meta) : null;
   if (instrKey && instrKey !== meta.extra?.operativa_key && instrKey !== meta.itdconsulta && !chipRedundantWithTitle(instrKey, cardTitle)) {
     chips.push({ key: "pmpt", label: instrKey, tone: "context", title: `Instrucción: ${instrKey}` });
   }
-  if (!hideUsageMetrics && meta.model) {
+  return chips;
+}
+
+function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClassificationChips = false, align = "left", cardTitle = "" }) {
+  if (!meta) return null;
+  const hideUsage = hideUsageMetrics || isUser;
+  const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
+  const chips = hideClassificationChips ? [] : buildMetaClassificationChips(meta, cardTitle, { isUser });
+  if (!hideUsage && meta.model) {
     chips.push({
       key: "model",
       label: meta.model,
@@ -485,16 +492,16 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, align = "
       title: meta.modelo_autoswitch_vision ? "Modelo usado (autoswitch visión)" : "Modelo LLM",
     });
   }
-  if (!hideUsageMetrics && meta.modelo_autoswitch_vision) {
+  if (!hideUsage && meta.modelo_autoswitch_vision) {
     const sw = visionAutoswitchBadge(meta);
     if (sw) {
       chips.push({ key: "vision-sw", label: sw.label, tone: "vision", title: sw.title });
     }
   }
-  if (!hideUsageMetrics && meta.latency_ms != null && meta.latency_ms > 0) {
+  if (!hideUsage && meta.latency_ms != null && meta.latency_ms > 0) {
     chips.push({ key: "lat", label: `${meta.latency_ms}ms`, tone: "metric", title: "Latencia" });
   }
-  if (!hideUsageMetrics && tk?.total > 0) {
+  if (!hideUsage && tk?.total > 0) {
     chips.push({ key: "tok", label: tk.total.toLocaleString("es-CO"), tone: "metric", title: `Tokens: ${tk.total}` });
   }
   if (meta.stream_ok === false) {
@@ -644,95 +651,36 @@ function UsageSummaryChip({ label, className = "", title, tag }) {
   );
 }
 
-function UsageBreakdownTable({ parts }) {
-  const { Box, Typography } = getMaterialUI();
-  return (
-    <Box className="conv-usage-dialog__table" component="table">
-      <Box component="thead">
-        <Box component="tr">
-          <Box component="th">Concepto</Box>
-          <Box component="th">Tokens (USD)</Box>
-        </Box>
-      </Box>
-      <Box component="tbody">
-        {parts.map((part) => (
-          <Box
-            component="tr"
-            key={part.key}
-            className={part.hasData ? "" : "conv-usage-dialog__row--empty"}
-          >
-            <Box component="td">
-              <Typography component="span" className="conv-usage-dialog__concept">
-                {part.labelFull}
-              </Typography>
-              {part.key !== "total" && (
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
-                  ({part.label})
-                </Typography>
-              )}
-            </Box>
-            <Box component="td" className="conv-usage-dialog__mono conv-usage-dialog__val">
-              {formatTokensWithUsd(part.tok, part.usd)}
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
-function UsageDialogMetaPanel({ meta, tokens }) {
+function UsageDialogMetaPanel({ meta }) {
   const { Box } = getMaterialUI();
-  const tk = tokens || {};
   const ctxItems = buildUsageDialogCtxItems(meta);
-
-  const tokItems = [
-    { key: "in", label: "in", value: Number(tk.input ?? 0) || 0 },
-    { key: "cached", label: "cached", value: Number(tk.cached ?? 0) || 0 },
-    { key: "out", label: "out", value: Number(tk.output ?? 0) || 0 },
-    { key: "reason", label: "reason", value: Number(tk.reasoning ?? 0) || 0 },
-    { key: "total", label: "total", value: Number(tk.total ?? 0) || 0 },
-  ].filter((item) => item.key === "total" || item.key === "in" || item.key === "out" || item.value > 0);
-
-  if (!ctxItems.length && !tokItems.length) return null;
+  if (!ctxItems.length) return null;
 
   return (
-    <Box className="conv-usage-dialog__meta">
-      {ctxItems.length > 0 ? (
-        <div className="conv-usage-dialog__ctx-grid">
-          {ctxItems.map((item) => (
-            <div
-              key={item.key}
-              className={[
-                "conv-usage-dialog__ctx-item",
-                item.wide ? "conv-usage-dialog__ctx-item--wide" : "",
-                item.vision ? "conv-usage-dialog__ctx-item--vision" : "",
-              ].filter(Boolean).join(" ") || undefined}
-            >
-              <span className="conv-usage-dialog__ctx-k">{item.label}</span>
-              <span className={`conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`}>
-                {item.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {tokItems.length > 0 ? (
-        <div className="conv-usage-dialog__tok-grid">
-          {tokItems.map((item) => (
-            <div key={item.key} className="conv-usage-dialog__tok-item">
-              <span className="conv-usage-dialog__tok-k">{item.label}</span>
-              <span className="conv-usage-dialog__tok-v conv-usage-dialog__mono">{item.value.toLocaleString("es-CO")}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <Box className="conv-usage-dialog__meta conv-usage-dialog__meta--ctx">
+      <div className="conv-usage-dialog__ctx-grid">
+        {ctxItems.map((item) => (
+          <div
+            key={item.key}
+            className={[
+              "conv-usage-dialog__ctx-item",
+              item.wide ? "conv-usage-dialog__ctx-item--wide" : "",
+              item.vision ? "conv-usage-dialog__ctx-item--vision" : "",
+            ].filter(Boolean).join(" ") || undefined}
+          >
+            <span className="conv-usage-dialog__ctx-k">{item.label}</span>
+            <span className={`conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`}>
+              {item.value}
+            </span>
+          </div>
+        ))}
+      </div>
     </Box>
   );
 }
 
 function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
-  const { Dialog, DialogTitle, DialogContent, Typography, Box, Divider, Stack } = getMaterialUI();
+  const { DialogContent, Typography, Box } = getMaterialUI();
   if (!stats) return null;
 
   const sections = [
@@ -763,52 +711,59 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
   ].filter((s) => s.show);
 
   const opKey = meta?.extra?.operativa_key;
+  const header = resolveUsageDialogHeader(msgLabel, fecha, opKey);
   const showMetaPanel = Boolean(
     meta?.ts
     || meta?.model
     || meta?.modelo_autoswitch_vision
     || formatLatencySeconds(meta?.latency_ms)
-    || meta?.itdconsulta
-    || (Number(stats.tokens?.total ?? 0) > 0)
-    || (Number(stats.tokens?.output ?? 0) > 0),
+    || meta?.itdconsulta,
   );
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth scroll="paper">
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" component="div" sx={{ fontSize: "1.05rem", fontWeight: 700 }}>
-          Uso · {msgLabel || "Mensaje"}
-        </Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-          {fecha ? (
-            <Typography variant="caption" color="text.secondary">{fecha}</Typography>
-          ) : null}
-          {opKey ? (
-            <Typography variant="caption" color="text.secondary">{fecha ? " · " : ""}{opKey}</Typography>
-          ) : null}
-        </Stack>
-      </DialogTitle>
-      <DialogContent dividers className="conv-usage-dialog">
-        {showMetaPanel ? <UsageDialogMetaPanel meta={meta} tokens={stats.tokens} /> : null}
-        {showMetaPanel && sections.length > 0 ? <Divider sx={{ my: 2 }} /> : null}
-        {sections.map((section, idx) => (
-          <Box key={section.key} sx={{ mb: idx < sections.length - 1 ? 2.5 : 0 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
-              {section.title}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.25 }}>
-              {section.subtitle}
-            </Typography>
-            <UsageBreakdownTable parts={formatUsageBreakdownParts(section.tokens, section.cost)} />
-            {idx < sections.length - 1 ? <Divider sx={{ mt: 2.5 }} /> : null}
-          </Box>
-        ))}
+    <GlassDialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      header={(
+        <GlassDialogHeader
+          icon={header.icon}
+          title={header.title}
+          subtitle={header.subtitle}
+          accent={header.accent}
+          onClose={onClose}
+        />
+      )}
+    >
+      <DialogContent dividers className="conv-usage-dialog" sx={glassDialogContentSx({ p: { xs: 1.5, sm: 2 } })}>
+        <Box className="conv-usage-dialog__stack">
+          {showMetaPanel ? <UsageDialogMetaPanel meta={meta} /> : null}
+          {sections.map((section) => (
+            <Box key={section.key} className={`conv-usage-dialog__section-card conv-usage-dialog__section-card--${section.key}`}>
+              <div className="conv-usage-dialog__section-head">
+                <Typography component="h3" variant="subtitle2" className="conv-usage-dialog__section-title">
+                  {section.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" className="conv-usage-dialog__section-sub">
+                  {section.subtitle}
+                </Typography>
+              </div>
+              <UsageMetricsGrid
+                className="conv-usage-dialog__metrics"
+                hideRowLabels
+                sections={[{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]}
+              />
+            </Box>
+          ))}
+        </Box>
       </DialogContent>
-    </Dialog>
+      <GlassDialogCloseActions onClose={onClose} />
+    </GlassDialog>
   );
 }
 
-function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
+function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta, isUser = false }) {
   const { Box } = getMaterialUI();
   const [open, setOpen] = useState(false);
 
@@ -819,7 +774,8 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
   const metaTk = meta?.tokens?.total ? meta.tokens : tokensFromUsage(meta?.usage);
   const metaTokTotal = Number(metaTk?.total ?? 0) || 0;
   const metaTokLabel = metaTokTotal > 0 ? metaTokTotal.toLocaleString("es-CO") : "";
-  const showMetaBadges = Boolean(modelLabel || latencyLabel || autoswitchBadge || metaTokLabel);
+  const contextChips = buildMetaClassificationChips(meta, msgLabel, { isUser });
+  const showMetaBadges = Boolean(modelLabel || latencyLabel || autoswitchBadge || metaTokLabel || contextChips.length);
 
   const hasUsage = Boolean(
     stats
@@ -829,7 +785,7 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
 
   const msgSummary = hasUsage ? formatUsageSummary(stats.tokens, stats.cost) : null;
   const cumSummary = hasUsage ? formatUsageSummary(stats.cumulativeTokens, stats.cumulativeCost) : null;
-  const showCum = hasUsage && usageHasData(stats.cumulativeTokens, stats.cumulativeCost);
+  const showCum = hasUsage && !isUser && usageHasData(stats.cumulativeTokens, stats.cumulativeCost);
 
   const groups = hasUsage
     ? [
@@ -896,6 +852,9 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta }) {
       >
         {showMetaBadges ? (
           <Box className={`conv-msg-usage-stats__meta conv-msg-usage-stats__meta--${align}`}>
+            {contextChips.map((c) => (
+              <MetaBadge key={c.key} label={c.label} tone={c.tone} title={c.title} />
+            ))}
             {modelLabel ? (
               <UsageSummaryChip
                 tag="MODELO"
@@ -1142,7 +1101,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
             metaChips={!compactMeta && onMeta ? (
-              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips} align={isUser ? "right" : "left"} cardTitle={title} />
+              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips || isUser} hideClassificationChips={showUsageStats} align={isUser ? "right" : "left"} cardTitle={title} />
             ) : null}
           >
             {msg.streamFailed && msg.streamError && (
@@ -1181,6 +1140,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
                 msgLabel={title}
                 fecha={fecha}
                 meta={msg.meta}
+                isUser={isUser}
               />
             ) : null}
             {ratingRow ? (

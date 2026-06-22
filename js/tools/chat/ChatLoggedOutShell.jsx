@@ -32,7 +32,6 @@ export function ChatLoggedOutShell({ onNeedLogin }) {
       >
         <Stack direction="row" spacing={1} alignItems="center" className="conv-log-sidebar-block" sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}>
           <Icon icon="mdi:chat-outline" size={20} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1 }}>Paty IA · staging</Typography>
         </Stack>
         <Box className="conv-log-sidebar-block paty-chat-sidebar-meta" sx={{ pt: 0.75, pb: 0.75 }}>
           <Box className="paty-chat-session paty-chat-session--skeleton">

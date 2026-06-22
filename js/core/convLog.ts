@@ -533,7 +533,22 @@ function pushImage(images: string[], ref: unknown) {
     let flushedTurno: number | undefined;
 
     return list.map((m) => {
-      if (m.esUsuario) return { ...m, usageStats: undefined };
+      if (m.esUsuario) {
+        const tokens = readRawMessageTokens(m);
+        const cost = readMessageCost(m);
+        if (!usageHasData(tokens, cost)) return { ...m, usageStats: undefined };
+        return {
+          ...m,
+          usageStats: {
+            tokens,
+            cost,
+            previousTokens: { ...ZERO_TOKENS },
+            previousCost: { ...ZERO_COST },
+            cumulativeTokens: { ...tokens },
+            cumulativeCost: { ...cost },
+          },
+        };
+      }
 
       const turno = turnoFromVistaMsg(m);
       if (turno != null && turno !== flushedTurno) {
@@ -572,9 +587,11 @@ function pushImage(images: string[], ref: unknown) {
 
   function sideLogPanelWorthShowing(msg) {
     if (!msg) return false;
-    if (msg.esUsuario) return false;
     const meta = msg.meta;
     if (meta) {
+      if (String(meta.itdconsulta ?? "").trim()) return true;
+      if (Array.isArray(meta.premisas) && meta.premisas.length) return true;
+      if (String(meta.extra?.operativa_key ?? "").trim()) return true;
       const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
       if ((Number(tk?.total ?? 0) || 0) > 0) return true;
       if (Number(meta.latency_ms ?? 0) > 0) return true;
@@ -583,7 +600,7 @@ function pushImage(images: string[], ref: unknown) {
     }
     const s = msg.usageStats;
     if (!s) return false;
-    return usageHasData(s.tokens, s.cost) || usageHasData(s.previousTokens, s.previousCost);
+    return usageHasData(s.tokens, s.cost) || (!msg.esUsuario && usageHasData(s.previousTokens, s.previousCost));
   }
 
   function formatTokensWithUsd(tok, usd) {

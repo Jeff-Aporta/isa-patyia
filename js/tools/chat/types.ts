@@ -90,6 +90,7 @@ export type PatchThreadOptions = {
 export type UseChatToolBoot = {
   convId?: number | string;
   messageSource?: ChatMessageSource;
+  jailbreak?: boolean;
 };
 
 export type ClipboardPasteEvent = {

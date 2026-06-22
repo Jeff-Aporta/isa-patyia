@@ -9,6 +9,7 @@ import {
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
 import { convLogFromDetalle, getConversacionLogs } from "./patyiaChatApi.ts";
+import { conversacionesListQueryParams } from "./issListFilter.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const bridgeHttp = window.ISAFront.createCapFetch({
@@ -255,12 +256,15 @@ export async function fetchConversacionesBridge(input: {
   icontacto: string;
   page?: number;
   limit?: number;
+  search?: string;
 }): Promise<ConversacionesBridgeResponse> {
-  const params = new URLSearchParams();
-  params.set("itercero", String(input.itercero).trim());
-  params.set("icontacto", String(input.icontacto).trim());
-  params.set("page", String(input.page ?? 1));
-  params.set("limit", String(input.limit ?? 100));
+  const params = conversacionesListQueryParams({
+    page: input.page,
+    limit: input.limit,
+    search: input.search,
+    itercero: input.itercero,
+    icontacto: input.icontacto,
+  });
   const raw = await capFetch(`/patyia/conversaciones?${params.toString()}`, { method: "GET" });
   const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
     ? raw.body as ConversacionesBridgeResponse
@@ -271,7 +275,7 @@ export async function fetchConversacionesBridge(input: {
     conversaciones: Array.isArray(data.conversaciones) ? data.conversaciones : [],
     total: Number(data.total ?? 0) || 0,
     page: Number(data.page ?? input.page ?? 1) || 1,
-    limit: Number(data.limit ?? input.limit ?? 100) || 100,
+    limit: Number(data.limit ?? input.limit ?? 10) || 10,
     pages: Number(data.pages ?? 0) || 0,
   };
 }

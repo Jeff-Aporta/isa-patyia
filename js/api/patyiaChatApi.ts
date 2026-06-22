@@ -3,6 +3,7 @@ import {
   type PatyJwtRecord,
   type PatyJwtClaims,
 } from "../core/patyia-jwt.ts";
+import { conversacionesListQueryParams } from "./issListFilter.ts";
 import { patyAuthHeaders } from "./patyiaTokens.ts";
 import { readPatyiaSseStream } from "../core/patyia.ts";
 
@@ -118,23 +119,14 @@ export type ListConversacionesResult = {
 };
 
 function buildConversacionesListPath(input: ListConversacionesInput = {}): string {
-  const page = Math.max(1, Math.floor(Number(input.page) || 1));
-  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 100)));
-  const offset = (page - 1) * limit;
-  const filtro: Record<string, unknown> = {
-    limit,
-    offset,
-    sort: input.sort || "-fhultact",
-  };
-  if (input.search?.trim()) filtro.search = input.search.trim();
-  const qs = new URLSearchParams();
-  qs.set("filtro", JSON.stringify(filtro));
-  const itercero = String(input.itercero ?? "").trim();
-  const icontacto = String(input.icontacto ?? "").trim();
-  if (itercero && icontacto) {
-    qs.set("itercero", itercero);
-    qs.set("icontacto", icontacto);
-  }
+  const qs = conversacionesListQueryParams({
+    page: input.page,
+    limit: input.limit,
+    search: input.search,
+    sort: input.sort,
+    itercero: input.itercero,
+    icontacto: input.icontacto,
+  });
   return `/conversaciones?${qs.toString()}`;
 }
 
@@ -143,7 +135,7 @@ export async function listConversaciones(
   input: ListConversacionesInput = {},
 ): Promise<ListConversacionesResult> {
   const page = Math.max(1, Math.floor(Number(input.page) || 1));
-  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 100)));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
   const body = await jsonFetch<{
     conversaciones?: PatyConversacionRow[];
     total?: number;
@@ -218,6 +210,7 @@ export type SendMessageInput = {
   iconversacion?: number;
   imagenes?: string[];
   audios?: string[];
+  jailbreak?: boolean;
 };
 
 /** Normaliza a data URL base64 (formato esperado por POST /conversacion). */
@@ -245,6 +238,7 @@ export function buildConversacionPostBody(input: SendMessageInput): Record<strin
   if (input.iconversacion) body.iconversacion = input.iconversacion;
   if (imagenes.length) body.imagenes = imagenes;
   if (audios.length) body.audios = audios;
+  if (input.jailbreak) body.jailbreak = true;
   if (!String(body.prompt || "").trim() && hasMedia) {
     body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
   }

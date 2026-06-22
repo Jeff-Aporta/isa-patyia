@@ -1,16 +1,23 @@
-export const PIN = "13629aa";
+export const PIN = "7c00390";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
 
-/** Siempre jsDelivr — no servir front-shared desde ruta local en dev. */
-export const CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn`;
+function frontSharedCdnBase() {
+  const base = document.querySelector("base")?.href || location.href;
+  return new URL("../../components/front-shared/cdn/", base).href.replace(/\/?$/, "/");
+}
 
-export const asset = (p) => `${CDN}/${p}?v=${PIN}`;
+/** En localhost: monorepo front-shared; prod: jsDelivr. */
+export const CDN = isDevHost
+  ? frontSharedCdnBase()
+  : `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+
+export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
-export const LIGHTBOX_ZOOM_REF = "eb1db1e";
+export const LIGHTBOX_ZOOM_REF = "724fac9";
 
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;

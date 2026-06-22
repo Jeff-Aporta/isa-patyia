@@ -45,14 +45,20 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     selectedId: chat.selectedId,
     convListMeta: chat.convListMeta,
     convListPage: chat.convListPage,
+    convListPageSize: chat.convListPageSize,
+    convListSearch: chat.convListSearch,
+    onConvListSearchChange: chat.handleConvListSearchChange,
     messageSource: chat.messageSource,
     onMessageSourceChange: chat.onMessageSourceChange,
+    jailbreak: chat.jailbreak,
+    onJailbreakChange: chat.onJailbreakChange,
     onOpenJwt: () => chat.setJwtOpen(true),
     onOpenAudit: () => chat.setAuditDialogOpen(true),
     onNewChat: chat.onNewChat,
     onOpenConv: chat.openConv,
     onDelete: chat.onDelete,
     onConvListPageChange: chat.setConvListPage,
+    onConvListPageSizeChange: chat.onConvListPageSizeChange,
   };
 
   return (
@@ -96,7 +102,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onThreadScroll={chat.onThreadScroll}
         onOpenJwt={() => chat.setJwtOpen(true)}
         onClearAuditFilter={chat.clearAuditFilter}
-        onRefreshConv={() => chat.openConv(chat.selectedId)}
+        onRefreshConv={() => chat.openConv(chat.selectedId, { freshLog: true })}
         draft={chat.draft}
         images={chat.images}
         audios={chat.audios}

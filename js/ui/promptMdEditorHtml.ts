@@ -58,6 +58,27 @@ function varChipSource(el: HTMLElement): string {
   return el.dataset.var ? `{{${el.dataset.var}}}` : "";
 }
 
+function tableCellSource(td: Element): string {
+  if ((td as HTMLElement).classList?.contains("prompt-var-chip")) {
+    return varChipSource(td as HTMLElement);
+  }
+  return [...td.childNodes].map((n) => (n.nodeType === Node.ELEMENT_NODE ? inlineMd(n) : inlineMd(n))).join("").trim();
+}
+
+function tableHtmlToGfm(table: Element): string {
+  const rowEls = [...table.querySelectorAll("tr")];
+  if (!rowEls.length) return preserveHtml(table);
+  const lines: string[] = [];
+  const firstCells = [...rowEls[0].querySelectorAll("th,td")].map(tableCellSource);
+  lines.push(`| ${firstCells.join(" | ")} |`);
+  lines.push(`| ${firstCells.map(() => "---").join(" | ")} |`);
+  for (let i = 1; i < rowEls.length; i += 1) {
+    const cells = [...rowEls[i].querySelectorAll("th,td")].map(tableCellSource);
+    lines.push(`| ${cells.join(" | ")} |`);
+  }
+  return lines.join("\n");
+}
+
 function inlineMd(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
@@ -104,11 +125,11 @@ function blockMd(el: Element): string {
   }
 
   if (!MD_BLOCK_TAGS.has(tag)) {
-    if (tag === "div" && el.classList.contains("md-table-wrap")) {
+  if (tag === "div" && el.classList.contains("md-table-wrap")) {
       const table = el.querySelector(":scope > table");
-      if (table) return `${preserveHtml(table)}\n\n`;
+      if (table) return `${tableHtmlToGfm(table)}\n\n`;
     }
-    if (tag === "table") return `${preserveHtml(el)}\n\n`;
+    if (tag === "table") return `${tableHtmlToGfm(el)}\n\n`;
     return `${preserveHtml(el)}\n\n`;
   }
 
