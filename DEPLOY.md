@@ -71,5 +71,6 @@ Al hacer merge a `main`, **siempre** añadir una fila (obligatorio, antes de cer
 
 | Fecha merge | Preview Cloudflare (`dev`) | Commit `dev` | Notas |
 |-------------|----------------------------|--------------|-------|
+| 2026-06-22 | [d66a1774.isa-patyia-dev.pages.dev](https://d66a1774.isa-patyia-dev.pages.dev/) | `b8d77f4` | Chat: consulta unificada mensajes/registro; Prompts dots y editor doble clic; login UX; TodosPublicHome; pins CDN lightbox/_dist; ConvLog y layout |
 | 2026-06-19 | [93de6468.isa-patyia-dev.pages.dev](https://93de6468.isa-patyia-dev.pages.dev/) | `568a1a0` | Chat: sidebar, badges meta, selección conv; SCRUM home light y drag; fix guardar instrucciones; cursor en clickables |
 | 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) | `44930d4` | Primera integración dev→main: flujo dual CF/GH Pages, badges meta compactos, emoji 🧪 prueba workflow |
