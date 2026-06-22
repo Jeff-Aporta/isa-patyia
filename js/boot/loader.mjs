@@ -3,14 +3,14 @@ import { asset, ensureLightboxZoom } from "./cdn.mjs";
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 
-/** boot-helper puede cargar index.js de un pin sin lazy-assets — usar el pin de la app. */
+/** Producción jsDelivr: bundle _dist (esbuild). Fuente isa/js/index.js importa .jsx y falla en el navegador. */
 async function loadIsaFrontPinned(h) {
   if (isDist) {
-    await import(asset("isa/js/index.js"));
+    await import(asset("_dist/isa/js/index.min.js"));
   } else {
     await h.loadIsaFront();
     if (!window.ISAFront?.ensureCodeMirrorLoaded) {
-      await import(asset("isa/js/index.js"));
+      await import(asset("_dist/isa/js/index.min.js"));
     }
   }
   if (!window.ISAFront?.ensureCodeMirrorLoaded) {
