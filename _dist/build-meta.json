@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-22T19:13:59.804Z",
+  "builtAt": "2026-06-22T22:12:38.303Z",
   "files": 88,
-  "bytesIn": 752222,
-  "bytesOut": 437214,
+  "bytesIn": 752696,
+  "bytesOut": 437393,
   "ratio": 0.581,
-  "hash": "4b08c88a052c",
+  "hash": "d0587b402048",
   "entries": [
     {
       "src": "css/app.css",
@@ -105,7 +105,7 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4214,
+      "bytesIn": 4309,
       "bytesOut": 2733
     },
     {
@@ -153,8 +153,8 @@
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 9111,
-      "bytesOut": 5685
+      "bytesIn": 9286,
+      "bytesOut": 5748
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -399,8 +399,8 @@
     {
       "src": "js/tools/todos/PublicScrumBoard.jsx",
       "dist": "_dist/js/tools/todos/PublicScrumBoard.js",
-      "bytesIn": 2205,
-      "bytesOut": 1397
+      "bytesIn": 2307,
+      "bytesOut": 1455
     },
     {
       "src": "js/tools/todos/TaskAssigneeLabel.jsx",
@@ -429,8 +429,8 @@
     {
       "src": "js/tools/todos/TodosPublicHome.jsx",
       "dist": "_dist/js/tools/todos/TodosPublicHome.js",
-      "bytesIn": 3507,
-      "bytesOut": 2446
+      "bytesIn": 3609,
+      "bytesOut": 2504
     },
     {
       "src": "js/tools/todos/TodosShellParts.jsx",
