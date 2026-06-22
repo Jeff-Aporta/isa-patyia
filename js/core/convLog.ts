@@ -90,10 +90,19 @@ function pushImage(images: string[], ref: unknown) {
 
   function mergeUserImagenes(send, others, fallbackText) {
     const fb = typeof send?.text === "string" ? send.text : fallbackText;
-    const { text } = extractUserVisionFromSendInput(send?.input ?? send?.text, fb);
-    const imagenes = Array.isArray(others?.imagenes_adjuntas)
-      ? others.imagenes_adjuntas.filter(isDisplayableImageRef)
-      : [];
+    const { text, images } = extractUserVisionFromSendInput(send?.input ?? send?.text, fb);
+    const seen = new Set<string>();
+    const imagenes: string[] = [];
+    const push = (ref: unknown) => {
+      const n = String(ref ?? "").trim();
+      if (!isDisplayableImageRef(n) || seen.has(n)) return;
+      seen.add(n);
+      imagenes.push(n);
+    };
+    if (Array.isArray(others?.imagenes_adjuntas)) {
+      for (const u of others.imagenes_adjuntas) push(u);
+    }
+    for (const u of images) push(u);
     return { text: stripOmittedVisionFromText(text), imagenes };
   }
 

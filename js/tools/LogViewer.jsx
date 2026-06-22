@@ -231,9 +231,9 @@ function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, 
         display: drawerMode ? "flex" : { xs: "none", md: "flex" },
         flexDirection: "column",
         minHeight: 0,
-        height: drawerMode ? "100%" : "auto",
+        height: "100%",
         maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
-        overflow: drawerMode ? "hidden" : "visible",
+        overflow: "hidden",
         boxSizing: "border-box",
       }}
     >
@@ -314,13 +314,13 @@ function LogEntradaPanel({ drawerMode = false, onClose, sidebarWidth, dragging, 
       <Divider sx={{ my: 1 }} />
 
       <Box
-        className="conv-log-sidebar-block"
+        className="conv-log-sidebar-block conv-log-json-block"
         sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", pb: 1.5 }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, flexShrink: 0 }}>
           JSON del log
         </Typography>
-        <Box sx={{ flex: 1, minHeight: 80, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
+        <Box className="log-json-editor-wrap" sx={{ flex: 1, minHeight: 0, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
           <JsonCodeEditor
             value={jsonInput}
             onChange={onJsonInputChange}
@@ -433,7 +433,7 @@ export function LogViewer({ bootLog = {} }) {
     setError("");
     setLoading(true);
     try {
-      const log = await Api.fetchConvLogById(convId);
+      const log = await Api.fetchConvLogForQa(convId);
       setJsonInput(JSON.stringify(log, null, 2));
       aplicarLog(log, { silent });
     } catch (err) {

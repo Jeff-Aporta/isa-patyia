@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-22T15:28:07.160Z",
+  "builtAt": "2026-06-22T15:56:22.624Z",
   "files": 85,
-  "bytesIn": 714390,
-  "bytesOut": 415031,
+  "bytesIn": 717105,
+  "bytesOut": 416391,
   "ratio": 0.581,
-  "hash": "9a326c0c8b35",
+  "hash": "ebef54c4ab07",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 76255,
-      "bytesOut": 53966
+      "bytesIn": 76894,
+      "bytesOut": 54367
     },
     {
       "src": "css/boot-loading.css",
@@ -39,8 +39,8 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 7605,
-      "bytesOut": 3678
+      "bytesIn": 9326,
+      "bytesOut": 4476
     },
     {
       "src": "js/api/labApi.ts",
@@ -99,8 +99,8 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 3959,
-      "bytesOut": 2554
+      "bytesIn": 4016,
+      "bytesOut": 2555
     },
     {
       "src": "js/boot/loader.mjs",
@@ -117,8 +117,8 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 32896,
-      "bytesOut": 16485
+      "bytesIn": 33188,
+      "bytesOut": 16613
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -189,8 +189,8 @@
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22722,
-      "bytesOut": 13367
+      "bytesIn": 22728,
+      "bytesOut": 13399
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",

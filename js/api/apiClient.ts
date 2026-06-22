@@ -7,6 +7,8 @@ import {
   patyiaBridgeBase,
   PATYIA_BRIDGE_URL,
 } from "../core/patyia.ts";
+import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
+import { convLogFromDetalle, getConversacionLogs } from "./patyiaChatApi.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const bridgeHttp = window.ISAFront.createCapFetch({
@@ -85,38 +87,82 @@ export async function upsertInstruccionPaty(payload: InstruccionUpsertPayload) {
   );
 }
 
+function isConvNotFound(err: unknown): boolean {
+  const status = err && typeof err === "object" ? Number((err as { status?: number }).status) : 0;
+  if (status === 404) return true;
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /not found|no encontrad|\b404\b/i.test(msg);
+}
+
+/** QA LogViewer: ISS /conversacion/logs/{id} con JWT; si falla, bridge MSSQL (sin JWT). */
+export async function fetchConvLogForQa(id: string | number) {
+  const convId = Number(id);
+  if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
+
+  const jwt = loadPatyJwt();
+  if (jwt?.token && !isPatyJwtExpired(jwt.token)) {
+    try {
+      const detail = await getConversacionLogs(jwt, convId);
+      const log = convLogFromDetalle(detail, convId);
+      if (log?.mensajes?.length) return log;
+    } catch (e) {
+      if (!isConvNotFound(e)) throw e;
+    }
+  }
+
+  return fetchConvLogById(convId);
+}
+
 export async function fetchConvLogById(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
-  try {
-    const data = await capFetch(`/patyia/conversacion/logs/${convId}`, { method: "GET" });
-    const log = (data.convLog ?? data.log ?? data.body?.convLog ?? data.body?.log) as Record<string, unknown> | undefined;
-    if (!log || !Array.isArray(log.mensajes)) {
-      throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
+
+  const paths = [
+    `/patyia/conversacion/${convId}/log`,
+    `/patyia/conversacion/logs/${convId}`,
+  ];
+  let routeMiss: Error | null = null;
+
+  for (const path of paths) {
+    try {
+      const data = await capFetch(path, { method: "GET" });
+      const log = (data.convLog ?? data.log ?? data.body?.convLog ?? data.body?.log) as Record<string, unknown> | undefined;
+      if (!log || !Array.isArray(log.mensajes)) {
+        throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
+      }
+      log.iconversacion = log.iconversacion || convId;
+      return log;
+    } catch (e) {
+      const err = e as Error & { status?: number; data?: { error?: string } };
+      const detail = err.data?.error?.trim();
+      if (detail) throw new Error(detail);
+      // 404 sin JSON = ruta no desplegada en el bridge (p. ej. logs/{id} vs {id}/log)
+      if (err.status === 404 && !detail) {
+        routeMiss = err;
+        continue;
+      }
+      throw e;
     }
-    log.iconversacion = log.iconversacion || convId;
-    return log;
-  } catch (e) {
-    const err = e as Error & { status?: number; data?: { error?: string } };
-    const detail = err.data?.error?.trim();
-    if (detail) throw new Error(detail);
-    throw e;
   }
+  throw routeMiss ?? new Error(`Log conv-${convId} no encontrado`);
 }
 
 /** Reintenta mientras el log no alcance minMensajes (p. ej. tras POST /conversacion). */
 export async function fetchConvLogByIdWithRetry(
   id: string | number,
-  { minMensajes = 0, attempts = 8, delayMs = 300 }: {
+  { minMensajes = 0, attempts = 8, delayMs = 300, qa = false }: {
     minMensajes?: number;
     attempts?: number;
     delayMs?: number;
+    /** true = LogViewer (ISS + bridge); false = chat bridge sin JWT forzado */
+    qa?: boolean;
   } = {},
 ) {
+  const load = qa ? fetchConvLogForQa : fetchConvLogById;
   let last: Awaited<ReturnType<typeof fetchConvLogById>> | null = null;
   for (let i = 0; i < attempts; i++) {
     try {
-      const log = await fetchConvLogById(id);
+      const log = await load(id);
       last = log;
       const n = Array.isArray(log.mensajes) ? log.mensajes.length : 0;
       if (!minMensajes || n >= minMensajes) return log;
