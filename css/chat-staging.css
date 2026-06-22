@@ -1259,9 +1259,12 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     }
     & .MuiOutlinedInput-root,
     & .MuiOutlinedInput-root.MuiInputBase-sizeSmall {
+      display: inline-flex !important;
+      align-items: center !important;
       height: 24px !important;
       min-height: 24px !important;
       max-height: 24px !important;
+      padding: 0 !important;
       font-size: 0.58rem;
       font-weight: 700;
       font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -1270,19 +1273,18 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     }
     & .MuiOutlinedInput-notchedOutline {
       border-color: rgba(96, 165, 250, 0.38);
+      top: 0;
+      bottom: 0;
     }
     & .MuiSelect-select,
     & .MuiSelect-select.MuiSelect-outlined,
     & .MuiSelect-select.MuiOutlinedInput-input {
       display: flex !important;
       align-items: center !important;
-      height: 22px !important;
-      min-height: 22px !important;
-      max-height: 22px !important;
-      padding-top: 0 !important;
-      padding-bottom: 0 !important;
-      padding-left: 5px !important;
-      padding-right: 14px !important;
+      height: 24px !important;
+      min-height: 24px !important;
+      max-height: 24px !important;
+      padding: 0 16px 0 6px !important;
       line-height: 1 !important;
       box-sizing: border-box !important;
       color: #93c5fd;
@@ -1291,8 +1293,10 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     & .MuiSelect-icon {
       color: #93c5fd;
       font-size: 0.8rem !important;
-      right: 1px;
-      top: calc(50% - 0.4rem);
+      right: 2px;
+      top: 50% !important;
+      transform: translateY(-50%);
+      pointer-events: none;
     }
   }
   &__btn {

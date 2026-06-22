@@ -262,7 +262,10 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
               </Typography>
               <Stack direction="row" spacing={0.35} alignItems="center" className="paty-chat-conv-pager__controls">
                 {onConvListPageSizeChange ? (
-                  <Tooltip title="Conversaciones por página">
+                  <Tooltip
+                    title="Conversaciones por página"
+                    slotProps={{ popper: { sx: { pointerEvents: "none" } } }}
+                  >
                     <FormControl className="paty-chat-conv-pager__size" sx={{ m: 0, minWidth: 44 }}>
                       <Select
                         value={convListPageSize}
@@ -270,35 +273,6 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
                         aria-label="Conversaciones por página"
                         disabled={loadingList}
                         variant="outlined"
-                        sx={{
-                          height: "24px !important",
-                          minHeight: "24px !important",
-                          maxHeight: "24px !important",
-                          fontSize: "0.58rem",
-                          "&.MuiInputBase-root": {
-                            height: "24px !important",
-                            minHeight: "24px !important",
-                            maxHeight: "24px !important",
-                          },
-                          "& .MuiOutlinedInput-notchedOutline": { top: 0 },
-                          "& .MuiSelect-select": {
-                            py: "0 !important",
-                            px: "5px !important",
-                            pr: "14px !important",
-                            minHeight: "22px !important",
-                            height: "22px !important",
-                            maxHeight: "22px !important",
-                            lineHeight: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            boxSizing: "border-box",
-                          },
-                          "& .MuiSelect-icon": {
-                            fontSize: "0.8rem",
-                            right: 1,
-                            top: "calc(50% - 0.4rem)",
-                          },
-                        }}
                         MenuProps={{ PaperProps: { sx: { "& .MuiMenuItem-root": { minHeight: 24, py: 0.2, fontSize: "0.68rem" } } } }}
                       >
                         {CONV_LIST_PAGE_SIZE_OPTIONS.map((n) => (

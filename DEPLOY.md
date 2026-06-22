@@ -63,4 +63,4 @@ node gen-front-index.mjs --slug isa-patyia
 **Actions → Deploy ISA PatyIA front → Run workflow**  
 Opción `target`: `auto` (según rama), `github-pages` o `cloudflare-dev`.
 
-El historial de previews validados antes de cada merge a `main` está en [README.md](README.md) (sección al final). Cada fila nueva: **fecha** + **URL con hash** de Cloudflare (`xxxx.isa-patyia-dev.pages.dev`), sin descripción del release.
+El historial de previews validados antes de cada merge a `main` está en [README.md](README.md) (sección al final). Cada fila nueva: **fecha** + **URL con hash** de Cloudflare (`xxxx.isa-patyia-dev.pages.dev`), sin descripción del release. **Una sola fila por fecha** (la más reciente); al añadir otra del mismo día, reemplazar la anterior en `index.json` o dejar la nueva al inicio del array y regenerar README.

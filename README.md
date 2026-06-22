@@ -31,6 +31,4 @@
 | Fecha | Preview |
 |-------|---------|
 | 2026-06-22 | [82a443ad.isa-patyia-dev.pages.dev](https://82a443ad.isa-patyia-dev.pages.dev/) |
-| 2026-06-22 | [d66a1774.isa-patyia-dev.pages.dev](https://d66a1774.isa-patyia-dev.pages.dev/) |
 | 2026-06-19 | [93de6468.isa-patyia-dev.pages.dev](https://93de6468.isa-patyia-dev.pages.dev/) |
-| 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) |

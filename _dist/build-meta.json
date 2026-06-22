@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-22T18:48:45.683Z",
+  "builtAt": "2026-06-22T19:11:41.377Z",
   "files": 88,
-  "bytesIn": 753440,
-  "bytesOut": 437669,
+  "bytesIn": 752222,
+  "bytesOut": 437214,
   "ratio": 0.581,
-  "hash": "17d016a2127b",
+  "hash": "4b08c88a052c",
   "entries": [
     {
       "src": "css/app.css",
@@ -21,8 +21,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 37552,
-      "bytesOut": 27206
+      "bytesIn": 37649,
+      "bytesOut": 27267
     },
     {
       "src": "css/theme.css",
@@ -243,8 +243,8 @@
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 15833,
-      "bytesOut": 9257
+      "bytesIn": 14518,
+      "bytesOut": 8741
     },
     {
       "src": "js/tools/chat/ConvSearchAutocomplete.jsx",
