@@ -24,7 +24,7 @@ export const Session = {
   authHeader: () => bridge().Session.authHeader(),
   appHeader: () => bridge().Session.appHeader(),
   appId: () => bridge().Session.appId(),
-  login: (u: string, p: string) => bridge().Session.login(u, p),
+  login: (u: string, p: string, opts?: Record<string, unknown>) => bridge().Session.login(u, p, opts),
   logout: () => bridge().Session.logout(),
   refreshProfile: () => bridge().Session.refreshProfile(),
   fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
@@ -172,11 +172,13 @@ function patchIsaPatyiaAuthEvents(): void {
   if (!Session?.login || !Session?.logout) return;
   const origLogin = Session.login.bind(Session);
   const origLogout = Session.logout.bind(Session);
-  Session.login = async (u: string, p: string) => {
-    const session = await origLogin(u, p);
+  const wrapLogin = async (u: string, p: string, opts?: Record<string, unknown>) => {
+    const session = await origLogin(u, p, opts);
     window.dispatchEvent(new Event("isa-patyia:auth"));
     return session;
   };
+  Session.login = wrapLogin;
+  if (window.ISA?.Auth?.login) window.ISA.Auth.login = wrapLogin;
   Session.logout = () => {
     origLogout();
     window.dispatchEvent(new Event("isa-patyia:auth"));

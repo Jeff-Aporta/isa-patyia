@@ -46,8 +46,8 @@ export function canAdminPortalJwt(): boolean {
   return Boolean(patyJwtAdminCap());
 }
 
-export async function login(user: string, pass: string) {
-  const session = await Session.login(user, pass);
+export async function login(user: string, pass: string, opts?: Record<string, unknown>) {
+  const session = await Session.login(user, pass, opts);
   notifyAuth();
   return session;
 }
