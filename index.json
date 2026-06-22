@@ -42,13 +42,13 @@
     "repoName": "isa-patyia",
     "tagline": "Chat con PatyIA, instrucciones Prompts→SQL, logs y DevFlow.",
     "prodUrl": "https://jeff-aporta.github.io/isa-patyia/",
+    "prodUnderTitle": true,
     "badges": ["cloudflare-pages", "github-pages-prod", "github-repo", "react", "mui", "typescript"],
-    "demoLines": [
-      "**Dev (rama `dev`):** https://isa-patyia-dev.pages.dev/",
-      "",
-      "**Producción (rama `main`):** https://jeff-aporta.github.io/isa-patyia/",
-      "",
-      "Detalle de CI y ramas: [DEPLOY.md](DEPLOY.md)."
+    "mergeHistory": [
+      { "date": "2026-06-22", "url": "https://82a443ad.isa-patyia-dev.pages.dev" },
+      { "date": "2026-06-22", "url": "https://d66a1774.isa-patyia-dev.pages.dev" },
+      { "date": "2026-06-19", "url": "https://93de6468.isa-patyia-dev.pages.dev" },
+      { "date": "2026-06-19", "url": "https://37d05d3e.isa-patyia-dev.pages.dev" }
     ],
     "features": [
       "**Visor de log**: trazas y mensajes de conversaciones PatyIA",

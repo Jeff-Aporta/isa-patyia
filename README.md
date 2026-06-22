@@ -8,6 +8,8 @@
 
 <h1 align="center">isa-patyia</h1>
 
+<p align="center"><a href="https://jeff-aporta.github.io/isa-patyia/">https://jeff-aporta.github.io/isa-patyia/</a></p>
+
 <p align="center"><strong>ISA PatyIA</strong> — Chat con PatyIA, instrucciones Prompts→SQL, logs y DevFlow.</p>
 
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-dev-f38020?logo=cloudflare&logoColor=white)](https://isa-patyia-dev.pages.dev/)
@@ -17,17 +19,18 @@
 [![MUI](https://img.shields.io/badge/MUI-9-007FFF?logo=mui&logoColor=white)](https://mui.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-## Demo
-
-**Dev (rama `dev`):** https://isa-patyia-dev.pages.dev/
-
-**Producción (rama `main`):** https://jeff-aporta.github.io/isa-patyia/
-
-Detalle de CI y ramas: [DEPLOY.md](DEPLOY.md).
-
 ## Qué hace
 
 - **Visor de log**: trazas y mensajes de conversaciones PatyIA
 - **Prompts → SQL**: edición e importación de instrucciones staging
 - **Chat**: conversaciones con PatyIA
 - **DevFlow**: tablero kanban SCRUM
+
+## Historial de merges a producción
+
+| Fecha | Preview |
+|-------|---------|
+| 2026-06-22 | [82a443ad.isa-patyia-dev.pages.dev](https://82a443ad.isa-patyia-dev.pages.dev/) |
+| 2026-06-22 | [d66a1774.isa-patyia-dev.pages.dev](https://d66a1774.isa-patyia-dev.pages.dev/) |
+| 2026-06-19 | [93de6468.isa-patyia-dev.pages.dev](https://93de6468.isa-patyia-dev.pages.dev/) |
+| 2026-06-19 | [37d05d3e.isa-patyia-dev.pages.dev](https://37d05d3e.isa-patyia-dev.pages.dev/) |
