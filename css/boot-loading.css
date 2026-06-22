@@ -153,7 +153,7 @@ html[data-mui-color-scheme="light"] .isa-app-boot__bar {
   width: min(100px, 16vw);
   height: auto;
   opacity: 0.16;
-  filter: grayscale(1) brightness(1.15);
+  filter: invert(50%);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -161,7 +161,7 @@ html[data-mui-color-scheme="light"] .isa-app-boot__bar {
 
 html[data-mui-color-scheme="light"] .isa-app-boot-watermark {
   opacity: 0.12;
-  filter: grayscale(1) brightness(0.85);
+  filter: invert(50%);
 }
 
 #root > .isa-app-boot:only-child,
