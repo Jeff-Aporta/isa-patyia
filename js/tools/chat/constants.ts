@@ -44,6 +44,50 @@ export function persistConvListPageSize(size: ConvListPageSize): void {
 export const CONV_LIST_PAGE_SIZE = CONV_LIST_PAGE_SIZE_DEFAULT;
 export type ChatMessageSource = "prod" | "logs";
 
+export const CHAT_MODE_PATYIA = "patyia";
+export const CHAT_MODE_LIBRE = "libre";
+export type ChatMode = typeof CHAT_MODE_PATYIA | typeof CHAT_MODE_LIBRE | string;
+
+export function parseChatMode(raw: unknown): ChatMode {
+  if (typeof raw === "string") {
+    const m = raw.trim().toLowerCase();
+    if (m === CHAT_MODE_LIBRE || m === "free") return CHAT_MODE_LIBRE;
+    if (m === CHAT_MODE_PATYIA) return CHAT_MODE_PATYIA;
+    if (m) return m;
+  }
+  if (raw === true || raw === 1 || String(raw ?? "").toLowerCase() === "true") return CHAT_MODE_LIBRE;
+  if (raw === false || raw === 0 || String(raw ?? "").toLowerCase() === "false") return CHAT_MODE_PATYIA;
+  return CHAT_MODE_PATYIA;
+}
+
+export function isLibreChatMode(mode: unknown): boolean {
+  return parseChatMode(mode) === CHAT_MODE_LIBRE;
+}
+
+function chatBagMode(chat: Record<string, unknown> | undefined): ChatMode | null {
+  if (!chat) return null;
+  if (chat.mode != null && String(chat.mode).trim() !== "") return parseChatMode(chat.mode);
+  if (chat.jailbreak === true) return CHAT_MODE_LIBRE;
+  if (chat.jailbreak === false) return CHAT_MODE_PATYIA;
+  return null;
+}
+
+/** Modo de conversación — ?s=.chat.mode (legacy: jailbreak boolean). */
+export function readChatMode(bootChat?: { mode?: unknown; jailbreak?: unknown }): ChatMode {
+  if (bootChat) {
+    if (bootChat.mode != null && String(bootChat.mode).trim() !== "") return parseChatMode(bootChat.mode);
+    if (bootChat.jailbreak === true) return CHAT_MODE_LIBRE;
+    if (bootChat.jailbreak === false) return CHAT_MODE_PATYIA;
+  }
+  const chat = getSnapshot().chat as Record<string, unknown> | undefined;
+  return chatBagMode(chat) ?? CHAT_MODE_PATYIA;
+}
+
+/** null si la URL no define mode (ni legacy jailbreak). */
+export function chatModeFromUrl(chat: Record<string, unknown> | undefined): ChatMode | null {
+  return chatBagMode(chat);
+}
+
 export function parseChatMessageSource(raw: unknown): ChatMessageSource {
   return raw === "prod" || raw === "logs" ? raw : "logs";
 }
@@ -59,18 +103,5 @@ export function readChatMessageSource(bootChat?: { messageSource?: unknown }): C
 /** null si la URL no define messageSource (no resetear el default en memoria). */
 export function messageSourceFromUrl(chat: Record<string, unknown> | undefined): ChatMessageSource | null {
   if (chat?.messageSource === "prod" || chat?.messageSource === "logs") return chat.messageSource;
-  return null;
-}
-
-export function readChatJailbreak(bootChat?: { jailbreak?: unknown }): boolean {
-  if (bootChat?.jailbreak === true) return true;
-  const chat = getSnapshot().chat as Record<string, unknown> | undefined;
-  return chat?.jailbreak === true;
-}
-
-/** null si la URL no define jailbreak. */
-export function jailbreakFromUrl(chat: Record<string, unknown> | undefined): boolean | null {
-  if (chat?.jailbreak === true) return true;
-  if (chat?.jailbreak === false) return false;
   return null;
 }

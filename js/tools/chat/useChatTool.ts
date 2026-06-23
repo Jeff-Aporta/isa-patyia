@@ -21,11 +21,11 @@ import {
   buildConversacionPostBody,
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
-import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge } from "../../api/apiClient.ts";
+import { CONVERSACIONES_LIST_SORT_DEFAULT } from "../../api/issListFilter.ts";
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
-import { persistChatConvId, persistChatMessageSource, persistChatJailbreak, getSnapshot, subscribe } from "../../core/urlState.ts";
-import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS, readChatMessageSource, messageSourceFromUrl, readChatJailbreak, jailbreakFromUrl, readConvListPageSize, persistConvListPageSize, parseConvListPageSize, type ChatMessageSource, type ConvListPageSize } from "./constants.ts";
+import { persistChatConvId, persistChatMessageSource, persistChatMode, getSnapshot, subscribe } from "../../core/urlState.ts";
+import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS, readChatMessageSource, messageSourceFromUrl, readChatMode, chatModeFromUrl, readConvListPageSize, persistConvListPageSize, parseConvListPageSize, isLibreChatMode, type ChatMessageSource, type ChatMode, type ConvListPageSize } from "./constants.ts";
 import { useThreadScrollAnchor } from "./threadScroll.ts";
 import {
   auditScopeIsOwnJwt,
@@ -161,7 +161,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const [convListSearch, setConvListSearch] = useState("");
   const [convListMeta, setConvListMeta] = useState<ConvListMeta | null>(null);
   const [messageSource, setMessageSource] = useState<ChatMessageSource>(() => readChatMessageSource(bootChat));
-  const [jailbreak, setJailbreak] = useState(() => readChatJailbreak(bootChat));
+  const [chatMode, setChatMode] = useState<ChatMode>(() => readChatMode(bootChat));
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const voiceRecorderRef = useRef(createVoiceRecorder());
@@ -295,19 +295,25 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
         : null;
 
       const filterRows = (rows: PatyConversacionRow[]) => {
-        if (!scope) return rows;
-        return rows.filter(
-          (r) => String(r.itercero ?? "") === scope.itercero
-            && String(r.icontacto ?? "") === scope.icontacto,
+        const filtered = !scope
+          ? rows
+          : rows.filter(
+            (r) => String(r.itercero ?? "") === scope.itercero
+              && String(r.icontacto ?? "") === scope.icontacto,
+          );
+        return [...filtered].sort(
+          (a, b) => Number(b.iconversacion) - Number(a.iconversacion),
         );
       };
 
+      const listSort = CONVERSACIONES_LIST_SORT_DEFAULT;
+
       if (jwt?.token) {
-        const res = await listConversaciones(jwt, { page, limit, search, ...(scope || {}) });
+        const res = await listConversaciones(jwt, { page, limit, search, sort: listSort, ...(scope || {}) });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else if (scope) {
-        const res = await fetchConversacionesBridge({ ...scope, page, limit, search });
+        const res = await fetchConversacionesBridge({ ...scope, page, limit, search, sort: listSort });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else {
@@ -607,11 +613,27 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
   }, [messageSource, selectedId, openConv]);
 
-  const onJailbreakChange = useCallback((next: boolean) => {
-    if (next === jailbreak) return;
-    persistChatJailbreak(next);
-    setJailbreak(next);
-  }, [jailbreak]);
+  const onChatModeChange = useCallback(async (next: ChatMode) => {
+    const mode = String(next || "patyia").trim().toLowerCase() || "patyia";
+    if (mode === chatMode) return;
+    if (isLibreChatMode(mode)) {
+      const ok = await requestConfirm({
+        title: "Modo Libre",
+        message: [
+          "Al activar Libre, PatyIA deja de aplicar las instrucciones de producto, la clasificación de consultas y la búsqueda en documentación.",
+          "",
+          "Las respuestas pueden no alinearse con soporte ContaPyme® ni con las políticas de asesoría. El uso queda registrado en el log (mode: libre).",
+          "",
+          "Usa este modo solo para pruebas en staging. ¿Activar Libre?",
+        ].join("\n"),
+        confirmLabel: "Activar Libre",
+        cancelLabel: "Cancelar",
+      });
+      if (!ok) return;
+    }
+    persistChatMode(mode);
+    setChatMode(mode);
+  }, [chatMode]);
 
   const onConvListPageSizeChange = useCallback((next: number) => {
     const size = parseConvListPageSize(next);
@@ -627,8 +649,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setSelectedId((prev) => (prev === urlId ? prev : urlId));
     const urlSource = messageSourceFromUrl(chat);
     if (urlSource) setMessageSource((prev) => (prev === urlSource ? prev : urlSource));
-    const urlJailbreak = jailbreakFromUrl(chat);
-    if (urlJailbreak !== null) setJailbreak((prev) => (prev === urlJailbreak ? prev : urlJailbreak));
+    const urlMode = chatModeFromUrl(chat);
+    if (urlMode !== null) setChatMode((prev) => (prev === urlMode ? prev : urlMode));
   }), []);
 
   useEffect(() => {
@@ -734,7 +756,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     try {
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || undefined, imagenes, audios: audioUrls, jailbreak },
+        { prompt: text, iconversacion: selectedId || undefined, imagenes, audios: audioUrls, mode: chatMode },
         (partial) => setStreamText(partial),
       );
       const finalText = String(result.respuesta || "").trim();
@@ -972,9 +994,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       iconversacion: selectedId || undefined,
       imagenes: images.map((i) => i.dataUrl),
       audios: audios.map((a) => a.dataUrl),
-      jailbreak,
+      mode: chatMode,
     }),
-    [draft, selectedId, images, audios, jailbreak],
+    [draft, selectedId, images, audios, chatMode],
   );
 
   const clearAuditFilter = useCallback(() => {
@@ -1041,7 +1063,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     convListMeta,
     convListSearch,
     messageSource,
-    jailbreak,
+    chatMode,
     chatUserName,
     convListOwnerLabel,
     convListHeader,
@@ -1075,7 +1097,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     onMeta,
     onRateMessage,
     onMessageSourceChange,
-    onJailbreakChange,
+    onChatModeChange,
     onConvListPageSizeChange,
     setDraft,
     setImages,

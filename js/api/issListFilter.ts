@@ -2,6 +2,9 @@
 
 export const ISS_LIST_FILTER_QUERY_PARAM = "f";
 
+/** Orden por defecto del listado de conversaciones (desc por iconversacion). */
+export const CONVERSACIONES_LIST_SORT_DEFAULT = "-iconversacion";
+
 export type IssListFilter = {
   search?: string;
   limit?: number;
@@ -24,7 +27,7 @@ export function buildConversacionesListFilter(input: {
 } = {}): IssListFilter {
   const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
   const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
-  const sort = String(input.sort || "-fhultact").trim() || "-fhultact";
+  const sort = String(input.sort || CONVERSACIONES_LIST_SORT_DEFAULT).trim() || CONVERSACIONES_LIST_SORT_DEFAULT;
   const search = String(input.search ?? "").trim().slice(0, 200);
   return {
     limit,

@@ -19,10 +19,21 @@ function normalizeTool(raw: unknown) {
   return "log";
 }
 
+function normalizeChatBag(chat: unknown) {
+  const bag = chat && typeof chat === "object" ? { ...(chat as Record<string, unknown>) } : {};
+  if ((bag.mode == null || String(bag.mode).trim() === "") && bag.jailbreak != null) {
+    bag.mode = bag.jailbreak === true ? "libre" : "patyia";
+    delete bag.jailbreak;
+  } else if (bag.jailbreak != null) {
+    delete bag.jailbreak;
+  }
+  return bag;
+}
+
 function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   if (!raw || typeof raw !== "object") return initial();
   const tool = normalizeTool(raw.tool);
-  const chat = raw.chat && typeof raw.chat === "object" ? raw.chat : {};
+  const chat = normalizeChatBag(raw.chat);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
   return {
     v: raw.v ?? STATE_VERSION, tool, local: !!raw.local,
@@ -126,8 +137,10 @@ function migrateLegacyFlatQuery() {
       if (field === "convId" && (section === "chat" || section === "log")) {
         const n = Number(raw);
         bag.convId = Number.isFinite(n) && n > 0 ? n : String(raw ?? "").trim();
+      } else if (field === "mode") {
+        bag.mode = String(raw ?? "").trim().toLowerCase() || "patyia";
       } else if (field === "jailbreak") {
-        bag.jailbreak = raw === "1" || raw === "true";
+        bag.mode = raw === "1" || raw === "true" ? "libre" : "patyia";
       } else if (field === "boardId" || field === "milestoneId" || field === "taskId") {
         const n = Number(raw);
         if (Number.isFinite(n) && n > 0) bag[field] = n;
@@ -207,10 +220,11 @@ export function persistChatMessageSource(source: "prod" | "logs") {
   return mergePartial({ tool: "chat", chat: { messageSource: source } });
 }
 
-/** Jailbreak staging — respuesta libre en ?s=.chat.jailbreak */
-export function persistChatJailbreak(enabled: boolean) {
+/** Modo de conversación — patyia | libre en ?s=.chat.mode */
+export function persistChatMode(mode: string) {
+  const normalized = String(mode || "patyia").trim().toLowerCase() || "patyia";
   const snap = getSnapshot();
-  const prev = !!(snap.chat as Record<string, unknown>)?.jailbreak;
-  if (prev === enabled) return snap;
-  return mergePartial({ tool: "chat", chat: { jailbreak: enabled } });
+  const prev = String((snap.chat as Record<string, unknown>)?.mode || "patyia");
+  if (prev === normalized) return snap;
+  return mergePartial({ tool: "chat", chat: { mode: normalized } });
 }

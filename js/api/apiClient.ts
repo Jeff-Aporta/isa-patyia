@@ -257,11 +257,13 @@ export async function fetchConversacionesBridge(input: {
   page?: number;
   limit?: number;
   search?: string;
+  sort?: string;
 }): Promise<ConversacionesBridgeResponse> {
   const params = conversacionesListQueryParams({
     page: input.page,
     limit: input.limit,
     search: input.search,
+    sort: input.sort,
     itercero: input.itercero,
     icontacto: input.icontacto,
   });

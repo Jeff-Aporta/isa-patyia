@@ -1266,7 +1266,7 @@ html[data-mui-color-scheme="light"] .paty-chat-session--clickable:hover .paty-ch
 }
 
 .paty-chat-shell-split .paty-chat-sidebar-head-actions {
-  margin-left: auto;
+  margin-left: 0;
   flex-shrink: 0;
 }
 
@@ -1275,25 +1275,29 @@ html[data-mui-color-scheme="light"] .paty-chat-session--clickable:hover .paty-ch
   min-width: 0;
 }
 
-/* Jailbreak libre — paloma dorada como icono operativa (#f59e0b) */
-.paty-chat-jailbreak-btn--active {
-  color: #fff !important;
-  background: linear-gradient(135deg, #f59e0b, rgba(245, 158, 11, 0.62)) !important;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.42);
+/* Modo libre — icono dorado (#f59e0b), sin fondo */
+.paty-chat-mode-btn--libre {
+  color: #f59e0b !important;
+  background: transparent !important;
+  box-shadow: none !important;
   &:hover {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
-    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.5);
+    color: #fbbf24 !important;
+    background: rgba(245, 158, 11, 0.12) !important;
+    box-shadow: none !important;
   }
   & iconify-icon {
-    color: #fff !important;
-    filter: drop-shadow(0 1px 2px rgba(120, 53, 15, 0.35));
+    color: #f59e0b !important;
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
   }
 }
 
-html[data-mui-color-scheme="light"] .paty-chat-jailbreak-btn--active {
-  color: #fff !important;
-  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+html[data-mui-color-scheme="light"] .paty-chat-mode-btn--libre {
+  color: #d97706 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  & iconify-icon {
+    color: #d97706 !important;
+  }
 }
 
 .paty-chat-sidebar-meta {
@@ -1359,51 +1363,6 @@ html[data-mui-color-scheme="light"] .paty-chat-jailbreak-btn--active {
   &__size {
     min-width: 0;
     flex-shrink: 0;
-
-    & .MuiInputBase-root {
-      margin: 0;
-    }
-    & .MuiOutlinedInput-root,
-    & .MuiOutlinedInput-root.MuiInputBase-sizeSmall {
-      display: inline-flex !important;
-      align-items: center !important;
-      height: 24px !important;
-      min-height: 24px !important;
-      max-height: 24px !important;
-      padding: 0 !important;
-      font-size: 0.58rem;
-      font-weight: 700;
-      font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
-      border-radius: 5px;
-      background: rgba(96, 165, 250, 0.1);
-    }
-    & .MuiOutlinedInput-notchedOutline {
-      border-color: rgba(96, 165, 250, 0.38);
-      top: 0;
-      bottom: 0;
-    }
-    & .MuiSelect-select,
-    & .MuiSelect-select.MuiSelect-outlined,
-    & .MuiSelect-select.MuiOutlinedInput-input {
-      display: flex !important;
-      align-items: center !important;
-      height: 24px !important;
-      min-height: 24px !important;
-      max-height: 24px !important;
-      padding: 0 16px 0 6px !important;
-      line-height: 1 !important;
-      box-sizing: border-box !important;
-      color: #93c5fd;
-    }
-    & .MuiSvgIcon-root,
-    & .MuiSelect-icon {
-      color: #93c5fd;
-      font-size: 0.8rem !important;
-      right: 2px;
-      top: 50% !important;
-      transform: translateY(-50%);
-      pointer-events: none;
-    }
   }
   &__btn {
     width: 22px !important;
@@ -1467,6 +1426,139 @@ html[data-mui-color-scheme="light"] .paty-chat-jailbreak-btn--active {
       }
     }
   }
+}
+
+/* Paginador sidebar — select tamaño (selectores planos; MUI outline + minHeight) */
+.paty-chat-conv-pager__size .MuiInputBase-root {
+  margin: 0;
+}
+
+.paty-chat-conv-pager__size .MuiOutlinedInput-root {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 !important;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  border-radius: 6px;
+  background: rgba(96, 165, 250, 0.1);
+  box-sizing: border-box;
+}
+
+.paty-chat-conv-pager__size .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(96, 165, 250, 0.38);
+  top: 0;
+  bottom: 0;
+}
+
+.paty-chat-conv-pager__size .MuiOutlinedInput-notchedOutline legend {
+  display: none;
+}
+
+.paty-chat-conv-pager__size .MuiSelect-select,
+.paty-chat-conv-pager__size .MuiSelect-select.MuiSelect-outlined,
+.paty-chat-conv-pager__size .MuiSelect-select.MuiOutlinedInput-input {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start;
+  min-height: 0 !important;
+  height: 26px !important;
+  line-height: 26px !important;
+  padding: 0 20px 0 7px !important;
+  box-sizing: border-box !important;
+  color: #93c5fd;
+}
+
+.paty-chat-conv-pager__size .MuiSelect-icon,
+.paty-chat-conv-pager__size .MuiSvgIcon-root.MuiSelect-icon {
+  color: #93c5fd;
+  font-size: 0.85rem !important;
+  right: 2px;
+  top: 50% !important;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-pager__size .MuiOutlinedInput-root {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-pager__size .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(59, 130, 246, 0.32);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-pager__size .MuiSelect-select,
+html[data-mui-color-scheme="light"] .paty-chat-conv-pager__size .MuiSelect-icon {
+  color: #1d4ed8;
+}
+
+.paty-chat-conv-search__clear {
+  margin-right: -2px;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.paty-chat-conv-search__clear:hover {
+  color: rgba(226, 232, 240, 0.98);
+  background: rgba(148, 163, 184, 0.14);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-search__clear {
+  color: rgba(100, 116, 139, 0.92);
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-search__clear:hover {
+  color: rgba(30, 41, 59, 0.95);
+  background: rgba(100, 116, 139, 0.12);
+}
+
+.paty-chat-conv-search__option {
+  justify-content: flex-start !important;
+  text-align: left;
+}
+
+.paty-chat-conv-search__option-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.paty-chat-conv-search__option-id {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.04rem 0.34rem;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.26);
+}
+
+.paty-chat-conv-search__option-sep {
+  flex: 0 0 auto;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.paty-chat-conv-search__option-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-conv-search__option-id {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.22);
 }
 
 .paty-chat-skeleton-conv {

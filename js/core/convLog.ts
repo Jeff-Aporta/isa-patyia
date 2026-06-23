@@ -805,7 +805,7 @@ export {
   usageHasData,
 };
 
-/** Padding del hilo de conversación (chat: mesh tk-doc en `.paty-chat-thread-surface`; log: shell ::before). */
+/** Padding del hilo de conversación (chat: mesh tk-doc en `.paty-chat-thread-surface` solo dark; log: shell ::before). */
 const CONV_LOG_PAD = { p: { xs: 1.25, sm: 2, md: 3 } };
 
 export function convLogSurfaceSx(extra: Record<string, unknown> = {}) {

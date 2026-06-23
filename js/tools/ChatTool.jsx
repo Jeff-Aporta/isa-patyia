@@ -53,8 +53,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     onConvListSearchChange: chat.handleConvListSearchChange,
     messageSource: chat.messageSource,
     onMessageSourceChange: chat.onMessageSourceChange,
-    jailbreak: chat.jailbreak,
-    onJailbreakChange: chat.onJailbreakChange,
+    mode: chat.chatMode,
+    onChatModeChange: chat.onChatModeChange,
     onOpenJwt: () => chat.setJwtOpen(true),
     onOpenAudit: () => chat.setAuditDialogOpen(true),
     onNewChat: chat.onNewChat,
@@ -144,9 +144,9 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           panelHeaderEnd={(
             <ChatSidebarHeaderActions
               messageSource={chat.messageSource}
-              jailbreak={chat.jailbreak}
+              mode={chat.chatMode}
               onMessageSourceChange={chat.onMessageSourceChange}
-              onJailbreakChange={chat.onJailbreakChange}
+              onChatModeChange={chat.onChatModeChange}
               onOpenJwt={() => chat.setJwtOpen(true)}
             />
           )}

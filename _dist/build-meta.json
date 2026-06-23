@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-23T06:09:02.802Z",
+  "builtAt": "2026-06-23T13:07:10.267Z",
   "files": 90,
-  "bytesIn": 799860,
-  "bytesOut": 470843,
+  "bytesIn": 806016,
+  "bytesOut": 475139,
   "ratio": 0.589,
-  "hash": "f46c24359091",
+  "hash": "ad5223db5ecb",
   "entries": [
     {
       "src": "css/app.css",
@@ -21,14 +21,14 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 40915,
-      "bytesOut": 29824
+      "bytesIn": 43038,
+      "bytesOut": 31677
     },
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 7258,
-      "bytesOut": 5628
+      "bytesIn": 7668,
+      "bytesOut": 5960
     },
     {
       "src": "css/theme.css",
@@ -45,14 +45,14 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 9350,
-      "bytesOut": 4446
+      "bytesIn": 9391,
+      "bytesOut": 4458
     },
     {
       "src": "js/api/issListFilter.ts",
       "dist": "_dist/js/api/issListFilter.js",
-      "bytesIn": 1961,
-      "bytesOut": 858
+      "bytesIn": 2154,
+      "bytesOut": 895
     },
     {
       "src": "js/api/labApi.ts",
@@ -63,8 +63,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 10470,
-      "bytesOut": 4292
+      "bytesIn": 10557,
+      "bytesOut": 4363
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -111,7 +111,7 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4309,
+      "bytesIn": 4214,
       "bytesOut": 2733
     },
     {
@@ -129,7 +129,7 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 33763,
+      "bytesIn": 33773,
       "bytesOut": 16833
     },
     {
@@ -183,8 +183,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 7855,
-      "bytesOut": 3611
+      "bytesIn": 8443,
+      "bytesOut": 3941
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -201,8 +201,8 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 8698,
-      "bytesOut": 5752
+      "bytesIn": 8682,
+      "bytesOut": 5736
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -255,14 +255,14 @@
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 18206,
-      "bytesOut": 10742
+      "bytesIn": 16998,
+      "bytesOut": 10289
     },
     {
       "src": "js/tools/chat/ConvSearchAutocomplete.jsx",
       "dist": "_dist/js/tools/chat/ConvSearchAutocomplete.js",
-      "bytesIn": 2909,
-      "bytesOut": 1724
+      "bytesIn": 4575,
+      "bytesOut": 2622
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",
@@ -291,8 +291,8 @@
     {
       "src": "js/tools/chat/constants.ts",
       "dist": "_dist/js/tools/chat/constants.js",
-      "bytesIn": 3254,
-      "bytesOut": 1372
+      "bytesIn": 4657,
+      "bytesOut": 1932
     },
     {
       "src": "js/tools/chat/images.ts",
@@ -315,14 +315,14 @@
     {
       "src": "js/tools/chat/types.ts",
       "dist": "_dist/js/tools/chat/types.js",
-      "bytesIn": 2556,
+      "bytesIn": 2550,
       "bytesOut": 0
     },
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 39480,
-      "bytesOut": 15983
+      "bytesIn": 40440,
+      "bytesOut": 16655
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",

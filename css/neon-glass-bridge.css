@@ -27,12 +27,27 @@
   }
 }
 
-/* Hilo chat — mesh tk-doc (jagudeloe métricas) */
+/* Hilo chat — mesh tk-doc (neon-glass); solo dark (light: sin degradado) */
 .paty-chat-thread-surface {
+  position: relative;
   isolation: isolate;
+}
+
+html[data-mui-color-scheme="dark"] .paty-chat-thread-surface,
+html:not([data-mui-color-scheme="light"]) .paty-chat-thread-surface {
   background: var(--isa-glass-page-mesh-vignette), var(--isa-glass-page-mesh-base) !important;
   background-image: var(--isa-glass-page-mesh-vignette), var(--isa-glass-page-mesh-base) !important;
   background-attachment: local, local;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-thread-surface {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.paty-chat-thread-surface > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Barras de tool (chat, logs) */

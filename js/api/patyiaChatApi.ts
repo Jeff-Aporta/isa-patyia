@@ -210,7 +210,7 @@ export type SendMessageInput = {
   iconversacion?: number;
   imagenes?: string[];
   audios?: string[];
-  jailbreak?: boolean;
+  mode?: string;
 };
 
 /** Normaliza a data URL base64 (formato esperado por POST /conversacion). */
@@ -238,7 +238,9 @@ export function buildConversacionPostBody(input: SendMessageInput): Record<strin
   if (input.iconversacion) body.iconversacion = input.iconversacion;
   if (imagenes.length) body.imagenes = imagenes;
   if (audios.length) body.audios = audios;
-  if (input.jailbreak) body.jailbreak = true;
+  if (input.mode && String(input.mode).trim().toLowerCase() !== "patyia") {
+    body.mode = String(input.mode).trim().toLowerCase();
+  }
   if (!String(body.prompt || "").trim() && hasMedia) {
     body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
   }

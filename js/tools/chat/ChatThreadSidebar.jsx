@@ -1,6 +1,6 @@
 import { getMaterialUI, UI } from "../../core/platform.ts";
 import { convBelongsToJwt } from "../../core/patyia-jwt.ts";
-import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTIONS } from "./constants.ts";
+import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTIONS, CHAT_MODE_LIBRE, CHAT_MODE_PATYIA, isLibreChatMode } from "./constants.ts";
 import { formatTs } from "./mensajesModel.ts";
 import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
 import { ConvSearchAutocomplete } from "./ConvSearchAutocomplete.jsx";
@@ -26,19 +26,19 @@ function MessageSourceSwitch({ messageSource, onChange }) {
   );
 }
 
-function JailbreakSwitch({ jailbreak, onChange }) {
-  const active = Boolean(jailbreak);
-  const title = active ? "Libre" : "Patyia";
-  const icon = active ? "game-icons:freedom-dove" : "game-icons:bird-cage";
+function ChatModeSwitch({ mode, onChange }) {
+  const isLibre = isLibreChatMode(mode);
+  const title = isLibre ? "Libre" : "Patyia";
+  const icon = isLibre ? "game-icons:freedom-dove" : "game-icons:bird-cage";
   return (
     <Tooltip title={title}>
       <IconButton
         color="inherit"
         size="small"
-        className={`paty-chat-jailbreak-btn${active ? " paty-chat-jailbreak-btn--active" : ""}`}
-        onClick={() => onChange?.(!active)}
+        className={`paty-chat-mode-btn${isLibre ? " paty-chat-mode-btn--libre" : ""}`}
+        onClick={() => onChange?.(isLibre ? CHAT_MODE_PATYIA : CHAT_MODE_LIBRE)}
         aria-label={title}
-        aria-pressed={active}
+        aria-pressed={isLibre}
       >
         <Icon icon={icon} size={18} />
       </IconButton>
@@ -50,13 +50,20 @@ function JailbreakSwitch({ jailbreak, onChange }) {
 export function ChatSidebarHeaderActions({
   onClose,
   messageSource = "logs",
-  jailbreak = false,
+  mode = CHAT_MODE_PATYIA,
   onMessageSourceChange,
-  onJailbreakChange,
+  onChatModeChange,
   onOpenJwt,
 }) {
   return (
-    <Stack direction="row" spacing={0.35} alignItems="center" className="paty-chat-sidebar-head-actions">
+    <Stack
+      direction="row"
+      spacing={0.35}
+      alignItems="center"
+      className="paty-chat-sidebar-head-actions"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       {onClose ? (
         <Tooltip title="Cerrar panel">
           <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
@@ -65,7 +72,7 @@ export function ChatSidebarHeaderActions({
         </Tooltip>
       ) : null}
       {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
-      {onJailbreakChange ? <JailbreakSwitch jailbreak={jailbreak} onChange={onJailbreakChange} /> : null}
+      {onChatModeChange ? <ChatModeSwitch mode={mode} onChange={onChatModeChange} /> : null}
       <Tooltip title="Cambiar token JWT">
         <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
           <Icon icon="mdi:key-variant" size={18} />
@@ -282,40 +289,12 @@ function ChatSidebarBody({
                   >
                     <FormControl className="paty-chat-conv-pager__size" sx={{ m: 0, minWidth: 44 }}>
                       <Select
+                        size="small"
                         value={convListPageSize}
                         onChange={(e) => onConvListPageSizeChange(Number(e.target.value))}
                         aria-label="Conversaciones por página"
                         disabled={loadingList}
                         variant="outlined"
-                        sx={{
-                          height: "24px !important",
-                          minHeight: "24px !important",
-                          maxHeight: "24px !important",
-                          fontSize: "0.58rem",
-                          "&.MuiInputBase-root": {
-                            height: "24px !important",
-                            minHeight: "24px !important",
-                            maxHeight: "24px !important",
-                          },
-                          "& .MuiOutlinedInput-notchedOutline": { top: 0 },
-                          "& .MuiSelect-select": {
-                            py: "0 !important",
-                            px: "5px !important",
-                            pr: "14px !important",
-                            minHeight: "22px !important",
-                            height: "22px !important",
-                            maxHeight: "22px !important",
-                            lineHeight: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            boxSizing: "border-box",
-                          },
-                          "& .MuiSelect-icon": {
-                            fontSize: "0.8rem",
-                            right: 1,
-                            top: "calc(50% - 0.4rem)",
-                          },
-                        }}
                         MenuProps={{ PaperProps: { sx: { "& .MuiMenuItem-root": { minHeight: 24, py: 0.2, fontSize: "0.68rem" } } } }}
                       >
                         {CONV_LIST_PAGE_SIZE_OPTIONS.map((n) => (
@@ -389,9 +368,9 @@ export function ChatThreadSidebar({
   convListSearch = "",
   onConvListSearchChange,
   messageSource = "logs",
-  jailbreak = false,
+  mode = CHAT_MODE_PATYIA,
   onMessageSourceChange,
-  onJailbreakChange,
+  onChatModeChange,
   onOpenJwt,
   onOpenAudit,
   onNewChat,
@@ -476,9 +455,9 @@ export function ChatThreadSidebar({
         <ChatSidebarHeaderActions
           onClose={onClose}
           messageSource={messageSource}
-          jailbreak={jailbreak}
+          mode={mode}
           onMessageSourceChange={onMessageSourceChange}
-          onJailbreakChange={onJailbreakChange}
+          onChatModeChange={onChatModeChange}
           onOpenJwt={onOpenJwt}
         />
       </Stack>

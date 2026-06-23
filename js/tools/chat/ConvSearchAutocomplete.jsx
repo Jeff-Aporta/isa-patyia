@@ -1,8 +1,8 @@
-import { getReact, getMaterialUI } from "../../core/platform.ts";
-import { formatTs } from "./mensajesModel.ts";
+import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 
 const { useState, useEffect, useRef, useCallback, useMemo } = getReact();
-const { Autocomplete, TextField, Typography, Box } = getMaterialUI();
+const { Autocomplete, TextField, Typography, Box, IconButton, InputAdornment } = getMaterialUI();
+const { Icon } = UI;
 
 const DEBOUNCE_MS = 300;
 
@@ -10,6 +10,11 @@ function convOptionLabel(row) {
   if (!row) return "";
   const title = String(row.titulo ?? "").trim() || "Sin título";
   return `${row.iconversacion} · ${title}`;
+}
+
+function convSelectedLabel(row) {
+  if (!row?.iconversacion) return "";
+  return String(row.iconversacion);
 }
 
 export function ConvSearchAutocomplete({
@@ -39,9 +44,17 @@ export function ConvSearchAutocomplete({
     debounceRef.current = setTimeout(() => onSearchChange?.(text.trim()), DEBOUNCE_MS);
   }, [onSearchChange]);
 
+  const clearSearch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setInputValue("");
+    onSearchChange?.("");
+  }, [onSearchChange]);
+
   useEffect(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
+
+  const showClear = Boolean(inputValue?.trim());
 
   return (
     <Autocomplete
@@ -51,6 +64,7 @@ export function ConvSearchAutocomplete({
       openOnFocus
       autoHighlight
       clearOnBlur={false}
+      disableClearable
       disabled={disabled}
       loading={loading}
       options={rows}
@@ -69,22 +83,57 @@ export function ConvSearchAutocomplete({
       onChange={(_e, row) => {
         if (row?.iconversacion) {
           onSelectConv?.(row.iconversacion);
-          setInputValue(convOptionLabel(row));
+          setInputValue(convSelectedLabel(row));
         }
       }}
       renderOption={(props, row) => (
-        <Box component="li" {...props} key={row.iconversacion} sx={{ display: "flex", flexDirection: "column", py: 0.75 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-            {convOptionLabel(row)}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {`${formatTs(row.fhultact)} · ${row.qmensajes ?? 0} msgs`}
+        <Box
+          component="li"
+          {...props}
+          key={row.iconversacion}
+          className="paty-chat-conv-search__option"
+          sx={{ display: "flex", alignItems: "center", justifyContent: "flex-start", py: 0.75 }}
+        >
+          <Typography variant="body2" className="paty-chat-conv-search__option-label" sx={{ fontWeight: 600 }} noWrap>
+            <Box component="span" className="paty-chat-conv-search__option-id">
+              {row.iconversacion}
+            </Box>
+            <Box component="span" className="paty-chat-conv-search__option-sep">
+              {" · "}
+            </Box>
+            <Box component="span" className="paty-chat-conv-search__option-title">
+              {String(row.titulo ?? "").trim() || "Sin título"}
+            </Box>
           </Typography>
         </Box>
       )}
-      renderInput={(params) => (
-        <TextField {...params} placeholder={placeholder} />
-      )}
+      renderInput={(params) => {
+        const inputSlot = params.slotProps?.input ?? {};
+        return (
+          <TextField
+            {...params}
+            placeholder={placeholder}
+            slotProps={{
+              ...params.slotProps,
+              input: {
+                ...inputSlot,
+                endAdornment: (
+                  <>
+                    {showClear ? (
+                      <InputAdornment position="end">
+                        <IconButton size="small" aria-label="Limpiar búsqueda" className="paty-chat-conv-search__clear" onMouseDown={(e) => e.preventDefault()} onClick={clearSearch}>
+                          <Icon icon="mdi:close" size={16} />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null}
+                    {inputSlot.endAdornment}
+                  </>
+                ),
+              },
+            }}
+          />
+        );
+      }}
     />
   );
 }
