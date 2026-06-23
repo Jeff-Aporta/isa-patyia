@@ -19,15 +19,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           spacing={1}
           alignItems="center"
           className="paty-chat-main-toolbar"
-          sx={{
-            px: 1,
-            py: 0.5,
-            minHeight: 40,
-            borderBottom: 1,
-            borderColor: "divider",
-            flexShrink: 0,
-            bgcolor: "background.paper",
-          }}
+          sx={{ px: 1, py: 0.5, minHeight: 40, flexShrink: 0 }}
         >
           <Tooltip title="Conversaciones" arrow>
             <IconButton size="small" onClick={onOpenSidebar} aria-label="Abrir conversaciones">
@@ -57,7 +49,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           spacing={1}
           alignItems="center"
           className="paty-chat-main-toolbar paty-chat-main-toolbar--desktop"
-          sx={{ px: 2, py: 0.75, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
+          sx={{ px: 2, py: 0.75, flexShrink: 0 }}
         >
           <Box sx={{ flex: 1 }} />
           <Tooltip title="Actualizar conversación" arrow>
@@ -106,7 +98,10 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
       )}
 
       {!showThread ? (
-        <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...convLogSurfaceSx({ flex: 1 }) }}>
+        <Box
+          className="paty-chat-thread-surface"
+          sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...convLogSurfaceSx({ flex: 1 }) }}
+        >
           <Box sx={{ textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }}>
             <Typography variant="body1">
               {canSend

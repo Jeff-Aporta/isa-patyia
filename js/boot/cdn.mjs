@@ -73,7 +73,7 @@ export async function ensureLightboxZoom(base = lightboxZoomBase()) {
 
 /* @isa-swagger-boot:start */
 /** Jeff-Aporta/swagger-viewer — pin CDN git (sync-component-refs.mjs) */
-export const SWAGGER_VIEWER_REF = "6064eae";
+export const SWAGGER_VIEWER_REF = "be8792a";
 
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;

@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI, getIsaSplitView } from "../core/platform.ts";
+import { getReact, getMaterialUI, getIsaSplitView, getGlass } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { ButtonIconify } from "../ui/shared.jsx";
@@ -153,6 +153,8 @@ function LogEntradaPanel({
   jsonInput,
   error,
   canClear,
+  focusTarget = null,
+  onFocusApplied,
   onConvIdChange,
   onConvIdKeyDown,
   recuperarPorId,
@@ -161,9 +163,28 @@ function LogEntradaPanel({
   onJsonInputChange,
 }) {
   const { Icon } = UI;
+  const { GlassPanel, NEON_COLORS } = getGlass();
+
+  useEffect(() => {
+    if (!focusTarget) return undefined;
+    const timer = window.setTimeout(() => {
+      if (focusTarget === "convId") {
+        const input = document.querySelector(".conv-log-entrada .conv-log-action-grp__input input");
+        input?.focus();
+        input?.select?.();
+      } else if (focusTarget === "json") {
+        const cmEl = document.querySelector(".conv-log-entrada .log-json-editor-wrap .CodeMirror");
+        if (cmEl?.CodeMirror) cmEl.CodeMirror.focus();
+        else cmEl?.querySelector("textarea")?.focus();
+      }
+      onFocusApplied?.();
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [focusTarget, onFocusApplied]);
+
   return (
     <Box
-      className="conv-log-sidebar"
+      className="conv-log-entrada"
       sx={{
         display: "flex",
         flexDirection: "column",
@@ -180,8 +201,8 @@ function LogEntradaPanel({
           spacing={1}
           alignItems="center"
           justifyContent="flex-end"
-          className="conv-log-sidebar-block"
-          sx={{ py: 0.5, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+          className="conv-log-sidebar-block conv-log-entrada-drawer-head"
+          sx={{ flexShrink: 0 }}
         >
           {onClose ? (
             <Tooltip title="Cerrar panel">
@@ -193,8 +214,14 @@ function LogEntradaPanel({
         </Stack>
       ) : null}
 
-      <Box className="conv-log-sidebar-block" sx={{ pt: drawerMode ? 1 : 0, flexShrink: 0 }}>
-        <Box className="conv-log-action-grp" role="group" aria-label="Acciones de entrada de log">
+      <Box className="conv-log-sidebar-block conv-log-entrada-actions" sx={{ flexShrink: 0 }}>
+        <GlassPanel
+          tone="blue"
+          className="conv-log-action-grp"
+          role="group"
+          aria-label="Acciones de entrada de log"
+          sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, width: "100%" }}
+        >
           <TextField
             className="conv-log-action-grp__input"
             size="small"
@@ -243,26 +270,32 @@ function LogEntradaPanel({
               </span>
             </Tooltip>
           </Box>
-        </Box>
-        {error && <Alert severity="error" sx={{ mt: 1, py: 0 }}>{error}</Alert>}
+        </GlassPanel>
+        {error ? <Alert severity="error" className="conv-log-entrada-error">{error}</Alert> : null}
       </Box>
-
-      <Divider sx={{ my: 1 }} />
 
       <Box
         className="conv-log-sidebar-block conv-log-json-block"
-        sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", pb: 1.5 }}
+        sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}
       >
-        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, flexShrink: 0 }}>
-          JSON del log
-        </Typography>
-        <Box className="log-json-editor-wrap" sx={{ flex: 1, minHeight: 0, overflow: "hidden", borderRadius: 1, border: 1, borderColor: "divider" }}>
+        <Box className="conv-log-json-head isa-neon-section-label" aria-hidden>
+          <Icon icon="mdi:code-json" size={15} />
+          <Typography component="span" variant="caption" className="conv-log-json-head__label">
+            JSON del log
+          </Typography>
+        </Box>
+        <GlassPanel
+          tone="purple"
+          accent={NEON_COLORS.purple}
+          className="log-json-editor-wrap"
+          sx={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", p: 0 }}
+        >
           <JsonCodeEditor
             value={jsonInput}
             onChange={onJsonInputChange}
             placeholder='{ "iconversacion": 1234, "mensajes": [ ... ] }'
           />
-        </Box>
+        </GlassPanel>
       </Box>
     </Box>
   );
@@ -284,6 +317,7 @@ export function LogViewer({ bootLog = {} }) {
   const [metaMsg, setMetaMsg] = useState(null);
   const [resumenOpen, setResumenOpen] = useState(false);
   const [selectedMsgId, setSelectedMsgId] = useState(null);
+  const [entradaFocus, setEntradaFocus] = useState(null);
 
   const navItems = useMemo(() => convLogNavItems(mensajes), [mensajes]);
 
@@ -412,6 +446,8 @@ export function LogViewer({ bootLog = {} }) {
     jsonInput,
     error,
     canClear,
+    focusTarget: entradaFocus,
+    onFocusApplied: () => setEntradaFocus(null),
     onConvIdChange: (e) => setConvId(e.target.value),
     onConvIdKeyDown,
     recuperarPorId,
@@ -452,10 +488,11 @@ export function LogViewer({ bootLog = {} }) {
           alignItems="center"
           flexWrap="wrap"
           useFlexGap
-          sx={{ px: { xs: 1, md: 2 }, py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0, bgcolor: "background.paper" }}
+          className="conv-log-thread-head"
+          sx={{ px: { xs: 1, md: 2 }, py: 1, flexShrink: 0 }}
         >
           <Chip
-            className="conv-log-thread-title-chip"
+            className="conv-log-thread-title-chip isa-neon-glass-chip"
             size="small"
             label={
               <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
@@ -463,7 +500,6 @@ export function LogViewer({ bootLog = {} }) {
                 Hilo recuperado
               </Box>
             }
-            sx={{ bgcolor: "#fff", color: "#111", fontWeight: 700 }}
           />
           {resumenChips.map((c) => (
             <Chip key={c.label} size="small" label={c.label} color={c.color} variant="outlined" />
@@ -527,6 +563,36 @@ export function LogViewer({ bootLog = {} }) {
           panelTitle="Entrada"
           panelIcon="mdi:database-import-outline"
           UI={UI}
+          collapsedRail={({ expand }) => (
+            <Box className="conv-log-collapsed-rail">
+              <Tooltip title="Buscar por iconversacion" placement="right">
+                <IconButton
+                  size="small"
+                  className="isa-neon-rail-btn isa-neon-rail-btn--search"
+                  aria-label="Buscar por iconversacion"
+                  onClick={() => {
+                    setEntradaFocus("convId");
+                    expand();
+                  }}
+                >
+                  <Icon icon="mdi:magnify" size={20} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Ver o editar JSON del log" placement="right">
+                <IconButton
+                  size="small"
+                  className="isa-neon-rail-btn isa-neon-rail-btn--json"
+                  aria-label="Ver o editar JSON del log"
+                  onClick={() => {
+                    setEntradaFocus("json");
+                    expand();
+                  }}
+                >
+                  <Icon icon="mdi:code-braces" size={20} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
           panel={<LogEntradaPanel {...entradaProps} />}
         >
           {mainPanel}

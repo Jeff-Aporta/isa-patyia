@@ -3,6 +3,8 @@
  * Uso offline en GH Pages; sin llamadas a PatyIA.
  */
 
+import { formatMsgFecha } from "./msgDateFormat.ts";
+
 /** Mensaje conv-log aplanado — campos base + propiedades según rol (user/assistant/operativa). */
 type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number };
 
@@ -681,14 +683,7 @@ function pushImage(images: string[], ref: unknown) {
   }
 
   function formatearFecha(raw) {
-    if (!raw) return "";
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) {
-      const d = new Date(raw);
-      if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "medium" });
-      }
-    }
-    return raw;
+    return formatMsgFecha(raw).label;
   }
 
   function convLogToMsgVista(m, i, userSendForTurn) {
@@ -743,7 +738,10 @@ function pushImage(images: string[], ref: unknown) {
       imagenes: imagenes.length ? imagenes : undefined,
       audios: audios.length ? audios : undefined,
       audiosTranscripcion: audiosTranscripcion.length ? audiosTranscripcion : undefined,
-      fecha: formatearFecha(String(m.ts ?? "")),
+      ...(() => {
+        const f = formatMsgFecha(m.ts ?? "");
+        return { fecha: f.label, fechaIso: f.iso || undefined };
+      })(),
       esUsuario,
       esOperativa,
       meta,
@@ -807,7 +805,7 @@ export {
   usageHasData,
 };
 
-/** Padding del hilo de conversación (fondo vía `.conv-log-shell::before` en chat-staging.css). */
+/** Padding del hilo de conversación (chat: mesh tk-doc en `.paty-chat-thread-surface`; log: shell ::before). */
 const CONV_LOG_PAD = { p: { xs: 1.25, sm: 2, md: 3 } };
 
 export function convLogSurfaceSx(extra: Record<string, unknown> = {}) {

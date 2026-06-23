@@ -1,4 +1,5 @@
 import { logToMensajesVista, resolveOpenAiMensajeText, isStreamErrorCode, isStreamErrorDisplay, formatStreamError } from "../../core/convLog.ts";
+import { formatMsgFecha, formatTs } from "../../core/msgDateFormat.ts";
 import type {
   ChatMensajeVista,
   ConvLogPayload,
@@ -7,10 +8,11 @@ import type {
   PatyMensajeCalificado,
 } from "./types.ts";
 
-export function formatTs(v: string | number | Date | null | undefined): string {
-  if (!v) return "";
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? String(v).slice(0, 16) : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+export { formatTs } from "../../core/msgDateFormat.ts";
+
+function vistaFechas(raw: string | number | Date | null | undefined) {
+  const { label, iso } = formatMsgFecha(raw);
+  return { fecha: label, fechaIso: iso || undefined };
 }
 
 export function resolveUserName(msg: PatyMensaje | ChatMensajeVista | null | undefined, fallbackUserName?: string): string {
@@ -242,13 +244,15 @@ export function openAiFallbackVista(
     const contenido = resolveOpenAiMensajeText(m);
     const metaRecord = meta as Record<string, unknown> | null;
     const fechaRaw = m.fecha_hora || metaRecord?.ts || "";
+    const { fecha, fechaIso } = vistaFechas(fechaRaw as string | number | Date);
     const imensaje = Number(m.imensaje) || undefined;
     const imagenes = resolveMensajeImagenes(m);
     return {
       idMsg: imensaje ? `msg-${imensaje}` : `openai-${i}`,
       rol: isUser ? "user" : "assistant",
       contenido,
-      fecha: formatTs(fechaRaw as string | number | Date),
+      fecha,
+      fechaIso,
       esUsuario: isUser,
       esOperativa: false,
       meta,
@@ -359,12 +363,14 @@ export function finalizeStreamInLog(
   return appendStreamMsg(mensajes, safeFinal, true).map((m) => {
     if (m.idMsg !== "stream-live" && !m.isStreaming) return m;
     const prev = isStreamErrorDisplay(m.contenido) ? "" : String(m.contenido ?? "").trim();
+    const now = vistaFechas(new Date());
     return {
       ...m,
       idMsg: m.idMsg === "stream-live" ? `assistant-final-${Date.now()}` : m.idMsg,
       contenido: safeFinal || prev,
       isStreaming: false,
-      fecha: m.fecha || formatTs(new Date()),
+      fecha: m.fecha || now.fecha,
+      fechaIso: m.fechaIso || now.fechaIso,
       ...(stream?.failed ? { streamFailed: true, streamError: stream.error } : {}),
     };
   });
@@ -432,11 +438,13 @@ export function buildOptimisticUserMsg({
 }): ChatMensajeVista {
   const imgs = (imagenes || []).filter(Boolean);
   const audioUrls = (audios || []).filter(Boolean);
+  const { fecha, fechaIso } = vistaFechas(new Date());
   return {
     idMsg: `pending-user-${Date.now()}`,
     rol: "user",
     contenido: text || (imgs.length ? "(imagen adjunta)" : audioUrls.length ? "(nota de voz)" : ""),
-    fecha: formatTs(new Date()),
+    fecha,
+    fechaIso,
     esUsuario: true,
     esOperativa: false,
     meta: userName ? { nombre_usuario: userName } : null,

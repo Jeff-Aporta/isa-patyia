@@ -1,4 +1,4 @@
-/* ISA PatyIA — superficie neon / tech (complementa MUI theme). */
+/* ISA PatyIA — complementa kit neon-glass (front-shared base.css). Tokens canónicos: front-shared/.../neon-glass/tokens.js */
 
 @keyframes isa-neon-pulse {
   0%, 100% { opacity: 0.55; filter: blur(40px); }
@@ -41,6 +41,44 @@
   linear-gradient(160deg, rgba(30, 144, 255, 0.1) 0%, rgba(99, 102, 241, 0.05) 48%, rgba(15, 23, 42, 0.34) 100%);
   --isa-glass-inner-light:
   linear-gradient(160deg, rgba(30, 144, 255, 0.04) 0%, rgba(248, 250, 252, 0.92) 55%, rgba(255, 255, 255, 0.94) 100%);
+}
+
+/* Mesh de página (tk-doc / jagudeloe métricas) — sincronizado con front-shared neon-glass.css */
+html[data-mui-color-scheme="light"] {
+  --isa-glass-page-mesh-base:
+    radial-gradient(ellipse 135% 90% at 50% -24%, rgba(30, 144, 255, 0.2), transparent 56%),
+    radial-gradient(ellipse 100% 62% at 6% 2%, rgba(99, 102, 241, 0.12), transparent 50%),
+    radial-gradient(ellipse 82% 52% at 96% 5%, rgba(0, 229, 255, 0.1), transparent 46%),
+    radial-gradient(ellipse 85% 72% at 0% 100%, rgba(190, 215, 245, 0.38), transparent 54%),
+    radial-gradient(ellipse 85% 72% at 100% 100%, rgba(190, 215, 245, 0.38), transparent 54%),
+    radial-gradient(ellipse 58% 85% at 0% 45%, rgba(200, 220, 245, 0.28), transparent 48%),
+    radial-gradient(ellipse 58% 85% at 100% 45%, rgba(200, 220, 245, 0.28), transparent 48%),
+    radial-gradient(ellipse 125% 42% at 50% 108%, rgba(180, 210, 240, 0.32), transparent 58%),
+    linear-gradient(165deg, #f5f9ff 0%, #f8fbff 22%, #eef6fc 48%, #f2f8fd 78%, #e8f2fa 100%);
+  --isa-glass-page-mesh-vignette:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.9) 0%, transparent 12%),
+    linear-gradient(to top, rgba(255, 255, 255, 0.9) 0%, transparent 15%),
+    radial-gradient(ellipse 105% 95% at 50% 50%, transparent 40%, rgba(255, 255, 255, 0.65) 100%),
+    radial-gradient(ellipse 50% 38% at 78% 20%, rgba(0, 229, 255, 0.06), transparent 72%),
+    radial-gradient(ellipse 42% 32% at 14% 82%, rgba(99, 102, 241, 0.05), transparent 70%);
+}
+
+html[data-mui-color-scheme="dark"],
+html:not([data-mui-color-scheme="light"]) {
+  --isa-glass-page-mesh-base:
+    radial-gradient(ellipse 135% 90% at 50% -24%, rgba(99, 102, 241, 0.52), transparent 56%),
+    radial-gradient(ellipse 100% 62% at 8% 3%, rgba(30, 144, 255, 0.36), transparent 52%),
+    radial-gradient(ellipse 86% 56% at 94% 7%, rgba(0, 229, 255, 0.3), transparent 48%),
+    radial-gradient(ellipse 92% 82% at 0% 100%, rgba(2, 5, 14, 0.92), transparent 56%),
+    radial-gradient(ellipse 92% 82% at 100% 100%, rgba(2, 5, 14, 0.92), transparent 56%),
+    radial-gradient(ellipse 58% 88% at 0% 42%, rgba(2, 6, 16, 0.72), transparent 50%),
+    radial-gradient(ellipse 58% 88% at 100% 42%, rgba(2, 6, 16, 0.72), transparent 50%),
+    radial-gradient(ellipse 130% 48% at 50% 108%, rgba(2, 8, 20, 0.82), transparent 56%),
+    linear-gradient(165deg, #02060e 0%, #061018 26%, #0e2242 54%, #060e1a 100%);
+  --isa-glass-page-mesh-vignette:
+    radial-gradient(ellipse 105% 95% at 50% 50%, transparent 36%, rgba(0, 0, 0, 0.52) 100%),
+    radial-gradient(ellipse 50% 38% at 78% 18%, rgba(0, 229, 255, 0.11), transparent 72%),
+    radial-gradient(ellipse 42% 32% at 12% 80%, rgba(99, 102, 241, 0.12), transparent 70%);
 }
 
 * {
@@ -98,10 +136,14 @@
   position: relative;
   z-index: 1;
   html[data-mui-color-scheme="dark"] & {
-    background: var(--mesh-dark);
+    background:
+      var(--isa-glass-body-dark),
+      var(--mesh-dark);
   }
   html[data-mui-color-scheme="light"] & {
-    background: var(--mesh-light);
+    background:
+      var(--isa-glass-body-light),
+      var(--mesh-light);
   }
 }
 

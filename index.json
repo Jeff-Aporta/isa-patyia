@@ -12,7 +12,7 @@
     "ogTitle": "ISA PatyIA",
     "imageAlt": "ISA PatyIA — asistente PatyIA staging"
   },
-  "frontSharedPin": "7dc17e4",
+  "frontSharedPin": "2cc2e6c",
   "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
@@ -25,6 +25,7 @@
     "shared-feedback",
     "local:css/boot-loading.css",
     "local:css/theme.css",
+    "local:css/neon-glass-bridge.css",
     "local:css/app.css"
   ],
   "preconnect": [

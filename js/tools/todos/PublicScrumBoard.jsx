@@ -1,10 +1,10 @@
-import { getReact, getMaterialUI, UI, toastSuccess } from "../../core/platform.ts";
+import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { TodosKanban } from "./TodosKanban.jsx";
 import { fetchPublicTodoBoard } from "../../api/todosApi.ts";
 import { normalizeTodoBoardData } from "./todosKanbanShared.js";
 
 const { useState, useEffect } = getReact();
-const { Box, Typography, Alert, CircularProgress } = getMaterialUI();
+const { Box, Alert, CircularProgress } = getMaterialUI();
 const { Icon } = UI;
 
 export function PublicScrumBoard({ publicSlug }) {
@@ -41,13 +41,10 @@ export function PublicScrumBoard({ publicSlug }) {
   return (
     <Box className="paty-todos-shell">
       <Box className="paty-todos-toolbar">
-        <Icon icon="mdi:eye-outline" size={22} />
+        <Icon icon="mdi:view-column" size={22} />
         <span className="paty-todos-board-title">
-          {boardData?.board?.title || "Tablero SCRUM"} — vista pública
+          {boardData?.board?.title || "Tablero SCRUM"}
         </span>
-        <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-          Solo lectura
-        </Typography>
       </Box>
       {error ? <Alert severity="error" sx={{ m: 2 }}>{error}</Alert> : null}
       {loading ? (
@@ -58,7 +55,7 @@ export function PublicScrumBoard({ publicSlug }) {
         <TodosKanban
           boardData={boardData}
           readOnly
-          onOpenTask={() => toastSuccess("Vista pública: solo lectura")}
+          onOpenTask={() => {}}
           onQuickAdd={() => {}}
           onDragStart={() => {}}
           onDropColumn={() => {}}

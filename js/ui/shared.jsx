@@ -254,6 +254,13 @@ export const theme = createTheme({
     MuiButton: { styleOverrides: { root: { textTransform: "none" } } },
     MuiTab: { styleOverrides: { root: { textTransform: "none" } } },
     MuiToggleButton: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiTooltip: {
+      defaultProps: { disableInteractive: true },
+      styleOverrides: {
+        popper: { pointerEvents: "none" },
+        tooltip: { pointerEvents: "none" },
+      },
+    },
   },
 });
 

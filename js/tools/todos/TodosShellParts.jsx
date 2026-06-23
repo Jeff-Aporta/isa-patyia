@@ -1,7 +1,7 @@
 import { getMaterialUI, UI, toastSuccess } from "../../core/platform.ts";
 import { buildPublicScrumUrl } from "../../api/todosApi.ts";
 
-const { Box, Typography, Button, Stack, Alert, CircularProgress, Tooltip, IconButton, Chip } = getMaterialUI();
+const { Box, Typography, Button, Stack, Alert, CircularProgress, Tooltip, IconButton } = getMaterialUI();
 const { Icon } = UI;
 
 export function TodosLoggedOutShell({ onNeedLogin }) {
@@ -25,7 +25,6 @@ export function TodosBoardToolbar({
   boardTitle, boardMeta, onHome, onNewBoard, onRefresh, onOpenSettings, loadingBoard,
 }) {
   const publicSlug = boardMeta?.publicSlug;
-  const myRole = boardMeta?.myRole;
 
   function copyPublicLink() {
     if (!publicSlug) return;
@@ -48,9 +47,6 @@ export function TodosBoardToolbar({
       </Tooltip>
       <Icon icon="mdi:view-column" size={22} />
       <span className="paty-todos-board-title">{boardTitle || "Tablero SCRUM"}</span>
-      {myRole === "readonly" ? (
-        <Chip size="small" label="Solo lectura" icon={<Icon icon="mdi:eye-outline" size={14} />} />
-      ) : null}
       <Tooltip title="Detalles del tablero">
         <IconButton
           size="small"

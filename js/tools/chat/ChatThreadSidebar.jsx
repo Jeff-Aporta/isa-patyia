@@ -28,73 +28,87 @@ function MessageSourceSwitch({ messageSource, onChange }) {
 
 function JailbreakSwitch({ jailbreak, onChange }) {
   const active = Boolean(jailbreak);
-  const title = active
-    ? "Respuesta libre activa · clic para modo normal"
-    : "Modo normal · clic para respuesta libre (pruebas)";
+  const title = active ? "Libre" : "Patyia";
+  const icon = active ? "game-icons:freedom-dove" : "game-icons:bird-cage";
   return (
     <Tooltip title={title}>
       <IconButton
-        color={active ? "warning" : "inherit"}
+        color="inherit"
         size="small"
+        className={`paty-chat-jailbreak-btn${active ? " paty-chat-jailbreak-btn--active" : ""}`}
         onClick={() => onChange?.(!active)}
-        aria-label={active ? "Desactivar respuesta libre" : "Activar respuesta libre"}
+        aria-label={title}
         aria-pressed={active}
       >
-        <Icon icon={active ? "mdi:lock-open-variant" : "mdi:lock-outline"} size={18} />
+        <Icon icon={icon} size={18} />
       </IconButton>
     </Tooltip>
   );
 }
 
-export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract, viewOnly, jwtLoading, canSend, needsJwt, listScope, sessionScopeLoading, viewingAuditOther, auditScope, convListOwnerLabel, convListHeader, showJwtBadge, loadingList, rows, selectedId, convListMeta, convListPage, convListPageSize = CONV_LIST_PAGE_SIZE_DEFAULT, convListSearch = "", onConvListSearchChange, messageSource = "logs", jailbreak = false, onMessageSourceChange, onJailbreakChange, onOpenJwt, onOpenAudit, onNewChat, onOpenConv, onDelete, onConvListPageChange, onConvListPageSizeChange, drawerMode = false, onClose }) {
+/** Acciones del header (split IsaSplitView o drawer). */
+export function ChatSidebarHeaderActions({
+  onClose,
+  messageSource = "logs",
+  jailbreak = false,
+  onMessageSourceChange,
+  onJailbreakChange,
+  onOpenJwt,
+}) {
+  return (
+    <Stack direction="row" spacing={0.35} alignItems="center" className="paty-chat-sidebar-head-actions">
+      {onClose ? (
+        <Tooltip title="Cerrar panel">
+          <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
+            <Icon icon="mdi:close" size={18} />
+          </IconButton>
+        </Tooltip>
+      ) : null}
+      {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
+      {onJailbreakChange ? <JailbreakSwitch jailbreak={jailbreak} onChange={onJailbreakChange} /> : null}
+      <Tooltip title="Cambiar token JWT">
+        <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
+          <Icon icon="mdi:key-variant" size={18} />
+        </IconButton>
+      </Tooltip>
+    </Stack>
+  );
+}
+
+function ChatSidebarBody({
+  jwt,
+  displayScope,
+  sessionUser,
+  canSend,
+  jwtLoading,
+  needsJwt,
+  listScope,
+  sessionScopeLoading,
+  viewingAuditOther,
+  convListOwnerLabel,
+  convListHeader,
+  showJwtBadge,
+  loadingList,
+  rows,
+  selectedId,
+  convListMeta,
+  convListPage,
+  convListPageSize,
+  convListSearch,
+  onConvListSearchChange,
+  onOpenAudit,
+  onNewChat,
+  onOpenConv,
+  onDelete,
+  onConvListPageChange,
+  onConvListPageSizeChange,
+  onClose,
+}) {
   const handleOpenConv = (id) => { onOpenConv(id); onClose?.(); };
   const handleNewChat = () => { onNewChat(); onClose?.(); };
 
   return (
-    <Box
-      className="conv-log-sidebar paty-chat-sidebar"
-      sx={{
-        position: "relative",
-        width: drawerMode ? "100%" : { xs: "100%", md: CHAT_SIDEBAR_W },
-        flexShrink: 0,
-        borderRight: drawerMode ? 0 : { md: 0 },
-        borderBottom: drawerMode ? 0 : { xs: 1, md: 0 },
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        display: drawerMode ? "flex" : { xs: "none", md: "flex" },
-        flexDirection: "column",
-        minHeight: 0,
-        height: drawerMode ? "100%" : "auto",
-        maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
-        overflow: drawerMode ? "hidden" : "visible",
-        boxSizing: "border-box",
-      }}
-    >
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        className="conv-log-sidebar-block"
-        sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
-      >
-        <Icon icon="mdi:chat-outline" size={20} />
-        <Box sx={{ flex: 1 }} />
-        {onClose ? (
-          <Tooltip title="Cerrar panel">
-            <IconButton size="small" onClick={onClose} aria-label="Cerrar panel">
-              <Icon icon="mdi:close" size={18} />
-            </IconButton>
-          </Tooltip>
-        ) : null}
-        {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
-        {onJailbreakChange ? <JailbreakSwitch jailbreak={jailbreak} onChange={onJailbreakChange} /> : null}
-        <Tooltip title="Cambiar token JWT">
-          <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
-            <Icon icon="mdi:key-variant" size={18} />
-          </IconButton>
-        </Tooltip>
-      </Stack>
-
+    <>
       <Box className="conv-log-sidebar-block paty-chat-sidebar-meta" sx={{ pt: 0.75, pb: 0.75, flexShrink: 0 }}>
         <ChatSessionPanel
           claims={jwt?.claims ?? null}
@@ -185,69 +199,69 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
         sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
       >
         <Box className="paty-chat-sidebar-list-inner" sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <List dense disablePadding>
-          {loadingList && !rows.length && (
-            <Box sx={{ py: 2, textAlign: "center" }}><CircularProgress size={22} /></Box>
-          )}
-          {rows.map((r) => {
-            const convTitle = r.titulo || "Sin título";
-            const convTip = `${r.iconversacion} · ${convTitle}`;
-            return (
-              <ListItemButton
-                key={r.iconversacion}
-                className="paty-chat-conv-item"
-                selected={Number(selectedId) > 0 && Number(selectedId) === Number(r.iconversacion)}
-                onClick={() => handleOpenConv(r.iconversacion)}
-                title={convTip}
-                aria-label={convTip}
-                sx={{
-                  py: 0.5,
-                  px: 0,
-                  minHeight: 36,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 0.5,
-                }}
-              >
-                <ListItemText
-                  sx={{ flex: 1, minWidth: 0, m: 0 }}
-                  primary={(
-                    <Stack direction="row" spacing={0.5} alignItems="center" className="paty-chat-conv-item__title" sx={{ minWidth: 0, pointerEvents: "none" }}>
-                      <span className="paty-chat-conv-id-badge">
-                        {r.iconversacion}
-                      </span>
-                      <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
-                        {convTitle}
-                      </Typography>
-                    </Stack>
-                  )}
-                  secondary={(
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                      noWrap
-                      className="paty-chat-conv-item__meta"
-                      sx={{ pointerEvents: "none", display: "block", lineHeight: 1.3, opacity: 0.5 }}
-                    >
-                      {`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
-                    </Typography>
-                  )}
-                  slotProps={{
-                    primary: { sx: { pointerEvents: "none", mb: 0.2 } },
-                    secondary: { sx: { pointerEvents: "none", m: 0, opacity: 0.5 } },
+          <List dense disablePadding>
+            {loadingList && !rows.length && (
+              <Box sx={{ py: 2, textAlign: "center" }}><CircularProgress size={22} /></Box>
+            )}
+            {rows.map((r) => {
+              const convTitle = r.titulo || "Sin título";
+              const convTip = `${r.iconversacion} · ${convTitle}`;
+              return (
+                <ListItemButton
+                  key={r.iconversacion}
+                  className="paty-chat-conv-item"
+                  selected={Number(selectedId) > 0 && Number(selectedId) === Number(r.iconversacion)}
+                  onClick={() => handleOpenConv(r.iconversacion)}
+                  title={convTip}
+                  aria-label={convTip}
+                  sx={{
+                    py: 0.5,
+                    px: 0,
+                    minHeight: 36,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 0.5,
                   }}
-                />
-                {canSend && convBelongsToJwt(r, jwt.claims) ? (
-                  <IconButton size="small" color="error" aria-label="Eliminar" className="paty-chat-conv-item__delete" onClick={(e) => { e.stopPropagation(); onDelete(r.iconversacion); }} sx={{ flexShrink: 0, mr: 0 }}>
-                    <Icon icon="mdi:delete-outline" size={16} />
-                  </IconButton>
-                ) : null}
-              </ListItemButton>
-            );
-          })}
-        </List>
+                >
+                  <ListItemText
+                    sx={{ flex: 1, minWidth: 0, m: 0 }}
+                    primary={(
+                      <Stack direction="row" spacing={0.5} alignItems="center" className="paty-chat-conv-item__title" sx={{ minWidth: 0, pointerEvents: "none" }}>
+                        <span className="paty-chat-conv-id-badge">
+                          {r.iconversacion}
+                        </span>
+                        <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                          {convTitle}
+                        </Typography>
+                      </Stack>
+                    )}
+                    secondary={(
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                        noWrap
+                        className="paty-chat-conv-item__meta"
+                        sx={{ pointerEvents: "none", display: "block", lineHeight: 1.3, opacity: 0.5 }}
+                      >
+                        {`${formatTs(r.fhultact)} · ${r.qmensajes ?? 0} msgs`}
+                      </Typography>
+                    )}
+                    slotProps={{
+                      primary: { sx: { pointerEvents: "none", mb: 0.2 } },
+                      secondary: { sx: { pointerEvents: "none", m: 0, opacity: 0.5 } },
+                    }}
+                  />
+                  {canSend && convBelongsToJwt(r, jwt.claims) ? (
+                    <IconButton size="small" color="error" aria-label="Eliminar" className="paty-chat-conv-item__delete" onClick={(e) => { e.stopPropagation(); onDelete(r.iconversacion); }} sx={{ flexShrink: 0, mr: 0 }}>
+                      <Icon icon="mdi:delete-outline" size={16} />
+                    </IconButton>
+                  ) : null}
+                </ListItemButton>
+              );
+            })}
+          </List>
         </Box>
         {convListMeta ? (
           <Box className="conv-log-sidebar-block paty-chat-sidebar-list-foot paty-chat-sidebar-list-foot--sticky" sx={{ flexShrink: 0, pt: 0.5, pb: 0.5, px: 0 }}>
@@ -273,6 +287,35 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
                         aria-label="Conversaciones por página"
                         disabled={loadingList}
                         variant="outlined"
+                        sx={{
+                          height: "24px !important",
+                          minHeight: "24px !important",
+                          maxHeight: "24px !important",
+                          fontSize: "0.58rem",
+                          "&.MuiInputBase-root": {
+                            height: "24px !important",
+                            minHeight: "24px !important",
+                            maxHeight: "24px !important",
+                          },
+                          "& .MuiOutlinedInput-notchedOutline": { top: 0 },
+                          "& .MuiSelect-select": {
+                            py: "0 !important",
+                            px: "5px !important",
+                            pr: "14px !important",
+                            minHeight: "22px !important",
+                            height: "22px !important",
+                            maxHeight: "22px !important",
+                            lineHeight: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            boxSizing: "border-box",
+                          },
+                          "& .MuiSelect-icon": {
+                            fontSize: "0.8rem",
+                            right: 1,
+                            top: "calc(50% - 0.4rem)",
+                          },
+                        }}
                         MenuProps={{ PaperProps: { sx: { "& .MuiMenuItem-root": { minHeight: 24, py: 0.2, fontSize: "0.68rem" } } } }}
                       >
                         {CONV_LIST_PAGE_SIZE_OPTIONS.map((n) => (
@@ -317,6 +360,129 @@ export function ChatThreadSidebar({ jwt, displayScope, sessionUser, canInteract,
           </Box>
         ) : null}
       </Box>
+    </>
+  );
+}
+
+export function ChatThreadSidebar({
+  jwt,
+  displayScope,
+  sessionUser,
+  canInteract,
+  viewOnly,
+  jwtLoading,
+  canSend,
+  needsJwt,
+  listScope,
+  sessionScopeLoading,
+  viewingAuditOther,
+  auditScope,
+  convListOwnerLabel,
+  convListHeader,
+  showJwtBadge,
+  loadingList,
+  rows,
+  selectedId,
+  convListMeta,
+  convListPage,
+  convListPageSize = CONV_LIST_PAGE_SIZE_DEFAULT,
+  convListSearch = "",
+  onConvListSearchChange,
+  messageSource = "logs",
+  jailbreak = false,
+  onMessageSourceChange,
+  onJailbreakChange,
+  onOpenJwt,
+  onOpenAudit,
+  onNewChat,
+  onOpenConv,
+  onDelete,
+  onConvListPageChange,
+  onConvListPageSizeChange,
+  drawerMode = false,
+  splitMode = false,
+  onClose,
+}) {
+  const bodyProps = {
+    jwt,
+    displayScope,
+    sessionUser,
+    canSend,
+    jwtLoading,
+    needsJwt,
+    listScope,
+    sessionScopeLoading,
+    viewingAuditOther,
+    convListOwnerLabel,
+    convListHeader,
+    showJwtBadge,
+    loadingList,
+    rows,
+    selectedId,
+    convListMeta,
+    convListPage,
+    convListPageSize,
+    convListSearch,
+    onConvListSearchChange,
+    onOpenAudit,
+    onNewChat,
+    onOpenConv,
+    onDelete,
+    onConvListPageChange,
+    onConvListPageSizeChange,
+    onClose,
+  };
+
+  if (splitMode) {
+    return (
+      <Box
+        className="paty-chat-sidebar-inner"
+        sx={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%", overflow: "hidden" }}
+      >
+        <ChatSidebarBody {...bodyProps} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      className="conv-log-sidebar paty-chat-sidebar"
+      sx={{
+        position: "relative",
+        width: drawerMode ? "100%" : { xs: "100%", md: CHAT_SIDEBAR_W },
+        flexShrink: 0,
+        borderRight: drawerMode ? 0 : { md: 0 },
+        borderBottom: drawerMode ? 0 : { xs: 1, md: 0 },
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        display: drawerMode ? "flex" : { xs: "none", md: "flex" },
+        flexDirection: "column",
+        minHeight: 0,
+        height: drawerMode ? "100%" : "auto",
+        maxHeight: drawerMode ? "100%" : { xs: "42vh", md: "none" },
+        overflow: drawerMode ? "hidden" : "visible",
+        boxSizing: "border-box",
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        className="conv-log-sidebar-block"
+        sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+      >
+        <Icon icon="mdi:chat-outline" size={20} />
+        <Box sx={{ flex: 1 }} />
+        <ChatSidebarHeaderActions
+          onClose={onClose}
+          messageSource={messageSource}
+          jailbreak={jailbreak}
+          onMessageSourceChange={onMessageSourceChange}
+          onJailbreakChange={onJailbreakChange}
+          onOpenJwt={onOpenJwt}
+        />
+      </Stack>
+      <ChatSidebarBody {...bodyProps} />
     </Box>
   );
 }

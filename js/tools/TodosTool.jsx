@@ -21,7 +21,7 @@ export function TodosTool({ bootTodos, onNeedLogin }) {
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
 
   if (!todos.loggedIn) {
-    return <TodosPublicHome onNeedLogin={onNeedLogin} />;
+    return <TodosPublicHome />;
   }
 
   const boardTitle = todos.boardData?.board?.title ?? "";

@@ -126,6 +126,15 @@ export function getIsaSplitView() {
   return C;
 }
 
+/** Kit neon-glass — GlassCard, GlassSection, tokens (ISAFront.Glass). */
+export function getGlass() {
+  const g = window.ISAFront?.Glass;
+  if (!g?.GlassCard) {
+    throw new Error("ISAFront.Glass no cargado — recargue sin caché (Ctrl+Shift+R).");
+  }
+  return g;
+}
+
 function lightboxApi() {
   const api = window.ISAComponents?.LightboxZoom;
   if (!api?.LightboxZoomDialog) {

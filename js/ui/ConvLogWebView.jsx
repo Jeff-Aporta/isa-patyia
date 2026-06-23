@@ -85,7 +85,7 @@ function roleTitle(msg, chatUserName) {
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, streaming = false, footerExtra = null, compact = false }) {
+function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, fechaIso, streaming = false, footerExtra = null, compact = false }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
@@ -307,6 +307,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
             {fecha ? (
               <Typography
                 component="time"
+                dateTime={fechaIso || undefined}
                 variant="caption"
                 color="text.secondary"
                 sx={{
@@ -318,7 +319,7 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
                   textAlign: align === "right" ? "right" : "left",
                 }}
               >
-                {fecha}
+                <span className="conv-msg-card__fecha">{fecha}</span>
               </Typography>
             ) : null}
           </Stack>
@@ -551,7 +552,19 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
               "& p": { m: 0, mb: 1.25 },
               "& p:last-child": { mb: 0 },
               "& a": { color: "primary.main", wordBreak: "break-word" },
-              "& img": { maxWidth: "100%", borderRadius: "0.5rem", my: 1 },
+              "& img": {
+                width: 100,
+                height: 100,
+                maxWidth: 100,
+                maxHeight: 100,
+                objectFit: "cover",
+                objectPosition: "center",
+                borderRadius: "0.5rem",
+                my: 1,
+                cursor: "zoom-in",
+                display: "inline-block",
+                verticalAlign: "middle",
+              },
               "& pre, & code": { fontFamily: '"IBM Plex Mono", monospace', fontSize: "0.85em" },
             }}
             dangerouslySetInnerHTML={{ __html: html }}
@@ -1011,6 +1024,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, chatUserName);
   const fecha = msg.fecha ? String(msg.fecha) : "";
+  const fechaIso = msg.fechaIso ? String(msg.fechaIso) : "";
   const isUser = msg.esUsuario;
   const isOperativa = msg.esOperativa;
   const isStreaming = Boolean(msg.isStreaming || (streamingMsgId && msg.idMsg === streamingMsgId));
@@ -1094,6 +1108,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             icon={meta.icon}
             title={title}
             fecha={fecha || undefined}
+            fechaIso={fechaIso || undefined}
             accent={meta.accent}
             align={isUser ? "right" : "left"}
             operativa={isOperativa}

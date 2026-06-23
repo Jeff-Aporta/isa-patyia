@@ -1,5 +1,5 @@
 import { getReact, getReactDOM } from "../core/platform.ts";
-import { mergePartial, bootState, getSnapshot, hrefFor } from "../core/urlState.ts";
+import { mergePartial, bootState, getSnapshot, hrefFor, subscribe } from "../core/urlState.ts";
 import { UI } from "../core/platform.ts";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
@@ -26,11 +26,7 @@ export function App() {
   const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState(boot);
-  const [tool, setTool] = useState(() => {
-    const t = boot.tool || "log";
-    if (t !== "log" || !Number(boot.chat?.convId)) return t;
-    return Number(boot.chat?.convId) > 0 ? "chat" : t;
-  });
+  const [tool, setTool] = useState(() => boot.tool || "log");
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
@@ -38,6 +34,13 @@ export function App() {
 
   useEffect(() => {
     Assets.ensureMarked().catch(() => { /* fallback plaintext en mdToHtml */ });
+  }, []);
+
+  useEffect(() => {
+    return subscribe(() => {
+      const t = getSnapshot().tool || "log";
+      setTool(t);
+    });
   }, []);
 
   useEffect(() => {

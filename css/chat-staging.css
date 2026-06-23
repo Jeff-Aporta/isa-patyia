@@ -72,18 +72,27 @@
 }
 
 html[data-mui-color-scheme="dark"] .conv-log-shell::before {
-  background: var(--conv-log-mesh-dark);
+  background:
+    var(--isa-glass-body-dark),
+    var(--conv-log-mesh-dark),
+    var(--mesh-dark);
 }
 
 html[data-mui-color-scheme="light"] .conv-log-shell::before {
-  background: var(--conv-log-mesh-light);
+  background:
+    var(--isa-glass-body-light),
+    var(--conv-log-mesh-light),
+    var(--mesh-light);
 }
 
 html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
-  background: var(--conv-log-mesh-dark);
+  background:
+    var(--isa-glass-body-dark),
+    var(--conv-log-mesh-dark),
+    var(--mesh-dark);
 }
 
-#root .conv-log-thread-surface {
+#root .conv-log-thread-surface:not(.paty-chat-thread-surface) {
   background: transparent !important;
   background-image: none !important;
 }
@@ -245,8 +254,12 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
   position: relative;
   flex-shrink: 0;
   padding: 0.75rem 1rem;
-  background: var(--paper, #1e293b);
-  border-top: 1px solid var(--border, rgba(30, 144, 255, 0.18));
+  background:
+    linear-gradient(0deg, rgba(11, 18, 32, 0.92) 0%, rgba(15, 23, 42, 0.55) 100%),
+    linear-gradient(90deg, color-mix(in srgb, var(--neon-blue, #1e90ff) 6%, transparent), transparent 55%);
+  border-top: 1px solid color-mix(in srgb, var(--neon-cyan, #00e5ff) 18%, rgba(99, 102, 241, 0.22));
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
   &-readonly {
     padding: 0.85rem 1rem;
     text-align: center;
@@ -256,8 +269,10 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
     font-size: 0.82rem;
   }
   html[data-mui-color-scheme="light"] & {
-    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-    border-top-color: rgba(148, 163, 184, 0.32);
+    background:
+      linear-gradient(0deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.88) 100%),
+      linear-gradient(90deg, color-mix(in srgb, var(--neon-blue, #1e90ff) 4%, transparent), transparent 55%);
+    border-top-color: color-mix(in srgb, var(--neon-blue, #1e90ff) 16%, rgba(148, 163, 184, 0.28));
     box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.05);
     &-readonly {
       background: #f8fafc;
@@ -674,7 +689,7 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
   }
 }
 
-.conv-log-thread-surface {
+.conv-log-thread-surface:not(.paty-chat-thread-surface) {
   container-type: inline-size;
   container-name: conv-thread;
   position: relative;
@@ -685,6 +700,17 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
   min-height: 0;
   background: transparent !important;
   background-image: none !important;
+}
+
+.paty-chat-thread-surface.conv-log-thread-surface {
+  container-type: inline-size;
+  container-name: conv-thread;
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  min-height: 0;
 }
 
 .conv-msg-row {
@@ -1149,6 +1175,35 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
   }
 }
 
+/* Layout plano — icono filtro esquina superior derecha */
+.paty-chat-session__action {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  opacity: 0.65;
+  pointer-events: none;
+  transition: opacity 0.16s ease, color 0.16s ease, transform 0.14s ease;
+}
+
+.paty-chat-session--clickable:hover .paty-chat-session__action {
+  opacity: 1;
+  color: #7dd3fc;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-session__action {
+  color: #94a3b8;
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-session--clickable:hover .paty-chat-session__action {
+  color: #0284c7;
+}
+
 .paty-chat-shell {
   & .paty-chat-log-thread {
     & .conv-msg-card {
@@ -1188,6 +1243,57 @@ html:not([data-mui-color-scheme="light"]) .conv-log-shell::before {
       pointer-events: auto;
     }
   }
+}
+
+.paty-chat-sidebar {
+  --paty-chat-sidebar-pad-x: 0.75rem;
+  padding-left: var(--paty-chat-sidebar-pad-x);
+  padding-right: var(--paty-chat-sidebar-pad-x);
+  box-sizing: border-box;
+}
+
+/* IsaSplitView: el panel quita padding lateral; el inner lo restaura */
+.paty-chat-shell-split .paty-chat-sidebar-inner {
+  --paty-chat-sidebar-pad-x: 0.75rem;
+  padding-left: var(--paty-chat-sidebar-pad-x);
+  padding-right: var(--paty-chat-sidebar-pad-x);
+  box-sizing: border-box;
+}
+
+.paty-chat-shell-split .isa-split-view__panel-title {
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.paty-chat-shell-split .paty-chat-sidebar-head-actions {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.paty-chat-shell-split .isa-split-view__panel-title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Jailbreak libre — paloma dorada como icono operativa (#f59e0b) */
+.paty-chat-jailbreak-btn--active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #f59e0b, rgba(245, 158, 11, 0.62)) !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.42);
+  &:hover {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.5);
+  }
+  & iconify-icon {
+    color: #fff !important;
+    filter: drop-shadow(0 1px 2px rgba(120, 53, 15, 0.35));
+  }
+}
+
+html[data-mui-color-scheme="light"] .paty-chat-jailbreak-btn--active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
 }
 
 .paty-chat-sidebar-meta {

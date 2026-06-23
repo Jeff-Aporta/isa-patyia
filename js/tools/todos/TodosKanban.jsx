@@ -8,7 +8,7 @@ import {
 import { TaskAssigneeLabel } from "./TaskAssigneeLabel.jsx";
 
 const { useState, useMemo, useRef, useEffect, memo } = getReact();
-const { Box, Paper, Typography, TextField, Button, Stack } = getMaterialUI();
+const { Box, Paper, Typography, TextField, Button, Stack, Chip } = getMaterialUI();
 const { Icon } = UI;
 
 const DRAG_THRESHOLD_PX = 6;
@@ -17,12 +17,12 @@ const DRAG_THRESHOLD_PX = 6;
 const COLUMN_THEME = {
   pending: {
     className: "paty-todos-column--pending",
-    accent: "#38bdf8",
+    accent: "#1e90ff",
     icon: "mdi:clock-outline",
   },
   done: {
     className: "paty-todos-column--done",
-    accent: "#34d399",
+    accent: "#10b981",
     icon: "mdi:check-circle-outline",
   },
 };
@@ -71,7 +71,7 @@ function DragGhost({ task, x, y, width }) {
   if (!task) return null;
   return (
     <Paper
-      className="paty-todos-card paty-todos-card--ghost"
+      className="paty-todos-card paty-todos-card--ghost isa-glass-card"
       elevation={8}
       style={{
         position: "fixed",
@@ -95,7 +95,7 @@ const TaskCard = memo(function TaskCard({
 
   return (
     <Paper
-      className={`paty-todos-card${isOptimistic ? " paty-todos-card--optimistic" : ""}${canDrag ? " paty-todos-card--draggable" : ""}${isDragSource ? " paty-todos-card--drag-source" : ""}`}
+      className={`paty-todos-card isa-glass-card${isOptimistic ? " paty-todos-card--optimistic" : ""}${canDrag ? " paty-todos-card--draggable" : ""}${isDragSource ? " paty-todos-card--drag-source" : ""}`}
       elevation={0}
       onPointerDown={(e) => {
         if (!canDrag) return;
@@ -292,7 +292,16 @@ export function TodosKanban({ boardData, readOnly = false, preview = false, onOp
   const { columns } = boardData;
 
   return (
-    <Box className={`paty-todos-kanban${preview ? " paty-todos-kanban--preview" : ""}${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
+    <Box className={`paty-todos-kanban-wrap${readOnly && !preview ? " paty-todos-kanban-wrap--readonly" : ""}`}>
+      {readOnly && !preview ? (
+        <Chip
+          size="small"
+          className="paty-todos-kanban__readonly-chip"
+          label="Solo lectura"
+          icon={<Icon icon="mdi:eye-outline" size={14} />}
+        />
+      ) : null}
+      <Box className={`paty-todos-kanban${preview ? " paty-todos-kanban--preview" : ""}${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
       {dragGhost ? (
         <DragGhost task={ghostTask} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} />
       ) : null}
@@ -312,17 +321,44 @@ export function TodosKanban({ boardData, readOnly = false, preview = false, onOp
             className={`paty-todos-column ${theme.className}`}
             style={{ "--col-accent": theme.accent }}
           >
-            <Box className="paty-todos-column__head">
-              <span className="paty-todos-column__title">
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1}
+              className="paty-todos-column__head"
+              sx={{ flexShrink: 0, gap: 1, px: 1.75, py: 1.25, pb: 1 }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={0.75}
+                className="paty-todos-column__title"
+                sx={{ minWidth: 0, flex: "1 1 auto" }}
+              >
                 <Icon icon={theme.icon} size={16} />
-                {col.title}
-              </span>
-              <span className="paty-todos-column__count">{colTasks.length}</span>
-            </Box>
-            <Box
+                <Box component="span" sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {col.title}
+                </Box>
+              </Stack>
+              <Box component="span" className="paty-todos-column__count" sx={{ flexShrink: 0 }}>
+                {colTasks.length}
+              </Box>
+            </Stack>
+            <Stack
               ref={(el) => { listRefs.current[col.id] = el; }}
               data-column-id={col.id}
+              spacing={1.25}
               className={`paty-todos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
+              sx={{
+                flex: 1,
+                minHeight: 56,
+                overflowY: "auto",
+                overflowX: "hidden",
+                p: 1.25,
+                px: 1.5,
+                boxSizing: "border-box",
+              }}
             >
               {visibleTasks.map((task) => (
                 <TaskCard
@@ -361,13 +397,14 @@ export function TodosKanban({ boardData, readOnly = false, preview = false, onOp
                   Ver menos
                 </Button>
               ) : null}
-            </Box>
+            </Stack>
             {!readOnly && !preview && col.columnKey === "pending" ? (
               <ColumnAddForm onAdd={(title) => onQuickAdd(col.id, title)} />
             ) : null}
           </Box>
         );
       })}
+      </Box>
     </Box>
   );
 }

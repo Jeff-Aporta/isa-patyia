@@ -21,7 +21,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   }, [tool.canEdit, tool.loadBusy]);
 
   return (
-    <div className="tool-grid tool-grid-prompts tool-grid-prompts--solo">
+    <div className="tool-grid tool-grid-prompts tool-grid-prompts--solo isa-tool-surface">
       <Paper className="tool-panel scroll-panel" elevation={0}>
         <PromptsSqlActionBar
           filledCount={tool.filledCount}

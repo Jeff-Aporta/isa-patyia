@@ -95,6 +95,22 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUs
         }
       }}
     >
+      <Box
+        className="paty-chat-session__action"
+        aria-hidden
+        sx={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 1,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <Icon icon="mdi:account-filter-outline" size={17} />
+      </Box>
       <Box className="paty-chat-session__avatar" aria-hidden>
         {avatarOk ? (
           <img
@@ -118,9 +134,6 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUs
         <Box className="paty-chat-session__flags" sx={{ flexWrap: "wrap", gap: 0.5 }}>
           <SessionModeChip canSend={canSend} jwtLoading={jwtLoading} />
         </Box>
-      </Box>
-      <Box className="paty-chat-session__action" aria-hidden>
-        <Icon icon="mdi:account-filter-outline" size={17} />
       </Box>
     </Box>
   );

@@ -25,6 +25,7 @@ export type ChatMensajeVista = {
   rol: string;
   contenido: string;
   fecha: string;
+  fechaIso?: string;
   esUsuario: boolean;
   esOperativa: boolean;
   meta?: ChatMensajeMeta;
