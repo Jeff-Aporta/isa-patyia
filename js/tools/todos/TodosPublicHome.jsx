@@ -21,7 +21,10 @@ export function TodosPublicHome({ onNeedLogin }) {
         const list = await fetchPublicTodoBoards("scrum");
         if (!cancelled) setBoards(list);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!/authorization bearer requerido/i.test(msg)) setError(msg);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

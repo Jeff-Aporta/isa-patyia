@@ -27,7 +27,10 @@ export function PublicScrumBoard({ publicSlug }) {
           }));
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!/authorization bearer requerido/i.test(msg)) setError(msg);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
