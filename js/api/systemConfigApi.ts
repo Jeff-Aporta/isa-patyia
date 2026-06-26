@@ -1,7 +1,18 @@
 import { PATYIA_API_BASE, loadPatyJwt, type PatyJwtRecord } from "../core/patyia-jwt.ts";
 import { patyAuthHeaders } from "./patyiaTokens.ts";
 
-export type OpenAiSystemConfig = { max_num_results: number; canEdit?: boolean };
+export type OpenAiSystemConfig = {
+  max_num_results: number;
+  modeloOperativo: string;
+  modeloConversacion: string;
+  canEdit?: boolean;
+};
+
+const OPENAI_DEFAULTS: OpenAiSystemConfig = {
+  max_num_results: 8,
+  modeloOperativo: "gpt-4.1-nano",
+  modeloConversacion: "gpt-5-nano",
+};
 
 function unwrapBody<T>(data: unknown): T {
   const d = data as Record<string, unknown>;
@@ -35,16 +46,19 @@ function optionalPatyHeaders(jwt?: PatyJwtRecord | null): Record<string, string>
 
 export async function fetchOpenAiSystemConfig(jwt?: PatyJwtRecord | null): Promise<OpenAiSystemConfig> {
   const body = await jsonFetch<{ config?: OpenAiSystemConfig; canEdit?: boolean }>("/system/openai", { method: "GET", headers: optionalPatyHeaders(jwt) });
-  return { ...(body.config ?? { max_num_results: 8 }), canEdit: !!body.canEdit };
+  return { ...OPENAI_DEFAULTS, ...(body.config ?? {}), canEdit: !!body.canEdit };
 }
 
 export async function putOpenAiSystemConfig(config: OpenAiSystemConfig, jwt: PatyJwtRecord): Promise<OpenAiSystemConfig> {
+  const { canEdit: _c, ...payload } = config;
   const body = await jsonFetch<{ config?: OpenAiSystemConfig }>("/system/openai", {
     method: "PUT",
     headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
-    body: JSON.stringify({ max_num_results: config.max_num_results }),
+    body: JSON.stringify(payload),
   });
-  return body.config ?? config;
+  const saved = body.config ?? payload;
+  window.dispatchEvent(new CustomEvent("isa-patyia:openai-config", { detail: saved }));
+  return saved;
 }
 
 export type PromptsOperativosConfig = Record<string, unknown>;
@@ -63,26 +77,66 @@ export async function putPromptsOperativosConfig(config: PromptsOperativosConfig
   return body.config ?? config;
 }
 
-export type PermEntry = { iusuario: string; itipo: "user" | "role"; roles: string[]; permisos: Record<string, unknown>; descripcion: string | null; bactivo: boolean };
-export type PermissionsData = { roles: PermEntry[]; users: PermEntry[]; canManage?: boolean };
+/** PERMISOS JSON único: roles de usuario en permisos.roles; descripción de rol en permisos.descripcion */
+export type PermEntry = { iusuario: string; itipo: "user" | "role"; permisos: Record<string, unknown>; bactivo: boolean };
+export type PermissionsData = { roles: PermEntry[]; users: PermEntry[]; canManage?: boolean; canEditRoleDescriptions?: boolean };
 
 export async function fetchPermisos(jwt?: PatyJwtRecord | null): Promise<PermissionsData> {
   return jsonFetch<PermissionsData>("/system/permisos", { method: "GET", headers: optionalPatyHeaders(jwt) });
 }
 
-export async function putPermisoRole(name: string, permisos: Record<string, unknown>, descripcion: string | null, jwt: PatyJwtRecord): Promise<PermissionsData> {
+export async function putPermisoRole(name: string, permisos: Record<string, unknown>, jwt: PatyJwtRecord): Promise<PermissionsData> {
   return jsonFetch<PermissionsData>("/system/permisos", {
     method: "PUT",
     headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "role", name, permisos, descripcion }),
+    body: JSON.stringify({ kind: "role", name, permisos }),
   });
 }
 
-export async function putPermisoUser(username: string, roles: string[], descripcion: string | null, jwt: PatyJwtRecord): Promise<PermissionsData> {
+export async function putPermisoRolePath(name: string, permisos: Record<string, unknown>, jwt: PatyJwtRecord): Promise<PermissionsData> {
+  const role = encodeURIComponent(String(name).trim().toLowerCase().replace(/^role:/, ""));
+  return jsonFetch<PermissionsData>(`/system/permisos/roles/${role}`, {
+    method: "PUT",
+    headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify({ permisos }),
+  });
+}
+
+export async function createPermisoRole(name: string, jwt: PatyJwtRecord): Promise<PermissionsData> {
+  return putPermisoRolePath(name, {}, jwt);
+}
+
+export async function putPermisoUser(username: string, permisos: Record<string, unknown>, jwt: PatyJwtRecord): Promise<PermissionsData> {
   return jsonFetch<PermissionsData>("/system/permisos", {
     method: "PUT",
     headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "user", username, roles, descripcion }),
+    body: JSON.stringify({ kind: "user", username, permisos }),
+  });
+}
+
+export async function putPermisoUserPath(username: string, permisos: Record<string, unknown>, jwt: PatyJwtRecord): Promise<PermissionsData> {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
+    method: "PUT",
+    headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify({ permisos }),
+  });
+}
+
+export async function patchUsuarioRoles(username: string, body: { fromRole: string; toRole: string; mode: "copy" | "move" }, jwt: PatyJwtRecord): Promise<PermissionsData> {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deletePermisoUser(username: string, jwt: PatyJwtRecord): Promise<PermissionsData> {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
+    method: "DELETE",
+    headers: patyAuthHeaders(jwt),
   });
 }
 
