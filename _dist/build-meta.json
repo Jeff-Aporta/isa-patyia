@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T19:30:26.758Z",
+  "builtAt": "2026-06-26T20:18:22.428Z",
   "files": 104,
-  "bytesIn": 928105,
-  "bytesOut": 553331,
+  "bytesIn": 928774,
+  "bytesOut": 553372,
   "ratio": 0.596,
-  "hash": "af7079176d5c",
+  "hash": "3aa898dea828",
   "entries": [
     {
       "src": "css/app.css",
@@ -117,14 +117,14 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4309,
-      "bytesOut": 2733
+      "bytesIn": 4802,
+      "bytesOut": 2964
     },
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2334,
-      "bytesOut": 1379
+      "bytesIn": 2549,
+      "bytesOut": 1502
     },
     {
       "src": "js/boot/theme-init.mjs",
@@ -267,8 +267,8 @@
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 6545,
-      "bytesOut": 4197
+      "bytesIn": 6390,
+      "bytesOut": 4105
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -279,8 +279,8 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 4585,
-      "bytesOut": 3135
+      "bytesIn": 4002,
+      "bytesOut": 2666
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
@@ -351,8 +351,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 40424,
-      "bytesOut": 16671
+      "bytesIn": 41123,
+      "bytesOut": 16919
     },
     {
       "src": "js/tools/configOpenAi.ts",

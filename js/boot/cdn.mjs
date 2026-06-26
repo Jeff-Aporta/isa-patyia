@@ -3,15 +3,29 @@ export const PIN = "0692ebf";
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
 
+function useLocalMonorepoCdn() {
+  if (!isDevHost) return false;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") return false;
+    if (q.get("isa_cdn") === "local") return true;
+    return localStorage.getItem("isa-patyia:local-cdn") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function frontSharedCdnBase() {
   const base = document.querySelector("base")?.href || location.href;
   return new URL("../../components/front-shared/cdn/", base).href.replace(/\/?$/, "/");
 }
 
-/** En localhost: monorepo front-shared; prod: jsDelivr. */
-export const CDN = isDevHost
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+
+/** localhost: jsDelivr por defecto; ?isa_cdn=local si sirves desde Personal/apps (monorepo). */
+export const CDN = isDevHost && useLocalMonorepoCdn()
   ? frontSharedCdnBase()
-  : `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+  : JSDELIVR_CDN;
 
 export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 
@@ -21,7 +35,7 @@ export const LIGHTBOX_ZOOM_REF = "7770b03";
 
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost) {
+  if (isDevHost && useLocalMonorepoCdn()) {
     return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
@@ -77,7 +91,7 @@ export const SWAGGER_VIEWER_REF = "3433b24";
 
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost) {
+  if (isDevHost && useLocalMonorepoCdn()) {
     return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `${location.origin}/api/swagger/cdn/`;
