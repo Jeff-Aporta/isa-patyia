@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T11:43:43.067Z",
+  "builtAt": "2026-06-26T11:51:12.397Z",
   "files": 93,
-  "bytesIn": 826449,
-  "bytesOut": 488806,
-  "ratio": 0.591,
-  "hash": "f368e54c979c",
+  "bytesIn": 837898,
+  "bytesOut": 497372,
+  "ratio": 0.594,
+  "hash": "1be1e29d15b1",
   "entries": [
     {
       "src": "css/app.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 7668,
-      "bytesOut": 5960
+      "bytesIn": 14427,
+      "bytesOut": 11442
     },
     {
       "src": "css/theme.css",
@@ -213,8 +213,8 @@
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 4331,
-      "bytesOut": 3239
+      "bytesIn": 9021,
+      "bytesOut": 6323
     },
     {
       "src": "js/tools/LogViewer.jsx",
