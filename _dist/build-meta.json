@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-26T12:06:56.501Z",
-  "files": 93,
-  "bytesIn": 842699,
-  "bytesOut": 501331,
-  "ratio": 0.595,
-  "hash": "f48da8c4582c",
+  "builtAt": "2026-06-26T19:30:26.758Z",
+  "files": 104,
+  "bytesIn": 928105,
+  "bytesOut": 553331,
+  "ratio": 0.596,
+  "hash": "af7079176d5c",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 88551,
-      "bytesOut": 63482
+      "bytesIn": 88608,
+      "bytesOut": 63526
     },
     {
       "src": "css/boot-loading.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 14978,
-      "bytesOut": 11886
+      "bytesIn": 26413,
+      "bytesOut": 20436
     },
     {
       "src": "css/theme.css",
@@ -93,8 +93,8 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 4769,
-      "bytesOut": 2181
+      "bytesIn": 6993,
+      "bytesOut": 3310
     },
     {
       "src": "js/api/todosApi.ts",
@@ -211,10 +211,16 @@
       "bytesOut": 5736
     },
     {
+      "src": "js/tools/ConfigPromptsOperativosPanel.jsx",
+      "dist": "_dist/js/tools/ConfigPromptsOperativosPanel.js",
+      "bytesIn": 12919,
+      "bytesOut": 8378
+    },
+    {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 12373,
-      "bytesOut": 9449
+      "bytesIn": 12630,
+      "bytesOut": 8994
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -223,10 +229,16 @@
       "bytesOut": 13490
     },
     {
+      "src": "js/tools/PermisosKanban.jsx",
+      "dist": "_dist/js/tools/PermisosKanban.js",
+      "bytesIn": 9582,
+      "bytesOut": 6038
+    },
+    {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 9362,
-      "bytesOut": 6966
+      "bytesIn": 7205,
+      "bytesOut": 4677
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -339,8 +351,62 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 40440,
-      "bytesOut": 16655
+      "bytesIn": 40424,
+      "bytesOut": 16671
+    },
+    {
+      "src": "js/tools/configOpenAi.ts",
+      "dist": "_dist/js/tools/configOpenAi.js",
+      "bytesIn": 4369,
+      "bytesOut": 2326
+    },
+    {
+      "src": "js/tools/configPromptsOperativos.ts",
+      "dist": "_dist/js/tools/configPromptsOperativos.js",
+      "bytesIn": 8074,
+      "bytesOut": 3963
+    },
+    {
+      "src": "js/tools/configToolState.ts",
+      "dist": "_dist/js/tools/configToolState.js",
+      "bytesIn": 494,
+      "bytesOut": 284
+    },
+    {
+      "src": "js/tools/permFixFilter.js",
+      "dist": "_dist/js/tools/permFixFilter.js",
+      "bytesIn": 1205,
+      "bytesOut": 639
+    },
+    {
+      "src": "js/tools/permisosForm.js",
+      "dist": "_dist/js/tools/permisosForm.js",
+      "bytesIn": 4210,
+      "bytesOut": 2645
+    },
+    {
+      "src": "js/tools/permisosKanbanShared.js",
+      "dist": "_dist/js/tools/permisosKanbanShared.js",
+      "bytesIn": 4611,
+      "bytesOut": 2516
+    },
+    {
+      "src": "js/tools/permisosRoleConfig.jsx",
+      "dist": "_dist/js/tools/permisosRoleConfig.js",
+      "bytesIn": 20153,
+      "bytesOut": 12992
+    },
+    {
+      "src": "js/tools/permisosRouteCatalog.js",
+      "dist": "_dist/js/tools/permisosRouteCatalog.js",
+      "bytesIn": 5139,
+      "bytesOut": 3433
+    },
+    {
+      "src": "js/tools/permisosVisitante.js",
+      "dist": "_dist/js/tools/permisosVisitante.js",
+      "bytesIn": 2850,
+      "bytesOut": 1791
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",

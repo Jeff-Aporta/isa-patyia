@@ -22,6 +22,7 @@ import {
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
 import { CONVERSACIONES_LIST_SORT_DEFAULT } from "../../api/issListFilter.ts";
+import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge } from "../../api/apiClient.ts";
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
 import { persistChatConvId, persistChatMessageSource, persistChatMode, getSnapshot, subscribe } from "../../core/urlState.ts";
@@ -489,9 +490,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const patchThreadAfterSend = useCallback(async (id: number, { minLogMensajes = 0, ownerLabel }: PatchThreadOptions = {}) => {
     if (!loggedIn || !id) return;
     const name = ownerLabel || convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
-    const useLogBridge = !jwt?.token || viewingAuditOther;
-    const prodMode = messageSource === "prod" && Boolean(jwt?.token) && !viewingAuditOther;
-    const logsApiMode = messageSource === "logs" && Boolean(jwt?.token) && !viewingAuditOther;
+    const useLogBridge = !jwt?.token;
+    const prodMode = messageSource === "prod" && Boolean(jwt?.token);
+    const logsApiMode = messageSource === "logs" && Boolean(jwt?.token);
     try {
       if (prodMode) {
         const d = await getConversacion(jwt!, id).catch(() => null);
@@ -551,10 +552,10 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
     setLogError("");
     const ownerLabel = convOwnerDisplayLabel(activeConvOwnerScope(listScope, jwt?.claims), jwt, sessionUser);
-    const useLogBridge = !jwt?.token || viewingAuditOther;
+    const useLogBridge = !jwt?.token;
     const activeSource = sourceOverride ?? messageSource;
-    const prodMode = activeSource === "prod" && Boolean(jwt?.token) && !viewingAuditOther;
-    const logsApiMode = activeSource === "logs" && Boolean(jwt?.token) && !viewingAuditOther;
+    const prodMode = activeSource === "prod" && Boolean(jwt?.token);
+    const logsApiMode = activeSource === "logs" && Boolean(jwt?.token);
     const minMensajes = freshLog
       ? Math.max(minLogMensajes, lastLogApiCountRef.current + 2)
       : 0;
