@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T01:10:46.865Z",
+  "builtAt": "2026-06-26T11:43:43.067Z",
   "files": 93,
-  "bytesIn": 826146,
-  "bytesOut": 488569,
+  "bytesIn": 826449,
+  "bytesOut": 488806,
   "ratio": 0.591,
-  "hash": "a5b84fb8f3c8",
+  "hash": "f368e54c979c",
   "entries": [
     {
       "src": "css/app.css",
@@ -93,8 +93,8 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 3636,
-      "bytesOut": 1691
+      "bytesIn": 3892,
+      "bytesOut": 1805
     },
     {
       "src": "js/api/todosApi.ts",
@@ -213,8 +213,8 @@
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 4515,
-      "bytesOut": 3212
+      "bytesIn": 4331,
+      "bytesOut": 3239
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -225,8 +225,8 @@
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 9131,
-      "bytesOut": 6870
+      "bytesIn": 9362,
+      "bytesOut": 6966
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",

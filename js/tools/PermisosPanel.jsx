@@ -1,6 +1,7 @@
 import { getMaterialUI, getReact, toastError, toastSuccess } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
-import { fetchPermisos, putPermisoRole, putPermisoUser, deletePermiso, requirePatyJwt } from "../api/systemConfigApi.ts";
+import { fetchPermisos, putPermisoRole, putPermisoUser, deletePermiso } from "../api/systemConfigApi.ts";
+import { loadPatyJwt } from "../core/patyia-jwt.ts";
 
 const { useState, useEffect, useCallback } = getReact();
 const { Paper, Typography, TextField, Stack, Alert, CircularProgress, Divider, Chip, Box } = getMaterialUI();
@@ -79,34 +80,43 @@ function UserRow({ entry, roleNames, onSave, onDelete, busy, readOnly }) {
   );
 }
 
-export function PermisosPanel({ onNeedLogin, readOnly = false }) {
+export function PermisosPanel() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [canManage, setCanManage] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ roles: [], users: [] });
   const [newRole, setNewRole] = useState("");
   const [newUser, setNewUser] = useState("");
   const [newUserRoles, setNewUserRoles] = useState("");
+  const readOnly = !canManage;
 
   const load = useCallback(async () => {
-    const jwt = requirePatyJwt(onNeedLogin);
-    if (!jwt) { setLoading(false); setErr("Inicia sesión y configura el JWT de portal para ver permisos."); return; }
     setLoading(true); setErr("");
     try {
-      setData(await fetchPermisos(jwt));
+      const result = await fetchPermisos(loadPatyJwt());
+      setData(result);
+      setCanManage(!!result.canManage);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setLoading(false); }
-  }, [onNeedLogin]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const onJwt = () => { load(); };
+    window.addEventListener("isa-patyia:paty-jwt", onJwt);
+    return () => window.removeEventListener("isa-patyia:paty-jwt", onJwt);
+  }, [load]);
 
   async function run(fn, okMsg) {
-    const jwt = requirePatyJwt(onNeedLogin);
-    if (!jwt) return;
+    const jwt = loadPatyJwt();
+    if (!jwt?.token) { toastError("JWT de portal requerido para guardar"); return; }
     setBusy(true); setErr("");
     try {
-      setData(await fn(jwt));
+      const result = await fn(jwt);
+      setData(result);
+      setCanManage(!!result.canManage);
       toastSuccess(okMsg);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -122,12 +132,10 @@ export function PermisosPanel({ onNeedLogin, readOnly = false }) {
     <div className="custom-scrollbar" style={{ padding: "1rem", overflow: "auto" }}>
       {err ? <Alert severity="warning" sx={{ mb: 1.5 }}>{err}</Alert> : null}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Permisos por aplicación en <code>dbo.USR_PERMISSIONS</code>. Los mapas usan claves <code>METHOD:/api/path</code> con
+        Permisos en <code>dbo.USR_PERMISSIONS</code>. Claves <code>METHOD:/api/path</code> con
         <code>true</code> o <code>{"{ scope: 'own'|'all' }"}</code>.{" "}
-        {readOnly
-          ? <>Vista de solo lectura — solo <code>dev_lead</code> puede editar.</>
-          : <>Solo <code>dev_lead</code> puede editar.</>}{" "}
-        <strong>visitante</strong> es el rol por defecto: los usuarios sin fila lo heredan automáticamente (no se listan aquí).
+        {readOnly ? <>Vista de solo lectura — solo <code>dev_lead</code> puede editar.</> : <>Modo edición (<code>dev_lead</code>).</>}{" "}
+        <strong>visitante</strong> es el rol por defecto (usuarios sin fila no se listan).
       </Typography>
 
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
