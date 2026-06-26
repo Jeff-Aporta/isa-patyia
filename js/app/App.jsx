@@ -5,6 +5,7 @@ import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { TodosTool } from "../tools/TodosTool.jsx";
+import { ConfigTool } from "../tools/ConfigTool.jsx";
 import { Session } from "../core/platform.ts";
 import { Assets } from "../core/platform.ts";
 
@@ -15,6 +16,7 @@ const ALL_TOOLS = [
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
   { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
   { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
+  { id: "config", label: "Config", icon: "mdi:cog-outline" },
 ];
 
 function isPublicScrumBoot(todos) {
@@ -127,6 +129,9 @@ export function App() {
           )}
           {tool === "todos" && (
             <TodosTool key={`${homeTick}-${authTick}`} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+          {tool === "config" && (
+            <ConfigTool key={homeTick} onNeedLogin={() => setAuthOpen(true)} />
           )}
         </>
       )}

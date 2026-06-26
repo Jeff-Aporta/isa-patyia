@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-23T13:07:10.267Z",
-  "files": 90,
-  "bytesIn": 806016,
-  "bytesOut": 475139,
-  "ratio": 0.589,
-  "hash": "ad5223db5ecb",
+  "builtAt": "2026-06-26T00:43:43.964Z",
+  "files": 93,
+  "bytesIn": 824360,
+  "bytesOut": 487248,
+  "ratio": 0.591,
+  "hash": "1b94eaaefb26",
   "entries": [
     {
       "src": "css/app.css",
@@ -21,8 +21,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 43038,
-      "bytesOut": 31677
+      "bytesIn": 44188,
+      "bytesOut": 32604
     },
     {
       "src": "css/neon-glass-bridge.css",
@@ -91,6 +91,12 @@
       "bytesOut": 2094
     },
     {
+      "src": "js/api/systemConfigApi.ts",
+      "dist": "_dist/js/api/systemConfigApi.js",
+      "bytesIn": 3615,
+      "bytesOut": 1691
+    },
+    {
       "src": "js/api/todosApi.ts",
       "dist": "_dist/js/api/todosApi.js",
       "bytesIn": 9405,
@@ -105,8 +111,8 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 4897,
-      "bytesOut": 2891
+      "bytesIn": 5145,
+      "bytesOut": 3062
     },
     {
       "src": "js/boot/cdn.mjs",
@@ -183,8 +189,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 8443,
-      "bytesOut": 3941
+      "bytesIn": 8485,
+      "bytesOut": 3963
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -205,10 +211,22 @@
       "bytesOut": 5736
     },
     {
+      "src": "js/tools/ConfigTool.jsx",
+      "dist": "_dist/js/tools/ConfigTool.js",
+      "bytesIn": 4477,
+      "bytesOut": 3191
+    },
+    {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
       "bytesIn": 22731,
       "bytesOut": 13490
+    },
+    {
+      "src": "js/tools/PermisosPanel.jsx",
+      "dist": "_dist/js/tools/PermisosPanel.js",
+      "bytesIn": 7499,
+      "bytesOut": 5570
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -261,8 +279,8 @@
     {
       "src": "js/tools/chat/ConvSearchAutocomplete.jsx",
       "dist": "_dist/js/tools/chat/ConvSearchAutocomplete.js",
-      "bytesIn": 4575,
-      "bytesOut": 2622
+      "bytesIn": 5888,
+      "bytesOut": 3159
     },
     {
       "src": "js/tools/chat/JwtModal.jsx",

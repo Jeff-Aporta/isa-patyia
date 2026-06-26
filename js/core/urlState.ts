@@ -16,6 +16,7 @@ function normalizeTool(raw: unknown) {
   if (raw === "prompts") return "prompts";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
+  if (raw === "config") return "config";
   return "log";
 }
 
