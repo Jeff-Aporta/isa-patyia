@@ -19,7 +19,10 @@ export function ConfigTool({ onNeedLogin }) {
     (async () => {
       const jwt = requirePatyJwt();
       if (!jwt) return;
-      try { await fetchPermisos(jwt); if (alive) setCanManage(true); } catch { if (alive) setCanManage(false); }
+      try {
+        const data = await fetchPermisos(jwt);
+        if (alive) setCanManage(!!data.canManage);
+      } catch { if (alive) setCanManage(false); }
     })();
     return () => { alive = false; };
   }, []);
@@ -30,11 +33,11 @@ export function ConfigTool({ onNeedLogin }) {
         <div className="panel-head" style={{ paddingBottom: 0 }}>
           <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
             <Tab value="openai" label="OpenAI" />
-            {canManage ? <Tab value="permisos" label="Permisos" /> : null}
+            <Tab value="permisos" label="Permisos" />
           </Tabs>
         </div>
-        {tab === "permisos" && canManage
-          ? <PermisosPanel onNeedLogin={onNeedLogin} />
+        {tab === "permisos"
+          ? <PermisosPanel onNeedLogin={onNeedLogin} readOnly={!canManage} />
           : <OpenAiConfigBody onNeedLogin={onNeedLogin} />}
       </Paper>
     </div>

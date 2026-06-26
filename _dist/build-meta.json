@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T00:57:07.181Z",
+  "builtAt": "2026-06-26T01:10:46.865Z",
   "files": 93,
-  "bytesIn": 824360,
-  "bytesOut": 487248,
+  "bytesIn": 826146,
+  "bytesOut": 488569,
   "ratio": 0.591,
-  "hash": "1b94eaaefb26",
+  "hash": "a5b84fb8f3c8",
   "entries": [
     {
       "src": "css/app.css",
@@ -93,7 +93,7 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 3615,
+      "bytesIn": 3636,
       "bytesOut": 1691
     },
     {
@@ -117,7 +117,7 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4214,
+      "bytesIn": 4309,
       "bytesOut": 2733
     },
     {
@@ -213,8 +213,8 @@
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 4477,
-      "bytesOut": 3191
+      "bytesIn": 4515,
+      "bytesOut": 3212
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -225,8 +225,8 @@
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 7499,
-      "bytesOut": 5570
+      "bytesIn": 9131,
+      "bytesOut": 6870
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",

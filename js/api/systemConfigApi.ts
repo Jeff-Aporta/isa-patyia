@@ -56,7 +56,7 @@ export type PermEntry = {
   descripcion: string | null;
   bactivo: boolean;
 };
-export type PermissionsData = { roles: PermEntry[]; users: PermEntry[] };
+export type PermissionsData = { roles: PermEntry[]; users: PermEntry[]; canManage?: boolean };
 
 export async function fetchPermisos(jwt: PatyJwtRecord): Promise<PermissionsData> {
   return jsonFetch<PermissionsData>("/system/permisos", { method: "GET", headers: { ...patyAuthHeaders(jwt) } });
