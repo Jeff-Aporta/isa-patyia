@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T20:18:22.428Z",
+  "builtAt": "2026-06-26T20:58:36.317Z",
   "files": 104,
-  "bytesIn": 928774,
-  "bytesOut": 553372,
+  "bytesIn": 929357,
+  "bytesOut": 553841,
   "ratio": 0.596,
-  "hash": "3aa898dea828",
+  "hash": "ee55d037f4bf",
   "entries": [
     {
       "src": "css/app.css",
@@ -279,8 +279,8 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 4002,
-      "bytesOut": 2666
+      "bytesIn": 4585,
+      "bytesOut": 3135
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",

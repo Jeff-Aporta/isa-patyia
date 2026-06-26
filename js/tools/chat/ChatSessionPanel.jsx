@@ -14,6 +14,14 @@ const SESSION_MODE_CHIP_SX = {
     "& .MuiChip-icon": { color: "#4ade80 !important", ml: 0.55 },
     "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 },
   },
+  readonly: {
+    pl: 0.35,
+    color: "#fde68a",
+    bgcolor: "rgba(251, 191, 36, 0.1)",
+    border: "1px solid rgba(251, 191, 36, 0.35)",
+    "& .MuiChip-icon": { color: "#facc15 !important", ml: 0.55 },
+    "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 },
+  },
   loading: {
     pl: 0.35,
     color: "#94a3b8",
@@ -49,7 +57,16 @@ function SessionModeChip({ canSend, jwtLoading }) {
       />
     );
   }
-  return null;
+  return (
+    <Chip
+      size="small"
+      variant="outlined"
+      label="Solo lectura"
+      icon={<Icon icon="mdi:eye-outline" size={14} aria-hidden />}
+      className="paty-chat-session__badge paty-chat-session__badge--readonly"
+      sx={SESSION_MODE_CHIP_SX.readonly}
+    />
+  );
 }
 
 export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerNick, canSend, jwtLoading, onOpenAudit }) {
