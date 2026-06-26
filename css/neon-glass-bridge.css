@@ -246,6 +246,9 @@ html[data-mui-color-scheme="light"] .paty-chat-thread-surface {
 .config-panel-inner {
   max-width: 720px;
   margin: 0 auto;
+  &.config-panel-inner--wide {
+    max-width: 920px;
+  }
 }
 
 .config-openai-section {
@@ -403,5 +406,26 @@ html[data-mui-color-scheme="light"] .paty-chat-thread-surface {
     margin-top: 2px;
     color: var(--neon-blue, #1e90ff);
     filter: drop-shadow(0 0 6px rgba(30, 144, 255, 0.35));
+  }
+}
+
+.config-prompts-section {
+  margin-bottom: 0 !important;
+}
+
+.config-prompts-editor-wrap {
+  padding: 0.65rem 0.75rem 0.75rem !important;
+  border: 1px solid color-mix(in srgb, var(--neon-purple, #6366f1) 24%, rgba(99, 102, 241, 0.28)) !important;
+}
+
+.config-prompts-editor {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  & .isa-cm-panel--fill,
+  & .isa-cm-host,
+  & .CodeMirror {
+    min-height: 260px !important;
+    height: 100% !important;
   }
 }

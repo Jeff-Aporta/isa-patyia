@@ -47,6 +47,22 @@ export async function putOpenAiSystemConfig(config: OpenAiSystemConfig, jwt: Pat
   return body.config ?? config;
 }
 
+export type PromptsOperativosConfig = Record<string, unknown>;
+
+export async function fetchPromptsOperativosConfig(jwt?: PatyJwtRecord | null): Promise<{ config: PromptsOperativosConfig; canEdit: boolean }> {
+  const body = await jsonFetch<{ config?: PromptsOperativosConfig; canEdit?: boolean }>("/system/prompts-operativos", { method: "GET", headers: optionalPatyHeaders(jwt) });
+  return { config: body.config ?? {}, canEdit: !!body.canEdit };
+}
+
+export async function putPromptsOperativosConfig(config: PromptsOperativosConfig, jwt: PatyJwtRecord): Promise<PromptsOperativosConfig> {
+  const body = await jsonFetch<{ config?: PromptsOperativosConfig }>("/system/prompts-operativos", {
+    method: "PUT",
+    headers: { ...patyAuthHeaders(jwt), "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  return body.config ?? config;
+}
+
 export type PermEntry = { iusuario: string; itipo: "user" | "role"; roles: string[]; permisos: Record<string, unknown>; descripcion: string | null; bactivo: boolean };
 export type PermissionsData = { roles: PermEntry[]; users: PermEntry[]; canManage?: boolean };
 

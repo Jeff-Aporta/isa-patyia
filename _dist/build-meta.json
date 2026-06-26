@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T11:51:12.397Z",
+  "builtAt": "2026-06-26T12:06:56.501Z",
   "files": 93,
-  "bytesIn": 837898,
-  "bytesOut": 497372,
-  "ratio": 0.594,
-  "hash": "1be1e29d15b1",
+  "bytesIn": 842699,
+  "bytesOut": 501331,
+  "ratio": 0.595,
+  "hash": "f48da8c4582c",
   "entries": [
     {
       "src": "css/app.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 14427,
-      "bytesOut": 11442
+      "bytesIn": 14978,
+      "bytesOut": 11886
     },
     {
       "src": "css/theme.css",
@@ -93,8 +93,8 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 3892,
-      "bytesOut": 1805
+      "bytesIn": 4769,
+      "bytesOut": 2181
     },
     {
       "src": "js/api/todosApi.ts",
@@ -195,8 +195,8 @@
     {
       "src": "js/editors/jsonEditor.jsx",
       "dist": "_dist/js/editors/jsonEditor.js",
-      "bytesIn": 537,
-      "bytesOut": 323
+      "bytesIn": 558,
+      "bytesOut": 336
     },
     {
       "src": "js/main.jsx",
@@ -213,8 +213,8 @@
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 9021,
-      "bytesOut": 6323
+      "bytesIn": 12373,
+      "bytesOut": 9449
     },
     {
       "src": "js/tools/LogViewer.jsx",
