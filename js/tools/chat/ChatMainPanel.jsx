@@ -155,12 +155,6 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
         onRemoveImage={onRemoveImage}
         onRemoveAudio={onRemoveAudio}
       />
-
-      {!canSend && (selectedId || detail) && (
-        <Box className="paty-chat-compose-readonly">
-          Modo lectura.
-        </Box>
-      )}
     </Box>
   );
 }

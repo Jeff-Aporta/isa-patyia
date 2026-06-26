@@ -115,13 +115,24 @@ async function fetchLogsModeDetail(
 
   try {
     const d = await loadDetail();
-    if (!d) return { d: null, log: null, openAiDirect: false };
+    if (!d) {
+      const fallback = await getConversacion(jwt, id).catch(() => null);
+      if (!fallback) return { d: null, log: null, openAiDirect: false };
+      const log = convLogFromDetalle(fallback, id) as ConvLogPayload | null;
+      const assistantsInLog = countLogAssistants(log);
+      const assistantsInApi = countOpenAiAssistants(fallback);
+      const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
+      const preferLogMeta = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+      const openAiDirect = Boolean(fallback?.mensajesOpenAI?.length) && !preferLogMeta;
+      return { d: fallback, log, openAiDirect };
+    }
     const log = convLogFromDetalle(d, id) as ConvLogPayload | null;
     const assistantsInLog = countLogAssistants(log);
     const assistantsInApi = countOpenAiAssistants(d);
     const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
-    const useLog = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
-    return { d, log: useLog ? log : null, openAiDirect: !useLog };
+    const preferLogMeta = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+    const openAiDirect = Boolean(d?.mensajesOpenAI?.length) && !preferLogMeta;
+    return { d, log, openAiDirect };
   } catch (e) {
     if (!isNotFoundError(e)) throw e;
   }
