@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T20:58:36.317Z",
+  "builtAt": "2026-06-26T21:04:00.416Z",
   "files": 104,
-  "bytesIn": 929357,
-  "bytesOut": 553841,
+  "bytesIn": 929460,
+  "bytesOut": 553911,
   "ratio": 0.596,
-  "hash": "ee55d037f4bf",
+  "hash": "8897da5f9922",
   "entries": [
     {
       "src": "css/app.css",
@@ -123,8 +123,8 @@
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2549,
-      "bytesOut": 1502
+      "bytesIn": 2652,
+      "bytesOut": 1572
     },
     {
       "src": "js/boot/theme-init.mjs",
