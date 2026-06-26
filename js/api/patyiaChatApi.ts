@@ -5,7 +5,7 @@ import {
 } from "../core/patyia-jwt.ts";
 import { conversacionesListQueryParams } from "./issListFilter.ts";
 import { patyAuthHeaders } from "./patyiaTokens.ts";
-import { readPatyiaSseStream } from "../core/patyia.ts";
+import { isLocalMode, patyiaBridgeBase, readPatyiaSseStream } from "../core/patyia.ts";
 
 function authHeaders(jwt: PatyJwtRecord, extra: Record<string, string> = {}): HeadersInit {
   return patyAuthHeaders(jwt, extra);
@@ -19,7 +19,8 @@ function unwrapBody<T>(data: unknown): T {
 }
 
 async function jsonFetch<T>(path: string, jwt: PatyJwtRecord, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${PATYIA_API_BASE}${path}`, {
+  const base = isLocalMode() ? patyiaBridgeBase() : PATYIA_API_BASE;
+  const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
       ...authHeaders(jwt),
@@ -279,7 +280,8 @@ export async function sendConversacionStream(
 ): Promise<PatyConversacionDetalle> {
   const body = buildConversacionPostBody(input);
 
-  const res = await fetch(`${PATYIA_API_BASE}/conversacion`, {
+  const base = isLocalMode() ? patyiaBridgeBase() : PATYIA_API_BASE;
+  const res = await fetch(`${base}/conversacion`, {
     method: "POST",
     headers: authHeaders(jwt, {
       "Content-Type": "application/json",

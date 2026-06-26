@@ -3,9 +3,8 @@ import { ButtonIconify } from "../ui/shared.jsx";
 import { PromptBodyEditor } from "../ui/PromptBodyEditor.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
-import { fetchPromptsOperativosConfig, putPromptsOperativosConfig } from "../api/systemConfigApi.ts";
-import { loadPatyJwt } from "../core/patyia-jwt.ts";
-import { toastError, toastSuccess } from "../core/platform.ts";
+import { fetchPromptsOperativosConfig, putPromptsOperativosConfig, requireAppSession } from "../api/systemConfigApi.ts";
+import { Session, toastError, toastSuccess } from "../core/platform.ts";
 import { unitIntervalFieldProps } from "./promptsSql/helpers.ts";
 import { DEFAULT_MODELO_OPERATIVO } from "./configOpenAi.ts";
 import {
@@ -124,8 +123,8 @@ function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) 
     <Stack spacing={2} className="config-prompt-def">
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} useFlexGap flexWrap="wrap" alignItems="flex-end" className="config-prompt-def-fields">
         <FormControl size="small" sx={PROMPT_DEF_FIELD_SX} disabled={!canEdit}>
-          <InputLabel>Razonamiento</InputLabel>
-          <Select label="Razonamiento" value={def?.reasoning_effort || "low"} onChange={(e) => patchDef({ reasoning_effort: e.target.value })}>
+          <InputLabel id={`prompt-reasoning-${promptKey}-label`} shrink>Razonamiento</InputLabel>
+          <Select labelId={`prompt-reasoning-${promptKey}-label`} label="Razonamiento" value={def?.reasoning_effort || "low"} onChange={(e) => patchDef({ reasoning_effort: e.target.value })}>
             {REASONING_EFFORT_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
           </Select>
         </FormControl>
@@ -176,7 +175,7 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
     setLoading(true);
     setErr("");
     try {
-      const { config: cfg, canEdit: ce } = await fetchPromptsOperativosConfig(loadPatyJwt());
+      const { config: cfg, canEdit: ce } = await fetchPromptsOperativosConfig();
       const data = stripLegacyMetaKeys(cfg ?? {});
       setConfig(data);
       setSaved(data);
@@ -190,12 +189,12 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    const onJwt = () => { load(); };
+    const onAuth = () => { load(); };
     const onOpenAi = () => { load(); };
-    window.addEventListener("isa-patyia:paty-jwt", onJwt);
+    window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("isa-patyia:openai-config", onOpenAi);
     return () => {
-      window.removeEventListener("isa-patyia:paty-jwt", onJwt);
+      window.removeEventListener(Session.EVENT, onAuth);
       window.removeEventListener("isa-patyia:openai-config", onOpenAi);
     };
   }, [load]);
@@ -205,15 +204,14 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
   }
 
   async function save() {
-    const jwt = loadPatyJwt();
-    if (!jwt?.token) { onNeedLogin?.(); return; }
+    if (!requireAppSession(onNeedLogin)) return;
     if (!canEdit) return;
     const v = validatePromptsOperativosConfig(config, { operativeModel: opModel, strict: false });
     if (!v.ok) { setErr(v.errors.join(" · ")); return; }
     setSaving(true);
     setErr("");
     try {
-      const cfg = await putPromptsOperativosConfig(v.normalized, jwt);
+      const cfg = await putPromptsOperativosConfig(v.normalized);
       const next = validatePromptsOperativosConfig(stripLegacyMetaKeys(cfg), { operativeModel: opModel, strict: false }).normalized;
       setConfig(next);
       setSaved(next);

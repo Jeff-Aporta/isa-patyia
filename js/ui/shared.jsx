@@ -9,6 +9,7 @@ import {
 import { CodeMirrorPanel } from "../core/platform.ts";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogTabsSx, resolveMetaDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
+import { archivosCitadosFromMeta, fileSearchFromMeta } from "../core/fileSearchTrace.js";
 
 export { mdToHtml } from "../core/platform.ts";
 
@@ -281,11 +282,55 @@ export function metaWorthDialog(meta, isUser) {
   if (bdInstructionKey(meta)) return true;
   if (meta.stream_ok === false) return true;
   if (meta.extra?.operativa_key) return true;
+  if (Array.isArray(meta.archivos_citados) && meta.archivos_citados.length) return true;
+  if (Array.isArray(meta.file_search) && meta.file_search.length) return true;
   const pv = meta.prompt_variables;
   if (pv && typeof pv === "object") {
     if (Object.keys(pv).some((k) => k !== "nombre_usuario")) return true;
   }
   return false;
+}
+
+function FileSearchMetaSection({ meta }) {
+  const { Typography, Box, Stack, Chip } = getMaterialUI();
+  const trace = fileSearchFromMeta(meta);
+  const archivos = archivosCitadosFromMeta(meta);
+  if (!trace?.length && !archivos.length) return null;
+
+  return (
+    <Box className="meta-file-search" sx={{ mt: 1.5 }}>
+      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>File Search (archivos citados)</Typography>
+      {archivos.length ? (
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: trace?.length ? 1 : 0 }}>
+          {archivos.map((name) => (
+            <Chip key={name} size="small" variant="outlined" icon={<iconify-icon icon="mdi:file-document-outline" width="14" height="14" />} label={name} title={name} />
+          ))}
+        </Stack>
+      ) : null}
+      {trace?.map((call, ci) => (
+        <Box key={ci} sx={{ mb: ci < trace.length - 1 ? 1.25 : 0 }}>
+          {call.queries?.length ? (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              Queries: {call.queries.join(" · ")}
+            </Typography>
+          ) : null}
+          {(call.results ?? []).map((fr, ri) => (
+            <Box key={`${fr.filename ?? ri}-${fr.file_id ?? ri}`} className="meta-file-search__fragment" sx={{ mb: 0.75, pl: 1, borderLeft: 2, borderColor: "divider" }}>
+              <Typography variant="body2" fontWeight={600}>
+                {fr.filename || fr.file_id || "fragmento"}
+                {fr.score != null ? ` · score ${Number(fr.score).toFixed(3)}` : ""}
+              </Typography>
+              {fr.text ? (
+                <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", mt: 0.35, mb: 0, fontFamily: "inherit", color: "text.secondary" }}>
+                  {String(fr.text).length > 480 ? `${String(fr.text).slice(0, 480)}…` : fr.text}
+                </Typography>
+              ) : null}
+            </Box>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  );
 }
 
 export function MetaDialog({
@@ -362,6 +407,7 @@ export function MetaDialog({
             </span>
           </div>
         )}
+        <FileSearchMetaSection meta={resolvedMeta} />
       </div>
     );
   }

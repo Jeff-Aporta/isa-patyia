@@ -1,9 +1,8 @@
-import { getMaterialUI, getReact, toastError, toastSuccess, Assets } from "../core/platform.ts";
+import { getMaterialUI, getReact, Session, toastError, toastSuccess, Assets } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
-import { fetchPermisos, putPermisoRolePath, patchUsuarioRoles, createPermisoRole,
+import { fetchPermisos, putPermisoRolePath, patchUsuarioRoles, createPermisoRole, requireAppSession,
 } from "../api/systemConfigApi.ts";
 import { searchScrumAppUsers } from "../api/todosApi.ts";
-import { loadPatyJwt } from "../core/patyia-jwt.ts";
 import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE } from "./permisosKanbanShared.js";
 import { PermisosKanban } from "./PermisosKanban.jsx";
 import { RoleConfigFullscreenDialog } from "./permisosRoleConfig.jsx";
@@ -12,7 +11,7 @@ import { buildVisitanteConfigColumn } from "./permisosVisitante.js";
 const { useState, useEffect, useCallback, useMemo } = getReact();
 const { Typography, TextField, Stack, Alert, CircularProgress, Box, Chip, FormControl, InputLabel, Select, MenuItem } = getMaterialUI();
 
-export function PermisosPanel() {
+export function PermisosPanel({ onNeedLogin }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [canManage, setCanManage] = useState(false);
@@ -34,7 +33,7 @@ export function PermisosPanel() {
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const result = await fetchPermisos(loadPatyJwt());
+      const result = await fetchPermisos();
       setData(result);
       applyFlags(result);
     } catch (e) {
@@ -58,17 +57,16 @@ export function PermisosPanel() {
   }, []);
   useEffect(() => {
     Assets.ensureTodosCss();
-    const onJwt = () => { load(); };
-    window.addEventListener("isa-patyia:paty-jwt", onJwt);
-    return () => window.removeEventListener("isa-patyia:paty-jwt", onJwt);
+    const onAuth = () => { load(); };
+    window.addEventListener(Session.EVENT, onAuth);
+    return () => window.removeEventListener(Session.EVENT, onAuth);
   }, [load]);
 
   async function run(fn, okMsg) {
-    const jwt = loadPatyJwt();
-    if (!jwt?.token) { toastError("JWT de portal requerido para guardar"); return; }
+    if (!requireAppSession(onNeedLogin)) return;
     setBusy(true); setErr("");
     try {
-      const result = await fn(jwt);
+      const result = await fn();
       setData(result);
       applyFlags(result);
       if (okMsg) toastSuccess(okMsg);
@@ -98,7 +96,7 @@ export function PermisosPanel() {
       <Stack className="config-permisos-toolbar" direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         <TextField size="small" label="Buscar usuario" placeholder="Usuario" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="config-permisos-toolbar__field config-permisos-toolbar__field--search" />
         <FormControl size="small" className="config-permisos-toolbar__field config-permisos-toolbar__field--role">
-          <InputLabel id="permisos-role-filter-label">Rol</InputLabel>
+          <InputLabel id="permisos-role-filter-label" shrink>Rol</InputLabel>
           <Select labelId="permisos-role-filter-label" label="Rol" value={roleFilter} displayEmpty
             onChange={(e) => setRoleFilter(e.target.value)}
             renderValue={(v) => (v ? v : "Todos")}>
@@ -116,7 +114,7 @@ export function PermisosPanel() {
             <>
               <TextField size="small" label="Nuevo rol" value={newRole} onChange={(e) => setNewRole(e.target.value)} sx={{ width: 132 }} />
               <ButtonIconify icon="mdi:plus" title="Crear rol" label="Crear" disabled={busy || !newRole.trim()}
-                onClick={() => run((jwt) => createPermisoRole(newRole.trim(), jwt), `Rol ${newRole.trim()} creado`).then(() => setNewRole(""))} />
+                onClick={() => run(() => createPermisoRole(newRole.trim()), `Rol ${newRole.trim()} creado`).then(() => setNewRole(""))} />
             </>
           ) : null}
         </Stack>
@@ -126,13 +124,13 @@ export function PermisosPanel() {
 
       <Box className="paty-permisos-kanban-wrap-outer" sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <PermisosKanban boardData={boardData} readOnly={readOnly} canManage={canManage} canEditRoleDescriptions={canEditRoleDescriptions} busy={busy}
-          onRoleSave={({ name, permisos }) => run((jwt) => putPermisoRolePath(name, permisos, jwt), `Rol ${name} guardado`)}
-          onRoleDrag={({ username, fromRole, toRole, mode }) => run((jwt) => patchUsuarioRoles(username, { fromRole, toRole, mode }, jwt), `${username} → ${toRole}`)} />
+          onRoleSave={({ name, permisos }) => run(() => putPermisoRolePath(name, permisos), `Rol ${name} guardado`)}
+          onRoleDrag={({ username, fromRole, toRole, mode }) => run(() => patchUsuarioRoles(username, { fromRole, toRole, mode }), `${username} → ${toRole}`)} />
       </Box>
 
       <RoleConfigFullscreenDialog open={visitanteOpen} column={visitanteColumn} canManage={canManage}
         canEditRoleDescriptions={canEditRoleDescriptions} busy={busy} onClose={() => setVisitanteOpen(false)}
-        onSave={({ name, permisos }) => run((jwt) => putPermisoRolePath(name, permisos, jwt), "Rol visitante guardado").then(() => setVisitanteOpen(false))} />
+        onSave={({ name, permisos }) => run(() => putPermisoRolePath(name, permisos), "Rol visitante guardado").then(() => setVisitanteOpen(false))} />
     </Box>
   );
 }

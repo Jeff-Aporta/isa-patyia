@@ -7,8 +7,8 @@ const { Box, Alert } = getMaterialUI();
 
 function ThreadLoading({ label = "Cargando conversación…" }) {
   return (
-    <Box className="isa-app-boot isa-app-boot--inline" sx={{ flex: 1, minHeight: 0, width: "100%" }}>
-      <div className="isa-app-boot__card isa-app-boot__card--compact" role="status" aria-live="polite">
+    <Box className="isa-app-boot isa-app-boot--inline" sx={{ position: "absolute", inset: 0, zIndex: 2, minHeight: 0, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", pointerEvents: "none" }}>
+      <div className="isa-app-boot__card isa-app-boot__card--compact" role="status" aria-live="polite" style={{ background: "rgba(8, 16, 32, 0.72)" }}>
         <div className="isa-app-boot__icon-wrap isa-app-boot__icon-wrap--sm">
           <iconify-icon icon="mdi:loading" class="isa-spin" width="1.375em" height="1.375em" />
         </div>
@@ -26,7 +26,8 @@ export function ConvLogThread({
   onMeta,
   compactMeta = false,
   showUsageStats = true,
-  chatUserName,
+  chatUserDisplayName,
+  chatUserNick,
   threadKey = null,
   streamingMsgId = null,
   onRateMessage = null,
@@ -63,9 +64,10 @@ export function ConvLogThread({
         compactMeta={compactMeta}
         showUsageStats={showUsageStats}
         threadClassName={threadClassName}
-        chatUserName={chatUserName}
+        chatUserDisplayName={chatUserDisplayName}
+        chatUserNick={chatUserNick}
         streamingMsgId={streamingMsgId}
-        emptyHint={emptyHint}
+        emptyHint={showSpinner ? null : emptyHint}
         canRate={canRate}
         onRateMessage={onRateMessage}
         ratingMsgId={ratingMsgId}

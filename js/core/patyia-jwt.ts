@@ -177,15 +177,15 @@ export function isFaithfulImpersonation(): boolean {
   return Boolean(Session.isViewingAs?.());
 }
 
-/** Solo interactúa quien tiene capacidad patyia.chat.interact y JWT propio o admin con JWT ajeno. */
+/** Interactúa quien usa su JWT propio; JWT ajeno sigue restringido a administración. */
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
-  if (!Session.can("patyia.chat.interact")) return false;
   if (isFaithfulImpersonation()) {
     return jwt.savedBy?.toUpperCase() === u && !jwt.actingAsUsername;
   }
   if (jwt.savedBy?.toUpperCase() === u) return true;
+  if (!Session.can("patyia.chat.interact")) return false;
   if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
   return false;
 }

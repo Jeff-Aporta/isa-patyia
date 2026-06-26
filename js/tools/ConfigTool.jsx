@@ -2,9 +2,8 @@ import { getMaterialUI, getReact, UI } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
-import { fetchOpenAiSystemConfig, putOpenAiSystemConfig } from "../api/systemConfigApi.ts";
-import { loadPatyJwt } from "../core/patyia-jwt.ts";
-import { toastError, toastSuccess } from "../core/platform.ts";
+import { fetchOpenAiSystemConfig, putOpenAiSystemConfig, requireAppSession } from "../api/systemConfigApi.ts";
+import { Session, toastError, toastSuccess } from "../core/platform.ts";
 import { PermisosPanel } from "./PermisosPanel.jsx";
 import { ConfigPromptsOperativosPanel } from "./ConfigPromptsOperativosPanel.jsx";
 import {
@@ -108,7 +107,7 @@ export function ConfigTool({ onNeedLogin }) {
             <Tab value="permisos" label="Permisos" icon={<Icon icon="mdi:shield-key-outline" size={14} />} iconPosition="start" />
           </Tabs>
         </div>
-        {tab === "permisos" ? <PermisosPanel /> : <SistemaConfigBody onNeedLogin={onNeedLogin} />}
+        {tab === "permisos" ? <PermisosPanel onNeedLogin={onNeedLogin} /> : <SistemaConfigBody onNeedLogin={onNeedLogin} />}
       </Paper>
     </div>
   );
@@ -145,7 +144,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
     setLoading(true);
     setErr("");
     try {
-      const cfg = await fetchOpenAiSystemConfig(loadPatyJwt());
+      const cfg = await fetchOpenAiSystemConfig();
       const next = { ...buildDefaults(), ...cfg };
       setConfig(next);
       setSaved(next);
@@ -160,9 +159,9 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    const onJwt = () => { load(); };
-    window.addEventListener("isa-patyia:paty-jwt", onJwt);
-    return () => window.removeEventListener("isa-patyia:paty-jwt", onJwt);
+    const onAuth = () => { load(); };
+    window.addEventListener(Session.EVENT, onAuth);
+    return () => window.removeEventListener(Session.EVENT, onAuth);
   }, [load]);
 
   function patch(patch) {
@@ -174,15 +173,14 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
   }
 
   async function save() {
-    const jwt = loadPatyJwt();
-    if (!jwt?.token) { onNeedLogin?.(); return; }
+    if (!requireAppSession(onNeedLogin)) return;
     if (!canEdit) return;
     const v = validateOpenAiConfig(config, { modelOptions });
     if (!v.ok) { setErr(v.errors.join(" · ")); return; }
     setSaving(true);
     setErr("");
     try {
-      const cfg = await putOpenAiSystemConfig(v.normalized, jwt);
+      const cfg = await putOpenAiSystemConfig(v.normalized);
       const next = { ...v.normalized, canEdit };
       setSaved(next);
       setConfig(next);
@@ -227,14 +225,14 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
         <ConfigSectionLoading show={loading} />
         <Box className="config-openai-fields-row" sx={{ display: "grid", gridTemplateColumns: "minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px", gap: "1rem 1.25rem", alignItems: "start", width: "100%", maxWidth: 640, mt: 0.5 }}>
           <FormControl size="small" className="config-openai-fields-row__cell" disabled={!canEdit || loading || saving}>
-            <InputLabel>Operativo</InputLabel>
-            <Select label="Operativo" value={config.modeloOperativo} onChange={(e) => patch({ modeloOperativo: e.target.value })}>
+            <InputLabel id="config-openai-operativo-label" shrink>Operativo</InputLabel>
+            <Select labelId="config-openai-operativo-label" label="Operativo" value={config.modeloOperativo} onChange={(e) => patch({ modeloOperativo: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl size="small" className="config-openai-fields-row__cell" disabled={!canEdit || loading || saving}>
-            <InputLabel>Conversación</InputLabel>
-            <Select label="Conversación" value={config.modeloConversacion} onChange={(e) => patch({ modeloConversacion: e.target.value })}>
+            <InputLabel id="config-openai-conversacion-label" shrink>Conversación</InputLabel>
+            <Select labelId="config-openai-conversacion-label" label="Conversación" value={config.modeloConversacion} onChange={(e) => patch({ modeloConversacion: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
             </Select>
           </FormControl>

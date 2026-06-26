@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-26T21:04:00.416Z",
-  "files": 104,
-  "bytesIn": 929460,
-  "bytesOut": 553911,
-  "ratio": 0.596,
-  "hash": "8897da5f9922",
+  "builtAt": "2026-06-26T23:01:20.805Z",
+  "files": 105,
+  "bytesIn": 945859,
+  "bytesOut": 562958,
+  "ratio": 0.595,
+  "hash": "d9f5c7e6e0c6",
   "entries": [
     {
       "src": "css/app.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 26413,
-      "bytesOut": 20436
+      "bytesIn": 26415,
+      "bytesOut": 20438
     },
     {
       "src": "css/theme.css",
@@ -45,8 +45,8 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 9391,
-      "bytesOut": 4458
+      "bytesIn": 14140,
+      "bytesOut": 6875
     },
     {
       "src": "js/api/issListFilter.ts",
@@ -63,8 +63,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 10557,
-      "bytesOut": 4363
+      "bytesIn": 10706,
+      "bytesOut": 4426
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -93,20 +93,20 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 6993,
-      "bytesOut": 3310
+      "bytesIn": 6985,
+      "bytesOut": 3465
     },
     {
       "src": "js/api/todosApi.ts",
       "dist": "_dist/js/api/todosApi.js",
-      "bytesIn": 9405,
-      "bytesOut": 4148
+      "bytesIn": 9392,
+      "bytesOut": 4136
     },
     {
       "src": "js/api/treeMsgsApi.ts",
       "dist": "_dist/js/api/treeMsgsApi.js",
-      "bytesIn": 3080,
-      "bytesOut": 1335
+      "bytesIn": 3067,
+      "bytesOut": 1323
     },
     {
       "src": "js/app/App.jsx",
@@ -117,8 +117,8 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4802,
-      "bytesOut": 2964
+      "bytesIn": 4657,
+      "bytesOut": 2954
     },
     {
       "src": "js/boot/loader.mjs",
@@ -135,8 +135,14 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 33773,
-      "bytesOut": 16833
+      "bytesIn": 34536,
+      "bytesOut": 17421
+    },
+    {
+      "src": "js/core/fileSearchTrace.js",
+      "dist": "_dist/js/core/fileSearchTrace.js",
+      "bytesIn": 1255,
+      "bytesOut": 719
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -159,20 +165,20 @@
     {
       "src": "js/core/patyia-jwt.ts",
       "dist": "_dist/js/core/patyia-jwt.js",
-      "bytesIn": 11948,
-      "bytesOut": 5595
+      "bytesIn": 11936,
+      "bytesOut": 5598
     },
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 3130,
-      "bytesOut": 1683
+      "bytesIn": 4617,
+      "bytesOut": 2186
     },
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 9568,
-      "bytesOut": 5922
+      "bytesIn": 10169,
+      "bytesOut": 6264
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -207,20 +213,20 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 8682,
-      "bytesOut": 5736
+      "bytesIn": 9031,
+      "bytesOut": 5876
     },
     {
       "src": "js/tools/ConfigPromptsOperativosPanel.jsx",
       "dist": "_dist/js/tools/ConfigPromptsOperativosPanel.js",
-      "bytesIn": 12919,
-      "bytesOut": 8378
+      "bytesIn": 12927,
+      "bytesOut": 8375
     },
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 12630,
-      "bytesOut": 8994
+      "bytesIn": 12736,
+      "bytesOut": 9094
     },
     {
       "src": "js/tools/LogViewer.jsx",
@@ -237,8 +243,8 @@
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 7205,
-      "bytesOut": 4677
+      "bytesIn": 7072,
+      "bytesOut": 4589
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
@@ -267,8 +273,8 @@
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 6390,
-      "bytesOut": 4105
+      "bytesIn": 7072,
+      "bytesOut": 4481
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -279,14 +285,14 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 4585,
-      "bytesOut": 3135
+      "bytesIn": 4814,
+      "bytesOut": 3258
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 16998,
-      "bytesOut": 10289
+      "bytesIn": 16879,
+      "bytesOut": 10278
     },
     {
       "src": "js/tools/chat/ConvSearchAutocomplete.jsx",
@@ -303,8 +309,8 @@
     {
       "src": "js/tools/chat/TercerosAuditDialog.jsx",
       "dist": "_dist/js/tools/chat/TercerosAuditDialog.js",
-      "bytesIn": 8909,
-      "bytesOut": 4898
+      "bytesIn": 8938,
+      "bytesOut": 4916
     },
     {
       "src": "js/tools/chat/audio.ts",
@@ -315,8 +321,8 @@
     {
       "src": "js/tools/chat/auditScope.ts",
       "dist": "_dist/js/tools/chat/auditScope.js",
-      "bytesIn": 4290,
-      "bytesOut": 1482
+      "bytesIn": 4952,
+      "bytesOut": 1727
     },
     {
       "src": "js/tools/chat/constants.ts",
@@ -351,8 +357,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 41123,
-      "bytesOut": 16919
+      "bytesIn": 41959,
+      "bytesOut": 17343
     },
     {
       "src": "js/tools/configOpenAi.ts",
@@ -393,8 +399,8 @@
     {
       "src": "js/tools/permisosRoleConfig.jsx",
       "dist": "_dist/js/tools/permisosRoleConfig.js",
-      "bytesIn": 20153,
-      "bytesOut": 12992
+      "bytesIn": 20219,
+      "bytesOut": 13062
     },
     {
       "src": "js/tools/permisosRouteCatalog.js",
@@ -573,14 +579,14 @@
     {
       "src": "js/ui/ConvLogThread.jsx",
       "dist": "_dist/js/ui/ConvLogThread.js",
-      "bytesIn": 2508,
-      "bytesOut": 1779
+      "bytesIn": 2801,
+      "bytesOut": 2008
     },
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 46049,
-      "bytesOut": 25378
+      "bytesIn": 48215,
+      "bytesOut": 26398
     },
     {
       "src": "js/ui/GlassDialog.jsx",
@@ -627,8 +633,8 @@
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 16634,
-      "bytesOut": 10336
+      "bytesIn": 19044,
+      "bytesOut": 11982
     }
   ]
 }

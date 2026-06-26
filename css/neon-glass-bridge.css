@@ -457,7 +457,7 @@ html[data-mui-color-scheme="light"] .paty-chat-thread-surface {
   display: grid;
   grid-template-columns: minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px;
   gap: 1rem 1.25rem;
-  align-items: end;
+  align-items: start;
   width: 100%;
   max-width: 640px;
   &__cell {

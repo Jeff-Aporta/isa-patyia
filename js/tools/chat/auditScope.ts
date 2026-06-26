@@ -42,6 +42,18 @@ export function convBelongsToJwtResolved(
   return convBelongsToJwt(owner, claims);
 }
 
+/** Nombre legible del dueño (JWT, auditoría o actingAs). Sin username. */
+export function resolveOwnerDisplayName(
+  jwt: PatyJwtRecord | null | undefined,
+  displayScope: BrowseScope | null | undefined,
+): string {
+  const scopeName = String(displayScope?.nombre ?? "").trim();
+  if (scopeName) return scopeName;
+  const actingName = String(jwt?.actingAsDisplayName ?? "").trim();
+  if (actingName) return actingName;
+  return jwtUserDisplayName(jwt?.claims) || jwtUserShortName(jwt?.claims) || "";
+}
+
 /** Nick ISA / AUTH (username): dueño del JWT o sesión activa. */
 export function resolveOwnerNickname(jwt: PatyJwtRecord | null | undefined, sessionUser: string | null | undefined): string {
   const acting = String(jwt?.actingAsUsername ?? "").trim().toUpperCase();
@@ -101,6 +113,8 @@ export function resolveConvListHeader(
   jwt: PatyJwtRecord | null | undefined,
   sessionUser: string | null | undefined,
 ): string {
+  const scopeName = String(listScope?.nombre ?? "").trim();
+  if (scopeName && !auditScopeIsOwnJwt(listScope, jwt?.claims)) return scopeName;
   return resolveConvListOwnerLabel(listScope, jwt, sessionUser);
 }
 

@@ -1,4 +1,6 @@
 /** Puente al runtime ISAFront (window.ISA). */
+import { migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE } from "./patyia.ts";
+
 const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
 export const UI = {
@@ -194,9 +196,21 @@ function patchIsaPatyiaAuthEvents(): void {
   };
 }
 
+function patchIssOnlyLocalConfig(): void {
+  migrateIssLocalFromGatewayFlag();
+  const cfg = window.ISA?.Config;
+  if (!cfg) return;
+  const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
+  cfg.isLocal = isLocalMode;
+  cfg.setLocal = (on: boolean) => { setLocalMode(on); };
+  cfg.base = () => online;
+  cfg.apiUrl = (path: string) => online + (path.charAt(0) === "/" ? path : `/${path}`);
+  cfg.connectionHint = () => "";
+  cfg.label = () => (isLocalMode() ? "Local" : "Producción");
+}
+
 function patyiaBridgeBaseForLogin(): string {
-  const local = window.ISA?.Config?.isLocal?.() ?? false;
-  const base = local
+  const base = isLocalMode()
     ? "http://127.0.0.1:4500"
     : "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
   return base.replace(/\/$/, "");
@@ -222,6 +236,7 @@ export function bootstrapIsaPatyia(): void {
     },
   });
 
+  patchIssOnlyLocalConfig();
   patchIsaPatyiaAuthEvents();
 
   if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {

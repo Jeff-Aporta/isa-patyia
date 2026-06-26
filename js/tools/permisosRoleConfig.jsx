@@ -107,10 +107,8 @@ function AccessModeSelect({ value, onChange, disabled, scoped }) {
   return (
 
     <FormControl size="small" fullWidth disabled={disabled}>
-
-      <InputLabel>Acceso</InputLabel>
-
-      <Select label="Acceso" value={value || "off"} onChange={(e) => onChange(e.target.value)}>
+      <InputLabel id="perm-route-access-label" shrink>Acceso</InputLabel>
+      <Select labelId="perm-route-access-label" label="Acceso" value={value || "off"} onChange={(e) => onChange(e.target.value)}>
 
         {modes.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
 

@@ -412,6 +412,9 @@ function pushImage(images: string[], ref: unknown) {
     if (o.premisas) flat.premisas = o.premisas;
     if (typeof o.prompt_chars === "number") flat.prompt_chars = o.prompt_chars;
     if (typeof o.response_chars === "number") flat.response_chars = o.response_chars;
+    if (Array.isArray(o.file_search) && o.file_search.length) flat.file_search = o.file_search;
+    if (Array.isArray(o.archivos_citados) && o.archivos_citados.length) flat.archivos_citados = o.archivos_citados;
+    if (Array.isArray(o.instrucciones) && o.instrucciones.length) flat.instrucciones = o.instrucciones;
     return flat;
   }
 
@@ -599,6 +602,8 @@ function pushImage(images: string[], ref: unknown) {
       if (Number(meta.latency_ms ?? 0) > 0) return true;
       if (String(meta.model ?? "").trim()) return true;
       if (meta.modelo_autoswitch_vision) return true;
+      if (Array.isArray(meta.archivos_citados) && meta.archivos_citados.length) return true;
+      if (Array.isArray(meta.file_search) && meta.file_search.length) return true;
     }
     const s = msg.usageStats;
     if (!s) return false;
@@ -679,6 +684,10 @@ function pushImage(images: string[], ref: unknown) {
       imagenes: userImagenes.length ? userImagenes : undefined,
       audios: userAudios.length ? userAudios : undefined,
       audiosTranscripcion: userAudiosTranscripcion.length ? userAudiosTranscripcion : undefined,
+      file_search: Array.isArray(raw.file_search) && raw.file_search.length ? raw.file_search : undefined,
+      archivos_citados: Array.isArray(raw.archivos_citados) && raw.archivos_citados.length
+        ? raw.archivos_citados.map(String)
+        : undefined,
     };
   }
 

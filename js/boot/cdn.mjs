@@ -1,4 +1,4 @@
-export const PIN = "0692ebf";
+export const PIN = "36a245f";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
@@ -31,11 +31,11 @@ export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
-export const LIGHTBOX_ZOOM_REF = "7770b03";
+export const LIGHTBOX_ZOOM_REF = "8c55c6b";
 
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost && useLocalMonorepoCdn()) {
+  if (isDevHost) {
     return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
@@ -87,11 +87,11 @@ export async function ensureLightboxZoom(base = lightboxZoomBase()) {
 
 /* @isa-swagger-boot:start */
 /** Jeff-Aporta/swagger-viewer — pin CDN git (sync-component-refs.mjs) */
-export const SWAGGER_VIEWER_REF = "3433b24";
+export const SWAGGER_VIEWER_REF = "d39b1f0";
 
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost && useLocalMonorepoCdn()) {
+  if (isDevHost) {
     return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `${location.origin}/api/swagger/cdn/`;

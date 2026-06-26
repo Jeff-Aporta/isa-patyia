@@ -1,6 +1,6 @@
 /** Tableros SCRUM — gateway main-orchestrator → scrum worker. */
 import { Session, Config } from "../core/platform.ts";
-import { ORCH_ONLINE, isLocalMode } from "../core/patyia.ts";
+import { ORCH_ONLINE } from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const scrumHttp = window.ISAFront.createCapFetch({
@@ -17,7 +17,7 @@ const scrumHttp = window.ISAFront.createCapFetch({
     },
   ],
   orchOnlineInLocal: false,
-  isLocal: isLocalMode,
+  isLocal: () => false,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
