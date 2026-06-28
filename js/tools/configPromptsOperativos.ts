@@ -1,4 +1,5 @@
 import { preparePromptBodyForSave } from "../core/promptVariables.ts";
+import { bodyPreviewHtmlFromLines } from "../ui/promptMdEditorHtml.ts";
 import { DEFAULT_MODELO_OPERATIVO, modelAllowsSampling } from "./configOpenAi.ts";
 
 export const REASONING_EFFORT_OPTIONS = ["low", "medium", "high"] as const;
@@ -46,7 +47,14 @@ export function stripLegacyMetaKeys(config: PromptsOperativosConfig): PromptsOpe
 
 export function contentLinesToText(lines: unknown): string {
   if (!Array.isArray(lines)) return "";
+  // Cada ítem del array es una línea del prompt (UlPrompts une con \n).
   return lines.map((l) => String(l ?? "")).join("\n");
+}
+
+/** Ítems del array content[] → HTML de vista previa (una fila por ítem). */
+export function contentLinesToPreviewHtml(lines: unknown): string {
+  if (!Array.isArray(lines) || !lines.length) return "";
+  return bodyPreviewHtmlFromLines(lines);
 }
 
 export function textToContentLines(text: string): string[] {
@@ -186,5 +194,24 @@ export function readPromptAccordionExpandState(): PromptAccordionExpandState {
 export function writePromptAccordionExpandState(state: PromptAccordionExpandState): void {
   try {
     localStorage.setItem(PROMPT_ACCORDION_LS_KEY, JSON.stringify(state));
+  } catch { /* ignore */ }
+}
+
+const PROMPT_SKELETON_COUNT_LS_KEY = "isa-patyia:config-prompts-skeleton-count";
+const DEFAULT_PROMPT_SKELETON_COUNT = 2;
+
+/** Último número de prompts operativos cargados — para skeleton fiel en recargas. */
+export function readPromptSkeletonCount(): number {
+  try {
+    const n = Number(localStorage.getItem(PROMPT_SKELETON_COUNT_LS_KEY));
+    if (Number.isFinite(n) && n >= 1 && n <= 32) return Math.floor(n);
+  } catch { /* ignore */ }
+  return DEFAULT_PROMPT_SKELETON_COUNT;
+}
+
+export function writePromptSkeletonCount(count: number): void {
+  try {
+    const n = Math.floor(Number(count));
+    if (n >= 1 && n <= 32) localStorage.setItem(PROMPT_SKELETON_COUNT_LS_KEY, String(n));
   } catch { /* ignore */ }
 }

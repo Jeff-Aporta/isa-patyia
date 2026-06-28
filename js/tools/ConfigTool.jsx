@@ -1,4 +1,4 @@
-import { getMaterialUI, getReact, UI } from "../core/platform.ts";
+import { getMaterialUI, getReact, UI, getGlass } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
 import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
@@ -7,42 +7,81 @@ import { Session, toastError, toastSuccess } from "../core/platform.ts";
 import { PermisosPanel } from "./PermisosPanel.jsx";
 import { ConfigPromptsOperativosPanel } from "./ConfigPromptsOperativosPanel.jsx";
 import {
-  buildDefaults, configsEqual, modelSelectOptions, parseAndValidateJsonText, prettyJson, toOpenAiJsonPayload, validateOpenAiConfig,
+  buildDefaults, modelSelectOptions, parseAndValidateJsonText, prettyJson, toOpenAiJsonPayload, validateOpenAiConfig,
 } from "./configOpenAi.ts";
 import { readConfigToolTab, writeConfigToolTab } from "./configToolState.ts";
+import { useConfigFieldPersist } from "./configFieldPersist.ts";
 
-const { useState, useEffect, useCallback, useMemo } = getReact();
-const { Paper, Typography, TextField, Stack, Alert, CircularProgress, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, DialogContent, DialogActions, Button, Divider } = getMaterialUI();
+const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
+const { Paper, Typography, TextField, Stack, Alert, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, DialogContent, DialogActions, Button, Divider } = getMaterialUI();
 const { Icon } = UI;
 
-/** Sección de formulario (no modal): título, ayuda, cuerpo y pie opcional. */
-function ConfigFormSection({ icon, title, description, chips, actions, footer, children, className }) {
+/** Sección de formulario (tab Sistema) — GlassSection con acciones en cabecera. */
+function ConfigFormSection({ icon, title, description, chips, actions, footer, children, className, accent }) {
+  const { useGlassColors, glassCardSx, glassHeaderSx, glassInnerSx, NEON_COLORS } = getGlass();
+  const c = useGlassColors();
+  const sectionAccent = accent
+    ?? (className?.includes("openai") ? NEON_COLORS.purple : className?.includes("prompts") ? NEON_COLORS.cyan : NEON_COLORS.blue);
   return (
-    <Box component="section" className={`config-form-section${className ? ` ${className}` : ""}`}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} className="config-form-section__head">
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Stack direction="row" spacing={1.25} alignItems="center" className="config-form-section__title-row">
-            {icon ? <Box className="config-form-section__icon" aria-hidden>{icon}</Box> : null}
-            <Box className="config-form-section__titles" sx={{ minWidth: 0 }}>
-              <Typography component="h3" variant="subtitle1" fontWeight={700} className="config-form-section__title">{title}</Typography>
-              {description ? <Typography variant="body2" color="text.secondary" className="config-form-section__desc" gutterBottom>{description}</Typography> : null}
-            </Box>
+    <Paper
+      variant="outlined"
+      elevation={0}
+      className={["isa-glass-section", "config-form-section", className].filter(Boolean).join(" ")}
+      sx={glassCardSx(c, { tone: "default", accent: sectionAccent, hover: true, mb: 0, width: "100%" })}
+    >
+      {title ? (
+        <Box
+          className="isa-glass-section__head config-form-section__head"
+          sx={{
+            px: { xs: 2, sm: 2.5 },
+            py: 1.5,
+            ...glassHeaderSx(c, sectionAccent),
+            ...glassInnerSx(c, "blue"),
+          }}
+        >
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.25} sx={{ width: "100%" }}>
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: "1 1 auto" }}>
+              {icon ? (
+                <Box
+                  className="isa-glass-section__icon"
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background: `linear-gradient(135deg, ${sectionAccent}, ${sectionAccent}99)`,
+                    color: "#fff",
+                    boxShadow: c.dark ? `0 4px 12px ${sectionAccent}44` : "none",
+                  }}
+                >
+                  {icon}
+                </Box>
+              ) : null}
+              <Typography variant="subtitle1" component="h3" className="config-form-section__title" sx={{ fontWeight: 700, letterSpacing: -0.2, color: c.text }}>
+                {title}
+              </Typography>
+            </Stack>
+            {actions ? (
+              <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} className="config-form-section__actions" sx={{ ml: "auto" }}>{actions}</Stack>
+            ) : null}
           </Stack>
         </Box>
-        {actions ? <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} className="config-form-section__actions">{actions}</Stack> : null}
-      </Stack>
-      {chips?.length ? (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap className="config-form-section__chips">{chips}</Stack>
       ) : null}
-      <Box className="config-form-section__body">{children}</Box>
-      {footer}
-    </Box>
+      <Box className="isa-glass-section__body config-form-section__content" sx={{ pt: 1.75, pb: 2.25, px: { xs: 2, sm: 2.5 }, color: c.text }}>
+        {description ? (
+          <Typography variant="body2" color="text.secondary" className="config-form-section__desc">{description}</Typography>
+        ) : null}
+        {chips?.length ? (
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap className="config-form-section__chips" sx={{ mb: 1.15 }}>{chips}</Stack>
+        ) : null}
+        <Box className="config-form-section__body">{children}</Box>
+        {footer}
+      </Box>
+    </Paper>
   );
-}
-
-function ConfigSectionLoading({ show }) {
-  if (!show) return null;
-  return <Box className="config-form-section__loading"><CircularProgress size={26} /></Box>;
 }
 
 function OpenAiJsonModal({ open, initial, readOnly, modelOptions, onClose, onApply }) {
@@ -107,7 +146,11 @@ export function ConfigTool({ onNeedLogin }) {
             <Tab value="permisos" label="Permisos" icon={<Icon icon="mdi:shield-key-outline" size={14} />} iconPosition="start" />
           </Tabs>
         </div>
-        {tab === "permisos" ? <PermisosPanel onNeedLogin={onNeedLogin} /> : <SistemaConfigBody onNeedLogin={onNeedLogin} />}
+        {tab === "permisos" ? (
+          <div className="panel-body config-panel-body config-panel-body--permisos custom-scrollbar">
+            <PermisosPanel onNeedLogin={onNeedLogin} />
+          </div>
+        ) : <SistemaConfigBody onNeedLogin={onNeedLogin} />}
       </Paper>
     </div>
   );
@@ -130,19 +173,18 @@ function SistemaConfigBody({ onNeedLogin }) {
 
 function OpenAiSection({ onNeedLogin, onModelsChange }) {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [jsonOpen, setJsonOpen] = useState(false);
-  const [err, setErr] = useState("");
   const [config, setConfig] = useState(buildDefaults);
   const [saved, setSaved] = useState(buildDefaults);
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  const { saveGenRef, beginSave, endSave, fieldDisabled } = useConfigFieldPersist();
 
   const modelOptions = useMemo(() => modelSelectOptions(config.modeloOperativo, config.modeloConversacion), [config]);
-  const validation = useMemo(() => validateOpenAiConfig(config, { modelOptions }), [config, modelOptions]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr("");
     try {
       const cfg = await fetchOpenAiSystemConfig();
       const next = { ...buildDefaults(), ...cfg };
@@ -151,7 +193,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       setCanEdit(!!cfg.canEdit);
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -164,38 +206,40 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
     return () => window.removeEventListener(Session.EVENT, onAuth);
   }, [load]);
 
-  function patch(patch) {
-    setConfig((prev) => {
-      const next = { ...prev, ...patch };
-      onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
-      return next;
-    });
-  }
-
-  async function save() {
-    if (!requireAppSession(onNeedLogin)) return;
-    if (!canEdit) return;
-    const v = validateOpenAiConfig(config, { modelOptions });
-    if (!v.ok) { setErr(v.errors.join(" · ")); return; }
-    setSaving(true);
-    setErr("");
+  async function persist(snapshot, gen, fields) {
+    if (!requireAppSession(onNeedLogin)) { endSave(gen); return; }
+    if (!canEdit) { endSave(gen); return; }
+    const cfg = snapshot ?? config;
+    const opts = modelSelectOptions(cfg.modeloOperativo, cfg.modeloConversacion);
+    const v = validateOpenAiConfig(cfg, { modelOptions: opts });
+    if (!v.ok) { toastError(v.errors.join(" · ")); endSave(gen); return; }
     try {
-      const cfg = await putOpenAiSystemConfig(v.normalized);
+      await putOpenAiSystemConfig(v.normalized);
+      if (gen !== saveGenRef.current) return;
       const next = { ...v.normalized, canEdit };
+      savedRef.current = next;
       setSaved(next);
       setConfig(next);
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
       toastSuccess("Guardado");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg);
-      toastError(msg);
+      if (gen !== saveGenRef.current) return;
+      const prev = savedRef.current;
+      setConfig(prev);
+      onModelsChange?.({ modeloOperativo: prev.modeloOperativo, modeloConversacion: prev.modeloConversacion });
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSaving(false);
+      endSave(gen);
     }
   }
 
-  const dirty = canEdit && !configsEqual(config, saved);
+  function patch(p) {
+    const fields = Object.keys(p);
+    const next = { ...config, ...p };
+    setConfig(next);
+    onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
+    void persist(next, beginSave(fields), fields);
+  }
 
   return (
     <ConfigFormSection
@@ -206,31 +250,18 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       actions={(
         <>
           <ButtonIconify icon="mdi:code-json" title="JSON" onClick={() => setJsonOpen(true)} />
-          <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={loading || saving} />
-          {canEdit ? (
-            <ButtonIconify variant="primary" icon="mdi:content-save-outline" title="Guardar" label="Guardar" onClick={save} disabled={loading || saving || !dirty || !validation.ok} busy={saving} />
-          ) : null}
+          <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} busy={loading} />
         </>
       )}
     >
-      {err ? <Alert severity="warning" className="config-form-alert">{err}</Alert> : null}
-      {!validation.ok && dirty ? (
-        <Alert severity="error" variant="outlined" className="config-form-alert">
-          <Stack component="ul" spacing={0.25} sx={{ m: 0, pl: 2 }}>
-            {validation.errors.map((e) => <li key={e}><Typography variant="body2">{e}</Typography></li>)}
-          </Stack>
-        </Alert>
-      ) : null}
-      <Box sx={{ position: "relative" }}>
-        <ConfigSectionLoading show={loading} />
-        <Box className="config-openai-fields-row" sx={{ display: "grid", gridTemplateColumns: "minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px", gap: "1rem 1.25rem", alignItems: "start", width: "100%", maxWidth: 640, mt: 0.5 }}>
-          <FormControl size="small" className="config-openai-fields-row__cell" disabled={!canEdit || loading || saving}>
+      <Box className="config-openai-fields-row" sx={{ display: "grid", gridTemplateColumns: "minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px", gap: "1rem 1.25rem", alignItems: "start", width: "100%", maxWidth: 640, mt: 0.5 }}>
+          <FormControl size="small" className="config-openai-fields-row__cell" disabled={fieldDisabled(canEdit, "modeloOperativo")}>
             <InputLabel id="config-openai-operativo-label" shrink>Operativo</InputLabel>
             <Select labelId="config-openai-operativo-label" label="Operativo" value={config.modeloOperativo} onChange={(e) => patch({ modeloOperativo: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
             </Select>
           </FormControl>
-          <FormControl size="small" className="config-openai-fields-row__cell" disabled={!canEdit || loading || saving}>
+          <FormControl size="small" className="config-openai-fields-row__cell" disabled={fieldDisabled(canEdit, "modeloConversacion")}>
             <InputLabel id="config-openai-conversacion-label" shrink>Conversación</InputLabel>
             <Select labelId="config-openai-conversacion-label" label="Conversación" value={config.modeloConversacion} onChange={(e) => patch({ modeloConversacion: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
@@ -239,13 +270,12 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
           <Box className="config-openai-fields-row__cell config-openai-fields-row__fragments">
             <Tooltip title="Fragmentos de documentación usados por consulta (3–50)" placement="top">
               <TextField label="Fragmentos" type="number" size="small" fullWidth
-                value={config.max_num_results} disabled={loading || saving || !canEdit}
+                value={config.max_num_results} disabled={fieldDisabled(canEdit, "max_num_results")}
                 onChange={(e) => patch({ max_num_results: Math.round(Number(e.target.value)) || buildDefaults().max_num_results })}
                 slotProps={{ htmlInput: { min: 3, max: 50, step: 1 } }} />
             </Tooltip>
           </Box>
         </Box>
-      </Box>
       <OpenAiJsonModal open={jsonOpen} initial={prettyJson(toOpenAiJsonPayload(config))} readOnly={!canEdit} modelOptions={modelOptions}
         onClose={() => setJsonOpen(false)} onApply={(parsed) => { patch(parsed); setJsonOpen(false); }} />
     </ConfigFormSection>

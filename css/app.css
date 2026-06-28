@@ -222,36 +222,48 @@ body.conv-log-resize-active * {
 }
 
 .conv-log-action-grp {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  flex-wrap: nowrap;
   &__actions {
     display: inline-flex;
     flex-shrink: 0;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 6px;
-    margin-left: auto;
+    grid-column: 2;
+    grid-row: 1;
     & .btn-iconify {
       width: 2.25rem;
       height: 2.25rem;
       border-radius: 8px !important;
       margin-left: 0;
+      flex-shrink: 0;
       transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
     & > span {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
     }
   }
   &__input {
-    flex: 1 1 auto;
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
-    max-width: min(100%, 220px);
+    width: 100%;
+    max-width: none;
     margin: 0;
+    & .MuiFormControl-root {
+      width: 100%;
+      min-width: 0;
+    }
     & .MuiOutlinedInput-root {
       height: 2.25rem;
       border-radius: 8px;
@@ -470,6 +482,9 @@ html[data-mui-color-scheme="light"] .isa-split-view.conv-log-shell-split[data-is
 }
 
 .conv-log-shell-split .conv-log-action-grp {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   & .MuiOutlinedInput-root {
     background: rgba(11, 18, 32, 0.35);
     border-color: color-mix(in srgb, var(--neon-blue, #1e90ff) 24%, transparent) !important;
@@ -2450,6 +2465,25 @@ html[data-mui-color-scheme="light"] .isa-split-view.conv-log-shell-split[data-is
     user-select: text;
     overflow-wrap: anywhere;
     word-break: break-word;
+    & .prompt-content-line {
+      display: block;
+      min-height: 1.55em;
+      &:not(:last-child) {
+        margin-bottom: 0.12em;
+      }
+      & > p:last-child {
+        margin-bottom: 0;
+      }
+    }
+    & .prompt-content-line--empty {
+      min-height: 0.85em;
+    }
+    & p {
+      margin: 0 0 0.65em;
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
   }
   & details {
     margin: 0.5rem 0;
@@ -3151,15 +3185,26 @@ html[data-mui-color-scheme="light"] .prompt-body-preview.prompt-body-preview--ed
       text-align: left;
       line-height: 1.2;
     }
+    & .MuiTabs-scrollButtons {
+      flex: 0 0 auto;
+      width: 100% !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0;
+    }
     & .MuiTabScrollButton-root {
       flex: 0 0 auto;
       width: 100% !important;
-      min-height: 1.375rem !important;
-      height: 1.375rem !important;
+      min-width: 0 !important;
+      min-height: 1.25rem !important;
+      height: 1.25rem !important;
+      max-height: 1.25rem !important;
       padding: 0 !important;
+      padding-inline: 0 !important;
       margin: 0;
+      border-radius: 0;
       & svg {
-        font-size: 1rem;
+        font-size: 0.95rem;
       }
     }
     & .MuiTabs-flexContainer {

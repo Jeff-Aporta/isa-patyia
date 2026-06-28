@@ -66,15 +66,18 @@ export function ChatLoggedOutShell({ onNeedLogin }) {
           </Box>
         </Box>
         <Box className="paty-chat-gate paty-chat-gate--overlay">
-          <Box className="paty-chat-gate__inner">
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mb: 1 }}>
+          <Box
+            className="paty-chat-gate__inner isa-glass-card"
+            sx={{ p: { xs: 2.5, sm: 3 }, display: "flex", flexDirection: "column", gap: 2, alignItems: "stretch", boxSizing: "border-box", maxWidth: 520, width: "100%" }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
               <Icon icon="mdi:login" width="1.35em" height="1.35em" style={{ opacity: 0.85, flexShrink: 0 }} />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>Chat</Typography>
             </Stack>
-            <Alert severity="info" sx={{ mb: 2, textAlign: "left" }}>
+            <Alert severity="info" sx={{ textAlign: "left", py: 0.75, px: 1.25 }}>
               Inicia sesión para ver conversaciones.
             </Alert>
-            <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
+            <Button variant="contained" sx={{ alignSelf: "center", px: 3, py: 1.15, minHeight: 44 }} onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
           </Box>
         </Box>
       </Box>

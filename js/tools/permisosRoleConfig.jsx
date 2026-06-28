@@ -21,6 +21,7 @@ import {
 } from "./permisosRouteCatalog.js";
 
 import { roleTitleFromEntry } from "./permisosKanbanShared.js";
+import { UserAssignAutocomplete } from "./todos/UserAssignAutocomplete.jsx";
 import { enforceVisitantePermisos, isVisitanteRole, visitanteRouteLocked } from "./permisosVisitante.js";
 import { FIX_FILTER_VAR_HINT, formatFixFilter } from "./permFixFilter.js";
 
@@ -34,7 +35,7 @@ const {
 
   Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableHead, TableRow,
 
-  Dialog, DialogContent, DialogActions, Button, IconButton, Tooltip,
+  DialogContent, DialogActions, Button, Tooltip, CircularProgress,
 
 } = getMaterialUI();
 
@@ -152,7 +153,11 @@ function RouteGroupSection({ title, routes, canEdit, wildcard, onRouteMode, isVi
 
             <TableCell sx={{ width: "38%" }}>Clave</TableCell>
 
-            <TableCell sx={{ minWidth: 140 }}>fixFilter</TableCell>
+            <TableCell sx={{ minWidth: 140 }}>
+              <Tooltip title={`fixFilter — filtra por el usuario de la sesión (${FIX_FILTER_VAR_HINT})`}>
+                <span>Filtro de sesión</span>
+              </Tooltip>
+            </TableCell>
 
             <TableCell sx={{ width: 168 }}>Acceso</TableCell>
 
@@ -550,6 +555,8 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
   const [draft, setDraft] = useState(column?.entry?.permisos ?? {});
 
+  const [bactivo, setBactivo] = useState(column?.entry?.bactivo !== false);
+
   const [jsonOpen, setJsonOpen] = useState(false);
 
   const [err, setErr] = useState("");
@@ -561,9 +568,10 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
     if (open && column?.entry) {
       const raw = column.entry.permisos ?? {};
       setDraft(isVisitanteRole(roleName) ? enforceVisitantePermisos(raw) : raw);
+      setBactivo(column.entry.bactivo !== false);
     }
 
-  }, [open, column?.entry?.iusuario, column?.entry?.permisos, roleName]);
+  }, [open, column?.entry?.iusuario, column?.entry?.permisos, column?.entry?.bactivo, roleName]);
 
 
 
@@ -579,7 +587,7 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
     const permisos = isVisitanteRole(roleName) ? enforceVisitantePermisos(draft) : draft;
 
-    onSave?.({ name: roleName, permisos });
+    onSave?.({ name: roleName, permisos, bactivo: canManage ? bactivo : undefined });
 
   }
 
@@ -597,41 +605,32 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
   if (!column) return null;
 
-
+  const roleIcon = isVisitanteRole(roleName) ? "mdi:account-lock-outline" : "mdi:shield-key-outline";
+  const roleAccent = isVisitanteRole(roleName) ? "#64748b" : "#1e90ff";
 
   return (
 
     <>
 
-      <Dialog open={open} onClose={onClose} fullScreen className="permisos-role-config-dialog">
+      <GlassDialog open={open} onClose={onClose} fullScreen fullWidth maxWidth={false}
+        paperClassName="isa-glass-dialog--fullscreen permisos-role-config-dialog"
+        header={(
+          <Box sx={{ position: "relative", flexShrink: 0 }}>
+            <GlassDialogHeader icon={roleIcon} title={roleTitle}
+              subtitle={`${roleName} · ${summary.flagCount} privilegios · ${summary.routeCount} rutas`}
+              accent={roleAccent} onClose={onClose} />
+            <Stack direction="row" spacing={0.75} alignItems="center" className="permisos-role-config-dialog__toolbar">
+              <ButtonIconify icon="mdi:code-json" title="Ver JSON" onClick={() => setJsonOpen(true)} />
+              {canSave ? (
+                <ButtonIconify variant="primary" icon="mdi:content-save-outline" title="Guardar" label="Guardar"
+                  onClick={save} disabled={busy} busy={busy} />
+              ) : null}
+            </Stack>
+          </Box>
+        )}>
 
-        <Box className="permisos-role-config-dialog__head">
-
-          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flex: 1, minWidth: 0 }}>
-
-            <IconButton onClick={onClose} aria-label="Cerrar"><Icon icon="mdi:arrow-left" size={22} /></IconButton>
-
-            <Box sx={{ minWidth: 0 }}>
-
-              <Typography variant="h6" fontWeight={700} noWrap title={roleTitle}>{roleTitle}</Typography>
-
-              <Typography variant="caption" color="text.secondary" noWrap title={roleName}>{roleName} · {summary.flagCount} privilegios · {summary.routeCount} rutas</Typography>
-
-            </Box>
-
-          </Stack>
-
-          <Stack direction="row" spacing={0.75}>
-
-            <ButtonIconify icon="mdi:code-json" title="Ver JSON" onClick={() => setJsonOpen(true)} />
-
-            {canSave ? <ButtonIconify variant="primary" icon="mdi:content-save-outline" title="Guardar" label="Guardar" onClick={save} disabled={busy} busy={busy} /> : null}
-
-          </Stack>
-
-        </Box>
-
-        <DialogContent className="permisos-role-config-dialog__body custom-scrollbar">
+        <DialogContent className="permisos-role-config-dialog__body custom-scrollbar"
+          sx={glassDialogContentSx({ flex: 1, minHeight: 0, px: 0, py: 0 })}>
 
           {err ? <Alert severity="warning" sx={{ mb: 2 }}>{err}</Alert> : null}
 
@@ -645,11 +644,17 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
           ) : null}
 
+          {canManage && !isVisitanteRole(roleName) ? (
+            <FormControlLabel sx={{ mb: 1.5, ml: 0 }}
+              control={<Checkbox checked={bactivo} onChange={(e) => setBactivo(e.target.checked)} disabled={busy} />}
+              label="Rol activo (visible en kanban y asignable a usuarios)" />
+          ) : null}
+
           <RoleConfigEditor entry={{ ...column.entry, permisos: draft }} roleName={roleName} canManage={canManage} canEditRoleDescriptions={canEditRoleDescriptions} onChange={setDraft} />
 
         </DialogContent>
 
-      </Dialog>
+      </GlassDialog>
 
       <PermJsonModal open={jsonOpen} title={`Rol ${roleTitle}`}
 
@@ -663,17 +668,25 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
 
 
-export function RoleDragDialog({ open, pending, onClose, onConfirm }) {
+export function RoleDragDialog({ open, pending, busy, onClose, onConfirm }) {
 
   if (!pending) return null;
 
   const { username, fromRole, toRole } = pending;
 
+  function confirm(mode) {
+
+    if (busy) return;
+
+    onConfirm(mode);
+
+  }
+
   return (
 
-    <GlassDialog open={open} onClose={onClose} maxWidth="sm" fullWidth
+    <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth disableEscapeKeyDown={busy}
 
-      header={<GlassDialogHeader icon="mdi:account-switch" title="Asignar rol" subtitle={`${username}: ${fromRole} → ${toRole}`} accent="#1e90ff" onClose={onClose} />}>
+      header={<GlassDialogHeader icon="mdi:account-switch" title="Asignar rol" subtitle={`${username}: ${fromRole} → ${toRole}`} accent="#1e90ff" onClose={busy ? undefined : onClose} />}>
 
       <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
 
@@ -685,19 +698,19 @@ export function RoleDragDialog({ open, pending, onClose, onConfirm }) {
 
         <Stack spacing={1.25}>
 
-          <Button variant="contained" fullWidth sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+          <Button variant="contained" fullWidth disabled={busy} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
 
-            onClick={() => onConfirm("move")} startIcon={<Icon icon="mdi:arrow-right-bold" size={18} />}>
+            onClick={() => confirm("move")} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:arrow-right-bold" size={18} />}>
 
-            Mover (quitar de {fromRole})
+            {busy ? "Procesando…" : `Mover (quitar de ${fromRole})`}
 
           </Button>
 
-          <Button variant="outlined" fullWidth sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+          <Button variant="outlined" fullWidth disabled={busy} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
 
-            onClick={() => onConfirm("copy")} startIcon={<Icon icon="mdi:content-copy" size={18} />}>
+            onClick={() => confirm("copy")} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:content-copy" size={18} />}>
 
-            Copiar (mantener en {fromRole})
+            {busy ? "Procesando…" : `Copiar (mantener en ${fromRole})`}
 
           </Button>
 
@@ -705,11 +718,71 @@ export function RoleDragDialog({ open, pending, onClose, onConfirm }) {
 
       </DialogContent>
 
-      <DialogActions sx={glassDialogActionsSx()}><Button onClick={onClose} sx={{ textTransform: "none" }}>Cancelar</Button></DialogActions>
+      <DialogActions sx={glassDialogActionsSx()}><Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button></DialogActions>
 
     </GlassDialog>
 
   );
 
+}
+
+export function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
+  const [username, setUsername] = useState(null);
+  useEffect(() => { if (open) setUsername(null); }, [open]);
+  if (!pending) return null;
+  const { roleTitle, role, existingUsernames } = pending;
+  const roleLabel = roleTitle || role;
+  const alreadyInRole = username && existingUsernames?.has(String(username).trim().toUpperCase());
+  return (
+    <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth
+      header={<GlassDialogHeader icon="mdi:account-plus-outline" title="Agregar al rol" subtitle={roleLabel} accent="#10b981" onClose={busy ? undefined : onClose} />}>
+      <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Busque un usuario registrado en isa-patyia para asignarlo al rol <strong>{roleLabel}</strong>.
+        </Typography>
+        <UserAssignAutocomplete value={username} onChange={setUsername} disabled={busy} label="Usuario" />
+        {alreadyInRole ? <Alert severity="warning" sx={{ mt: 1.5 }}>Este usuario ya está en el rol.</Alert> : null}
+      </DialogContent>
+      <DialogActions sx={glassDialogActionsSx()}>
+        <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button>
+        <Button variant="contained" disabled={busy || !username || alreadyInRole} onClick={() => onConfirm(username)} sx={{ textTransform: "none", minWidth: 120 }}
+          startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:account-plus-outline" size={18} />}>
+          {busy ? "Agregando…" : "Agregar"}
+        </Button>
+      </DialogActions>
+    </GlassDialog>
+  );
+}
+
+export function RoleRemoveDialog({ open, pending, busy, onClose, onConfirm }) {
+  if (!pending) return null;
+  const { username, roleTitle, role } = pending;
+  const roleLabel = roleTitle || role;
+  return (
+    <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth disableEscapeKeyDown={busy}
+      header={<GlassDialogHeader icon="mdi:account-remove-outline" title="Quitar del rol" subtitle={`${username} · ${roleLabel}`} accent="#f59e0b" onClose={busy ? undefined : onClose} />}>
+      <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Esta acción revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar.
+        </Alert>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          ¿Quitar a <strong>{username}</strong> del rol <strong>{roleLabel}</strong>?
+        </Typography>
+        <Box component="ul" sx={{ m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }}>
+          <li>Perderá los permisos, rutas y privilegios asociados a <strong>{roleLabel}</strong>.</li>
+          <li>Dejará de aparecer en la columna de ese rol en el tablero.</li>
+          <li>Sus otros roles asignados no se modifican.</li>
+          <li>Para restaurar el acceso, un dev_lead deberá volver a asignar el rol.</li>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={glassDialogActionsSx()}>
+        <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button>
+        <Button variant="contained" color="warning" disabled={busy} onClick={onConfirm} sx={{ textTransform: "none", minWidth: 120 }}
+          startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:account-remove-outline" size={18} />}>
+          {busy ? "Quitando…" : "Confirmar"}
+        </Button>
+      </DialogActions>
+    </GlassDialog>
+  );
 }
 

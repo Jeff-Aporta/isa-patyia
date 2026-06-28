@@ -59,6 +59,18 @@ export function isLocalMode() {
 
 }
 
+/** Front servido desde localhost (QA http-server :8766, etc.). */
+export function isDevHost() {
+  try { return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname); } catch { return false; }
+}
+
+/** Base /api del ISS AyudasCPIA — en dev host siempre local aunque local:false en ?s=. */
+export function resolveIssApiBase() {
+  const useLocal = isLocalMode() || isDevHost();
+  const base = (useLocal ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+
 
 
 export function setLocalMode(on: boolean) {

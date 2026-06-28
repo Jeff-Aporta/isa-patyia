@@ -291,17 +291,22 @@ export function TodosKanban({ boardData, readOnly = false, preview = false, onOp
 
   const { columns } = boardData;
 
+  const fullBoard = !preview;
+
   return (
-    <Box className={`paty-todos-kanban-wrap${readOnly && !preview ? " paty-todos-kanban-wrap--readonly" : ""}`}>
+    <Box className={`paty-todos-kanban-wrap${readOnly && !preview ? " paty-todos-kanban-wrap--readonly" : ""}`}
+      sx={fullBoard ? { flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", p: 0 } : undefined}>
       {readOnly && !preview ? (
         <Chip
           size="small"
           className="paty-todos-kanban__readonly-chip"
           label="Solo lectura"
           icon={<Icon icon="mdi:eye-outline" size={14} />}
+          sx={{ alignSelf: "flex-start", width: "auto", flex: "0 0 auto", ml: "18px", mt: 1.5 }}
         />
       ) : null}
-      <Box className={`paty-todos-kanban${preview ? " paty-todos-kanban--preview" : ""}${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}>
+      <Box className={`paty-todos-kanban${preview ? " paty-todos-kanban--preview" : ""}${draggingTaskId ? " paty-todos-kanban--dragging" : ""}`}
+        sx={fullBoard ? { flex: 1, minHeight: 0, height: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch" } : undefined}>
       {dragGhost ? (
         <DragGhost task={ghostTask} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} />
       ) : null}
@@ -321,38 +326,27 @@ export function TodosKanban({ boardData, readOnly = false, preview = false, onOp
             className={`paty-todos-column ${theme.className}`}
             style={{ "--col-accent": theme.accent }}
           >
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              spacing={1}
-              className="paty-todos-column__head"
-              sx={{ flexShrink: 0, gap: 1, px: 1.75, py: 1.25, pb: 1 }}
-            >
-              <Stack
-                direction="row"
-                alignItems="center"
-                spacing={0.75}
-                className="paty-todos-column__title"
-                sx={{ minWidth: 0, flex: "1 1 auto" }}
-              >
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} className="paty-todos-column__head"
+              sx={{ flexShrink: 0, px: 1.75, py: 1.25, pb: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={0.75} className="paty-todos-column__title" sx={{ minWidth: 0, flex: 1 }}>
                 <Icon icon={theme.icon} size={16} />
-                <Box component="span" sx={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.title}>
                   {col.title}
                 </Box>
               </Stack>
-              <Box component="span" className="paty-todos-column__count" sx={{ flexShrink: 0 }}>
+              <Box component="span" className="paty-todos-column__count"
+                sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, height: 22, minWidth: 22, px: 1, boxSizing: "border-box", flexShrink: 0 }}>
                 {colTasks.length}
               </Box>
             </Stack>
             <Stack
               ref={(el) => { listRefs.current[col.id] = el; }}
               data-column-id={col.id}
-              spacing={1.25}
+              spacing={fullBoard ? 0.75 : 1.25}
               className={`paty-todos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
               sx={{
                 flex: 1,
-                minHeight: 56,
+                minHeight: fullBoard ? 0 : 56,
                 overflowY: "auto",
                 overflowX: "hidden",
                 p: 1.25,

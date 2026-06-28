@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-26T23:01:20.805Z",
-  "files": 105,
-  "bytesIn": 945859,
-  "bytesOut": 562958,
-  "ratio": 0.595,
-  "hash": "d9f5c7e6e0c6",
+  "builtAt": "2026-06-28T03:18:00.398Z",
+  "files": 107,
+  "bytesIn": 1004681,
+  "bytesOut": 600771,
+  "ratio": 0.598,
+  "hash": "8b37b8373d68",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 88608,
-      "bytesOut": 63526
+      "bytesIn": 89628,
+      "bytesOut": 64184
     },
     {
       "src": "css/boot-loading.css",
@@ -21,14 +21,14 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 44188,
-      "bytesOut": 32604
+      "bytesIn": 45895,
+      "bytesOut": 33929
     },
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 26415,
-      "bytesOut": 20438
+      "bytesIn": 46452,
+      "bytesOut": 37083
     },
     {
       "src": "css/theme.css",
@@ -39,8 +39,8 @@
     {
       "src": "css/todos-staging.css",
       "dist": "_dist/css/todos-staging.css",
-      "bytesIn": 41591,
-      "bytesOut": 30917
+      "bytesIn": 43063,
+      "bytesOut": 32175
     },
     {
       "src": "js/api/apiClient.ts",
@@ -93,14 +93,14 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 6985,
-      "bytesOut": 3465
+      "bytesIn": 8302,
+      "bytesOut": 4171
     },
     {
       "src": "js/api/todosApi.ts",
       "dist": "_dist/js/api/todosApi.js",
-      "bytesIn": 9392,
-      "bytesOut": 4136
+      "bytesIn": 9776,
+      "bytesOut": 4350
     },
     {
       "src": "js/api/treeMsgsApi.ts",
@@ -171,8 +171,8 @@
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 4617,
-      "bytesOut": 2186
+      "bytesIn": 5166,
+      "bytesOut": 2425
     },
     {
       "src": "js/core/platform.ts",
@@ -195,8 +195,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 8485,
-      "bytesOut": 3963
+      "bytesIn": 9081,
+      "bytesOut": 4260
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -219,38 +219,44 @@
     {
       "src": "js/tools/ConfigPromptsOperativosPanel.jsx",
       "dist": "_dist/js/tools/ConfigPromptsOperativosPanel.js",
-      "bytesIn": 12927,
-      "bytesOut": 8375
+      "bytesIn": 14598,
+      "bytesOut": 9299
     },
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 12736,
-      "bytesOut": 9094
+      "bytesIn": 13928,
+      "bytesOut": 9479
     },
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22731,
-      "bytesOut": 13490
+      "bytesIn": 23051,
+      "bytesOut": 13668
     },
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 9582,
-      "bytesOut": 6038
+      "bytesIn": 22811,
+      "bytesOut": 12591
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 7072,
-      "bytesOut": 4589
+      "bytesIn": 11191,
+      "bytesOut": 5919
+    },
+    {
+      "src": "js/tools/PermisosRoleFilterAutocomplete.jsx",
+      "dist": "_dist/js/tools/PermisosRoleFilterAutocomplete.js",
+      "bytesIn": 1142,
+      "bytesOut": 797
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
       "dist": "_dist/js/tools/PromptsSqlTool.js",
-      "bytesIn": 4594,
-      "bytesOut": 3054
+      "bytesIn": 4631,
+      "bytesOut": 3091
     },
     {
       "src": "js/tools/TodosTool.jsx",
@@ -267,8 +273,8 @@
     {
       "src": "js/tools/chat/ChatLoggedOutShell.jsx",
       "dist": "_dist/js/tools/chat/ChatLoggedOutShell.js",
-      "bytesIn": 4048,
-      "bytesOut": 3428
+      "bytesIn": 4319,
+      "bytesOut": 3628
     },
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
@@ -361,6 +367,12 @@
       "bytesOut": 17343
     },
     {
+      "src": "js/tools/configFieldPersist.ts",
+      "dist": "_dist/js/tools/configFieldPersist.js",
+      "bytesIn": 852,
+      "bytesOut": 387
+    },
+    {
       "src": "js/tools/configOpenAi.ts",
       "dist": "_dist/js/tools/configOpenAi.js",
       "bytesIn": 4369,
@@ -369,8 +381,8 @@
     {
       "src": "js/tools/configPromptsOperativos.ts",
       "dist": "_dist/js/tools/configPromptsOperativos.js",
-      "bytesIn": 8074,
-      "bytesOut": 3963
+      "bytesIn": 9220,
+      "bytesOut": 4468
     },
     {
       "src": "js/tools/configToolState.ts",
@@ -393,14 +405,14 @@
     {
       "src": "js/tools/permisosKanbanShared.js",
       "dist": "_dist/js/tools/permisosKanbanShared.js",
-      "bytesIn": 4611,
-      "bytesOut": 2516
+      "bytesIn": 5593,
+      "bytesOut": 2975
     },
     {
       "src": "js/tools/permisosRoleConfig.jsx",
       "dist": "_dist/js/tools/permisosRoleConfig.js",
-      "bytesIn": 20219,
-      "bytesOut": 13062
+      "bytesIn": 25269,
+      "bytesOut": 16690
     },
     {
       "src": "js/tools/permisosRouteCatalog.js",
@@ -435,8 +447,8 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlActionBar.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlActionBar.js",
-      "bytesIn": 1923,
-      "bytesOut": 1300
+      "bytesIn": 1961,
+      "bytesOut": 1338
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlEditorPane.jsx",
@@ -447,8 +459,8 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlTree.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlTree.js",
-      "bytesIn": 2109,
-      "bytesOut": 1525
+      "bytesIn": 2259,
+      "bytesOut": 1619
     },
     {
       "src": "js/tools/promptsSql/cloudRows.ts",
@@ -525,8 +537,8 @@
     {
       "src": "js/tools/todos/TodosKanban.jsx",
       "dist": "_dist/js/tools/todos/TodosKanban.js",
-      "bytesIn": 13327,
-      "bytesOut": 7015
+      "bytesIn": 13776,
+      "bytesOut": 7464
     },
     {
       "src": "js/tools/todos/TodosPublicHome.jsx",
@@ -603,8 +615,8 @@
     {
       "src": "js/ui/PromptBodyEditor.jsx",
       "dist": "_dist/js/ui/PromptBodyEditor.js",
-      "bytesIn": 31642,
-      "bytesOut": 16324
+      "bytesIn": 31789,
+      "bytesOut": 16403
     },
     {
       "src": "js/ui/bootShimmer.ts",
@@ -627,8 +639,8 @@
     {
       "src": "js/ui/promptMdEditorHtml.ts",
       "dist": "_dist/js/ui/promptMdEditorHtml.js",
-      "bytesIn": 7349,
-      "bytesOut": 3864
+      "bytesIn": 8294,
+      "bytesOut": 4292
     },
     {
       "src": "js/ui/shared.jsx",

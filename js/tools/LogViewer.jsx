@@ -7,9 +7,16 @@ import { ConvLogThread } from "../ui/ConvLogThread.jsx";
 import { convLogNavItems } from "../ui/ConvLogWebView.jsx";
 import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
-import { persistLogMeta, mergePartial } from "../core/urlState.ts";
+import { persistLogMeta, getSnapshot, persistLogSidebarWidth } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../core/platform.ts";
 import { mobileDrawerPaperProps } from "../ui/mobileDrawer.ts";
+
+const LOG_SIDEBAR_DEFAULT_W = 400;
+
+function readLogSidebarWidthFromUrl() {
+  const w = Number((getSnapshot().log)?.sidebarW);
+  return Number.isFinite(w) && w > 0 ? w : null;
+}
 
 const { useState, useCallback, useMemo, useEffect } = getReact();
 const {
@@ -220,7 +227,7 @@ function LogEntradaPanel({
           className="conv-log-action-grp"
           role="group"
           aria-label="Acciones de entrada de log"
-          sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, width: "100%" }}
+          sx={{ p: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 1, width: "100%", flexWrap: "nowrap" }}
         >
           <TextField
             className="conv-log-action-grp__input"
@@ -557,9 +564,10 @@ export function LogViewer({ bootLog = {} }) {
           className="conv-log-shell-split"
           sx={{ flex: 1, minHeight: 0 }}
           panelClassName="conv-log-sidebar"
-          storageKey="isa-patyia:log-sidebar-width"
-          defaultWidth={400}
+          defaultWidth={LOG_SIDEBAR_DEFAULT_W}
           maxWidth={560}
+          readPersistedWidth={readLogSidebarWidthFromUrl}
+          writePersistedWidth={persistLogSidebarWidth}
           panelTitle="Entrada"
           panelIcon="mdi:database-import-outline"
           UI={UI}

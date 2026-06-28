@@ -22,7 +22,7 @@ export function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 
   return (
     <div className="tool-grid tool-grid-prompts tool-grid-prompts--solo isa-tool-surface">
-      <Paper className="tool-panel scroll-panel" elevation={0}>
+      <Paper className="tool-panel scroll-panel config-tool-panel prompts-tool-panel" elevation={0}>
         <PromptsSqlActionBar
           filledCount={tool.filledCount}
           instruccionKeysLength={tool.instruccionKeys.length}

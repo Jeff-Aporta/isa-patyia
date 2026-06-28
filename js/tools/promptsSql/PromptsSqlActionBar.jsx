@@ -5,14 +5,14 @@ const { Typography, Stack, Chip, CircularProgress } = getMaterialUI();
 
 export function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, actionBusy, hasLocalChanges, pendingTiposLength, canPublish, saveTitle, importTitle, fileInputRef, onFileInput, onImportClick, onDiscardAll, onSaveAll }) {
   return (
-    <div className="panel-head">
+    <div className="panel-head prompts-tool-head">
       <Typography variant="subtitle1" fontWeight={600}>Instrucciones · mapeo</Typography>
 
       <Stack direction="row" spacing={0.5} alignItems="center">
         {loadBusy && <CircularProgress size={14} />}
 
         <Chip
-          className="panel-head-count-chip"
+          className="panel-head-count-chip isa-neon-glass-chip"
           size="small"
           label={`${filledCount}/${instruccionKeysLength}`}
           color={filledCount ? "primary" : "default"}

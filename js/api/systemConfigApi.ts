@@ -1,5 +1,5 @@
 import { Session } from "../core/platform.ts";
-import { isLocalMode, patyiaBridgeBase } from "../core/patyia.ts";
+import { resolveIssApiBase } from "../core/patyia.ts";
 
 export type OpenAiSystemConfig = {
   max_num_results: number;
@@ -15,9 +15,7 @@ const OPENAI_DEFAULTS: OpenAiSystemConfig = {
 };
 
 function systemApiBase(): string {
-  const base = patyiaBridgeBase().replace(/\/$/, "");
-  if (isLocalMode()) return base;
-  return base.endsWith("/api") ? base : `${base}/api`;
+  return resolveIssApiBase();
 }
 
 function systemApiHeaders(extra: Record<string, string> = {}): Record<string, string> {
@@ -91,10 +89,24 @@ export async function putPromptsOperativosConfig(config: PromptsOperativosConfig
 
 /** PERMISOS JSON único: roles de usuario en permisos.roles; descripción de rol en permisos.descripcion */
 export type PermEntry = { iusuario: string; itipo: "user" | "role"; permisos: Record<string, unknown>; bactivo: boolean };
-export type PermissionsData = { roles: PermEntry[]; users: PermEntry[]; canManage?: boolean; canEditRoleDescriptions?: boolean };
+export type PermissionsData = {
+  roles: PermEntry[];
+  users: PermEntry[];
+  usersTotal?: number;
+  usersTruncated?: boolean;
+  canManage?: boolean;
+  canEditRoleDescriptions?: boolean;
+};
+export type PermisosFetchOpts = { search?: string; role?: string };
 
-export async function fetchPermisos(): Promise<PermissionsData> {
-  return jsonFetch<PermissionsData>("/system/permisos", { method: "GET", headers: systemApiHeaders() });
+export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<PermissionsData> {
+  const qs = new URLSearchParams();
+  const search = String(opts?.search ?? "").trim();
+  const role = String(opts?.role ?? "").trim();
+  if (search) qs.set("search", search);
+  if (role) qs.set("role", role);
+  const q = qs.toString();
+  return jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() });
 }
 
 export async function putPermisoRole(name: string, permisos: Record<string, unknown>): Promise<PermissionsData> {
@@ -105,12 +117,14 @@ export async function putPermisoRole(name: string, permisos: Record<string, unkn
   });
 }
 
-export async function putPermisoRolePath(name: string, permisos: Record<string, unknown>): Promise<PermissionsData> {
+export async function putPermisoRolePath(name: string, permisos: Record<string, unknown>, bactivo?: boolean): Promise<PermissionsData> {
   const role = encodeURIComponent(String(name).trim().toLowerCase().replace(/^role:/, ""));
+  const body: Record<string, unknown> = { permisos };
+  if (bactivo !== undefined) body.bactivo = bactivo;
   return jsonFetch<PermissionsData>(`/system/permisos/roles/${role}`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ permisos }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -141,6 +155,24 @@ export async function patchUsuarioRoles(username: string, body: { fromRole: stri
     method: "PATCH",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+export async function addUsuarioRole(username: string, role: string): Promise<PermissionsData> {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ toRole: String(role).trim().toLowerCase(), mode: "add" }),
+  });
+}
+
+export async function removeUsuarioRole(username: string, role: string): Promise<PermissionsData> {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ fromRole: String(role).trim().toLowerCase(), mode: "remove" }),
   });
 }
 

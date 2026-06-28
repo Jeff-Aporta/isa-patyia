@@ -10,12 +10,14 @@ import { DEFAULT_MODELO_OPERATIVO } from "./configOpenAi.ts";
 import {
   REASONING_EFFORT_OPTIONS, contentLinesToText, textToContentLines,
   listPromptKeys, modelAllowsSampling,
-  parseAndValidateJsonText, prettyJson, readPromptAccordionExpandState, validatePromptsOperativosConfig, configsEqual, stripLegacyMetaKeys, writePromptAccordionExpandState,
+  parseAndValidateJsonText, prettyJson, readPromptAccordionExpandState, validatePromptsOperativosConfig, stripLegacyMetaKeys, writePromptAccordionExpandState,
+  readPromptSkeletonCount, writePromptSkeletonCount,
 } from "./configPromptsOperativos.ts";
+import { useConfigFieldPersist } from "./configFieldPersist.ts";
 
-const { useState, useEffect, useCallback } = getReact();
+const { useState, useEffect, useCallback, useRef } = getReact();
 const {
-  Typography, TextField, Stack, Alert, CircularProgress, Box,
+  Typography, TextField, Stack, Alert, Box, Skeleton,
   FormControl, InputLabel, Select, MenuItem, Accordion, AccordionSummary, AccordionDetails,
   DialogContent, DialogActions, Button, Tooltip,
 } = getMaterialUI();
@@ -31,9 +33,37 @@ function promptLabel(key) {
   return PROMPT_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
-function ConfigSectionLoading({ show }) {
-  if (!show) return null;
-  return <Box className="config-form-section__loading"><CircularProgress size={26} /></Box>;
+const SKELETON_TITLE_WIDTHS = ["42%", "52%", "38%", "48%"];
+
+function ConfigPromptsSkeleton({ count, expandState }) {
+  const expandedKey = Object.keys(expandState ?? {}).find((k) => expandState[k]);
+  return (
+    <Stack spacing={1} className="config-prompt-accordions config-prompt-accordions--skeleton" aria-busy="true" aria-label="Cargando prompts operativos">
+      {Array.from({ length: count }, (_, i) => {
+        const expanded = expandedKey ? i === 0 : false;
+        return (
+          <Accordion key={i} expanded={expanded} className="config-prompt-accordion" disableGutters elevation={0}>
+            <AccordionSummary expandIcon={<Icon icon="mdi:chevron-down" size={20} />}>
+              <Skeleton variant="text" width={SKELETON_TITLE_WIDTHS[i % SKELETON_TITLE_WIDTHS.length]} height={22} />
+            </AccordionSummary>
+            {expanded ? (
+              <AccordionDetails>
+                <Stack spacing={2} className="config-prompt-def">
+                  <Stack direction="row" spacing={2} className="config-prompt-def-fields">
+                    <Skeleton variant="rounded" height={40} sx={{ width: 200, flex: "0 0 auto" }} />
+                    <Skeleton variant="rounded" height={40} sx={{ width: 200, flex: "0 0 auto" }} />
+                    <Skeleton variant="rounded" height={40} sx={{ width: 200, flex: "0 0 auto" }} />
+                  </Stack>
+                  <Skeleton variant="rounded" height={140} />
+                  <Skeleton variant="rounded" height={140} />
+                </Stack>
+              </AccordionDetails>
+            ) : null}
+          </Accordion>
+        );
+      })}
+    </Stack>
+  );
 }
 
 function OperativosJsonModal({ open, initial, readOnly, operativeModel, onClose, onApply }) {
@@ -84,17 +114,17 @@ function OperativosJsonModal({ open, initial, readOnly, operativeModel, onClose,
   );
 }
 
-function MessageCard({ role, body, canEdit, promptKey, onChange }) {
+function MessageCard({ role, body, bodyLines, canEdit, promptKey, onChange }) {
   const icon = role === "system" ? "mdi:cog-outline" : role === "user" ? "mdi:account-outline" : "mdi:robot-outline";
   const title = role === "system" ? "Sistema" : role === "user" ? "Usuario" : "Asistente";
   return (
-    <Box className={`config-prompt-msg config-prompt-msg--${role}`}>
+    <Box className={`config-prompt-msg config-prompt-msg--${role} isa-neon-accent-stripe`}>
       <Stack direction="row" spacing={1} alignItems="center" className="config-prompt-msg__head">
         <Icon icon={icon} size={16} />
         <Typography variant="subtitle2" fontWeight={700}>{title}</Typography>
       </Stack>
       <Box className="config-prompt-msg__editor">
-        <PromptBodyEditor body={body} canEdit={canEdit} onChange={onChange} tipo={`${promptKey}_${role}`}
+        <PromptBodyEditor body={body} bodyLines={bodyLines} canEdit={canEdit} onChange={onChange} tipo={`${promptKey}_${role}`}
           title={`${promptLabel(promptKey)} · ${title}`} placeholder="Escriba el prompt…" />
       </Box>
     </Box>
@@ -139,9 +169,11 @@ function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) 
           </Box>
         </Tooltip>
       </Stack>
-      <MessageCard role="system" promptKey={promptKey} canEdit={canEdit} body={contentLinesToText(systemMsg.content)}
+      <MessageCard role="system" promptKey={promptKey} canEdit={canEdit}
+        body={contentLinesToText(systemMsg.content)} bodyLines={systemMsg.content}
         onChange={(text) => patchMessage("system", systemIdx, text)} />
-      <MessageCard role="user" promptKey={promptKey} canEdit={canEdit} body={contentLinesToText(userMsg.content)}
+      <MessageCard role="user" promptKey={promptKey} canEdit={canEdit}
+        body={contentLinesToText(userMsg.content)} bodyLines={userMsg.content}
         onChange={(text) => patchMessage("user", userIdx, text)} />
     </Stack>
   );
@@ -149,13 +181,15 @@ function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) 
 
 export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, operativeModel, conversationModel: _conversationModel }) {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
-  const [err, setErr] = useState("");
   const [config, setConfig] = useState({});
   const [saved, setSaved] = useState({});
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  const { saveGenRef, beginSave, endSave, fieldDisabled } = useConfigFieldPersist();
   const [jsonOpen, setJsonOpen] = useState(false);
   const [expandState, setExpandState] = useState(() => readPromptAccordionExpandState());
+  const [skeletonCount, setSkeletonCount] = useState(() => readPromptSkeletonCount());
 
   const opModel = String(operativeModel ?? DEFAULT_MODELO_OPERATIVO).trim() || DEFAULT_MODELO_OPERATIVO;
   const promptKeys = listPromptKeys(config);
@@ -173,15 +207,17 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
 
   const load = useCallback(async () => {
     setLoading(true);
-    setErr("");
     try {
       const { config: cfg, canEdit: ce } = await fetchPromptsOperativosConfig();
       const data = stripLegacyMetaKeys(cfg ?? {});
+      const keys = listPromptKeys(data);
+      writePromptSkeletonCount(keys.length);
+      setSkeletonCount(keys.length);
       setConfig(data);
       setSaved(data);
       setCanEdit(!!ce);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -199,34 +235,37 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
     };
   }, [load]);
 
-  function updatePrompt(key, def) {
-    setConfig((prev) => ({ ...prev, [key]: def }));
-  }
-
-  async function save() {
-    if (!requireAppSession(onNeedLogin)) return;
-    if (!canEdit) return;
-    const v = validatePromptsOperativosConfig(config, { operativeModel: opModel, strict: false });
-    if (!v.ok) { setErr(v.errors.join(" · ")); return; }
-    setSaving(true);
-    setErr("");
+  async function persist(snapshot, gen, fields) {
+    if (!requireAppSession(onNeedLogin)) { endSave(gen); return; }
+    if (!canEdit) { endSave(gen); return; }
+    const cfg = snapshot ?? config;
+    const v = validatePromptsOperativosConfig(cfg, { operativeModel: opModel, strict: false });
+    if (!v.ok) { toastError(v.errors.join(" · ")); endSave(gen); return; }
     try {
-      const cfg = await putPromptsOperativosConfig(v.normalized);
-      const next = validatePromptsOperativosConfig(stripLegacyMetaKeys(cfg), { operativeModel: opModel, strict: false }).normalized;
-      setConfig(next);
+      const res = await putPromptsOperativosConfig(v.normalized);
+      if (gen !== saveGenRef.current) return;
+      const next = validatePromptsOperativosConfig(stripLegacyMetaKeys(res), { operativeModel: opModel, strict: false }).normalized;
+      savedRef.current = next;
       setSaved(next);
+      setConfig(next);
       toastSuccess("Guardado");
+      const keys = listPromptKeys(next);
+      writePromptSkeletonCount(keys.length);
+      setSkeletonCount(keys.length);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg);
-      toastError(msg);
+      if (gen !== saveGenRef.current) return;
+      setConfig(savedRef.current);
+      toastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSaving(false);
+      endSave(gen);
     }
   }
 
-  const dirty = canEdit && !configsEqual(config, saved);
-  const validation = validatePromptsOperativosConfig(config, { operativeModel: opModel, strict: false });
+  function updatePrompt(key, def) {
+    const next = { ...config, [key]: def };
+    setConfig(next);
+    void persist(next, beginSave([key]), [key]);
+  }
 
   return (
     <ConfigFormSection
@@ -237,24 +276,13 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
       actions={(
         <>
           <ButtonIconify icon="mdi:code-json" title="JSON" onClick={() => setJsonOpen(true)} />
-          <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={loading || saving} />
-          {canEdit ? (
-            <ButtonIconify variant="primary" icon="mdi:content-save-outline" title="Guardar" label="Guardar"
-              onClick={save} disabled={loading || saving || !dirty || !validation.ok} busy={saving} />
-          ) : null}
+          <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} busy={loading} />
         </>
       )}
     >
-      {err ? <Alert severity="warning" className="config-form-alert">{err}</Alert> : null}
-      {!validation.ok && dirty ? (
-        <Alert severity="error" variant="outlined" className="config-form-alert">
-          <Stack component="ul" spacing={0.25} sx={{ m: 0, pl: 2 }}>
-            {validation.errors.map((e) => <li key={e}><Typography variant="body2">{e}</Typography></li>)}
-          </Stack>
-        </Alert>
-      ) : null}
-      <Box sx={{ position: "relative" }}>
-        <ConfigSectionLoading show={loading} />
+      {loading ? (
+        <ConfigPromptsSkeleton count={skeletonCount} expandState={expandState} />
+      ) : (
         <Stack spacing={1} className="config-prompt-accordions">
           {promptKeys.map((key) => (
             <Accordion key={key} expanded={isExpanded(key)} onChange={(_e, on) => handleToggleExpand(key, on)}
@@ -263,15 +291,20 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
                 <Typography fontWeight={600}>{promptLabel(key)}</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <PromptDefEditor promptKey={key} def={config[key]} canEdit={canEdit && !loading && !saving}
+                <PromptDefEditor promptKey={key} def={config[key]} canEdit={!fieldDisabled(canEdit, key)}
                   operativeModel={opModel} onChange={(def) => updatePrompt(key, def)} />
               </AccordionDetails>
             </Accordion>
           ))}
         </Stack>
-      </Box>
+      )}
       <OperativosJsonModal open={jsonOpen} initial={prettyJson(config)} readOnly={!canEdit} operativeModel={opModel}
-        onClose={() => setJsonOpen(false)} onApply={(parsed) => { setConfig(parsed); setJsonOpen(false); }} />
+        onClose={() => setJsonOpen(false)} onApply={(parsed) => {
+          const fields = Object.keys(parsed);
+          setConfig(parsed);
+          setJsonOpen(false);
+          void persist(parsed, beginSave(fields), fields);
+        }} />
     </ConfigFormSection>
   );
 }
