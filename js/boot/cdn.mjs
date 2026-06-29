@@ -1,4 +1,4 @@
-export const PIN = "ba55d76";
+export const PIN = "33acc67";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
@@ -31,7 +31,7 @@ export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
-export const LIGHTBOX_ZOOM_REF = "269c1d8";
+export const LIGHTBOX_ZOOM_REF = "92b1c5b";
 
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
@@ -87,7 +87,7 @@ export async function ensureLightboxZoom(base = lightboxZoomBase()) {
 
 /* @isa-swagger-boot:start */
 /** Jeff-Aporta/swagger-viewer — pin CDN git (sync-component-refs.mjs) */
-export const SWAGGER_VIEWER_REF = "stream-final-2026-06-28";
+export const SWAGGER_VIEWER_REF = "client-tests-wrap-toggle-2026-06-30";
 
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
