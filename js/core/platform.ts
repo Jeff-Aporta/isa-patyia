@@ -1,5 +1,5 @@
 /** Puente al runtime ISAFront (window.ISA). */
-import { migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE } from "./patyia.ts";
+import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY } from "./patyia.ts";
 
 const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
@@ -197,7 +197,9 @@ function patchIsaPatyiaAuthEvents(): void {
 }
 
 function patchIssOnlyLocalConfig(): void {
+  ensureIssLocalDefault();
   migrateIssLocalFromGatewayFlag();
+  try { localStorage.setItem(GATEWAY_LS_KEY, "0"); } catch { /* auth/orquestador siempre prod */ }
   const cfg = window.ISA?.Config;
   if (!cfg) return;
   const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
@@ -207,6 +209,7 @@ function patchIssOnlyLocalConfig(): void {
   cfg.apiUrl = (path: string) => online + (path.charAt(0) === "/" ? path : `/${path}`);
   cfg.connectionHint = () => "";
   cfg.label = () => (isLocalMode() ? "Local" : "Producción");
+  cfg.EVENT = "patyia-apptools:lab-target";
 }
 
 function patyiaBridgeBaseForLogin(): string {
@@ -218,6 +221,7 @@ function patyiaBridgeBaseForLogin(): string {
 
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
 export function bootstrapIsaPatyia(): void {
+  ensureIssLocalDefault();
   window.ISAFront.registerApp({
     ns: "ISA",
     app: "isa-patyia",

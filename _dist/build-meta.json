@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-30T14:19:20.085Z",
+  "builtAt": "2026-06-30T15:15:58.897Z",
   "files": 107,
-  "bytesIn": 1005152,
-  "bytesOut": 601059,
+  "bytesIn": 1005043,
+  "bytesOut": 600941,
   "ratio": 0.598,
-  "hash": "fa033c57ef00",
+  "hash": "106a961e7991",
   "entries": [
     {
       "src": "css/app.css",
@@ -171,14 +171,14 @@
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 5166,
-      "bytesOut": 2425
+      "bytesIn": 5483,
+      "bytesOut": 2526
     },
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 10169,
-      "bytesOut": 6264
+      "bytesIn": 10409,
+      "bytesOut": 6395
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -195,8 +195,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 9081,
-      "bytesOut": 4260
+      "bytesIn": 8620,
+      "bytesOut": 3961
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -363,8 +363,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 41959,
-      "bytesOut": 17343
+      "bytesIn": 41970,
+      "bytesOut": 17345
     },
     {
       "src": "js/tools/configFieldPersist.ts",
@@ -393,14 +393,14 @@
     {
       "src": "js/tools/permFixFilter.js",
       "dist": "_dist/js/tools/permFixFilter.js",
-      "bytesIn": 1205,
-      "bytesOut": 639
+      "bytesIn": 1106,
+      "bytesOut": 622
     },
     {
       "src": "js/tools/permisosForm.js",
       "dist": "_dist/js/tools/permisosForm.js",
-      "bytesIn": 4210,
-      "bytesOut": 2645
+      "bytesIn": 4151,
+      "bytesOut": 2630
     },
     {
       "src": "js/tools/permisosKanbanShared.js",
@@ -417,14 +417,14 @@
     {
       "src": "js/tools/permisosRouteCatalog.js",
       "dist": "_dist/js/tools/permisosRouteCatalog.js",
-      "bytesIn": 5139,
-      "bytesOut": 3433
+      "bytesIn": 5237,
+      "bytesOut": 3506
     },
     {
       "src": "js/tools/permisosVisitante.js",
       "dist": "_dist/js/tools/permisosVisitante.js",
-      "bytesIn": 2850,
-      "bytesOut": 1791
+      "bytesIn": 2694,
+      "bytesOut": 1697
     },
     {
       "src": "js/tools/promptsSql/FileImportMapDialog.jsx",

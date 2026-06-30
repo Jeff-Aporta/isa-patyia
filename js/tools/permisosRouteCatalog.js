@@ -63,7 +63,8 @@ export function routesForRoleEditor(permisos, { includeInactive = false } = {}) 
   for (const [key, value] of Object.entries(permisos ?? {})) {
     if (key === "*" || key === "descripcion" || key === "namedisplay" || key === "roles"
       || key === "impersonate" || key === "manage_permissions") continue;
-    const mode = value === true ? "allow" : value?.scope === "all" ? "all" : value?.scope === "own" ? "own" : "off";
+    const hasFix = !!(value && typeof value === "object" && value.fixFilter && typeof value.fixFilter === "object" && !Array.isArray(value.fixFilter) && Object.keys(value.fixFilter).length);
+    const mode = value === true ? "allow" : hasFix ? "filtered" : value && typeof value === "object" ? "allow" : "off";
     if (mode !== "off") modeByKey.set(key, mode);
     const ff = fixFilterFromRestriction(value);
     if (ff) fixByKey.set(key, ff);
@@ -74,7 +75,7 @@ export function routesForRoleEditor(permisos, { includeInactive = false } = {}) 
     title: g.title,
     routes: g.routes.map((def) => {
       let mode = "off";
-      if (wildcard) mode = def.scoped ? "all" : "allow";
+      if (wildcard) mode = def.scoped ? "filtered" : "allow";
       else if (modeByKey.has(def.key)) mode = modeByKey.get(def.key);
       return { ...def, mode, fixFilter: fixByKey.get(def.key), active: mode !== "off" };
     }).filter((r) => includeInactive || r.active),
@@ -83,7 +84,7 @@ export function routesForRoleEditor(permisos, { includeInactive = false } = {}) 
   const extras = [...modeByKey.entries()]
     .filter(([key]) => !CATALOG_KEYS.has(key))
     .map(([key, mode]) => ({
-      key, label: key, mode, fixFilter: fixByKey.get(key), active: true, scoped: mode === "own" || mode === "all",
+      key, label: key, mode, fixFilter: fixByKey.get(key), active: true, scoped: mode === "filtered",
     }))
     .sort((a, b) => a.key.localeCompare(b.key));
 
@@ -106,8 +107,7 @@ export function groupsFromRouteRows(routes, flags, { includeInactive = false } =
   for (const r of routes ?? []) {
     if (!r?.key || r.mode === "off") continue;
     if (r.mode === "allow") permisos[r.key] = true;
-    else if (r.mode === "own") permisos[r.key] = r.fixFilter ? { scope: "own", fixFilter: r.fixFilter } : { scope: "own" };
-    else if (r.mode === "all") permisos[r.key] = { scope: "all" };
+    else if (r.mode === "filtered") permisos[r.key] = r.fixFilter ? { fixFilter: r.fixFilter } : true;
   }
   return routesForRoleEditor(permisos, { includeInactive });
 }

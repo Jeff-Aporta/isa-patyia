@@ -1,5 +1,5 @@
 /** Estado de la app en ?s= — esquema isa-patyia sobre url-state compartido. */
-import { isLocalMode, isDevHost, setLocalMode } from "./patyia.ts";
+import { ensureIssLocalDefault } from "./patyia.ts";
 
 const STATE_VERSION = 1;
 
@@ -12,7 +12,7 @@ function normalizeLog(raw: unknown) {
   return o;
 }
 
-function initial() { return { v: STATE_VERSION, tool: "log", local: false, log: {}, prompts: {}, chat: {}, todos: {} }; }
+function initial() { return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {} }; }
 
 function normalizeTool(raw: unknown) {
   if (raw === "prompts") return "prompts";
@@ -39,7 +39,7 @@ function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   const chat = normalizeChatBag(raw.chat);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
   return {
-    v: raw.v ?? STATE_VERSION, tool, local: !!raw.local,
+    v: raw.v ?? STATE_VERSION, tool,
     log: normalizeLog(raw.log),
     prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
     chat, todos,
@@ -123,7 +123,6 @@ function migrateLegacyFlatQuery() {
     const next: Record<string, unknown> = {
       v: STATE_VERSION,
       tool: normalizeTool(tool),
-      local: url.searchParams.get("local") === "1" || url.searchParams.get("local") === "true",
       log: {},
       prompts: {},
       chat: {},
@@ -173,15 +172,8 @@ const urlState = window.ISAFront.createUrlState({
   normalize,
   slimForUrl,
   merge,
-  onInit(state) {
-    if (state.local !== isLocalMode()) setLocalMode(!!state.local);
-    else if (!state.local && isDevHost()) setLocalMode(true);
-  },
-  gatewayEvents: ["gateway:target", "patyia-apptools:lab-target"],
-  onGatewayChange(state, api) {
-    const local = isLocalMode();
-    if (state.local === local) return;
-    api.merge({ local });
+  onInit() {
+    ensureIssLocalDefault();
   },
   brandHomeReset(api) {
     const snap = api.reset();

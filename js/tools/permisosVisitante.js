@@ -7,15 +7,15 @@ export const VISITANTE_ROLE = "visitante";
 export const VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
   descripcion: "Visitante — solo sus propias conversaciones; logs abiertos; resto lectura",
-  "GET:/api/conversaciones": { scope: "own", fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "GET:/api/conversacion/*": { scope: "own", fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "GET:/api/conversaciones": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "GET:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
   "GET:/api/conversacion/logs/*": true,
-  "POST:/api/conversacion": { scope: "own", fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "POST:/api/mensaje": { scope: "own", fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "DELETE:/api/conversacion/*": { scope: "own", fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "POST:/api/conversacion": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "POST:/api/mensaje": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
 };
 
-/** Rutas de conversación con alcance fijo «propio» (no editable). */
+/** Rutas de conversación con fixFilter fijo «dueño de sesión» (no editable). */
 export const VISITANTE_LOCKED_OWN_KEYS = new Set([
   "GET:/api/conversaciones",
   "GET:/api/conversacion/*",
@@ -39,13 +39,13 @@ export function enforceVisitantePermisos(permisos) {
   delete out.impersonate;
   delete out.manage_permissions;
   for (const key of VISITANTE_REQUIRED_OWN_KEYS) {
-    out[key] = withSessionOwnerFixFilter({ scope: "own" });
+    out[key] = withSessionOwnerFixFilter({ fixFilter: { ...SESSION_OWNER_FIX_FILTER } });
   }
   for (const key of VISITANTE_LOCKED_OWN_KEYS) {
     const v = out[key];
     if (v == null || v === false) continue;
-    if (v === true) out[key] = withSessionOwnerFixFilter({ scope: "own" });
-    else if (typeof v === "object" && v?.scope) out[key] = withSessionOwnerFixFilter({ ...v, scope: "own" });
+    if (v === true) out[key] = withSessionOwnerFixFilter(v);
+    else if (typeof v === "object") out[key] = withSessionOwnerFixFilter(v);
   }
   return out;
 }

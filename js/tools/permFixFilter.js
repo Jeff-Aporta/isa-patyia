@@ -20,10 +20,9 @@ export function fixFilterFromRestriction(value) {
   return { ...ff };
 }
 
-/** Añade fixFilter de sesión a restricciones con scope own (cualquier rol). */
+/** Añade fixFilter de sesión a cualquier restricción de rol. */
 export function withSessionOwnerFixFilter(restriction) {
   if (restriction === true) return { fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
   if (!restriction || typeof restriction !== "object") return restriction;
-  if (restriction.scope === "all") return restriction;
   return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
 }

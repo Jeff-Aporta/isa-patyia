@@ -125,7 +125,7 @@ function AccessModeSelect({ value, onChange, disabled, scoped }) {
 
 function ModeChip({ mode }) {
 
-  const color = mode === "off" ? "default" : mode === "all" ? "secondary" : mode === "own" ? "info" : "success";
+  const color = mode === "off" ? "default" : mode === "filtered" ? "info" : "success";
 
   return <Chip size="small" variant={mode === "off" ? "outlined" : "filled"} color={color} label={MODE_LABEL[mode] || mode} />;
 
@@ -258,7 +258,7 @@ function RoutePermCatalog({ routes, flags, permisos, canEdit, onRoutesChange, is
       ? routes.map((r) => {
         if (r.key !== key) return r;
         const row = { ...r, mode };
-        if (mode === "all" || mode === "allow" || mode === "off") delete row.fixFilter;
+        if (mode === "allow" || mode === "off") delete row.fixFilter;
         return row;
       })
       : [...routes, { key, mode }].sort((a, b) => a.key.localeCompare(b.key));

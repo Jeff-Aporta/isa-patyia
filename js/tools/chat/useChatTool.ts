@@ -299,7 +299,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   }, [loggedIn, sessionUser, jwt?.token, impersonating]);
 
   const reloadList = useCallback(async () => {
-    if (!loggedIn) return;
+    if (!loggedIn || jwtLoading || sessionScopeLoading) return;
     setLoadingList(true);
     try {
       const page = convListPage;
@@ -327,8 +327,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
         const res = await listConversaciones(jwt, { page, limit, search, sort: listSort, ...(scope || {}) });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
-      } else if (scope || canAuditChat) {
-        const res = await fetchConversacionesBridge({ ...(scope || {}), page, limit, search, sort: listSort });
+      } else if (scope) {
+        const res = await fetchConversacionesBridge({ ...scope, page, limit, search, sort: listSort });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else {
@@ -340,7 +340,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } finally {
       setLoadingList(false);
     }
-  }, [loggedIn, jwt?.token, listScope?.itercero, listScope?.icontacto, canAuditChat, convListPage, convListPageSize, convListSearch, sessionScopeLoading]);
+  }, [loggedIn, jwtLoading, sessionScopeLoading, jwt?.token, listScope?.itercero, listScope?.icontacto, convListPage, convListPageSize, convListSearch]);
 
   const handleConvListSearchChange = useCallback((text: string) => {
     setConvListSearch((prev) => {

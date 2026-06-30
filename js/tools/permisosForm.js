@@ -10,8 +10,7 @@ export const FLAG_DEFS = [
 export const ACCESS_MODES = [
   { value: "off", label: "Sin acceso" },
   { value: "allow", label: "Permitido" },
-  { value: "own", label: "Alcance: propio" },
-  { value: "all", label: "Alcance: todos" },
+  { value: "filtered", label: "Filtrado (fixFilter)" },
 ];
 
 const FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
@@ -45,8 +44,11 @@ export function userOverrides(permisos) {
 
 export function restrictionToMode(value) {
   if (value === true) return "allow";
-  if (value && typeof value === "object" && value.scope === "all") return "all";
-  if (value && typeof value === "object" && value.scope === "own") return "own";
+  if (value && typeof value === "object") {
+    const ff = value.fixFilter;
+    if (ff && typeof ff === "object" && !Array.isArray(ff) && Object.keys(ff).length) return "filtered";
+    return "allow";
+  }
   return "off";
 }
 
@@ -54,11 +56,10 @@ import { fixFilterFromRestriction } from "./permFixFilter.js";
 
 export function modeToRestriction(mode, fixFilter) {
   if (mode === "allow") return true;
-  if (mode === "own") {
+  if (mode === "filtered") {
     const ff = fixFilterFromRestriction({ fixFilter });
-    return ff ? { scope: "own", fixFilter: ff } : { scope: "own" };
+    return ff ? { fixFilter: ff } : true;
   }
-  if (mode === "all") return { scope: "all" };
   return null;
 }
 

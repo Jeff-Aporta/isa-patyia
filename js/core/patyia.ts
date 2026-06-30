@@ -13,7 +13,7 @@ export const ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 export const PATYIA_BRIDGE_URL = "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
 
 /** ISS AyudasCPIA local (Azure Functions routePrefix api). */
-export const PATYIA_ISS_LOCAL = "http://127.0.0.1:4500";
+export const PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 
 /** Puente MSSQL PatyIA local (instrucciones, logs staging) — dev-local-server.mjs. */
 export const PATYIA_BRIDGE_DEV = "http://127.0.0.1:8800";
@@ -64,10 +64,17 @@ export function isDevHost() {
   try { return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname); } catch { return false; }
 }
 
-/** Base /api del ISS AyudasCPIA — en dev host siempre local aunque local:false en ?s=. */
+/** Primera visita → prod (0). Solo LS; no URL ni gateway. */
+export function ensureIssLocalDefault() {
+  try {
+    if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
+    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
+  } catch { /* ignore */ }
+}
+
+/** Base /api del ISS AyudasCPIA — solo según preferencia LS (patyia-apptools:iss-local). */
 export function resolveIssApiBase() {
-  const useLocal = isLocalMode() || isDevHost();
-  const base = (useLocal ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
+  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
@@ -75,19 +82,19 @@ export function resolveIssApiBase() {
 
 export function setLocalMode(on: boolean) {
 
-  try { localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, on ? "1" : "0"); } catch { /* ignore */ }
-
-  window.dispatchEvent(new Event("patyia-apptools:lab-target"));
-
-  window.dispatchEvent(new Event("jeff:gateway-target"));
-
+  const next = on ? "1" : "0";
+  let prev = "";
+  try { prev = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) ?? ""; } catch { /* ignore */ }
+  if (prev === next) return on;
+  try { localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, next); } catch { /* ignore */ }
+  window.location.reload();
   return on;
 
 }
 
 
 
-/** Migra el flag global antiguo al de ISS y deja auth/orquestador en producción. */
+/** Migra jeff:gateway-local → iss-local solo si iss-local nunca se guardó. Auth siempre prod. */
 
 export function migrateIssLocalFromGatewayFlag() {
 
@@ -95,7 +102,7 @@ export function migrateIssLocalFromGatewayFlag() {
 
     if (localStorage.getItem(GATEWAY_LS_KEY) === "1") {
 
-      if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) !== "1") {
+      if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) == null) {
 
         localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1");
 
