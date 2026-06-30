@@ -1540,9 +1540,6 @@ html[data-mui-color-scheme="light"] .isa-split-view.conv-log-shell-split[data-is
     font-weight: 600;
     box-shadow: none;
   }
-  & .header-session-btn .MuiChip-root .MuiChip-icon {
-    display: none;
-  }
   & .header-session-btn .MuiChip-root .MuiChip-label {
     color: inherit;
   }
@@ -1560,9 +1557,6 @@ html[data-mui-color-scheme="light"] .isa-split-view.conv-log-shell-split[data-is
     color: #5eead4;
     font-weight: 600;
     box-shadow: none;
-  }
-  & .header-session-chip.MuiChip-root .MuiChip-icon {
-    display: none;
   }
   & .header-session-chip.MuiChip-root .MuiChip-label {
     color: inherit;
@@ -3573,6 +3567,13 @@ html {
 }
 
 
+@media (min-width: 900px) {
+  .isa-layout-root .header-session-btn .MuiChip-root .MuiChip-icon,
+  .isa-layout-root .header-session-chip.MuiChip-root .MuiChip-icon {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .isa-tool-tab-label {
     display: none;
@@ -3592,9 +3593,44 @@ html {
   }
 
   .header-session-chip {
-    & .MuiChip-label {
-      display: none;
+    &.MuiChip-root {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      width: 36px;
+      max-width: 36px;
+      height: 28px;
+      padding: 0 !important;
+      box-sizing: border-box;
     }
+    & .MuiChip-label {
+      display: none !important;
+      width: 0;
+      max-width: 0;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden;
+    }
+    & .MuiChip-icon {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      margin: 0 !important;
+      padding: 0;
+      width: 18px;
+      height: 18px;
+    }
+    & .MuiChip-icon iconify-icon,
+    & .MuiChip-icon img.header-session-avatar {
+      margin: 0 !important;
+    }
+  }
+
+  .isa-layout-root .MuiAppBar-root .MuiToolbar-root .header-session-chip.MuiChip-sizeSmall {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    min-height: 28px;
   }
 
   .header-session-avatar-btn {

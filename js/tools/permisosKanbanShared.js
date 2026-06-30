@@ -11,13 +11,25 @@ export function roleNameFromEntry(entry) {
 }
 
 function formatRoleTitle(roleName) {
-  return String(roleName ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return String(roleName ?? "")
+    .split("_")
+    .map((part) => {
+      const p = part.toLowerCase();
+      if (p === "iss" || p === "isw") return p.toUpperCase();
+      if (!p) return "";
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    })
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function roleTitleFromEntry(entry) {
+  const roleName = roleNameFromEntry(entry);
   const namedisplay = roleNamedisplay(entry?.permisos);
-  if (namedisplay) return namedisplay;
-  return formatRoleTitle(roleNameFromEntry(entry));
+  const formatted = formatRoleTitle(roleName);
+  if (!namedisplay) return formatted;
+  if (formatted.length > namedisplay.length) return formatted;
+  return namedisplay;
 }
 
 export function themeForRole(roleName, index = 0, permisos = null) {
@@ -43,12 +55,33 @@ export function matchesUserFilter(username, displayName, query) {
   return u.includes(q) || (n && n.includes(q));
 }
 
+export function displayNameFromUserEntry(entry) {
+  const fromMeta = entry?.permisos?.nombre ?? entry?.permisos?.namedisplay;
+  return fromMeta != null && String(fromMeta).trim() ? String(fromMeta).trim() : null;
+}
+
+export function normalizePermisosUsername(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  return s || null;
+}
+
+export function buildUserDirectoryFromPermisos(users) {
+  const map = {};
+  for (const e of users ?? []) {
+    const key = normalizePermisosUsername(e?.iusuario);
+    if (!key) continue;
+    const name = displayNameFromUserEntry(e);
+    if (name) map[key] = name;
+  }
+  return map;
+}
+
 function resolveDisplayName(username, userEntry, userDirectory) {
-  const key = String(username ?? "").trim().toUpperCase();
-  const fromDir = userDirectory?.[key];
+  const fromMeta = displayNameFromUserEntry(userEntry);
+  if (fromMeta) return fromMeta;
+  const key = normalizePermisosUsername(username);
+  const fromDir = key ? userDirectory?.[key] : null;
   if (fromDir != null && String(fromDir).trim()) return String(fromDir).trim();
-  const fromMeta = userEntry?.permisos?.nombre ?? userEntry?.permisos?.namedisplay;
-  if (fromMeta != null && String(fromMeta).trim()) return String(fromMeta).trim();
   return null;
 }
 
@@ -74,7 +107,8 @@ export function buildPermisosBoard(data, filters = {}) {
   const userDirectory = filters.userDirectory ?? null;
   const filterActive = Boolean(String(userQuery ?? "").trim()) || Boolean(roleFilterSet?.size);
 
-  const columns = roles.map((entry, index) => {
+  const activeRoles = roles.filter((entry) => entry?.itipo !== "user" && entry?.bactivo !== false && roleNameFromEntry(entry));
+  const columns = activeRoles.map((entry, index) => {
     const roleName = roleNameFromEntry(entry);
     const theme = themeForRole(roleName, index, entry.permisos);
     const jerarquia = getRoleJerarquia(roleName, entry.permisos);
@@ -116,12 +150,14 @@ export function buildPermisosBoard(data, filters = {}) {
     col.users.sort((a, b) => a.labels.primary.localeCompare(b.labels.primary, "es"));
   }
 
-  // Ocultar stacks sin miembros — el kanban solo muestra roles con usuarios asignados.
-  const visibleColumns = columns.filter((c) => c.users.length > 0);
-  const sorted = sortPermisosColumnsByMembers(visibleColumns);
-  const noUsersVisible = filterActive && sorted.every((c) => !c.users.length);
+  const sorted = sortPermisosColumnsByMembers(columns);
+  const hideEmpty = !!filters.hideEmptyColumns;
+  const visible = hideEmpty
+    ? sorted.filter((c) => c.users.length > 0 || (roleFilterSet?.has(c.id)))
+    : sorted;
+  const noUsersVisible = filterActive && !columns.some((c) => c.users.length > 0);
 
-  return { columns: sorted, filterActive, noUsersVisible };
+  return { columns: visible, filterActive, noUsersVisible, hideEmptyColumns: hideEmpty };
 }
 
 export function columnAtPoint(columnIds, listRefs, clientX, clientY) {

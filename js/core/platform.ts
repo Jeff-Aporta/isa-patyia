@@ -1,5 +1,5 @@
 /** Puente al runtime ISAFront (window.ISA). */
-import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY } from "./patyia.ts";
+import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY, PATYIA_ISS_LOCAL } from "./patyia.ts";
 
 const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
@@ -214,8 +214,8 @@ function patchIssOnlyLocalConfig(): void {
 
 function patyiaBridgeBaseForLogin(): string {
   const base = isLocalMode()
-    ? "http://127.0.0.1:4500"
-    : "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
+    ? PATYIA_ISS_LOCAL
+    : "https://ayudascp-ia-staging.azurewebsites.net";
   return base.replace(/\/$/, "");
 }
 
@@ -236,7 +236,7 @@ export function bootstrapIsaPatyia(): void {
         const tok = window.ISA?.Session?.current?.()?.token;
         return tok ? window.ISA!.Session.authHeader() : {};
       },
-      unitTestTitle: "Test unitario — iss-patyia-bridge",
+      unitTestTitle: "Test unitario — ISS-AyudasCPIA",
     },
   });
 

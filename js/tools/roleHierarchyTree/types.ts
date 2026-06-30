@@ -23,6 +23,13 @@ export type RowOf<T> = T & {
 /** TreeRow concreto: RowOf<HierarchyNode> — usado en los componentes del árbol. */
 export type TreeRow = RowOf<HierarchyNode>;
 
+/** Nodo jerárquico con hijos (espejo INode del Svelte TreeView). */
+export interface TreeINode extends TreeRow {
+  childrens: TreeINode[];
+}
+
+export type DragOverZone = "before" | "after" | "into";
+
 export interface ITreeRuntimeRow<R extends ITreeRowCtx> {
   readonly record: R | null;
   readonly rootNodes: ReadonlyArray<R>;

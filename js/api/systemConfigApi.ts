@@ -30,9 +30,23 @@ function systemApiHeaders(extra: Record<string, string> = {}): Record<string, st
 
 function unwrapBody<T>(data: unknown): T {
   const d = data as Record<string, unknown>;
-  if (d?.respuesta && typeof d.respuesta === "object") return d.respuesta as T;
-  if (d?.body && typeof d.body === "object") return d.body as T;
-  return d as T;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && (enc as { resultado?: boolean }).resultado === false) {
+    const e = enc as { mensaje?: unknown; imensaje?: unknown };
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  let inner: unknown = d;
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    inner = d.respuesta;
+  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    inner = d.body;
+  }
+  const nested = inner as Record<string, unknown>;
+  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
+    inner = nested.respuesta;
+  }
+  return inner as T;
 }
 
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -43,15 +57,27 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
     if (ct.includes("json")) {
       try {
         const j = await res.json() as Record<string, unknown>;
-        const inner = j.respuesta || j.body || j;
-        msg = String((inner as Record<string, unknown>)?.error || j.error || j.message || msg);
+        const enc = j.encabezado as { mensaje?: unknown; resultado?: boolean } | undefined;
+        if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
+        else {
+          const inner = j.respuesta || j.body || j;
+          msg = String((inner as Record<string, unknown>)?.error || j.error || j.message || msg);
+        }
       } catch { /* ignore */ }
     }
     throw new Error(msg || `HTTP ${res.status}`);
   }
-  if (!ct.includes("json")) return {} as T;
+  if (!ct.includes("json")) {
+    throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
+  }
   const raw = await res.json();
   return unwrapBody<T>(raw);
+}
+
+function normalizePermissionsPayload(raw: PermissionsData): PermissionsData {
+  const roles = Array.isArray(raw?.roles) ? raw.roles : [];
+  const users = Array.isArray(raw?.users) ? raw.users : [];
+  return { ...raw, roles, users };
 }
 
 export async function fetchOpenAiSystemConfig(): Promise<OpenAiSystemConfig> {
@@ -159,7 +185,27 @@ export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<Permissio
   if (search) qs.set("search", search);
   if (role) qs.set("role", role);
   const q = qs.toString();
-  return jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() });
+  const raw = await jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() });
+  return normalizePermissionsPayload(raw);
+}
+
+export type PermisosUserOption = { username: string; displayName: string | null };
+
+/** GET /api/system/permisos?search= — usuarios ISS (SYS_USR_PERMISSIONS), sin scrum. */
+export async function searchPermisosUsers(query = "", opts?: { role?: string }): Promise<PermisosUserOption[]> {
+  const q = String(query ?? "").trim();
+  const result = await fetchPermisos({
+    ...(q ? { search: q } : {}),
+    ...(opts?.role ? { role: opts.role } : {}),
+  });
+  return (result.users ?? []).map((e) => ({
+    username: String(e.iusuario ?? "").trim().toUpperCase(),
+    displayName: (() => {
+      const p = e.permisos;
+      const name = p?.nombre ?? p?.namedisplay;
+      return name != null && String(name).trim() ? String(name).trim() : null;
+    })(),
+  })).filter((u) => u.username);
 }
 
 export async function putPermisoRole(name: string, permisos: Record<string, unknown>): Promise<PermissionsData> {

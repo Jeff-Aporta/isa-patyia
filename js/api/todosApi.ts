@@ -116,29 +116,34 @@ export type AppUserOption = {
   displayName: string | null;
 };
 
-/** Búsqueda opcional de usuarios — no invalida sesión en 401. Dev local: scrum directo u orquestador. */
+/** Búsqueda opcional de usuarios — no invalida sesión en 401. Dev+ISS local → scrum/orquestador local, no prod. */
 export async function searchScrumAppUsers(query = "", limit = 12) {
   if (!Session.isLoggedIn()) return [];
   const params = new URLSearchParams({ app: SCRUM_APP_ID, limit: String(limit) });
   if (query.trim()) params.set("q", query.trim());
+  const rel = `/api/scrum/users/search?${params}`;
   const headers: Record<string, string> = { Accept: "application/json" };
   Object.assign(headers, Session.authHeader(), Session.appHeader());
-  const apiPath = `/api/scrum/users/search?${params}`;
-  const bases: string[] = [];
-  if (isDevHost() && isLocalMode()) {
-    bases.push(SCRUM_LOCAL.replace(/\/$/, ""), ORCH_LOCAL.replace(/\/$/, ""));
-  } else {
-    bases.push(ORCH_ONLINE.replace(/\/$/, ""));
-  }
+
+  const tryBase = async (base: string): Promise<AppUserOption[] | null> => {
+    try {
+      const res = await fetch(`${String(base).replace(/\/$/, "")}${rel}`, { method: "GET", headers });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      if (data.ok === false) return null;
+      return (data.users ?? []) as AppUserOption[];
+    } catch {
+      return null;
+    }
+  };
+
+  const bases = (isDevHost() && isLocalMode())
+    ? [SCRUM_LOCAL, ORCH_LOCAL]
+    : [ORCH_ONLINE.replace(/\/$/, "")];
 
   for (const base of bases) {
-    try {
-      const res = await fetch(`${base}${apiPath}`, { method: "GET", headers });
-      if (!res.ok) continue;
-      const data = await res.json().catch(() => ({}));
-      if (data.ok === false) continue;
-      return (data.users ?? []) as AppUserOption[];
-    } catch { /* siguiente base */ }
+    const users = await tryBase(base);
+    if (users !== null) return users;
   }
   return [];
 }

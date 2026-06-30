@@ -1044,10 +1044,7 @@ html[data-mui-color-scheme="light"] .config-prompt-msg__head {
   justify-content: flex-start;
 }
 
-.paty-permisos-kanban .paty-todos-column__head {
-  min-width: 0;
-  gap: 0.35rem;
-}
+.paty-permisos-kanban-wrap.paty-todos-kanban-wrap {
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -1056,6 +1053,58 @@ html[data-mui-color-scheme="light"] .config-prompt-msg__head {
   padding: 0;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* Fila scroll: flex-fill sin height:100% rígido; stacks sí llenan alto */
+.paty-permisos-kanban.paty-todos-kanban:not(.paty-todos-kanban--preview) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: 100%;
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.paty-permisos-kanban .paty-todos-column__head {
+  min-width: 0;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.paty-permisos-shell .paty-permisos-kanban .paty-todos-column,
+.paty-permisos-shell .paty-permisos-kanban .paty-permisos-column {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.paty-permisos-kanban .paty-todos-column__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: block;
+  column-width: 136px;
+  column-gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.paty-permisos-kanban .paty-todos-column__list > .paty-todos-card,
+.paty-permisos-kanban .paty-todos-column__list > .MuiPaper-root.paty-permisos-user-card {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 8px;
+  vertical-align: top;
+}
+
+.paty-permisos-kanban .paty-todos-column__list > .MuiTypography-root {
+  column-span: all;
+  display: block;
+  width: 100%;
+  margin-bottom: 4px;
 }
 
 .paty-permisos-shell .paty-todos-column,

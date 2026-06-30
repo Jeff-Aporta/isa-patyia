@@ -10,7 +10,7 @@ window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-a
 
 export const ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 
-export const PATYIA_BRIDGE_URL = "https://rag-lab-bsczhqfgchgegabr.canadacentral-01.azurewebsites.net";
+export const PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
 
 /** ISS AyudasCPIA local (Azure Functions routePrefix api). */
 export const PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";

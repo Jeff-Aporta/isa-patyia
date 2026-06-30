@@ -173,7 +173,7 @@ function DragGhost({ card, column, x, y, width }) {
 
 
 
-export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast }) {
+export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy }) {
 
   const [dragOverCol, setDragOverCol] = useState(null);
 
@@ -647,7 +647,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     <Box ref={kanbanWrapRef} className="paty-todos-kanban-wrap paty-permisos-kanban-wrap" sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", p: 0 }}>
 
-      <Box className={`paty-todos-kanban paty-permisos-kanban${draggingId ? " paty-todos-kanban--dragging" : ""}${selectedUserKey ? " paty-permisos-kanban--user-selected" : ""}${processingUserKey ? " paty-permisos-kanban--user-busy" : ""}`} sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch", position: "relative" }}>
+      <Box className={`paty-todos-kanban paty-permisos-kanban${draggingId ? " paty-todos-kanban--dragging" : ""}${selectedUserKey ? " paty-permisos-kanban--user-selected" : ""}${processingUserKey ? " paty-permisos-kanban--user-busy" : ""}`} sx={{ flex: 1, minHeight: 0, maxHeight: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch", position: "relative" }}>
 
         {dragGhost ? <DragGhost card={ghostCard} column={ghostColumn} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} /> : null}
 
@@ -659,6 +659,12 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
           </Box>
 
+        ) : null}
+
+        {columns.length === 0 ? (
+          <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
+            <Typography variant="body2" color="text.secondary">No hay roles configurados.</Typography>
+          </Box>
         ) : null}
 
         {columns.map((col) => {
@@ -685,7 +691,8 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
           return (
 
-            <Box key={col.id} ref={(el) => { columnRefs.current[col.id] = el; }} className={colClass} style={{ "--col-accent": col.accent }}>
+            <Box key={col.id} ref={(el) => { columnRefs.current[col.id] = el; }} className={colClass} style={{ "--col-accent": col.accent }}
+              sx={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%", alignSelf: "stretch" }}>
 
               <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}
                 className="paty-todos-column__head paty-permisos-column__head--filter-draggable"
@@ -699,7 +706,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
                   <Box sx={{ minWidth: 0 }}>
 
                     <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.title}>{col.title}</Box>
+                      <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.roleName && col.title !== col.roleName ? `${col.title} (${col.roleName})` : col.title}>{col.title}</Box>
                       {col.jerarquiaLabel ? (
                         <Typography component="span" variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", flexShrink: 0 }} title={`Jerarquía ${col.jerarquia}`}>{col.jerarquiaLabel}</Typography>
                       ) : null}
@@ -712,6 +719,17 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
                 </Stack>
 
                 <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+
+                  {onOpenRoleHierarchy ? (
+                    <Tooltip title={`Ver/editar ${col.title || col.id} en jerarquía`}>
+                      <IconButton size="small" className="paty-permisos-column__hierarchy"
+                        aria-label={`Jerarquía ${col.title || col.id}`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onOpenRoleHierarchy(col.roleName ?? col.id); }}>
+                        <Icon icon="mdi:family-tree" size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
 
                   {canManage ? (
 
@@ -747,26 +765,14 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
                     </Tooltip>
 
-                  ) : (
-
-                    <Box component="span" className="paty-todos-column__count" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, height: 22, minWidth: 22, px: 1, boxSizing: "border-box" }}>{col.users.length}</Box>
-
-                  )}
-
-                  {canManage ? (
-
-                    <Box component="span" className="paty-todos-column__count" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, height: 22, minWidth: 22, px: 1, boxSizing: "border-box" }} title={`${col.users.length} usuario${col.users.length === 1 ? "" : "s"}`}>{col.users.length}</Box>
-
                   ) : null}
 
                 </Stack>
 
               </Stack>
 
-              <Stack ref={(el) => { listRefs.current[col.id] = el; }} data-column-id={col.id} spacing={0.75}
-
-                className={`paty-todos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
-
+              <Box ref={(el) => { listRefs.current[col.id] = el; }} data-column-id={col.id}
+                className={`paty-todos-column__list paty-permisos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
                 sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 1.25, px: 1.5, boxSizing: "border-box" }}>
 
                 {col.users.map((card) => {
@@ -795,7 +801,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
                 {!col.users.length ? <Typography variant="caption" color="text.secondary" sx={{ px: 0.5, py: 1 }}>Sin usuarios</Typography> : null}
 
-              </Stack>
+              </Box>
 
             </Box>
 

@@ -21,7 +21,7 @@ import {
 } from "./permisosRouteCatalog.js";
 
 import { roleTitleFromEntry } from "./permisosKanbanShared.js";
-import { UserAssignAutocomplete } from "./todos/UserAssignAutocomplete.jsx";
+import { PermisosUserAutocomplete } from "./PermisosUserAutocomplete.jsx";
 import { enforceVisitantePermisos, isVisitanteRole, visitanteRouteLocked } from "./permisosVisitante.js";
 import { FIX_FILTER_VAR_HINT, formatFixFilter } from "./permFixFilter.js";
 
@@ -451,11 +451,11 @@ export function RoleConfigEditor({ entry, roleName, canManage, canEditRoleDescri
 
           <Stack spacing={1.5}>
 
-            <TextField label="Nombre a mostrar" size="small" fullWidth value={namedisplay} disabled={!canEditRoleDescriptions}
+            <TextField label="Nombre a mostrar" size="small" fullWidth value={namedisplay} disabled={!canEditMeta}
 
               onChange={(e) => { const v = e.target.value; setNamedisplay(v); emit(v, desc, flags, routes); }} />
 
-            <TextField label="Descripción" size="small" fullWidth value={desc} disabled={!canEditRoleDescriptions}
+            <TextField label="Descripción" size="small" fullWidth value={desc} disabled={!canEditMeta}
 
               onChange={(e) => { const v = e.target.value; setDesc(v); emit(namedisplay, v, flags, routes); }} />
 
@@ -738,9 +738,9 @@ export function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
       header={<GlassDialogHeader icon="mdi:account-plus-outline" title="Agregar al rol" subtitle={roleLabel} accent="#10b981" onClose={busy ? undefined : onClose} />}>
       <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Busque un usuario registrado en isa-patyia para asignarlo al rol <strong>{roleLabel}</strong>.
+          Busque un usuario en permisos ISS o escriba un login nuevo para asignarlo al rol <strong>{roleLabel}</strong>.
         </Typography>
-        <UserAssignAutocomplete value={username} onChange={setUsername} disabled={busy} label="Usuario" />
+        <PermisosUserAutocomplete value={username} onChange={setUsername} disabled={busy} label="Usuario" />
         {alreadyInRole ? <Alert severity="warning" sx={{ mt: 1.5 }}>Este usuario ya está en el rol.</Alert> : null}
       </DialogContent>
       <DialogActions sx={glassDialogActionsSx()}>

@@ -4,53 +4,64 @@ import {
   fetchPermisos, putPermisoRolePath, patchUsuarioRoles, removeUsuarioRole, addUsuarioRole, requireAppSession,
   fetchHierarchy, createHierarchyRole, updateHierarchyRole, deleteHierarchyRole,
 } from "../api/systemConfigApi.ts";
-import { searchScrumAppUsers } from "../api/todosApi.ts";
-import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiaFromRoles, buildRolePermisosIndex } from "./permisosKanbanShared.js";
+import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiaFromRoles, buildRolePermisosIndex, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
 import { actorJerarquiaFromRoles as actorJerarquiaPure } from "./roleHierarchy.js";
 import { isBranchZero } from "./roleHierarchy.js";
 import { PermisosKanban } from "./PermisosKanban.jsx";
-import { RoleConfigFullscreenDialog } from "./permisosRoleConfig.jsx";
-import { buildVisitanteConfigColumn } from "./permisosVisitante.js";
 import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete.jsx";
 import { RoleHierarchyView } from "./roleHierarchyTree/index.ts";
+import { hierarchyNodesFromRoleEntries } from "./roleHierarchyTree/hierarchyFromRoles.ts";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
+import { readPermisosHideEmptyFromUrl, persistPermisosHideEmpty, subscribe } from "../core/urlState.ts";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
-const { Typography, TextField, Stack, Alert, CircularProgress, Box, Chip, DialogContent, DialogActions, Button } = getMaterialUI();
+const { Typography, TextField, Stack, Alert, CircularProgress, Box, Chip, DialogContent, DialogActions, Button, FormControlLabel, Switch } = getMaterialUI();
 
 export function PermisosPanel({ onNeedLogin }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [canManage, setCanManage] = useState(false);
+  const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ roles: [], users: [] });
   const [userSearch, setUserSearch] = useState("");
   const [roleFilters, setRoleFilters] = useState([]);
-  const [visitanteOpen, setVisitanteOpen] = useState(false);
+  const [hideEmptyStacks, setHideEmptyStacks] = useState(readPermisosHideEmptyFromUrl);
   const [filterBusy, setFilterBusy] = useState(false);
   const [dragOverFilter, setDragOverFilter] = useState(false);
 
-  const [userDirectory, setUserDirectory] = useState(null);
   const [actorJerarquia, setActorJerarquia] = useState(null);
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
+  const [hierarchyFocusRole, setHierarchyFocusRole] = useState(null);
   const [hierarchyNodes, setHierarchyNodes] = useState([]);
   const [hierarchyBusy, setHierarchyBusy] = useState(false);
   const filterToolbarRef = useRef(null);
   const filterFetchSkipRef = useRef(true);
   const filterDropFetchRef = useRef(false);
+  const rolesRef = useRef(data.roles);
+  const usersRef = useRef(data.users);
+  const hierarchyLoadRef = useRef(null);
+  rolesRef.current = data.roles;
+  usersRef.current = data.users;
   const usersPaginated = !!data.usersTruncated;
 
   const applyFlags = useCallback((result) => {
     setCanManage(!!result.canManage);
-    const userRoles = Array.isArray(result.roles) ? result.roles : (Array.isArray(Session?.roles) ? Session.roles : []);
-    const rolePermisosIdx = buildRolePermisosIndex(data.roles);
-    setActorJerarquia(actorJerarquiaPure(userRoles, rolePermisosIdx));
-  }, [data]);
+    setCanEditRoleDescriptions(!!result.canEditRoleDescriptions);
+    const actorRoles = Array.isArray(result.actorRoles)
+      ? result.actorRoles
+      : (Array.isArray(Session?.roles) ? Session.roles : []);
+    const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
+    setActorJerarquia(actorJerarquiaPure(actorRoles, rolePermisosIdx));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
       const result = await fetchPermisos();
+      if (!Array.isArray(result.roles) || result.roles.length === 0) {
+        throw new Error("ISS no devolvió roles activos. Verifique modo Local (ISS :8802) o recargue tras iniciar func start.");
+      }
       setData(result);
       applyFlags(result);
     } catch (e) {
@@ -60,46 +71,81 @@ export function PermisosPanel({ onNeedLogin }) {
     } finally { setLoading(false); }
   }, [applyFlags]);
 
-  const loadHierarchy = useCallback(async () => {
-    setHierarchyBusy(true);
-    try {
-      const r = await fetchHierarchy();
-      setHierarchyNodes(r.roles ?? []);
-    } catch (e) {
-      toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando jerarquía");
-    } finally {
-      setHierarchyBusy(false);
+  const refreshPermisos = useCallback(async () => {
+    const result = await fetchPermisos();
+    if (!Array.isArray(result.roles) || result.roles.length === 0) {
+      throw new Error("ISS no devolvió roles activos. Verifique modo Local (ISS :8802) o recargue tras iniciar func start.");
     }
+    setData(result);
+    applyFlags(result);
+    return result;
+  }, [applyFlags]);
+
+  const loadHierarchy = useCallback(async (fallbackRoles = rolesRef.current) => {
+    if (hierarchyLoadRef.current) return hierarchyLoadRef.current;
+    setHierarchyBusy(true);
+    const task = (async () => {
+      try {
+        const r = await fetchHierarchy();
+        let nodes = Array.isArray(r.roles) ? r.roles : [];
+        if (!nodes.length) nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
+        setHierarchyNodes(nodes);
+      } catch (e) {
+        const nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
+        setHierarchyNodes(nodes);
+        if (!nodes.length) {
+          toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando jerarquía");
+        }
+      } finally {
+        setHierarchyBusy(false);
+        hierarchyLoadRef.current = null;
+      }
+    })();
+    hierarchyLoadRef.current = task;
+    return task;
   }, []);
 
   const openHierarchyDialog = useCallback(() => {
+    setHierarchyFocusRole(null);
     setHierarchyOpen(true);
-    if (!hierarchyNodes.length) loadHierarchy();
-  }, [hierarchyNodes.length, loadHierarchy]);
+  }, []);
+
+  const openHierarchyForRole = useCallback((roleName) => {
+    const id = String(roleName ?? "").trim().toLowerCase();
+    if (!id) return;
+    setHierarchyFocusRole(id);
+    setHierarchyOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hierarchyOpen) return undefined;
+    void loadHierarchy(rolesRef.current);
+    return undefined;
+  }, [hierarchyOpen, loadHierarchy]);
 
   const handleHierarchySave = useCallback(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await updateHierarchyRole(name, { jerarquia });
-      await loadHierarchy();
-      await load();
+      await loadHierarchy(rolesRef.current);
+      await refreshPermisos();
       toastSuccess?.(`Rol ${name} actualizado`);
     } finally {
       setHierarchyBusy(false);
     }
-  }, [load]);
+  }, [loadHierarchy, refreshPermisos]);
 
   const handleHierarchyCreate = useCallback(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await createHierarchyRole({ name, jerarquia });
-      await loadHierarchy();
-      await load();
+      await loadHierarchy(rolesRef.current);
+      await refreshPermisos();
       toastSuccess?.(`Rol ${name} creado`);
     } finally {
       setHierarchyBusy(false);
     }
-  }, [load]);
+  }, [loadHierarchy, refreshPermisos]);
 
   // Promover un permiso de su ownerJer actual al ancestro targetJer:
   // eliminamos el permiso del owner y lo añadimos al target.
@@ -129,42 +175,42 @@ export function PermisosPanel({ onNeedLogin }) {
     setHierarchyBusy(true);
     try {
       await deleteHierarchyRole(name);
-      await loadHierarchy();
-      await load();
+      await loadHierarchy(rolesRef.current);
+      await refreshPermisos();
       toastSuccess?.(`Rol ${name} eliminado`);
     } finally {
       setHierarchyBusy(false);
     }
-  }, [load]);
-
-  useEffect(() => { load(); }, [load]);
+  }, [loadHierarchy, refreshPermisos]);
 
   const loadRef = useRef(load);
   loadRef.current = load;
 
-  const refreshUserDirectory = useCallback(() => {
-    if (!Session.isLoggedIn()) { setUserDirectory({}); return; }
-    searchScrumAppUsers("", 300).then((users) => {
-      const map = {};
-      for (const u of users) {
-        const key = String(u.username ?? "").trim().toUpperCase();
-        if (key) map[key] = u.displayName;
-      }
-      setUserDirectory(map);
-    }).catch(() => setUserDirectory({}));
+  useEffect(() => { loadRef.current(); }, []);
+
+  useEffect(() => subscribe((snap) => {
+    const permisos = snap.config?.permisos;
+    const hide = permisos && typeof permisos === "object" && permisos.hideEmpty === true;
+    setHideEmptyStacks((prev) => (prev === hide ? prev : hide));
+  }), []);
+
+  const setHideEmptyStacksPersist = useCallback((hide) => {
+    setHideEmptyStacks(hide);
+    persistPermisosHideEmpty(hide);
   }, []);
+
+  const userDirectory = useMemo(() => buildUserDirectoryFromPermisos(data.users), [data.users]);
 
   useEffect(() => {
     Assets.ensureTodosCss();
-    refreshUserDirectory();
-    const onAuth = () => { loadRef.current(); refreshUserDirectory(); };
+    const onAuth = () => { loadRef.current(); };
     window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("isa-patyia:auth", onAuth);
     return () => {
       window.removeEventListener(Session.EVENT, onAuth);
       window.removeEventListener("isa-patyia:auth", onAuth);
     };
-  }, [refreshUserDirectory]);
+  }, []);
 
   async function run(fn, okMsg) {
     if (!requireAppSession(onNeedLogin)) return;
@@ -289,7 +335,7 @@ export function PermisosPanel({ onNeedLogin }) {
       } finally { setFilterBusy(false); }
     }, 320);
     return () => window.clearTimeout(t);
-  }, [userSearch, usersPaginated, fetchPermisosWithSearch, applyFlags]);
+  }, [userSearch, usersPaginated, fetchPermisosWithSearch]);
 
   const roleOptions = useMemo(
     () => (data.roles || [])
@@ -298,16 +344,33 @@ export function PermisosPanel({ onNeedLogin }) {
     [data.roles],
   );
   const boardData = useMemo(
-    () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory }),
-    [data, userSearch, roleFilters, userDirectory],
+    () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory, hideEmptyColumns: hideEmptyStacks }),
+    [data, userSearch, roleFilters, userDirectory, hideEmptyStacks],
   );
-  const visitanteColumn = useMemo(() => buildVisitanteConfigColumn(data), [data]);
   const readOnly = !canManage;
   const managePermisos = canManage;
+  const editRoleMeta = canEditRoleDescriptions || canManage;
   const filtersActive = !!(userSearch.trim() || roleFilters.length);
   const { GlassToolbar } = getGlass();
 
-  if (loading) {
+  const handleSaveRolePermisos = useCallback(async (name, permisos, bactivo) => {
+    if (!editRoleMeta || !requireAppSession(onNeedLogin)) return;
+    setBusy(true); setErr("");
+    try {
+      const result = await putPermisoRolePath(name, permisos, managePermisos ? bactivo : undefined);
+      await loadHierarchy(rolesRef.current);
+      setData(result);
+      applyFlags(result);
+      toastSuccess(`Rol ${name} guardado`);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+      throw e;
+    } finally { setBusy(false); }
+  }, [editRoleMeta, onNeedLogin, managePermisos, applyFlags, loadHierarchy]);
+
+  if (loading && !hierarchyOpen) {
     return (
       <Box className="config-permisos-loading">
         <CircularProgress size={26} />
@@ -327,13 +390,15 @@ export function PermisosPanel({ onNeedLogin }) {
           <Chip size="small" variant="outlined" className="isa-neon-glass-chip" label="Filtros"
             onDelete={clearFilters} disabled={filterBusy} />
         ) : null}
+        <FormControlLabel
+          className="config-permisos-toolbar__hide-empty"
+          control={<Switch size="small" checked={hideEmptyStacks} onChange={(e) => setHideEmptyStacksPersist(e.target.checked)} disabled={filterBusy} />}
+          label="Ocultar vacíos"
+          sx={{ mr: 0, ml: 0.5, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.8rem", whiteSpace: "nowrap" } }}
+        />
         <Box sx={{ flex: 1, minWidth: 8 }} />
         <Stack direction="row" spacing={0.5} alignItems="center" className="config-form-section__actions config-permisos-toolbar__actions">
-          <ButtonIconify icon="mdi:family-tree" title="Editar jerarquía de roles" onClick={openHierarchyDialog} disabled={busy || filterBusy} />
-          {managePermisos ? (
-            <ButtonIconify icon="mdi:account-outline" className="config-permisos-visitante-btn" title="Configurar rol visitante"
-              onClick={() => setVisitanteOpen(true)} />
-          ) : null}
+          <ButtonIconify icon="mdi:family-tree" title="Jerarquía y rol visitante" onClick={openHierarchyDialog} disabled={busy || filterBusy} />
           <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={busy || filterBusy} />
         </Stack>
       </GlassToolbar>
@@ -341,24 +406,25 @@ export function PermisosPanel({ onNeedLogin }) {
 
       {err ? <Alert severity="warning" className="config-form-alert config-permisos-alert">{err}</Alert> : null}
 
-      <PermisosKanban boardData={boardData} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={managePermisos} busy={busy || filterBusy}
+      <PermisosKanban boardData={boardData} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={editRoleMeta} busy={busy || filterBusy}
         actorJerarquia={actorJerarquia}
         onJerarquiaToast={(t) => toastInfo?.(t.message) ?? alert(t.message)}
+        onOpenRoleHierarchy={openHierarchyForRole}
         filterToolbarRef={filterToolbarRef} onUserFilterDrop={handleUserFilterDrop} onRoleFilterDrop={handleRoleFilterDrop} onDragOverFilterChange={setDragOverFilter}
         onRoleSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), `Rol ${name} guardado`)}
         onRoleDrag={handleRoleDrag} onRoleRemove={handleRoleRemove} onRoleAdd={handleRoleAdd} />
 
-      {managePermisos ? (
-        <RoleConfigFullscreenDialog open={visitanteOpen} column={visitanteColumn} canManage={managePermisos}
-          canEditRoleDescriptions={managePermisos} busy={busy} onClose={() => setVisitanteOpen(false)}
-          onSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), "Rol visitante guardado").then(() => setVisitanteOpen(false))} />
-      ) : null}
-
-      <GlassDialog open={hierarchyOpen} onClose={() => setHierarchyOpen(false)} maxWidth="md" fullWidth paperMaxWidth={920}
-        header={<GlassDialogHeader icon="mdi:family-tree" title="Jerarquía de roles" subtitle="Solo roles de branch 0 pueden editar" accent="#10b981" onClose={() => setHierarchyOpen(false)} />}>
-        <DialogContent dividers sx={Object.assign({}, glassDialogContentSx({ p: 0 }), { height: "70vh" })}>
+      <GlassDialog open={hierarchyOpen} onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} fullScreen fullWidth maxWidth={false}
+        paperClassName="isa-glass-dialog--fullscreen permisos-hierarchy-dialog"
+        header={<GlassDialogHeader icon="mdi:family-tree" title="Jerarquía de roles" subtitle="Visitante y permisos — solo branch 0 edita la jerarquía" accent="#10b981" onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} />}>
+        <DialogContent dividers sx={Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" })}>
           <RoleHierarchyView
             nodes={hierarchyNodes}
+            roleEntries={data.roles}
+            initialSelectedRole={hierarchyFocusRole}
+            canManagePermisos={managePermisos}
+            canEditRoleDescriptions={editRoleMeta}
+            onSaveRolePermisos={editRoleMeta ? handleSaveRolePermisos : undefined}
             canMutate={isBranchZero(actorJerarquia ?? "")}
             busy={hierarchyBusy}
             onSave={handleHierarchySave}

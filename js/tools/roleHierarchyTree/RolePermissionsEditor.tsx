@@ -57,7 +57,7 @@ export function RolePermissionsEditor(props: RolePermissionsEditorProps): React.
     [allNodes],
   );
   const pathAncestors: string[] = useMemo(
-    () => ancestorsFromPath(currentNode.jerarquia).slice(1),
+    () => [...ancestorsFromPath(currentNode.jerarquia)].reverse(),
     [currentNode.jerarquia],
   );
 
@@ -72,7 +72,7 @@ export function RolePermissionsEditor(props: RolePermissionsEditorProps): React.
       setLoading(true);
       const merged: Record<string, { value: unknown; owner: string }> = {};
       // Ordenar ancestros de más lejano a más cercano, terminando con el nodo actual.
-      const orderedJers: string[] = [...pathAncestors].reverse().concat([currentNode.jerarquia]);
+      const orderedJers: string[] = pathAncestors;
       for (const ancJer of orderedJers) {
         const node = byJer.get(ancJer);
         if (!node) continue;
@@ -135,8 +135,7 @@ export function RolePermissionsEditor(props: RolePermissionsEditorProps): React.
   return (
     <Box className="role-permissions-editor" sx={{ display: "flex", flexDirection: "column", gap: 1.5, p: 2 }}>
       <Breadcrumbs separator="›" sx={{ fontSize: 13 }}>
-        <Link underline="hover" color="inherit">{pathAncestors[0] ?? "?"}</Link>
-        {pathAncestors.slice(1).map((j, i) => (
+        {pathAncestors.slice(0, -1).map((j) => (
           <Link key={j} underline="hover" color="inherit">{j}</Link>
         ))}
         <Typography color="text.primary" fontWeight={700}>{currentNode.jerarquia}</Typography>

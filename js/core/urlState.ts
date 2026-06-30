@@ -12,7 +12,7 @@ function normalizeLog(raw: unknown) {
   return o;
 }
 
-function initial() { return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {} }; }
+function initial() { return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {}, config: {} }; }
 
 function normalizeTool(raw: unknown) {
   if (raw === "prompts") return "prompts";
@@ -38,11 +38,12 @@ function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   const tool = normalizeTool(raw.tool);
   const chat = normalizeChatBag(raw.chat);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
+  const config = raw.config && typeof raw.config === "object" ? raw.config : {};
   return {
     v: raw.v ?? STATE_VERSION, tool,
     log: normalizeLog(raw.log),
     prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
-    chat, todos,
+    chat, todos, config,
   };
 }
 
@@ -75,6 +76,18 @@ function slimForUrl(src: Record<string, unknown>) {
   return slim;
 }
 
+function mergeConfig(state: Record<string, unknown>, partial: Record<string, unknown> | undefined) {
+  const prev = state.config && typeof state.config === "object" ? { ...(state.config as Record<string, unknown>) } : {};
+  const next = partial && typeof partial === "object" ? partial : {};
+  const prevPermisos = prev.permisos && typeof prev.permisos === "object" ? { ...(prev.permisos as Record<string, unknown>) } : {};
+  const nextPermisos = next.permisos && typeof next.permisos === "object" ? next.permisos as Record<string, unknown> : null;
+  return {
+    ...prev,
+    ...next,
+    ...(nextPermisos ? { permisos: { ...prevPermisos, ...nextPermisos } } : {}),
+  };
+}
+
 function merge(state: Record<string, unknown>, partial: Record<string, unknown>) {
   const nextLog = { ...(state.log as object), ...((partial.log as object) || {}) };
   if ("jsonInput" in nextLog) delete (nextLog as Record<string, unknown>).jsonInput;
@@ -94,6 +107,7 @@ function merge(state: Record<string, unknown>, partial: Record<string, unknown>)
       ...(state.todos as Record<string, unknown>),
       ...((partial.todos as Record<string, unknown>) || {}),
     },
+    config: mergeConfig(state, partial.config as Record<string, unknown> | undefined),
   };
 }
 
@@ -127,6 +141,7 @@ function migrateLegacyFlatQuery() {
       prompts: {},
       chat: {},
       todos: {},
+      config: {},
     };
 
     for (const [key, raw] of url.searchParams.entries()) {
@@ -234,4 +249,21 @@ export function persistChatMode(mode: string) {
   const prev = String((snap.chat as Record<string, unknown>)?.mode || "patyia");
   if (prev === normalized) return snap;
   return mergePartial({ tool: "chat", chat: { mode: normalized } });
+}
+
+function configPermisosBag(snap?: Record<string, unknown>) {
+  const cfg = (snap ?? getSnapshot()).config as Record<string, unknown> | undefined;
+  const permisos = cfg?.permisos;
+  return permisos && typeof permisos === "object" ? permisos as Record<string, unknown> : undefined;
+}
+
+/** Switch «Ocultar vacíos» en Permisos — ?s=.config.permisos.hideEmpty */
+export function readPermisosHideEmptyFromUrl() {
+  return configPermisosBag()?.hideEmpty === true;
+}
+
+export function persistPermisosHideEmpty(hide: boolean) {
+  const prev = configPermisosBag()?.hideEmpty === true;
+  if (prev === hide) return getSnapshot();
+  return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }

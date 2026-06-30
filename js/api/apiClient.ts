@@ -7,8 +7,7 @@ import {
   patyiaBridgeBase,
   patyiaCapFetchBase,
   PATYIA_BRIDGE_URL,
-  PATYIA_BRIDGE_LOCAL,
-  PATYIA_BRIDGE_DEV,
+  PATYIA_ISS_LOCAL,
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
 import { convLogFromDetalle, getConversacionLogs } from "./patyiaChatApi.ts";
@@ -20,7 +19,7 @@ const bridgeHttp = window.ISAFront.createCapFetch({
   Config,
   getApiBase: patyiaCapFetchBase,
   localDirect: [
-    { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_BRIDGE_DEV.replace(/\/$/, "") },
+    { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") },
   ],
   orchOnline: PATYIA_BRIDGE_URL,
   orchOnlineInLocal: true,
@@ -42,11 +41,10 @@ export const capFetch = bridgeHttp.capFetch;
 export const apiUrl = bridgeHttp.apiUrl;
 export const rowVal = bridgeHttp.rowVal;
 
-/** Rutas puente MSSQL (/patyia/*). ISS local usa rutas planas (/conversaciones). */
+/** Rutas ISS AyudasCPIA — sin prefijo /patyia salvo instrucciones. */
 function patyiaBridgePath(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
-  if (isLocalMode()) return p.startsWith("/patyia") ? p : p;
-  return p.startsWith("/patyia") ? p : `/patyia${p}`;
+  return p;
 }
 
 function bridgePatyiaPath(path: string): string {
@@ -55,30 +53,6 @@ function bridgePatyiaPath(path: string): string {
 }
 
 export async function fetchInstruccionesPaty() {
-  if (isLocalMode()) {
-    const url = `${PATYIA_BRIDGE_DEV.replace(/\/$/, "")}/api/patyia/instrucciones`;
-    const headers: Record<string, string> = { Accept: "application/json" };
-    if (Session.isLoggedIn()) Object.assign(headers, Session.authHeader(), Session.appHeader());
-    let res: Response;
-    try {
-      res = await fetch(url, { method: "GET", headers });
-    } catch {
-      throw new Error(`No se pudo conectar con el puente PatyIA local (${PATYIA_BRIDGE_DEV}). Ejecuta: cd apps/isa-patyia/backend && npm run dev`);
-    }
-    const ct = res.headers.get("content-type") || "";
-    if (!res.ok) {
-      let msg = res.statusText;
-      if (ct.includes("json")) {
-        try {
-          const j = await res.json() as Record<string, unknown>;
-          msg = String(j.error || j.message || msg);
-        } catch { /* ignore */ }
-      }
-      throw new Error(msg || `HTTP ${res.status}`);
-    }
-    const data = await res.json() as { rows?: Record<string, unknown>[] };
-    return (data.rows ?? []) as Record<string, unknown>[];
-  }
   const data = await capFetch(bridgePatyiaPath("/instrucciones"), { method: "GET" });
   return (data.rows ?? []) as Record<string, unknown>[];
 }
