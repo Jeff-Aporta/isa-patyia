@@ -4,27 +4,33 @@ const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
 
-/** URLs canónicas front-shared — no usar rutas locales relativas al <base>. */
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
 const BOOT_LOADER_URL = `${CDN}boot-loader.mjs?v=${PIN}`;
-const JSDELIVR_BOOT_LOADER = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/boot-loader.mjs?v=${PIN}`;
 const ISA_FRONT_BUNDLE_URL = `${CDN}_dist/isa/js/index.min.js?v=${PIN}`;
 
-async function importBootLoader() {
-  try {
-    return await import(BOOT_LOADER_URL);
-  } catch (cdnErr) {
-    if (!/localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname)) throw cdnErr;
+async function importFirst(urls, label) {
+  let lastErr;
+  const seen = new Set();
+  for (const url of urls) {
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
     try {
-      const local = new URL("../../../../../components/front-shared/cdn/boot-loader.mjs", import.meta.url).href;
-      return await import(local);
-    } catch {
-      try {
-        return await import(JSDELIVR_BOOT_LOADER);
-      } catch {
-        throw cdnErr;
-      }
+      return await import(url);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`${label} falló:`, url, e);
     }
   }
+  throw lastErr || new Error(`${label} no disponible`);
+}
+
+async function importBootLoader() {
+  const urls = [BOOT_LOADER_URL];
+  if (/localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname)) {
+    urls.push(new URL("../../../../../components/front-shared/cdn/boot-loader.mjs", import.meta.url).href);
+  }
+  urls.push(`${JSDELIVR_CDN}boot-loader.mjs?v=${PIN}`);
+  return importFirst(urls, "boot-loader");
 }
 
 /** Producción jsDelivr: bundle _dist (esbuild). Fuente isa/js/index.js importa .jsx y falla en el navegador. */

@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-06-30T14:00:07.662Z",
+  "builtAt": "2026-06-30T14:19:20.085Z",
   "files": 107,
-  "bytesIn": 1004679,
-  "bytesOut": 600769,
+  "bytesIn": 1005152,
+  "bytesOut": 601059,
   "ratio": 0.598,
-  "hash": "41872efe3567",
+  "hash": "fa033c57ef00",
   "entries": [
     {
       "src": "css/app.css",
@@ -117,14 +117,14 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4657,
-      "bytesOut": 2954
+      "bytesIn": 5003,
+      "bytesOut": 3099
     },
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2650,
-      "bytesOut": 1570
+      "bytesIn": 2777,
+      "bytesOut": 1715
     },
     {
       "src": "js/boot/theme-init.mjs",

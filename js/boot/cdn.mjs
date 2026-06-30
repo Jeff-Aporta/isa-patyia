@@ -20,12 +20,19 @@ function frontSharedCdnBase() {
   return new URL("../../components/front-shared/cdn/", base).href.replace(/\/?$/, "/");
 }
 
+function vendorCdnBase() {
+  const base = document.querySelector("base")?.href || location.href;
+  return new URL("vendor/front-shared/", base).href.replace(/\/?$/, "/");
+}
+
 const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
 
-/** localhost: jsDelivr por defecto; ?isa_cdn=local si sirves desde Personal/apps (monorepo). */
+/** localhost: jsDelivr por defecto; ?isa_cdn=local → monorepo. Producción: vendor same-origin (sin depender de jsDelivr). */
 export const CDN = isDevHost && useLocalMonorepoCdn()
   ? frontSharedCdnBase()
-  : JSDELIVR_CDN;
+  : isDevHost
+    ? JSDELIVR_CDN
+    : vendorCdnBase();
 
 export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 

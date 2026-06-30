@@ -13,6 +13,7 @@
     "imageAlt": "ISA PatyIA — asistente PatyIA staging"
   },
   "frontSharedPin": "e584b60",
+  "frontSharedVendor": true,
   "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
