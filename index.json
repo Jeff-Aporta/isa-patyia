@@ -12,7 +12,7 @@
     "ogTitle": "ISA PatyIA",
     "imageAlt": "ISA PatyIA — asistente PatyIA staging"
   },
-  "frontSharedPin": "release-2026-06-30",
+  "frontSharedPin": "e584b60",
   "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
