@@ -1,1 +1,208 @@
-import{roleDescripcion as N,roleNamedisplay as R,userRoles as U}from"./permisosForm.js";const B="visitante",S=["#1e90ff","#10b981","#a855f7","#f59e0b","#ec4899","#06b6d4","#8b5cf6"],y=["mdi:shield-account","mdi:file-document-edit-outline","mdi:code-braces","mdi:robot-outline","mdi:eye-outline","mdi:account-group-outline"];function C(r){return String(r?.iusuario??"").trim().toLowerCase().replace(/^role:/i,"")}function w(r){return String(r??"").replace(/_/g," ").replace(/\b\w/g,e=>e.toUpperCase())}function A(r){const e=R(r?.permisos);return e||w(C(r))}function E(r,e=0,n=null){const t=n?.accent??n?.color,s=n?.icon;if(t&&s)return{accent:String(t),icon:String(s)};const i=e%S.length;return{accent:S[i],icon:y[i%y.length]}}function D(r,e){const n=String(r??"").trim().toUpperCase(),t=String(e??"").trim();return t?{primary:t,secondary:n}:{primary:n,secondary:null}}function L(r,e,n){const t=String(n??"").trim().toUpperCase();if(!t)return!0;const s=String(r??"").trim().toUpperCase(),i=String(e??"").trim().toUpperCase();return s.includes(t)||i&&i.includes(t)}function T(r,e,n){const t=String(r??"").trim().toUpperCase(),s=n?.[t];if(s!=null&&String(s).trim())return String(s).trim();const i=e?.permisos?.nombre??e?.permisos?.namedisplay;return i!=null&&String(i).trim()?String(i).trim():null}function v(r){return[...r].sort((e,n)=>{const t=n.users.length-e.users.length;return t!==0?t:e.sortIndex-n.sortIndex})}function M(r,e={}){const n=r?.roles??[],t=r?.users??[],s=e.userSearch??"",i=e.roleFilters??e.roleFilter??[],u=(Array.isArray(i)?i:[i]).map(o=>String(o??"").trim().toLowerCase()).filter(Boolean),m=u.length?new Set(u):null,b=e.userDirectory??null,d=!!String(s??"").trim()||!!m?.size,p=n.map((o,c)=>{const l=C(o),a=E(l,c,o.permisos);return{id:l,roleName:l,title:A(o),descripcion:N(o.permisos),entry:o,accent:a.accent,icon:a.icon,sortIndex:c,users:[],roleFilteredOut:!!(m&&!m.has(l))}}).filter(o=>o.id&&o.id!==B),h=new Map(p.map(o=>[o.id,o]));for(const o of t){const c=String(o.iusuario??"").trim().toUpperCase(),l=T(c,o,b);if(L(c,l,s))for(const a of U(o.permisos)){const f=h.get(a);if(!f||m&&!m.has(a)||f.users.some(I=>I.username===c))continue;const F=D(c,l);f.users.push({id:`${c}@${a}`,username:c,displayName:l,labels:F,userEntry:o})}}for(const o of p)o.users.sort((c,l)=>c.labels.primary.localeCompare(l.labels.primary,"es"));const g=v(p),x=d&&g.every(o=>!o.users.length);return{columns:g,filterActive:d,noUsersVisible:x}}function P(r,e,n,t){for(const s of r){const i=e.current[s];if(!i)continue;const u=i.getBoundingClientRect();if(n>=u.left&&n<=u.right&&t>=u.top&&t<=u.bottom)return s}return null}function _(r,e,n){const t=r?.current;if(!t)return!1;const s=t.getBoundingClientRect();return e>=s.left&&e<=s.right&&n>=s.top&&n<=s.bottom}export{B as VISITANTE,M as buildPermisosBoard,P as columnAtPoint,L as matchesUserFilter,_ as pointInRef,C as roleNameFromEntry,A as roleTitleFromEntry,v as sortPermisosColumnsByMembers,E as themeForRole,D as userCardLabels};
+// ../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+var FLAG_DEFS = [
+  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
+  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
+];
+var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
+function roleDescripcion(permisos) {
+  const d = permisos?.descripcion;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function roleNamedisplay(permisos) {
+  const d = permisos?.namedisplay;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function userRoles(permisos) {
+  const r = permisos?.roles;
+  return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+}
+
+// ../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+var DEFAULT_ROLE_JERARQUIA = {
+  dev_lead: "0",
+  dev_iss: "0.1",
+  admn_isapatyia: "1",
+  auditador: "2",
+  visitante: "999"
+};
+var DEFAULT_FOR_UNKNOWN = "999";
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+function canManageRole(actorJerarquia, targetJerarquia) {
+  return compareHierarchy(actorJerarquia, targetJerarquia) < 0;
+}
+function formatJerarquiaLabel(jerarquia) {
+  if (jerarquia == null || jerarquia === "") return "";
+  return `(${jerarquia})`;
+}
+
+// ../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+var VISITANTE = "visitante";
+var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
+var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
+function roleNameFromEntry(entry) {
+  return String(entry?.iusuario ?? "").trim().toLowerCase().replace(/^role:/i, "");
+}
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function roleTitleFromEntry(entry) {
+  const namedisplay = roleNamedisplay(entry?.permisos);
+  if (namedisplay) return namedisplay;
+  return formatRoleTitle(roleNameFromEntry(entry));
+}
+function themeForRole(roleName, index = 0, permisos = null) {
+  const accent = permisos?.accent ?? permisos?.color;
+  const icon = permisos?.icon;
+  if (accent && icon) return { accent: String(accent), icon: String(icon) };
+  const i = index % ROLE_ACCENTS.length;
+  return { accent: ROLE_ACCENTS[i], icon: ROLE_ICONS[i % ROLE_ICONS.length] };
+}
+function userCardLabels(username, displayName) {
+  const user = String(username ?? "").trim().toUpperCase();
+  const name = String(displayName ?? "").trim();
+  if (name) return { primary: name, secondary: user };
+  return { primary: user, secondary: null };
+}
+function matchesUserFilter(username, displayName, query) {
+  const q = String(query ?? "").trim().toUpperCase();
+  if (!q) return true;
+  const u = String(username ?? "").trim().toUpperCase();
+  const n = String(displayName ?? "").trim().toUpperCase();
+  return u.includes(q) || n && n.includes(q);
+}
+function resolveDisplayName(username, userEntry, userDirectory) {
+  const key = String(username ?? "").trim().toUpperCase();
+  const fromDir = userDirectory?.[key];
+  if (fromDir != null && String(fromDir).trim()) return String(fromDir).trim();
+  const fromMeta = userEntry?.permisos?.nombre ?? userEntry?.permisos?.namedisplay;
+  if (fromMeta != null && String(fromMeta).trim()) return String(fromMeta).trim();
+  return null;
+}
+function sortPermisosColumnsByMembers(columns) {
+  return [...columns].sort((a, b) => {
+    const byCount = b.users.length - a.users.length;
+    if (byCount !== 0) return byCount;
+    return a.sortIndex - b.sortIndex;
+  });
+}
+function buildPermisosBoard(data, filters = {}) {
+  const roles = data?.roles ?? [];
+  const users = data?.users ?? [];
+  const userQuery = filters.userSearch ?? "";
+  const roleFiltersRaw = filters.roleFilters ?? filters.roleFilter ?? [];
+  const roleFilters = (Array.isArray(roleFiltersRaw) ? roleFiltersRaw : [roleFiltersRaw]).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  const roleFilterSet = roleFilters.length ? new Set(roleFilters) : null;
+  const userDirectory = filters.userDirectory ?? null;
+  const filterActive = Boolean(String(userQuery ?? "").trim()) || Boolean(roleFilterSet?.size);
+  const columns = roles.map((entry, index) => {
+    const roleName = roleNameFromEntry(entry);
+    const theme = themeForRole(roleName, index, entry.permisos);
+    const jerarquia = getRoleJerarquia(roleName, entry.permisos);
+    return {
+      id: roleName,
+      roleName,
+      title: roleTitleFromEntry(entry),
+      jerarquia,
+      jerarquiaLabel: formatJerarquiaLabel(jerarquia),
+      descripcion: roleDescripcion(entry.permisos),
+      entry,
+      accent: theme.accent,
+      icon: theme.icon,
+      sortIndex: index,
+      users: [],
+      roleFilteredOut: !!(roleFilterSet && !roleFilterSet.has(roleName))
+    };
+  }).filter((c) => {
+    if (!c.id || c.id === VISITANTE) return false;
+    return true;
+  });
+  const colById = new Map(columns.map((c) => [c.id, c]));
+  for (const userEntry of users) {
+    const username = String(userEntry.iusuario ?? "").trim().toUpperCase();
+    const displayName = resolveDisplayName(username, userEntry, userDirectory);
+    if (!matchesUserFilter(username, displayName, userQuery)) continue;
+    for (const role of userRoles(userEntry.permisos)) {
+      const col = colById.get(role);
+      if (!col) continue;
+      if (roleFilterSet && !roleFilterSet.has(role)) continue;
+      if (col.users.some((u) => u.username === username)) continue;
+      const labels = userCardLabels(username, displayName);
+      col.users.push({ id: `${username}@${role}`, username, displayName, labels, userEntry });
+    }
+  }
+  for (const col of columns) {
+    col.users.sort((a, b) => a.labels.primary.localeCompare(b.labels.primary, "es"));
+  }
+  const visibleColumns = columns.filter((c) => c.users.length > 0);
+  const sorted = sortPermisosColumnsByMembers(visibleColumns);
+  const noUsersVisible = filterActive && sorted.every((c) => !c.users.length);
+  return { columns: sorted, filterActive, noUsersVisible };
+}
+function columnAtPoint(columnIds, listRefs, clientX, clientY) {
+  for (const colId of columnIds) {
+    const el = listRefs.current[colId];
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
+  }
+  return null;
+}
+function buildRolePermisosIndex(roles) {
+  const out = {};
+  for (const r of roles ?? []) {
+    const key = roleNameFromEntry(r);
+    if (key) out[key] = r.permisos ?? {};
+  }
+  return out;
+}
+function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
+  const keys = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!keys.length) return "999";
+  const jerarquias = keys.map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
+  jerarquias.sort(compareHierarchy);
+  return jerarquias[0];
+}
+function canActorManageColumn(actorJerarquia, targetColumn) {
+  if (!targetColumn) return false;
+  return canManageRole(actorJerarquia, targetColumn.jerarquia ?? "999");
+}
+function pointInRef(ref, clientX, clientY) {
+  const el = ref?.current;
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+export {
+  VISITANTE,
+  actorJerarquiaFromRoles,
+  buildPermisosBoard,
+  buildRolePermisosIndex,
+  canActorManageColumn,
+  columnAtPoint,
+  matchesUserFilter,
+  pointInRef,
+  roleNameFromEntry,
+  roleTitleFromEntry,
+  sortPermisosColumnsByMembers,
+  themeForRole,
+  userCardLabels
+};

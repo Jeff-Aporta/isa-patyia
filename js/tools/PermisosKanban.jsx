@@ -2,9 +2,9 @@ import { getMaterialUI, getReact, getReactDOM, UI } from "../core/platform.ts";
 
 import { ButtonIconify } from "../ui/shared.jsx";
 
-import { columnAtPoint, pointInRef, userCardLabels } from "./permisosKanbanShared.js";
+import { columnAtPoint, pointInRef, userCardLabels, canActorManageColumn } from "./permisosKanbanShared.js";
 
-import { RoleConfigFullscreenDialog, RoleDragDialog, RoleRemoveDialog, RoleAddDialog } from "./permisosRoleConfig.jsx";
+import { RoleDragDialog, RoleRemoveDialog, RoleAddDialog } from "./permisosRoleConfig.jsx";
 
 
 
@@ -173,7 +173,7 @@ function DragGhost({ card, column, x, y, width }) {
 
 
 
-export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDescriptions, busy, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd }) {
+export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast }) {
 
   const [dragOverCol, setDragOverCol] = useState(null);
 
@@ -181,7 +181,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
   const [dragGhost, setDragGhost] = useState(null);
 
-  const [configCol, setConfigCol] = useState(null);
+  const [configCol] = useState(null);
 
   const [dragPending, setDragPending] = useState(null);
 
@@ -445,6 +445,18 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     if (targetColData?.users?.some((u) => u.username === username)) return;
 
+    // Validar jerarquía cliente-side: bloquea si el actor no puede gestionar la columna destino.
+    if (actorJerarquia != null && !canActorManageColumn(actorJerarquia, targetColData)) {
+      onJerarquiaToast?.({
+        type: "info",
+        message: `Tu rol actual (jerarquía ${actorJerarquia}) no puede asignar a ${targetColData?.title ?? toRole} (jerarquía ${targetColData?.jerarquia ?? "?"})`,
+        actorJerarquia,
+        targetJerarquia: targetColData?.jerarquia,
+        targetRole: toRole,
+      });
+      return;
+    }
+
     setDragPending({ username: userKey(username), fromRole, toRole });
 
   }
@@ -686,7 +698,12 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
                   <Box sx={{ minWidth: 0 }}>
 
-                    <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.title}>{col.title}</Box>
+                    <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ minWidth: 0 }}>
+                      <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.title}>{col.title}</Box>
+                      {col.jerarquiaLabel ? (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", flexShrink: 0 }} title={`Jerarquía ${col.jerarquia}`}>{col.jerarquiaLabel}</Typography>
+                      ) : null}
+                    </Stack>
 
                     {col.descripcion ? <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.3, mt: 0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={col.descripcion}>{col.descripcion}</Typography> : null}
 
@@ -738,11 +755,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
                   {canManage ? (
 
-                    <Tooltip title="Configurar">
-
-                      <IconButton size="small" onClick={() => setConfigCol(col)} aria-label="Configurar rol"><Icon icon="mdi:cog-outline" size={18} /></IconButton>
-
-                    </Tooltip>
+                    <Box component="span" className="paty-todos-column__count" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1, height: 22, minWidth: 22, px: 1, boxSizing: "border-box" }} title={`${col.users.length} usuario${col.users.length === 1 ? "" : "s"}`}>{col.users.length}</Box>
 
                   ) : null}
 
@@ -796,8 +809,6 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
       {typeof document !== "undefined" ? createPortal((
         <>
-          <RoleConfigFullscreenDialog open={!!configCol} column={configCol} canManage={canManage} canEditRoleDescriptions={canEditRoleDescriptions}
-            busy={busy} onClose={() => setConfigCol(null)} onSave={(p) => { onRoleSave?.(p); setConfigCol(null); }} />
           <RoleDragDialog open={!!dragPending} pending={dragPending} busy={transferBusy}
             onClose={() => { if (!transferBusy) setDragPending(null); }} onConfirm={handleDragConfirm} />
           <RoleRemoveDialog open={!!removePending} pending={removePending} busy={removeBusy}

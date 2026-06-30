@@ -1,4 +1,5 @@
 import { roleDescripcion, roleNamedisplay, userRoles } from "./permisosForm.js";
+import { getRoleJerarquia, compareHierarchy, canManageRole, formatJerarquiaLabel } from "./roleHierarchy.js";
 
 export const VISITANTE = "visitante";
 
@@ -76,10 +77,13 @@ export function buildPermisosBoard(data, filters = {}) {
   const columns = roles.map((entry, index) => {
     const roleName = roleNameFromEntry(entry);
     const theme = themeForRole(roleName, index, entry.permisos);
+    const jerarquia = getRoleJerarquia(roleName, entry.permisos);
     return {
       id: roleName,
       roleName,
       title: roleTitleFromEntry(entry),
+      jerarquia,
+      jerarquiaLabel: formatJerarquiaLabel(jerarquia),
       descripcion: roleDescripcion(entry.permisos),
       entry,
       accent: theme.accent,
@@ -88,7 +92,10 @@ export function buildPermisosBoard(data, filters = {}) {
       users: [],
       roleFilteredOut: !!(roleFilterSet && !roleFilterSet.has(roleName)),
     };
-  }).filter((c) => c.id && c.id !== VISITANTE);
+  }).filter((c) => {
+    if (!c.id || c.id === VISITANTE) return false;
+    return true;
+  });
 
   const colById = new Map(columns.map((c) => [c.id, c]));
   for (const userEntry of users) {
@@ -109,7 +116,9 @@ export function buildPermisosBoard(data, filters = {}) {
     col.users.sort((a, b) => a.labels.primary.localeCompare(b.labels.primary, "es"));
   }
 
-  const sorted = sortPermisosColumnsByMembers(columns);
+  // Ocultar stacks sin miembros — el kanban solo muestra roles con usuarios asignados.
+  const visibleColumns = columns.filter((c) => c.users.length > 0);
+  const sorted = sortPermisosColumnsByMembers(visibleColumns);
   const noUsersVisible = filterActive && sorted.every((c) => !c.users.length);
 
   return { columns: sorted, filterActive, noUsersVisible };
@@ -123,6 +132,31 @@ export function columnAtPoint(columnIds, listRefs, clientX, clientY) {
     if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
   }
   return null;
+}
+
+/** Devuelve un mapa roleName → perms del rol para uso del cliente. */
+export function buildRolePermisosIndex(roles) {
+  const out = {};
+  for (const r of roles ?? []) {
+    const key = roleNameFromEntry(r);
+    if (key) out[key] = r.permisos ?? {};
+  }
+  return out;
+}
+
+/** Resuelve la jerarquía efectiva del actor desde sus roles. */
+export function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
+  const keys = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!keys.length) return "999";
+  const jerarquias = keys.map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
+  jerarquias.sort(compareHierarchy);
+  return jerarquias[0];
+}
+
+/** ¿El actor (con su jerarquía efectiva) puede mover usuarios al rol `targetRole`? */
+export function canActorManageColumn(actorJerarquia, targetColumn) {
+  if (!targetColumn) return false;
+  return canManageRole(actorJerarquia, targetColumn.jerarquia ?? "999");
 }
 
 export function pointInRef(ref, clientX, clientY) {

@@ -1,6 +1,6 @@
 /** Tableros SCRUM — gateway main-orchestrator → scrum worker. */
 import { Session, Config } from "../core/platform.ts";
-import { ORCH_ONLINE } from "../core/patyia.ts";
+import { ORCH_ONLINE, ORCH_LOCAL, SCRUM_LOCAL, isDevHost, isLocalMode } from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const scrumHttp = window.ISAFront.createCapFetch({
@@ -13,11 +13,11 @@ const scrumHttp = window.ISAFront.createCapFetch({
         const n = p.startsWith("/") ? p : `/${p}`;
         return n.startsWith("/scrum") || n.startsWith("/api/scrum");
       },
-      base: "http://localhost:8788",
+      base: SCRUM_LOCAL,
     },
   ],
   orchOnlineInLocal: false,
-  isLocal: () => false,
+  isLocal: isLocalMode,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
@@ -116,21 +116,31 @@ export type AppUserOption = {
   displayName: string | null;
 };
 
+/** Búsqueda opcional de usuarios — no invalida sesión en 401. Dev local: scrum directo u orquestador. */
 export async function searchScrumAppUsers(query = "", limit = 12) {
   if (!Session.isLoggedIn()) return [];
-  const base = ORCH_ONLINE.replace(/\/$/, "");
   const params = new URLSearchParams({ app: SCRUM_APP_ID, limit: String(limit) });
   if (query.trim()) params.set("q", query.trim());
-  try {
-    const headers: Record<string, string> = { Accept: "application/json" };
-    Object.assign(headers, Session.authHeader(), Session.appHeader());
-    const res = await fetch(`${base}/api/scrum/users/search?${params}`, { method: "GET", headers });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) return [];
-    return (data.users ?? []) as AppUserOption[];
-  } catch {
-    return [];
+  const headers: Record<string, string> = { Accept: "application/json" };
+  Object.assign(headers, Session.authHeader(), Session.appHeader());
+  const apiPath = `/api/scrum/users/search?${params}`;
+  const bases: string[] = [];
+  if (isDevHost() && isLocalMode()) {
+    bases.push(SCRUM_LOCAL.replace(/\/$/, ""), ORCH_LOCAL.replace(/\/$/, ""));
+  } else {
+    bases.push(ORCH_ONLINE.replace(/\/$/, ""));
   }
+
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}${apiPath}`, { method: "GET", headers });
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => ({}));
+      if (data.ok === false) continue;
+      return (data.users ?? []) as AppUserOption[];
+    } catch { /* siguiente base */ }
+  }
+  return [];
 }
 
 export async function fetchTodoBoards(boardType = "scrum") {

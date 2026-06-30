@@ -96,8 +96,61 @@ export type PermissionsData = {
   usersTruncated?: boolean;
   canManage?: boolean;
   canEditRoleDescriptions?: boolean;
+  actorRoles?: string[];
 };
+
+export type HierarchyNode = {
+  iusuario: string;
+  jerarquia: string;
+  namedisplay: string | null;
+  descripcion: string | null;
+};
+
+export type HierarchyListResponse = {
+  roles: HierarchyNode[];
+  count: number;
+};
+
 export type PermisosFetchOpts = { search?: string; role?: string };
+
+/** GET /api/system/permisos/hierarchy — árbol completo de roles con jerarquía y parents. */
+export async function fetchHierarchy(): Promise<HierarchyListResponse> {
+  return jsonFetch<HierarchyListResponse>(`/system/permisos/hierarchy`, {
+    method: "GET",
+    headers: systemApiHeaders(),
+  });
+}
+
+/** POST /api/system/permisos/hierarchy/roles — crea un rol. */
+export async function createHierarchyRole(input: {
+  name: string;
+  jerarquia: string;
+  descripcion?: string;
+  namedisplay?: string;
+}): Promise<HierarchyNode> {
+  return jsonFetch<HierarchyNode>(`/system/permisos/hierarchy/roles`, {
+    method: "POST",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/** PUT /api/system/permisos/hierarchy/roles/{name} — actualiza jerarquía. */
+export async function updateHierarchyRole(name: string, input: { jerarquia: string }): Promise<HierarchyNode> {
+  return jsonFetch<HierarchyNode>(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+/** DELETE /api/system/permisos/hierarchy/roles/{name} — elimina rol. */
+export async function deleteHierarchyRole(name: string): Promise<void> {
+  await jsonFetch(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: systemApiHeaders(),
+  });
+}
 
 export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<PermissionsData> {
   const qs = new URLSearchParams();

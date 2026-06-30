@@ -15,6 +15,11 @@ export const PATYIA_BRIDGE_URL = "https://rag-lab-bsczhqfgchgegabr.canadacentral
 /** ISS AyudasCPIA local (Azure Functions routePrefix api). */
 export const PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 
+/** Workers locales — canónico: Personal/apps/src/protocolos/dev-ports.json (npm run sync:ports). */
+export const ORCH_LOCAL = "http://localhost:8790";
+export const SCRUM_LOCAL = "http://localhost:8798";
+export const TREE_MSGS_LOCAL = "http://localhost:8799";
+
 /** Puente MSSQL PatyIA local (instrucciones, logs staging) — dev-local-server.mjs. */
 export const PATYIA_BRIDGE_DEV = "http://127.0.0.1:8800";
 

@@ -1,6 +1,6 @@
 /** Árbol de mensajes — gateway main-orchestrator → tree-msgs worker. */
 import { Session, Config } from "../core/platform.ts";
-import { ORCH_ONLINE } from "../core/patyia.ts";
+import { ORCH_ONLINE, TREE_MSGS_LOCAL, isLocalMode } from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const treeHttp = window.ISAFront.createCapFetch({
@@ -13,11 +13,11 @@ const treeHttp = window.ISAFront.createCapFetch({
         const n = p.startsWith("/") ? p : `/${p}`;
         return n.startsWith("/tree-msgs") || n.startsWith("/api/tree-msgs");
       },
-      base: "http://localhost:8789",
+      base: TREE_MSGS_LOCAL,
     },
   ],
   orchOnlineInLocal: false,
-  isLocal: () => false,
+  isLocal: isLocalMode,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
