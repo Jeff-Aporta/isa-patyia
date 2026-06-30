@@ -5,9 +5,9 @@ const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
 
 /** URLs canónicas front-shared — no usar rutas locales relativas al <base>. */
-const BOOT_LOADER_URL = `${CDN}/boot-loader.mjs?v=${PIN}`;
+const BOOT_LOADER_URL = `${CDN}boot-loader.mjs?v=${PIN}`;
 const JSDELIVR_BOOT_LOADER = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/boot-loader.mjs?v=${PIN}`;
-const ISA_FRONT_BUNDLE_URL = `${CDN}/_dist/isa/js/index.min.js?v=${PIN}`;
+const ISA_FRONT_BUNDLE_URL = `${CDN}_dist/isa/js/index.min.js?v=${PIN}`;
 
 async function importBootLoader() {
   try {
