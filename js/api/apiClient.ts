@@ -5,7 +5,10 @@ import {
   isLocalMode,
   isPatyiaApiPath,
   patyiaBridgeBase,
+  patyiaCapFetchBase,
   PATYIA_BRIDGE_URL,
+  PATYIA_BRIDGE_LOCAL,
+  PATYIA_BRIDGE_DEV,
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
 import { convLogFromDetalle, getConversacionLogs } from "./patyiaChatApi.ts";
@@ -15,9 +18,9 @@ import * as SessionApi from "./sessionApi.ts";
 const bridgeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
-  getApiBase: patyiaBridgeBase,
+  getApiBase: patyiaCapFetchBase,
   localDirect: [
-    { test: isPatyiaApiPath, base: "http://127.0.0.1:4500" },
+    { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_BRIDGE_DEV.replace(/\/$/, "") },
   ],
   orchOnline: PATYIA_BRIDGE_URL,
   orchOnlineInLocal: true,
@@ -30,7 +33,7 @@ const orchHttp = window.ISAFront.createCapFetch({
   Config,
   getApiBase: () => ORCH_ONLINE.replace(/\/$/, ""),
   orchOnlineInLocal: false,
-  isLocal: isLocalMode,
+  isLocal: () => false,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
@@ -39,8 +42,44 @@ export const capFetch = bridgeHttp.capFetch;
 export const apiUrl = bridgeHttp.apiUrl;
 export const rowVal = bridgeHttp.rowVal;
 
+/** Rutas puente MSSQL (/patyia/*). ISS local usa rutas planas (/conversaciones). */
+function patyiaBridgePath(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (isLocalMode()) return p.startsWith("/patyia") ? p : p;
+  return p.startsWith("/patyia") ? p : `/patyia${p}`;
+}
+
+function bridgePatyiaPath(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/patyia") ? p : `/patyia${p}`;
+}
+
 export async function fetchInstruccionesPaty() {
-  const data = await capFetch("/patyia/instrucciones", { method: "GET" });
+  if (isLocalMode()) {
+    const url = `${PATYIA_BRIDGE_DEV.replace(/\/$/, "")}/api/patyia/instrucciones`;
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (Session.isLoggedIn()) Object.assign(headers, Session.authHeader(), Session.appHeader());
+    let res: Response;
+    try {
+      res = await fetch(url, { method: "GET", headers });
+    } catch {
+      throw new Error(`No se pudo conectar con el puente PatyIA local (${PATYIA_BRIDGE_DEV}). Ejecuta: cd apps/isa-patyia/backend && npm run dev`);
+    }
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok) {
+      let msg = res.statusText;
+      if (ct.includes("json")) {
+        try {
+          const j = await res.json() as Record<string, unknown>;
+          msg = String(j.error || j.message || msg);
+        } catch { /* ignore */ }
+      }
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    const data = await res.json() as { rows?: Record<string, unknown>[] };
+    return (data.rows ?? []) as Record<string, unknown>[];
+  }
+  const data = await capFetch(bridgePatyiaPath("/instrucciones"), { method: "GET" });
   return (data.rows ?? []) as Record<string, unknown>[];
 }
 
@@ -119,8 +158,8 @@ export async function fetchConvLogById(id: string | number) {
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
 
   const paths = [
-    `/patyia/conversacion/${convId}/log`,
-    `/patyia/conversacion/logs/${convId}`,
+    patyiaBridgePath(`/conversacion/${convId}/log`),
+    patyiaBridgePath(`/conversacion/logs/${convId}`),
   ];
   let routeMiss: Error | null = null;
 
@@ -202,6 +241,7 @@ export async function fetchTercerosAudit(input: {
   page?: number;
   limit?: number;
   q?: string;
+  jwtToken?: string;
   jwtTercero?: string;
   jwtContacto?: string;
   jwtNombre?: string;
@@ -215,7 +255,13 @@ export async function fetchTercerosAudit(input: {
   if (input.jwtContacto?.trim()) params.set("jwtContacto", input.jwtContacto.trim());
   if (input.jwtNombre?.trim()) params.set("jwtNombre", input.jwtNombre.trim());
   if (input.appUser?.trim()) params.set("appUser", input.appUser.trim());
-  const raw = await capFetch(`/patyia/auditoria/terceros?${params.toString()}`, { method: "GET" });
+  let raw: unknown;
+  try {
+    raw = await capFetch(`${patyiaBridgePath("/auditoria/terceros")}?${params.toString()}`, { method: "GET" });
+  } catch (err) {
+    if (isLocalMode() && input.jwtToken) return fetchTercerosAuditFromLocalConversaciones(input as Parameters<typeof fetchTercerosAuditFromLocalConversaciones>[0]);
+    throw err;
+  }
   const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
     ? raw.body as TercerosAuditResponse
     : raw as TercerosAuditResponse;
@@ -230,6 +276,62 @@ export async function fetchTercerosAudit(input: {
   };
 }
 
+async function fetchTercerosAuditFromLocalConversaciones(input: {
+  page?: number;
+  limit?: number;
+  q?: string;
+  jwtToken: string;
+  jwtTercero?: string;
+  jwtContacto?: string;
+}): Promise<TercerosAuditResponse> {
+  const limit = input.limit ?? 20;
+  const groups = new Map<string, TerceroAuditRow>();
+  for (let page = 1; page <= 5; page += 1) {
+    const params = conversacionesListQueryParams({ page, limit: 100, sort: "-iconversacion" });
+    const res = await fetch(`${PATYIA_BRIDGE_LOCAL.replace(/\/$/, "")}/conversaciones?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${input.jwtToken}` },
+    });
+    if (!res.ok) throw new Error(`No se pudo cargar auditoría local (${res.status})`);
+    const raw = await res.json();
+    const body = raw?.respuesta ?? raw?.body ?? raw;
+    const conversaciones = Array.isArray(body?.conversaciones) ? body.conversaciones as ConversacionBridgeRow[] : [];
+    for (const conv of conversaciones) {
+      const itercero = String(conv.itercero ?? "").trim();
+      const icontacto = String(conv.icontacto ?? "").trim();
+      if (!itercero || !icontacto) continue;
+      const key = `${itercero}|${icontacto}`;
+      const prev = groups.get(key);
+      const fh = String(conv.fhultact ?? conv.fhcre ?? "");
+      const nombre = String(conv.nick_propietario ?? "").trim() || null;
+      if (!prev) {
+        groups.set(key, {
+          itercero,
+          icontacto,
+          nombre,
+          total_conversaciones: 1,
+          total_mensajes: Number(conv.qmensajes ?? 0) || 0,
+          ultima_actividad: fh || null,
+          es_jwt: itercero === String(input.jwtTercero ?? "") && icontacto === String(input.jwtContacto ?? ""),
+          es_sesion: false,
+        });
+      } else {
+        prev.total_conversaciones += 1;
+        prev.total_mensajes += Number(conv.qmensajes ?? 0) || 0;
+        if (fh && (!prev.ultima_actividad || new Date(fh) > new Date(prev.ultima_actividad))) prev.ultima_actividad = fh;
+        if (!prev.nombre && nombre) prev.nombre = nombre;
+      }
+    }
+    if (conversaciones.length < 100) break;
+  }
+  const q = String(input.q ?? "").trim().toLowerCase();
+  const rows = [...groups.values()]
+    .filter((r) => !q || [r.nombre, r.itercero, r.icontacto].some((v) => String(v ?? "").toLowerCase().includes(q)))
+    .sort((a, b) => String(b.ultima_actividad ?? "").localeCompare(String(a.ultima_actividad ?? "")));
+  const page = Math.max(1, Number(input.page ?? 1) || 1);
+  const offset = (page - 1) * limit;
+  return { ok: true, rows: rows.slice(offset, offset + limit), total: rows.length, page, limit, pages: Math.max(1, Math.ceil(rows.length / limit)) };
+}
+
 export type ConversacionBridgeRow = {
   iconversacion: number;
   itercero?: string;
@@ -239,6 +341,7 @@ export type ConversacionBridgeRow = {
   fhultact?: string | null;
   qmensajes?: number;
   itdestado?: number;
+  nick_propietario?: string | null;
 };
 
 export type ConversacionesBridgeResponse = {
@@ -252,8 +355,8 @@ export type ConversacionesBridgeResponse = {
 };
 
 export async function fetchConversacionesBridge(input: {
-  itercero: string;
-  icontacto: string;
+  itercero?: string;
+  icontacto?: string;
   page?: number;
   limit?: number;
   search?: string;
@@ -267,7 +370,7 @@ export async function fetchConversacionesBridge(input: {
     itercero: input.itercero,
     icontacto: input.icontacto,
   });
-  const raw = await capFetch(`/patyia/conversaciones?${params.toString()}`, { method: "GET" });
+  const raw = await capFetch(`${patyiaBridgePath("/conversaciones")}?${params.toString()}`, { method: "GET" });
   const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
     ? raw.body as ConversacionesBridgeResponse
     : raw as ConversacionesBridgeResponse;

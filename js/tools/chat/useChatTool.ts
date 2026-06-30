@@ -32,6 +32,8 @@ import {
   auditScopeIsOwnJwt,
   convBelongsToJwtResolved,
   convOwnerDisplayLabel,
+  resolveOwnerDisplayName,
+  resolveOwnerNickname,
   activeConvOwnerScope,
   resolveConvListOwnerLabel,
   resolveConvListHeader,
@@ -115,13 +117,24 @@ async function fetchLogsModeDetail(
 
   try {
     const d = await loadDetail();
-    if (!d) return { d: null, log: null, openAiDirect: false };
+    if (!d) {
+      const fallback = await getConversacion(jwt, id).catch(() => null);
+      if (!fallback) return { d: null, log: null, openAiDirect: false };
+      const log = convLogFromDetalle(fallback, id) as ConvLogPayload | null;
+      const assistantsInLog = countLogAssistants(log);
+      const assistantsInApi = countOpenAiAssistants(fallback);
+      const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
+      const preferLogMeta = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+      const openAiDirect = Boolean(fallback?.mensajesOpenAI?.length) && !preferLogMeta;
+      return { d: fallback, log, openAiDirect };
+    }
     const log = convLogFromDetalle(d, id) as ConvLogPayload | null;
     const assistantsInLog = countLogAssistants(log);
     const assistantsInApi = countOpenAiAssistants(d);
     const logComplete = Boolean(log?.mensajes?.length && assistantsInLog >= assistantsInApi);
-    const useLog = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
-    return { d, log: useLog ? log : null, openAiDirect: !useLog };
+    const preferLogMeta = Boolean(log?.mensajes?.length && (logHasOperativas(log) || logComplete));
+    const openAiDirect = Boolean(d?.mensajesOpenAI?.length) && !preferLogMeta;
+    return { d, log, openAiDirect };
   } catch (e) {
     if (!isNotFoundError(e)) throw e;
   }
@@ -179,6 +192,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const sessionUser = Session.username();
   const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
+  const canAuditChat = Session.can("patyia.chat.audit");
   const canInteract = canInteractPatyChat(sessionUser, jwt);
   const listScope = auditScope ?? activeConvOwnerScope(null, jwt?.claims) ?? sessionBrowseScope;
   const selectedConvRow = selectedId
@@ -313,8 +327,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
         const res = await listConversaciones(jwt, { page, limit, search, sort: listSort, ...(scope || {}) });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
-      } else if (scope) {
-        const res = await fetchConversacionesBridge({ ...scope, page, limit, search, sort: listSort });
+      } else if (scope || canAuditChat) {
+        const res = await fetchConversacionesBridge({ ...(scope || {}), page, limit, search, sort: listSort });
         setRows(filterRows(res.conversaciones));
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else {
@@ -326,7 +340,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } finally {
       setLoadingList(false);
     }
-  }, [loggedIn, jwt?.token, listScope?.itercero, listScope?.icontacto, convListPage, convListPageSize, convListSearch, sessionScopeLoading]);
+  }, [loggedIn, jwt?.token, listScope?.itercero, listScope?.icontacto, canAuditChat, convListPage, convListPageSize, convListSearch, sessionScopeLoading]);
 
   const handleConvListSearchChange = useCallback((text: string) => {
     setConvListSearch((prev) => {
@@ -777,14 +791,23 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       setSending(false);
       setStreamText("");
       if (newId) {
-        if (tituloStream) {
-          setRows((prev) => prev.map((r) => (
-            convIdsEqual(r.iconversacion, newId) ? { ...r, titulo: tituloStream } : r
-          )));
-          setDetail((d) => (
-            d && convIdsEqual(d.iconversacion, newId) ? { ...d, titulo: tituloStream } : d
-          ));
-        }
+        const rowPatch = {
+          iconversacion: newId,
+          ...(tituloStream ? { titulo: tituloStream } : {}),
+          ...(result.qmensajes != null ? { qmensajes: result.qmensajes } : {}),
+          ...(result.fhcre ? { fhcre: result.fhcre } : {}),
+          ...(result.fhultact ? { fhultact: result.fhultact } : {}),
+          ...(result.itercero ? { itercero: result.itercero } : {}),
+          ...(result.icontacto ? { icontacto: result.icontacto } : {}),
+        };
+        setRows((prev) => {
+          const exists = prev.some((r) => convIdsEqual(r.iconversacion, newId));
+          if (exists) return prev.map((r) => (convIdsEqual(r.iconversacion, newId) ? { ...r, ...rowPatch } : r));
+          return [rowPatch, ...prev];
+        });
+        setDetail((d) => (
+          d && convIdsEqual(d.iconversacion, newId) ? { ...d, ...rowPatch } : d
+        ));
         if (newId !== convIdBefore) {
           pendingListConvRef.current = newId;
           skipThreadReloadRef.current = newId;
@@ -974,9 +997,13 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
   }, [canSend, jwt, selectedId]);
 
-  const chatUserName = useMemo(
-    () => convOwnerDisplayLabel(displayScope, jwt, sessionUser),
-    [displayScope, jwt, sessionUser],
+  const chatUserDisplayName = useMemo(
+    () => resolveOwnerDisplayName(jwt, displayScope),
+    [displayScope, jwt],
+  );
+  const chatUserNick = useMemo(
+    () => resolveOwnerNickname(jwt, sessionUser),
+    [jwt, sessionUser],
   );
   const displayMensajes = useMemo(
     () => appendStreamMsg(logMensajes, streamText, sending),
@@ -1065,7 +1092,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     convListSearch,
     messageSource,
     chatMode,
-    chatUserName,
+    chatUserDisplayName,
+    chatUserNick,
     convListOwnerLabel,
     convListHeader,
     showJwtBadge,

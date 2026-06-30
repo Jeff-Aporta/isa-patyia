@@ -1,0 +1,1 @@
+const o="isa-patyia:config-tab",e="sistema",a=new Set(["sistema","permisos"]);function n(){try{const t=localStorage.getItem(o);return t&&a.has(t)?t:e}catch{return e}}function s(t){try{a.has(t)&&localStorage.setItem(o,t)}catch{}}export{n as readConfigToolTab,s as writeConfigToolTab};

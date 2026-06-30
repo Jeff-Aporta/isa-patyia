@@ -7,6 +7,7 @@ import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetric
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, resolveUsageDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageSummary, formatLatencySeconds, usageHasData } from "../core/convLog.ts";
+import { archivosCitadosFromMeta, formatArchivosCitadosLabel } from "../core/fileSearchTrace.js";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
 
@@ -72,20 +73,40 @@ function roleKey(msg) {
   return "assistant";
 }
 
-function roleTitle(msg, chatUserName) {
+function msgStoredUserName(msg) {
+  return msg.nombreUsuario
+    || msg.meta?.nombre_usuario
+    || msg.meta?.prompt_variables?.nombre_usuario
+    || "";
+}
+
+function looksLikeUsername(name, nick) {
+  const n = String(name ?? "").trim();
+  const k = String(nick ?? "").trim();
+  return n && k && n.toUpperCase() === k.toUpperCase();
+}
+
+function roleTitle(msg, chatUserDisplayName, chatUserNick) {
   if (msg.esOperativa) return msg.rol || "Operativa";
   if (msg.esUsuario) {
-    const fromMsg = msg.nombreUsuario
-      || msg.meta?.nombre_usuario
-      || msg.meta?.prompt_variables?.nombre_usuario;
-    if (fromMsg) return fromMsg;
-    if (chatUserName) return chatUserName;
+    const fromMsg = String(msgStoredUserName(msg)).trim();
+    if (fromMsg && !looksLikeUsername(fromMsg, chatUserNick) && /\s/.test(fromMsg)) return fromMsg;
+    if (chatUserDisplayName) return chatUserDisplayName;
+    if (fromMsg && !looksLikeUsername(fromMsg, chatUserNick)) return fromMsg;
     return "Usuario";
   }
   return "PatyIA";
 }
 
-function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, fechaIso, streaming = false, footerExtra = null, compact = false }) {
+function roleUserCaption(msg, chatUserNick) {
+  if (!msg.esUsuario) return "";
+  const nick = String(chatUserNick ?? "").trim();
+  if (nick) return nick;
+  const fromMsg = String(msgStoredUserName(msg)).trim();
+  return fromMsg && !/\s/.test(fromMsg) ? fromMsg : "";
+}
+
+function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, fechaIso, streaming = false, footerExtra = null, compact = false }) {
   const { Paper, Stack, Typography, Box, IconButton, Tooltip } = getMaterialUI();
   const { Icon } = UI;
   const color = accent || "#1e90ff";
@@ -266,6 +287,24 @@ function SectionCard({ icon, title, accent, children, id, onMeta, metaChips, ali
               >
                 {title}
               </Typography>
+              {titleCaption ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: "block",
+                    mt: 0.15,
+                    lineHeight: 1.2,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {titleCaption}
+                </Typography>
+              ) : null}
             </Box>
           </Stack>
           {onMeta && (
@@ -433,6 +472,7 @@ const META_CHIP_TONE_CLASS = {
   metric: "conv-msg-meta-chip--metric",
   error: "conv-msg-meta-chip--error",
   vision: "conv-msg-meta-chip--vision",
+  files: "conv-msg-meta-chip--context",
   neutral: "",
 };
 
@@ -507,6 +547,17 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
   }
   if (meta.stream_ok === false) {
     chips.push({ key: "stream", label: "err", tone: "error", title: meta.stream_error || "Stream falló" });
+  }
+  if (!isUser) {
+    const archivos = archivosCitadosFromMeta(meta);
+    if (archivos.length) {
+      chips.push({
+        key: "files",
+        label: formatArchivosCitadosLabel(archivos, 2),
+        tone: "files",
+        title: `Archivos citados (File Search):\n${archivos.join("\n")}`,
+      });
+    }
   }
 
   if (!chips.length) return null;
@@ -1019,10 +1070,11 @@ function resolveMsgImensaje(msg) {
   return imensaje > 0 ? imensaje : undefined;
 }
 
-const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserName, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
+const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
   const { Alert, Box } = getMaterialUI();
   const meta = roleMetaFor(msg, compactMeta);
-  const title = roleTitle(msg, chatUserName);
+  const title = roleTitle(msg, chatUserDisplayName, chatUserNick);
+  const titleCaption = roleUserCaption(msg, chatUserNick);
   const fecha = msg.fecha ? String(msg.fecha) : "";
   const fechaIso = msg.fechaIso ? String(msg.fechaIso) : "";
   const isUser = msg.esUsuario;
@@ -1107,6 +1159,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             id={`conv-msg-${msg.idMsg}`}
             icon={meta.icon}
             title={title}
+            titleCaption={titleCaption || undefined}
             fecha={fecha || undefined}
             fechaIso={fechaIso || undefined}
             accent={meta.accent}
@@ -1172,14 +1225,15 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   prev.msg === next.msg
   && prev.streamingMsgId === next.streamingMsgId
   && prev.compactMeta === next.compactMeta
-  && prev.chatUserName === next.chatUserName
+  && prev.chatUserDisplayName === next.chatUserDisplayName
+  && prev.chatUserNick === next.chatUserNick
   && prev.showUsageStats === next.showUsageStats
   && prev.ratingMsgId === next.ratingMsgId
   && prev.canRate === next.canRate
   && prev.operativaEnter === next.operativaEnter
 ));
 
-export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserName, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
+export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
@@ -1192,6 +1246,7 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
   const onImageClick = useMemo(() => (src) => setLightboxSrc(src), []);
 
   if (!mensajes?.length) {
+    if (emptyHint === null) return null;
     return (
       <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 6 }}>
         {emptyHint || "Recupera por ID o pega un log para ver el hilo."}
@@ -1207,7 +1262,8 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
           msg={m}
           onMeta={onMeta}
           compactMeta={compactMeta}
-          chatUserName={chatUserName}
+          chatUserDisplayName={chatUserDisplayName}
+          chatUserNick={chatUserNick}
           showUsageStats={hasUsageStats}
           onImageClick={onImageClick}
           streamingMsgId={streamingMsgId}

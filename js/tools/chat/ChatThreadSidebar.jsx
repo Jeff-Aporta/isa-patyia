@@ -4,7 +4,7 @@ import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTION
 import { formatTs } from "./mensajesModel.ts";
 import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
 import { ConvSearchAutocomplete } from "./ConvSearchAutocomplete.jsx";
-import { resolveOwnerNickname } from "./auditScope.ts";
+import { resolveOwnerDisplayName } from "./auditScope.ts";
 
 const {
   Box, Typography, Button, IconButton, List, ListItemButton, ListItemText,
@@ -53,7 +53,6 @@ export function ChatSidebarHeaderActions({
   mode = CHAT_MODE_PATYIA,
   onMessageSourceChange,
   onChatModeChange,
-  onOpenJwt,
 }) {
   return (
     <Stack
@@ -73,12 +72,26 @@ export function ChatSidebarHeaderActions({
       ) : null}
       {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
       {onChatModeChange ? <ChatModeSwitch mode={mode} onChange={onChatModeChange} /> : null}
-      <Tooltip title="Cambiar token JWT">
-        <IconButton size="small" onClick={onOpenJwt} aria-label="JWT">
-          <Icon icon="mdi:key-variant" size={18} />
-        </IconButton>
-      </Tooltip>
     </Stack>
+  );
+}
+
+export function ChatNewConversationButton({ canSend, onNewChat, onClose, compact = false }) {
+  const handleClick = () => { onNewChat?.(); onClose?.(); };
+  return (
+    <Tooltip title="Nueva conversación">
+      <span>
+        {compact ? (
+          <IconButton size="small" color="primary" disabled={!canSend} onClick={handleClick} aria-label="Nueva conversación">
+            <Icon icon="mdi:plus" size={20} />
+          </IconButton>
+        ) : (
+          <Button variant="contained" size="small" disabled={!canSend} startIcon={<Icon icon="mdi:plus" size={16} />} onClick={handleClick}>
+            Nueva
+          </Button>
+        )}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -112,7 +125,6 @@ function ChatSidebarBody({
   onClose,
 }) {
   const handleOpenConv = (id) => { onOpenConv(id); onClose?.(); };
-  const handleNewChat = () => { onNewChat(); onClose?.(); };
 
   return (
     <>
@@ -121,24 +133,11 @@ function ChatSidebarBody({
           claims={jwt?.claims ?? null}
           displayScope={displayScope}
           sessionUser={sessionUser}
-          ownerNick={resolveOwnerNickname(jwt, sessionUser)}
+          ownerDisplayName={resolveOwnerDisplayName(jwt, displayScope)}
           canSend={canSend}
           jwtLoading={jwtLoading}
           onOpenAudit={onOpenAudit}
         />
-      </Box>
-
-      <Box className="conv-log-sidebar-block" sx={{ pt: 1, flexShrink: 0 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          size="small"
-          disabled={!canSend}
-          startIcon={<Icon icon="mdi:plus" size={16} />}
-          onClick={handleNewChat}
-        >
-          Nueva conversación
-        </Button>
       </Box>
 
       <Divider sx={{ my: 1 }} />
@@ -172,11 +171,6 @@ function ChatSidebarBody({
                     "& .MuiChip-label": { px: 0.6, py: 0 },
                   }}
                 />
-              ) : null}
-              {viewingAuditOther ? (
-                <Typography component="span" variant="caption" sx={{ color: "warning.main", fontWeight: 600 }}>
-                  · auditoría
-                </Typography>
               ) : null}
             </Stack>
           ) : null}
@@ -452,13 +446,13 @@ export function ChatThreadSidebar({
       >
         <Icon icon="mdi:chat-outline" size={20} />
         <Box sx={{ flex: 1 }} />
+        <ChatNewConversationButton canSend={canSend} onNewChat={onNewChat} onClose={onClose} />
         <ChatSidebarHeaderActions
           onClose={onClose}
           messageSource={messageSource}
           mode={mode}
           onMessageSourceChange={onMessageSourceChange}
           onChatModeChange={onChatModeChange}
-          onOpenJwt={onOpenJwt}
         />
       </Stack>
       <ChatSidebarBody {...bodyProps} />

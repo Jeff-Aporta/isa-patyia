@@ -23,6 +23,12 @@ export function varChipHtml(name: string, _opts: { editable?: boolean } = {}): s
   );
 }
 
+/** marked (breaks:false) ignora \n simples; hard break Markdown = dos espacios + salto. */
+function mdPreserveSingleLineBreaks(src: string): string {
+  if (!src.includes("\n")) return src;
+  return src.replace(/(?<!\n)\n(?!\n)/g, "  \n");
+}
+
 /** Sustituye {{vars}} por tokens, renderiza markdown+HTML una vez y reemplaza por chips inline. */
 function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {}): string {
   const src = repairPromptVarBraces(String(body ?? ""));
@@ -36,7 +42,7 @@ function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {})
     return token;
   });
 
-  let html = mdToHtml(mdSrc);
+  let html = mdToHtml(mdPreserveSingleLineBreaks(mdSrc));
   for (const { token, name } of placeholders) {
     html = html.split(token).join(varChipHtml(name, opts));
   }
@@ -45,7 +51,21 @@ function renderBodyWithVarChips(body: string, opts: { editable?: boolean } = {})
 
 /** Vista previa: markdown + HTML + badges de variables inline. */
 export function bodyPreviewHtml(body: string): string {
-  return renderBodyWithVarChips(body, { editable: false });
+  const src = String(body ?? "");
+  if (!src) return "";
+  if (!src.includes("\n")) return renderBodyWithVarChips(src, { editable: false });
+  return bodyPreviewHtmlFromLines(src.split("\n"));
+}
+
+/** Una fila de vista previa por ítem del array content[] (o por línea de texto). */
+export function bodyPreviewHtmlFromLines(lines: unknown): string {
+  if (!Array.isArray(lines) || !lines.length) return "";
+  return lines.map((line) => {
+    const inner = renderBodyWithVarChips(String(line ?? ""), { editable: false });
+    return inner
+      ? `<div class="prompt-content-line">${inner}</div>`
+      : `<div class="prompt-content-line prompt-content-line--empty"><br aria-hidden="true" /></div>`;
+  }).join("");
 }
 
 /** HTML editable para contenteditable (markdown/HTML renderizado + chips). */

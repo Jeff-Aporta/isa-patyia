@@ -1,23 +1,37 @@
-export const PIN = "0692ebf";
+export const PIN = "release-2026-06-30";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
+
+function useLocalMonorepoCdn() {
+  if (!isDevHost) return false;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") return false;
+    if (q.get("isa_cdn") === "local") return true;
+    return localStorage.getItem("isa-patyia:local-cdn") === "1";
+  } catch {
+    return false;
+  }
+}
 
 function frontSharedCdnBase() {
   const base = document.querySelector("base")?.href || location.href;
   return new URL("../../components/front-shared/cdn/", base).href.replace(/\/?$/, "/");
 }
 
-/** En localhost: monorepo front-shared; prod: jsDelivr. */
-export const CDN = isDevHost
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+
+/** localhost: jsDelivr por defecto; ?isa_cdn=local si sirves desde Personal/apps (monorepo). */
+export const CDN = isDevHost && useLocalMonorepoCdn()
   ? frontSharedCdnBase()
-  : `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+  : JSDELIVR_CDN;
 
 export const asset = (p) => (isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`);
 
 /* @isa-lightbox-boot:start */
 /** @jeff-aporta/lightbox-zoom — pin: sync-component-refs.mjs */
-export const LIGHTBOX_ZOOM_REF = "7770b03";
+export const LIGHTBOX_ZOOM_REF = "release-2026-06-30";
 
 export function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
@@ -73,7 +87,7 @@ export async function ensureLightboxZoom(base = lightboxZoomBase()) {
 
 /* @isa-swagger-boot:start */
 /** Jeff-Aporta/swagger-viewer — pin CDN git (sync-component-refs.mjs) */
-export const SWAGGER_VIEWER_REF = "3433b24";
+export const SWAGGER_VIEWER_REF = "release-2026-06-30";
 
 export function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;

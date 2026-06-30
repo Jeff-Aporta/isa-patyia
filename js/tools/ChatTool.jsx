@@ -2,7 +2,7 @@ import { getMaterialUI, getIsaSplitView } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { useChatTool } from "./chat/useChatTool.ts";
 import { ChatLoggedOutShell } from "./chat/ChatLoggedOutShell.jsx";
-import { ChatThreadSidebar, ChatSidebarHeaderActions } from "./chat/ChatThreadSidebar.jsx";
+import { ChatThreadSidebar, ChatNewConversationButton } from "./chat/ChatThreadSidebar.jsx";
 import { ChatMainPanel } from "./chat/ChatMainPanel.jsx";
 import { JwtModal } from "./chat/JwtModal.jsx";
 import { TercerosAuditDialog } from "./chat/TercerosAuditDialog.jsx";
@@ -20,6 +20,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [refreshingThread, setRefreshingThread] = useState(false);
 
   if (!chat.loggedIn) {
     return <ChatLoggedOutShell onNeedLogin={onNeedLogin} />;
@@ -73,17 +74,27 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         detail={chat.detail}
         canSend={chat.canSend}
         loadingThread={chat.loadingThread}
+        refreshingThread={refreshingThread}
         sending={chat.sending}
         showThread={chat.showThread}
         logError={chat.logError}
         displayMensajes={chat.displayMensajes}
-        chatUserName={chat.chatUserName}
+        chatUserDisplayName={chat.chatUserDisplayName}
+        chatUserNick={chat.chatUserNick}
         ratingMsgId={chat.ratingMsgId}
         threadScrollRef={chat.threadScrollRef}
         onThreadScroll={chat.onThreadScroll}
         onOpenJwt={() => chat.setJwtOpen(true)}
         onClearAuditFilter={chat.clearAuditFilter}
-        onRefreshConv={() => chat.openConv(chat.selectedId, { freshLog: true })}
+        onRefreshConv={async () => {
+          if (!chat.selectedId || refreshingThread) return;
+          setRefreshingThread(true);
+          try {
+            await chat.openConv(chat.selectedId, { freshLog: true, silent: true, keepStream: true });
+          } finally {
+            setRefreshingThread(false);
+          }
+        }}
         draft={chat.draft}
         images={chat.images}
         audios={chat.audios}
@@ -104,6 +115,9 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onMeta={chat.onMeta}
         onRateMessage={chat.onRateMessage}
         messageSource={chat.messageSource}
+        mode={chat.chatMode}
+        onMessageSourceChange={chat.onMessageSourceChange}
+        onChatModeChange={chat.onChatModeChange}
         onOpenSidebar={isMobile ? () => setSidebarOpen(true) : undefined}
       />
   );
@@ -142,13 +156,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           panelIcon="mdi:chat-outline"
           UI={UI}
           panelHeaderEnd={(
-            <ChatSidebarHeaderActions
-              messageSource={chat.messageSource}
-              mode={chat.chatMode}
-              onMessageSourceChange={chat.onMessageSourceChange}
-              onChatModeChange={chat.onChatModeChange}
-              onOpenJwt={() => chat.setJwtOpen(true)}
-            />
+            <ChatNewConversationButton canSend={chat.canSend} onNewChat={chat.onNewChat} />
           )}
           collapsedRail={({ expand }) => (
             <Box className="conv-log-collapsed-rail paty-chat-collapsed-rail">

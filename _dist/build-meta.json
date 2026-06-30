@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-26T19:30:26.758Z",
-  "files": 104,
-  "bytesIn": 928105,
-  "bytesOut": 553331,
-  "ratio": 0.596,
-  "hash": "af7079176d5c",
+  "builtAt": "2026-06-30T13:19:03.838Z",
+  "files": 107,
+  "bytesIn": 1004714,
+  "bytesOut": 600804,
+  "ratio": 0.598,
+  "hash": "1e304a773e24",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 88608,
-      "bytesOut": 63526
+      "bytesIn": 89628,
+      "bytesOut": 64184
     },
     {
       "src": "css/boot-loading.css",
@@ -21,14 +21,14 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 44188,
-      "bytesOut": 32604
+      "bytesIn": 45895,
+      "bytesOut": 33929
     },
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 26413,
-      "bytesOut": 20436
+      "bytesIn": 46452,
+      "bytesOut": 37083
     },
     {
       "src": "css/theme.css",
@@ -39,14 +39,14 @@
     {
       "src": "css/todos-staging.css",
       "dist": "_dist/css/todos-staging.css",
-      "bytesIn": 41591,
-      "bytesOut": 30917
+      "bytesIn": 43063,
+      "bytesOut": 32175
     },
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 9391,
-      "bytesOut": 4458
+      "bytesIn": 14140,
+      "bytesOut": 6875
     },
     {
       "src": "js/api/issListFilter.ts",
@@ -63,8 +63,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 10557,
-      "bytesOut": 4363
+      "bytesIn": 10706,
+      "bytesOut": 4426
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -93,20 +93,20 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 6993,
-      "bytesOut": 3310
+      "bytesIn": 8302,
+      "bytesOut": 4171
     },
     {
       "src": "js/api/todosApi.ts",
       "dist": "_dist/js/api/todosApi.js",
-      "bytesIn": 9405,
-      "bytesOut": 4148
+      "bytesIn": 9776,
+      "bytesOut": 4350
     },
     {
       "src": "js/api/treeMsgsApi.ts",
       "dist": "_dist/js/api/treeMsgsApi.js",
-      "bytesIn": 3080,
-      "bytesOut": 1335
+      "bytesIn": 3067,
+      "bytesOut": 1323
     },
     {
       "src": "js/app/App.jsx",
@@ -117,14 +117,14 @@
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4309,
-      "bytesOut": 2733
+      "bytesIn": 4690,
+      "bytesOut": 2987
     },
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2334,
-      "bytesOut": 1379
+      "bytesIn": 2652,
+      "bytesOut": 1572
     },
     {
       "src": "js/boot/theme-init.mjs",
@@ -135,8 +135,14 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 33773,
-      "bytesOut": 16833
+      "bytesIn": 34536,
+      "bytesOut": 17421
+    },
+    {
+      "src": "js/core/fileSearchTrace.js",
+      "dist": "_dist/js/core/fileSearchTrace.js",
+      "bytesIn": 1255,
+      "bytesOut": 719
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -159,20 +165,20 @@
     {
       "src": "js/core/patyia-jwt.ts",
       "dist": "_dist/js/core/patyia-jwt.js",
-      "bytesIn": 11948,
-      "bytesOut": 5595
+      "bytesIn": 11936,
+      "bytesOut": 5598
     },
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 3130,
-      "bytesOut": 1683
+      "bytesIn": 5166,
+      "bytesOut": 2425
     },
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 9568,
-      "bytesOut": 5922
+      "bytesIn": 10169,
+      "bytesOut": 6264
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -189,8 +195,8 @@
     {
       "src": "js/core/urlState.ts",
       "dist": "_dist/js/core/urlState.js",
-      "bytesIn": 8485,
-      "bytesOut": 3963
+      "bytesIn": 9081,
+      "bytesOut": 4260
     },
     {
       "src": "js/editors/jsonEditor.jsx",
@@ -207,44 +213,50 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 8682,
-      "bytesOut": 5736
+      "bytesIn": 9031,
+      "bytesOut": 5876
     },
     {
       "src": "js/tools/ConfigPromptsOperativosPanel.jsx",
       "dist": "_dist/js/tools/ConfigPromptsOperativosPanel.js",
-      "bytesIn": 12919,
-      "bytesOut": 8378
+      "bytesIn": 14598,
+      "bytesOut": 9299
     },
     {
       "src": "js/tools/ConfigTool.jsx",
       "dist": "_dist/js/tools/ConfigTool.js",
-      "bytesIn": 12630,
-      "bytesOut": 8994
+      "bytesIn": 13928,
+      "bytesOut": 9479
     },
     {
       "src": "js/tools/LogViewer.jsx",
       "dist": "_dist/js/tools/LogViewer.js",
-      "bytesIn": 22731,
-      "bytesOut": 13490
+      "bytesIn": 23051,
+      "bytesOut": 13668
     },
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 9582,
-      "bytesOut": 6038
+      "bytesIn": 22811,
+      "bytesOut": 12591
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 7205,
-      "bytesOut": 4677
+      "bytesIn": 11191,
+      "bytesOut": 5919
+    },
+    {
+      "src": "js/tools/PermisosRoleFilterAutocomplete.jsx",
+      "dist": "_dist/js/tools/PermisosRoleFilterAutocomplete.js",
+      "bytesIn": 1142,
+      "bytesOut": 797
     },
     {
       "src": "js/tools/PromptsSqlTool.jsx",
       "dist": "_dist/js/tools/PromptsSqlTool.js",
-      "bytesIn": 4594,
-      "bytesOut": 3054
+      "bytesIn": 4631,
+      "bytesOut": 3091
     },
     {
       "src": "js/tools/TodosTool.jsx",
@@ -261,14 +273,14 @@
     {
       "src": "js/tools/chat/ChatLoggedOutShell.jsx",
       "dist": "_dist/js/tools/chat/ChatLoggedOutShell.js",
-      "bytesIn": 4048,
-      "bytesOut": 3428
+      "bytesIn": 4319,
+      "bytesOut": 3628
     },
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatMainPanel.js",
-      "bytesIn": 6545,
-      "bytesOut": 4197
+      "bytesIn": 7072,
+      "bytesOut": 4481
     },
     {
       "src": "js/tools/chat/ChatPayloadPreview.jsx",
@@ -279,14 +291,14 @@
     {
       "src": "js/tools/chat/ChatSessionPanel.jsx",
       "dist": "_dist/js/tools/chat/ChatSessionPanel.js",
-      "bytesIn": 4585,
-      "bytesOut": 3135
+      "bytesIn": 4814,
+      "bytesOut": 3258
     },
     {
       "src": "js/tools/chat/ChatThreadSidebar.jsx",
       "dist": "_dist/js/tools/chat/ChatThreadSidebar.js",
-      "bytesIn": 16998,
-      "bytesOut": 10289
+      "bytesIn": 16879,
+      "bytesOut": 10278
     },
     {
       "src": "js/tools/chat/ConvSearchAutocomplete.jsx",
@@ -303,8 +315,8 @@
     {
       "src": "js/tools/chat/TercerosAuditDialog.jsx",
       "dist": "_dist/js/tools/chat/TercerosAuditDialog.js",
-      "bytesIn": 8909,
-      "bytesOut": 4898
+      "bytesIn": 8938,
+      "bytesOut": 4916
     },
     {
       "src": "js/tools/chat/audio.ts",
@@ -315,8 +327,8 @@
     {
       "src": "js/tools/chat/auditScope.ts",
       "dist": "_dist/js/tools/chat/auditScope.js",
-      "bytesIn": 4290,
-      "bytesOut": 1482
+      "bytesIn": 4952,
+      "bytesOut": 1727
     },
     {
       "src": "js/tools/chat/constants.ts",
@@ -351,8 +363,14 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 40424,
-      "bytesOut": 16671
+      "bytesIn": 41959,
+      "bytesOut": 17343
+    },
+    {
+      "src": "js/tools/configFieldPersist.ts",
+      "dist": "_dist/js/tools/configFieldPersist.js",
+      "bytesIn": 852,
+      "bytesOut": 387
     },
     {
       "src": "js/tools/configOpenAi.ts",
@@ -363,8 +381,8 @@
     {
       "src": "js/tools/configPromptsOperativos.ts",
       "dist": "_dist/js/tools/configPromptsOperativos.js",
-      "bytesIn": 8074,
-      "bytesOut": 3963
+      "bytesIn": 9220,
+      "bytesOut": 4468
     },
     {
       "src": "js/tools/configToolState.ts",
@@ -387,14 +405,14 @@
     {
       "src": "js/tools/permisosKanbanShared.js",
       "dist": "_dist/js/tools/permisosKanbanShared.js",
-      "bytesIn": 4611,
-      "bytesOut": 2516
+      "bytesIn": 5593,
+      "bytesOut": 2975
     },
     {
       "src": "js/tools/permisosRoleConfig.jsx",
       "dist": "_dist/js/tools/permisosRoleConfig.js",
-      "bytesIn": 20153,
-      "bytesOut": 12992
+      "bytesIn": 25269,
+      "bytesOut": 16690
     },
     {
       "src": "js/tools/permisosRouteCatalog.js",
@@ -429,8 +447,8 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlActionBar.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlActionBar.js",
-      "bytesIn": 1923,
-      "bytesOut": 1300
+      "bytesIn": 1961,
+      "bytesOut": 1338
     },
     {
       "src": "js/tools/promptsSql/PromptsSqlEditorPane.jsx",
@@ -441,8 +459,8 @@
     {
       "src": "js/tools/promptsSql/PromptsSqlTree.jsx",
       "dist": "_dist/js/tools/promptsSql/PromptsSqlTree.js",
-      "bytesIn": 2109,
-      "bytesOut": 1525
+      "bytesIn": 2259,
+      "bytesOut": 1619
     },
     {
       "src": "js/tools/promptsSql/cloudRows.ts",
@@ -519,8 +537,8 @@
     {
       "src": "js/tools/todos/TodosKanban.jsx",
       "dist": "_dist/js/tools/todos/TodosKanban.js",
-      "bytesIn": 13327,
-      "bytesOut": 7015
+      "bytesIn": 13776,
+      "bytesOut": 7464
     },
     {
       "src": "js/tools/todos/TodosPublicHome.jsx",
@@ -573,14 +591,14 @@
     {
       "src": "js/ui/ConvLogThread.jsx",
       "dist": "_dist/js/ui/ConvLogThread.js",
-      "bytesIn": 2508,
-      "bytesOut": 1779
+      "bytesIn": 2801,
+      "bytesOut": 2008
     },
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 46049,
-      "bytesOut": 25378
+      "bytesIn": 48215,
+      "bytesOut": 26398
     },
     {
       "src": "js/ui/GlassDialog.jsx",
@@ -597,8 +615,8 @@
     {
       "src": "js/ui/PromptBodyEditor.jsx",
       "dist": "_dist/js/ui/PromptBodyEditor.js",
-      "bytesIn": 31642,
-      "bytesOut": 16324
+      "bytesIn": 31789,
+      "bytesOut": 16403
     },
     {
       "src": "js/ui/bootShimmer.ts",
@@ -621,14 +639,14 @@
     {
       "src": "js/ui/promptMdEditorHtml.ts",
       "dist": "_dist/js/ui/promptMdEditorHtml.js",
-      "bytesIn": 7349,
-      "bytesOut": 3864
+      "bytesIn": 8294,
+      "bytesOut": 4292
     },
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 16634,
-      "bytesOut": 10336
+      "bytesIn": 19044,
+      "bytesOut": 11982
     }
   ]
 }

@@ -1,175 +1,262 @@
-import { getMaterialUI, getReact, toastError, toastSuccess } from "../core/platform.ts";
+import { getMaterialUI, getReact, Session, toastError, toastSuccess, Assets, getGlass } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
-import { fetchPermisos, putPermisoRole, putPermisoUser, deletePermiso } from "../api/systemConfigApi.ts";
-import { loadPatyJwt } from "../core/patyia-jwt.ts";
+import { fetchPermisos, putPermisoRolePath, patchUsuarioRoles, removeUsuarioRole, addUsuarioRole, requireAppSession,
+} from "../api/systemConfigApi.ts";
+import { searchScrumAppUsers } from "../api/todosApi.ts";
+import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE } from "./permisosKanbanShared.js";
+import { PermisosKanban } from "./PermisosKanban.jsx";
+import { RoleConfigFullscreenDialog } from "./permisosRoleConfig.jsx";
+import { buildVisitanteConfigColumn } from "./permisosVisitante.js";
+import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete.jsx";
 
-const { useState, useEffect, useCallback } = getReact();
-const { Paper, Typography, TextField, Stack, Alert, CircularProgress, Divider, Chip, Box } = getMaterialUI();
+const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
+const { Typography, TextField, Stack, Alert, CircularProgress, Box, Chip } = getMaterialUI();
 
-function prettyJson(obj) {
-  try { return JSON.stringify(obj ?? {}, null, 2); } catch { return "{}"; }
-}
-
-function RoleCard({ entry, onSave, busy, readOnly }) {
-  const name = String(entry.iusuario || "").replace(/^role:/, "");
-  const [json, setJson] = useState(prettyJson(entry.permisos));
-  const [desc, setDesc] = useState(entry.descripcion || "");
-  const [error, setError] = useState("");
-  function save() {
-    let parsed;
-    try { parsed = JSON.parse(json); } catch (e) { setError("JSON inválido: " + (e?.message || e)); return; }
-    setError("");
-    onSave({ name, permisos: parsed, descripcion: desc });
-  }
-  if (readOnly) {
-    return (
-      <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: entry.descripcion ? 0.75 : 0 }}>
-          <Chip label={`role:${name}`} size="small" color="primary" />
-          {entry.descripcion ? <Typography variant="body2" color="text.secondary">{entry.descripcion}</Typography> : null}
-        </Stack>
-        <Box component="pre" sx={{ m: 0, mt: 0.75, p: 1, fontSize: 12, fontFamily: "monospace", overflow: "auto", bgcolor: "action.hover", borderRadius: 1, maxHeight: 280 }}>
-          {prettyJson(entry.permisos)}
-        </Box>
-      </Paper>
-    );
-  }
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Chip label={`role:${name}`} size="small" color="primary" />
-        <TextField label="descripción" size="small" value={desc} onChange={(e) => setDesc(e.target.value)} sx={{ flex: 1 }} />
-        <ButtonIconify icon="mdi:content-save-outline" title="Guardar rol" label="Guardar" onClick={save} disabled={busy} busy={busy} />
-      </Stack>
-      {error ? <Alert severity="warning" sx={{ mb: 1 }}>{error}</Alert> : null}
-      <TextField label="permisos (mapa JSON METHOD:/path → restricción)" multiline minRows={4} maxRows={18} fullWidth value={json}
-        onChange={(e) => setJson(e.target.value)} InputProps={{ sx: { fontFamily: "monospace", fontSize: 12 } }} />
-    </Paper>
-  );
-}
-
-function UserRow({ entry, roleNames, onSave, onDelete, busy, readOnly }) {
-  const [roles, setRoles] = useState((entry.roles || []).join(", "));
-  const [desc, setDesc] = useState(entry.descripcion || "");
-  function save() {
-    const arr = roles.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-    onSave({ username: entry.iusuario, roles: arr, descripcion: desc });
-  }
-  if (readOnly) {
-    return (
-      <Paper variant="outlined" sx={{ p: 1.5, mb: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Chip label={entry.iusuario} size="small" />
-          {(entry.roles || []).map((r) => <Chip key={r} label={r} size="small" variant="outlined" />)}
-          {entry.descripcion ? <Typography variant="body2" color="text.secondary">{entry.descripcion}</Typography> : null}
-        </Stack>
-      </Paper>
-    );
-  }
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, mb: 1 }}>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-        <Chip label={entry.iusuario} size="small" />
-        <TextField label="roles (coma)" size="small" value={roles} onChange={(e) => setRoles(e.target.value)} sx={{ minWidth: 220, flex: 1 }}
-          helperText={`disponibles: ${roleNames.join(", ")}`} />
-        <TextField label="descripción" size="small" value={desc} onChange={(e) => setDesc(e.target.value)} sx={{ minWidth: 160 }} />
-        <ButtonIconify icon="mdi:content-save-outline" title="Guardar usuario" onClick={save} disabled={busy} busy={busy} />
-        <ButtonIconify icon="mdi:trash-can-outline" title="Eliminar" onClick={() => onDelete(entry.iusuario)} disabled={busy} />
-      </Stack>
-    </Paper>
-  );
-}
-
-export function PermisosPanel() {
+export function PermisosPanel({ onNeedLogin }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ roles: [], users: [] });
-  const [newRole, setNewRole] = useState("");
-  const [newUser, setNewUser] = useState("");
-  const [newUserRoles, setNewUserRoles] = useState("");
-  const readOnly = !canManage;
+  const [userSearch, setUserSearch] = useState("");
+  const [roleFilters, setRoleFilters] = useState([]);
+  const [visitanteOpen, setVisitanteOpen] = useState(false);
+  const [filterBusy, setFilterBusy] = useState(false);
+  const [dragOverFilter, setDragOverFilter] = useState(false);
+
+  const [userDirectory, setUserDirectory] = useState(null);
+  const filterToolbarRef = useRef(null);
+  const filterFetchSkipRef = useRef(true);
+  const filterDropFetchRef = useRef(false);
+  const usersPaginated = !!data.usersTruncated;
+
+  const applyFlags = useCallback((result) => {
+    setCanManage(!!result.canManage);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const result = await fetchPermisos(loadPatyJwt());
+      const result = await fetchPermisos();
       setData(result);
-      setCanManage(!!result.canManage);
+      applyFlags(result);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+      toastError(msg);
     } finally { setLoading(false); }
-  }, []);
+  }, [applyFlags]);
 
   useEffect(() => { load(); }, [load]);
+
+  const refreshUserDirectory = useCallback(() => {
+    if (!Session.isLoggedIn()) { setUserDirectory({}); return; }
+    searchScrumAppUsers("", 300).then((users) => {
+      const map = {};
+      for (const u of users) {
+        const key = String(u.username ?? "").trim().toUpperCase();
+        if (key) map[key] = u.displayName;
+      }
+      setUserDirectory(map);
+    }).catch(() => setUserDirectory({}));
+  }, []);
+
   useEffect(() => {
-    const onJwt = () => { load(); };
-    window.addEventListener("isa-patyia:paty-jwt", onJwt);
-    return () => window.removeEventListener("isa-patyia:paty-jwt", onJwt);
-  }, [load]);
+    Assets.ensureTodosCss();
+    refreshUserDirectory();
+    const onAuth = () => { load(); refreshUserDirectory(); };
+    window.addEventListener(Session.EVENT, onAuth);
+    window.addEventListener("isa-patyia:auth", onAuth);
+    return () => {
+      window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("isa-patyia:auth", onAuth);
+    };
+  }, [load, refreshUserDirectory]);
 
   async function run(fn, okMsg) {
-    const jwt = loadPatyJwt();
-    if (!jwt?.token) { toastError("JWT de portal requerido para guardar"); return; }
+    if (!requireAppSession(onNeedLogin)) return;
     setBusy(true); setErr("");
     try {
-      const result = await fn(jwt);
+      const result = await fn();
       setData(result);
-      setCanManage(!!result.canManage);
-      toastSuccess(okMsg);
+      applyFlags(result);
+      if (okMsg) toastSuccess(okMsg);
+      return result;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setErr(msg); toastError(msg);
+      throw e;
     } finally { setBusy(false); }
   }
 
-  const roleNames = (data.roles || []).map((r) => String(r.iusuario).replace(/^role:/, ""));
+  const handleRoleRemove = useCallback(async ({ username, role, roleTitle }) => {
+    if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    setErr("");
+    try {
+      const result = await removeUsuarioRole(username, role);
+      setData(result);
+      applyFlags(result);
+      toastSuccess(`${username} quitó ${roleTitle || role}`);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+      throw e;
+    }
+  }, [onNeedLogin, applyFlags]);
 
-  if (loading) return <Box sx={{ p: 2 }}><CircularProgress size={22} /></Box>;
+  const handleRoleAdd = useCallback(async ({ username, role, roleTitle }) => {
+    if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    setErr("");
+    try {
+      const result = await addUsuarioRole(username, role);
+      setData(result);
+      applyFlags(result);
+      toastSuccess(`${username} → ${roleTitle || role}`);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+      throw e;
+    }
+  }, [onNeedLogin, applyFlags]);
+
+  const handleRoleDrag = useCallback(async ({ username, fromRole, toRole, mode }) => {
+    if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    setErr("");
+    try {
+      const result = await patchUsuarioRoles(username, { fromRole, toRole, mode });
+      setData(result);
+      applyFlags(result);
+      toastSuccess(`${username} → ${toRole}`);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+      throw e;
+    }
+  }, [onNeedLogin, applyFlags]);
+
+  const fetchPermisosWithSearch = useCallback(async (search) => {
+    const q = String(search ?? "").trim();
+    return fetchPermisos(q ? { search: q } : undefined);
+  }, []);
+
+  const handleUserFilterDrop = useCallback(async (username) => {
+    const q = String(username ?? "").trim();
+    if (!q) return;
+    setUserSearch(q);
+    if (!usersPaginated) return;
+    filterDropFetchRef.current = true;
+    setFilterBusy(true); setErr("");
+    try {
+      const result = await fetchPermisosWithSearch(q);
+      setData(result);
+      applyFlags(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+    } finally { setFilterBusy(false); }
+  }, [usersPaginated, fetchPermisosWithSearch, applyFlags]);
+
+  const handleRoleFilterDrop = useCallback((roleId) => {
+    const id = String(roleId ?? "").trim().toLowerCase();
+    if (!id) return;
+    setRoleFilters((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  const clearFilters = useCallback(async () => {
+    setUserSearch("");
+    setRoleFilters([]);
+    if (!usersPaginated) return;
+    setFilterBusy(true); setErr("");
+    try {
+      const result = await fetchPermisos();
+      setData(result);
+      applyFlags(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg); toastError(msg);
+    } finally { setFilterBusy(false); }
+  }, [usersPaginated, applyFlags]);
+
+  useEffect(() => {
+    if (!usersPaginated) return undefined;
+    if (filterFetchSkipRef.current) { filterFetchSkipRef.current = false; return undefined; }
+    if (filterDropFetchRef.current) { filterDropFetchRef.current = false; return undefined; }
+    const t = window.setTimeout(async () => {
+      setFilterBusy(true); setErr("");
+      try {
+        const result = await fetchPermisosWithSearch(userSearch);
+        setData(result);
+        applyFlags(result);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setErr(msg); toastError(msg);
+      } finally { setFilterBusy(false); }
+    }, 320);
+    return () => window.clearTimeout(t);
+  }, [userSearch, usersPaginated, fetchPermisosWithSearch, applyFlags]);
+
+  const roleOptions = useMemo(
+    () => (data.roles || [])
+      .map((r) => ({ id: roleNameFromEntry(r), label: roleTitleFromEntry(r) }))
+      .filter((r) => r.id && r.id !== VISITANTE),
+    [data.roles],
+  );
+  const boardData = useMemo(
+    () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory }),
+    [data, userSearch, roleFilters, userDirectory],
+  );
+  const visitanteColumn = useMemo(() => buildVisitanteConfigColumn(data), [data]);
+  const readOnly = !canManage;
+  const managePermisos = canManage;
+  const filtersActive = !!(userSearch.trim() || roleFilters.length);
+  const { GlassToolbar } = getGlass();
+
+  if (loading) {
+    return (
+      <Box className="config-permisos-loading">
+        <CircularProgress size={26} />
+      </Box>
+    );
+  }
 
   return (
-    <div className="custom-scrollbar" style={{ padding: "1rem", overflow: "auto" }}>
-      {err ? <Alert severity="warning" sx={{ mb: 1.5 }}>{err}</Alert> : null}
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Permisos en <code>dbo.USR_PERMISSIONS</code>. Claves <code>METHOD:/api/path</code> con
-        <code>true</code> o <code>{"{ scope: 'own'|'all' }"}</code>.{" "}
-        {readOnly ? <>Vista de solo lectura — solo <code>dev_lead</code> puede editar.</> : <>Modo edición (<code>dev_lead</code>).</>}{" "}
-        <strong>visitante</strong> es el rol por defecto (usuarios sin fila no se listan).
-      </Typography>
-
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1 }}>Roles</Typography>
-        <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={busy} />
-      </Stack>
-      {(data.roles || []).map((r) => (
-        <RoleCard key={r.iusuario} entry={r} busy={busy} readOnly={readOnly}
-          onSave={({ name, permisos, descripcion }) => run((jwt) => putPermisoRole(name, permisos, descripcion, jwt), `Rol ${name} guardado`)} />
-      ))}
-      {!readOnly ? (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-          <TextField label="nuevo rol" size="small" value={newRole} onChange={(e) => setNewRole(e.target.value)} />
-          <ButtonIconify icon="mdi:plus" title="Crear rol" label="Crear rol" disabled={busy || !newRole.trim()}
-            onClick={() => run((jwt) => putPermisoRole(newRole.trim(), {}, `Rol ${newRole.trim()}`, jwt), "Rol creado").then(() => setNewRole(""))} />
+    <Box className="paty-permisos-shell" sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <Box ref={filterToolbarRef} className="config-permisos-toolbar-wrap" sx={{ flexShrink: 0 }}>
+      <GlassToolbar className={`config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`} sx={{ borderRadius: 0, mb: 0, flexShrink: 0, gap: 1, px: { xs: 1.5, sm: 2 }, py: 1 }}>
+        <TextField size="small" label="Buscar usuario" placeholder="Usuario" value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)} disabled={filterBusy}
+          className="config-permisos-toolbar__field config-permisos-toolbar__field--search" />
+        <PermisosRoleFilterAutocomplete options={roleOptions} value={roleFilters} onChange={setRoleFilters} disabled={filterBusy} />
+        {filtersActive ? (
+          <Chip size="small" variant="outlined" className="isa-neon-glass-chip" label="Filtros"
+            onDelete={clearFilters} disabled={filterBusy} />
+        ) : null}
+        <Box sx={{ flex: 1, minWidth: 8 }} />
+        <Stack direction="row" spacing={0.5} alignItems="center" className="config-form-section__actions config-permisos-toolbar__actions">
+          {managePermisos ? (
+            <ButtonIconify icon="mdi:account-outline" className="config-permisos-visitante-btn" title="Configurar rol visitante"
+              onClick={() => setVisitanteOpen(true)} />
+          ) : null}
+          <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={busy || filterBusy} />
         </Stack>
-      ) : null}
+      </GlassToolbar>
+      </Box>
 
-      <Divider sx={{ my: 1.5 }} />
-      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Usuarios</Typography>
-      {(data.users || []).map((u) => (
-        <UserRow key={u.iusuario} entry={u} roleNames={roleNames} busy={busy} readOnly={readOnly}
-          onSave={({ username, roles, descripcion }) => run((jwt) => putPermisoUser(username, roles, descripcion, jwt), `Usuario ${username} guardado`)}
-          onDelete={(iusuario) => run((jwt) => deletePermiso(iusuario, jwt), `Eliminado ${iusuario}`)} />
-      ))}
-      {!readOnly ? (
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
-          <TextField label="nuevo usuario" size="small" value={newUser} onChange={(e) => setNewUser(e.target.value)} />
-          <TextField label="roles (coma)" size="small" value={newUserRoles} onChange={(e) => setNewUserRoles(e.target.value)}
-            helperText={`disponibles: ${roleNames.join(", ")}`} sx={{ minWidth: 220 }} />
-          <ButtonIconify icon="mdi:account-plus-outline" title="Crear usuario" label="Crear usuario" disabled={busy || !newUser.trim()}
-            onClick={() => run((jwt) => putPermisoUser(newUser.trim(), newUserRoles.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean), `Usuario ${newUser.trim().toUpperCase()}`, jwt), "Usuario creado").then(() => { setNewUser(""); setNewUserRoles(""); })} />
-        </Stack>
+      {err ? <Alert severity="warning" className="config-form-alert config-permisos-alert">{err}</Alert> : null}
+
+      <PermisosKanban boardData={boardData} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={managePermisos} busy={busy || filterBusy}
+        filterToolbarRef={filterToolbarRef} onUserFilterDrop={handleUserFilterDrop} onRoleFilterDrop={handleRoleFilterDrop} onDragOverFilterChange={setDragOverFilter}
+        onRoleSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), `Rol ${name} guardado`)}
+        onRoleDrag={handleRoleDrag} onRoleRemove={handleRoleRemove} onRoleAdd={handleRoleAdd} />
+
+      {managePermisos ? (
+        <RoleConfigFullscreenDialog open={visitanteOpen} column={visitanteColumn} canManage={managePermisos}
+          canEditRoleDescriptions={managePermisos} busy={busy} onClose={() => setVisitanteOpen(false)}
+          onSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), "Rol visitante guardado").then(() => setVisitanteOpen(false))} />
       ) : null}
-    </div>
+    </Box>
   );
 }

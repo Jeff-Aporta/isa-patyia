@@ -1,12 +1,14 @@
 /** Estado de la app en ?s= — esquema isa-patyia sobre url-state compartido. */
-import { isLocalMode, setLocalMode } from "./patyia.ts";
+import { isLocalMode, isDevHost, setLocalMode } from "./patyia.ts";
 
 const STATE_VERSION = 1;
 
 function normalizeLog(raw: unknown) {
   if (!raw || typeof raw !== "object") return {};
   const o = { ...(raw as Record<string, unknown>) };
-  delete o.sidebarW;
+  const w = Number(o.sidebarW);
+  if (Number.isFinite(w) && w > 0) o.sidebarW = Math.round(w);
+  else delete o.sidebarW;
   return o;
 }
 
@@ -49,9 +51,11 @@ function slimForUrl(src: Record<string, unknown>) {
   const log = slim.log as Record<string, unknown> | undefined;
   if (log) {
     const nextLog = { ...log };
-    delete nextLog.sidebarW;
     if (nextLog.jsonInput && String(nextLog.jsonInput).length > 4000) {
-      slim.log = { convId: nextLog.convId || "" };
+      slim.log = {
+        convId: nextLog.convId || "",
+        ...(nextLog.sidebarW != null ? { sidebarW: nextLog.sidebarW } : {}),
+      };
     } else {
       slim.log = nextLog;
     }
@@ -74,7 +78,6 @@ function slimForUrl(src: Record<string, unknown>) {
 function merge(state: Record<string, unknown>, partial: Record<string, unknown>) {
   const nextLog = { ...(state.log as object), ...((partial.log as object) || {}) };
   if ("jsonInput" in nextLog) delete (nextLog as Record<string, unknown>).jsonInput;
-  delete (nextLog as Record<string, unknown>).sidebarW;
   return {
     ...state,
     ...partial,
@@ -172,6 +175,7 @@ const urlState = window.ISAFront.createUrlState({
   merge,
   onInit(state) {
     if (state.local !== isLocalMode()) setLocalMode(!!state.local);
+    else if (!state.local && isDevHost()) setLocalMode(true);
   },
   gatewayEvents: ["gateway:target", "patyia-apptools:lab-target"],
   onGatewayChange(state, api) {
@@ -195,6 +199,16 @@ export const PARAM = urlState.PARAM;
 
 /** Reinicia estado de la app y elimina por completo ?s= de la URL. */
 export function resetUrlState() { const snap = urlState.reset(); stripUrlStateParam(); return snap; }
+
+/** Ancho del panel Entrada (visor log) en ?s=.log.sidebarW */
+export function persistLogSidebarWidth(width: number) {
+  const n = Math.round(Number(width));
+  if (!Number.isFinite(n) || n <= 0) return getSnapshot();
+  const snap = getSnapshot();
+  const prev = Number((snap.log as Record<string, unknown>)?.sidebarW);
+  if (prev === n) return snap;
+  return mergePartial({ log: { sidebarW: n } });
+}
 
 /** Solo metadatos ligeros del visor de log (iconversacion), no el JSON completo. */
 export function persistLogMeta(convId: string) {

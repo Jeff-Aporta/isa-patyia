@@ -2,9 +2,11 @@ import { PIN, CDN, ensureLightboxZoom } from "./cdn.mjs";
 
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
+const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
 
 /** URLs canónicas front-shared — no usar rutas locales relativas al <base>. */
 const BOOT_LOADER_URL = `${CDN}/boot-loader.mjs?v=${PIN}`;
+const JSDELIVR_BOOT_LOADER = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/boot-loader.mjs?v=${PIN}`;
 const ISA_FRONT_BUNDLE_URL = `${CDN}/_dist/isa/js/index.min.js?v=${PIN}`;
 
 async function importBootLoader() {
@@ -16,7 +18,11 @@ async function importBootLoader() {
       const local = new URL("../../../../../components/front-shared/cdn/boot-loader.mjs", import.meta.url).href;
       return await import(local);
     } catch {
-      throw cdnErr;
+      try {
+        return await import(JSDELIVR_BOOT_LOADER);
+      } catch {
+        throw cdnErr;
+      }
     }
   }
 }
@@ -46,13 +52,13 @@ importBootLoader().then(({ mountBoot, getBabel, importBootHelper }) => {
     await loadIsaFrontPinned(h);
     await h.loadSharedUi(Babel);
     if (isDist) {
-      await import("../core/isa-setup.js");
+      await import(`../core/isa-setup.js?v=${appBuild}`);
     } else {
       await h.importAppModules(["js/core/isa-setup.ts"], Babel);
     }
     await ensureLightboxZoom();
     if (isDist) {
-      await import("../main.js");
+      await import(`../main.js?v=${appBuild}`);
     } else {
       await h.importAppModules(["js/main.jsx"], Babel);
     }

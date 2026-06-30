@@ -1,6 +1,6 @@
 /** Tableros SCRUM — gateway main-orchestrator → scrum worker. */
 import { Session, Config } from "../core/platform.ts";
-import { ORCH_ONLINE, isLocalMode } from "../core/patyia.ts";
+import { ORCH_ONLINE } from "../core/patyia.ts";
 import * as SessionApi from "./sessionApi.ts";
 
 const scrumHttp = window.ISAFront.createCapFetch({
@@ -17,7 +17,7 @@ const scrumHttp = window.ISAFront.createCapFetch({
     },
   ],
   orchOnlineInLocal: false,
-  isLocal: isLocalMode,
+  isLocal: () => false,
   handleApiError: SessionApi.handleApiError,
   clearSession: SessionApi.clearSession,
 });
@@ -117,10 +117,20 @@ export type AppUserOption = {
 };
 
 export async function searchScrumAppUsers(query = "", limit = 12) {
+  if (!Session.isLoggedIn()) return [];
+  const base = ORCH_ONLINE.replace(/\/$/, "");
   const params = new URLSearchParams({ app: SCRUM_APP_ID, limit: String(limit) });
   if (query.trim()) params.set("q", query.trim());
-  const data = await scrumHttp.capFetch(`/scrum/users/search?${params.toString()}`, { method: "GET" });
-  return (data.users ?? []) as AppUserOption[];
+  try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    Object.assign(headers, Session.authHeader(), Session.appHeader());
+    const res = await fetch(`${base}/api/scrum/users/search?${params}`, { method: "GET", headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) return [];
+    return (data.users ?? []) as AppUserOption[];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchTodoBoards(boardType = "scrum") {

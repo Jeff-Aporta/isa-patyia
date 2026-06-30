@@ -3,13 +3,14 @@ import { convLogSurfaceSx } from "../../core/convLog.ts";
 import { ConvLogThread } from "../../ui/ConvLogThread.jsx";
 import { ButtonIconify } from "../../ui/shared.jsx";
 import { ChatComposer } from "./ChatComposer.jsx";
+import { ChatSidebarHeaderActions } from "./ChatThreadSidebar.jsx";
 
 const {
   Box, Typography, Button, IconButton, Tooltip, Alert, Stack,
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, sending, showThread, logError, displayMensajes, chatUserName, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs" }) {
+export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, onMessageSourceChange, onChatModeChange }) {
   const isProdView = messageSource === "prod";
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -29,6 +30,12 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
             Conversaciones
           </Typography>
+          <ChatSidebarHeaderActions
+            messageSource={messageSource}
+            mode={mode}
+            onMessageSourceChange={onMessageSourceChange}
+            onChatModeChange={onChatModeChange}
+          />
           {(selectedId || detail) ? (
             <Tooltip title="Actualizar conversación" arrow>
               <span>
@@ -36,8 +43,8 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
                   icon="mdi:refresh"
                   title="Actualizar"
                   onClick={onRefreshConv}
-                  disabled={loadingThread}
-                  busy={loadingThread}
+                  disabled={refreshingThread}
+                  busy={refreshingThread}
                 />
               </span>
             </Tooltip>
@@ -52,14 +59,20 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           sx={{ px: 2, py: 0.75, flexShrink: 0 }}
         >
           <Box sx={{ flex: 1 }} />
+          <ChatSidebarHeaderActions
+            messageSource={messageSource}
+            mode={mode}
+            onMessageSourceChange={onMessageSourceChange}
+            onChatModeChange={onChatModeChange}
+          />
           <Tooltip title="Actualizar conversación" arrow>
             <span>
               <ButtonIconify
                 icon="mdi:refresh"
                 title="Actualizar"
                 onClick={onRefreshConv}
-                disabled={loadingThread}
-                busy={loadingThread}
+                disabled={refreshingThread}
+                busy={refreshingThread}
               />
             </span>
           </Tooltip>
@@ -120,7 +133,8 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           onMeta={isProdView ? undefined : onMeta}
           compactMeta={false}
           showUsageStats={!isProdView}
-          chatUserName={chatUserName}
+          chatUserDisplayName={chatUserDisplayName}
+          chatUserNick={chatUserNick}
           surfaceClassName="paty-chat-thread-surface"
           streamingMsgId={sending ? "stream-live" : null}
           emptyHint="Sin mensajes en esta conversación."
@@ -155,12 +169,6 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
         onRemoveImage={onRemoveImage}
         onRemoveAudio={onRemoveAudio}
       />
-
-      {!canSend && (selectedId || detail) && (
-        <Box className="paty-chat-compose-readonly">
-          Modo lectura.
-        </Box>
-      )}
     </Box>
   );
 }

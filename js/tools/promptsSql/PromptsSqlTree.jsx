@@ -42,6 +42,9 @@ export function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTa
               alignItems: "stretch",
             },
           },
+          scrollButtons: {
+            sx: { width: "100%", minHeight: 0, height: 20, maxHeight: 20, p: 0, px: 0, flex: "0 0 auto" },
+          },
         }}
       >
         {instruccionKeys.map((tipo) => (

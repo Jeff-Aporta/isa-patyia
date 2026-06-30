@@ -1,5 +1,6 @@
 import { getReact, getMaterialUI, UI } from "../../core/platform.ts";
 import { buildUserAvatarUrl } from "../../core/patyia.ts";
+import { jwtUserDisplayName, jwtUserShortName } from "../../core/patyia-jwt.ts";
 
 const { useState, useEffect, useMemo } = getReact();
 const { Box, Typography, CircularProgress, Chip } = getMaterialUI();
@@ -69,12 +70,13 @@ function SessionModeChip({ canSend, jwtLoading }) {
   );
 }
 
-export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerNick, canSend, jwtLoading, onOpenAudit }) {
-  const nick = String(ownerNick ?? "").trim().toUpperCase();
+export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerDisplayName, canSend, jwtLoading, onOpenAudit }) {
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
   const codes = [tercero, contacto].filter(Boolean).join(" · ");
-  const primaryLabel = nick || codes || "ISA PatyIA";
+  const scopeName = String(displayScope?.nombre ?? "").trim();
+  const claimsName = jwtUserDisplayName(claims) || jwtUserShortName(claims);
+  const primaryLabel = String(ownerDisplayName ?? "").trim() || scopeName || claimsName || codes || "ISA PatyIA";
   const avatarUrl = useMemo(() => buildUserAvatarUrl(primaryLabel, 72), [primaryLabel]);
   const [avatarOk, setAvatarOk] = useState(true);
   useEffect(() => { setAvatarOk(true); }, [avatarUrl]);

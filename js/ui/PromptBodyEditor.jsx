@@ -1,6 +1,6 @@
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { mdToHtml } from "../core/platform.ts";
-import { bodyPreviewHtml, bodyToEditorHtml, editorHtmlToBody, surfaceHasRawVarTokens } from "./promptMdEditorHtml.ts";
+import { bodyPreviewHtml, bodyPreviewHtmlFromLines, bodyToEditorHtml, editorHtmlToBody, surfaceHasRawVarTokens } from "./promptMdEditorHtml.ts";
 import {
   clipboardImageDataUrl,
   insertImageNodeAtSelection,
@@ -845,16 +845,17 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
 
 /** Vista previa del cuerpo + editor WYSIWYG al entrar o doble clic. */
 export function PromptBodyEditor({
-  body, canEdit, editBlockReason, onChange, onPersist, placeholder, tipo, title, loading = false,
+  body, bodyLines, canEdit, editBlockReason, onChange, onPersist, placeholder, tipo, title, loading = false,
   editorOpenSignal = 0,
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const previewRef = useRef(null);
   const previewHtml = useMemo(() => {
+    if (Array.isArray(bodyLines) && bodyLines.length) return bodyPreviewHtmlFromLines(bodyLines);
     const text = String(body || "").trim();
     if (!text) return "";
     return bodyPreviewHtml(body);
-  }, [body]);
+  }, [body, bodyLines]);
 
   useEffect(() => {
     if (!editorOpenSignal || !canEdit || loading) return;
