@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-07-01T12:46:03.324Z",
-  "files": 127,
-  "bytesIn": 1163880,
-  "bytesOut": 682260,
+  "builtAt": "2026-07-01T12:49:28.940Z",
+  "files": 128,
+  "bytesIn": 1177701,
+  "bytesOut": 689949,
   "ratio": 0.586,
-  "hash": "f76aaadc01c4",
+  "hash": "04fa2efb5fc0",
   "entries": [
     {
       "src": "css/app.css",
@@ -243,14 +243,14 @@
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 26705,
-      "bytesOut": 14404
+      "bytesIn": 27006,
+      "bytesOut": 14602
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 20369,
-      "bytesOut": 10149
+      "bytesIn": 20825,
+      "bytesOut": 10377
     },
     {
       "src": "js/tools/PermisosRoleFilterAutocomplete.jsx",
@@ -275,6 +275,12 @@
       "dist": "_dist/js/tools/TodosTool.js",
       "bytesIn": 6032,
       "bytesOut": 3728
+    },
+    {
+      "src": "js/tools/UserPermissionsSummaryDialog.jsx",
+      "dist": "_dist/js/tools/UserPermissionsSummaryDialog.js",
+      "bytesIn": 13064,
+      "bytesOut": 7263
     },
     {
       "src": "js/tools/chat/ChatComposer.jsx",

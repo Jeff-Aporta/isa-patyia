@@ -24,7 +24,7 @@ const DRAG_THRESHOLD_PX = 6;
 
 
 
-const UserCard = memo(function UserCard({ card, columnId, columnTitle, columnJerarquia, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, suppressClickRef }) {
+const UserCard = memo(function UserCard({ card, columnId, columnTitle, columnJerarquia, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, onUserSummary, suppressClickRef }) {
 
   const canDragRole = !!canDragUser && !userBusy;
 
@@ -69,6 +69,16 @@ const UserCard = memo(function UserCard({ card, columnId, columnTitle, columnJer
         e.stopPropagation();
 
         onUserSelect?.(card.username);
+
+      }}
+
+      onDoubleClick={(e) => {
+
+        if (userBusy || e.target.closest(".paty-permisos-user-card__remove, .paty-permisos-user-card__busy")) return;
+
+        e.stopPropagation();
+
+        onUserSummary?.(card.username);
 
       }}>
 
@@ -171,7 +181,7 @@ function DragGhost({ card, column, x, y, width }) {
 
 
 
-export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, actorJerarquias, sessionUsername, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy }) {
+export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, actorJerarquias, sessionUsername, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy, onUserSummary }) {
 
   const [dragOverCol, setDragOverCol] = useState(null);
 
@@ -854,7 +864,7 @@ export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, 
 
                       onPointerDragStart={handlePointerDragStart} onRoleRemoveRequest={setRemovePending}
 
-                      onUserSelect={handleUserSelect} suppressClickRef={suppressClickRef} />
+                      onUserSelect={handleUserSelect} onUserSummary={onUserSummary} suppressClickRef={suppressClickRef} />
 
                   );
 

@@ -11,6 +11,7 @@ import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete
 import { RoleHierarchyView } from "./roleHierarchyTree/index.ts";
 import { hierarchyNodesFromRoleEntries } from "./roleHierarchyTree/hierarchyFromRoles.ts";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
+import { UserPermissionsSummaryDialog } from "./UserPermissionsSummaryDialog.jsx";
 import { readPermisosHideEmptyFromUrl, persistPermisosHideEmpty, subscribe } from "../core/urlState.ts";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
@@ -39,6 +40,7 @@ export function PermisosPanel({ onNeedLogin }) {
   const [hierarchyFocusRole, setHierarchyFocusRole] = useState(null);
   const [hierarchyNodes, setHierarchyNodes] = useState([]);
   const [hierarchyBusy, setHierarchyBusy] = useState(false);
+  const [summaryUsername, setSummaryUsername] = useState(null);
   const filterToolbarRef = useRef(null);
   const filterFetchSkipRef = useRef(true);
   const filterDropFetchRef = useRef(false);
@@ -423,6 +425,7 @@ export function PermisosPanel({ onNeedLogin }) {
         actorJerarquias={actorJerarquias}
         onJerarquiaToast={(t) => toastInfo?.(t.message) ?? alert(t.message)}
         onOpenRoleHierarchy={openHierarchyForRole}
+        onUserSummary={(username) => setSummaryUsername(username)}
         filterToolbarRef={filterToolbarRef} onUserFilterDrop={handleUserFilterDrop} onRoleFilterDrop={handleRoleFilterDrop} onDragOverFilterChange={setDragOverFilter}
         onRoleSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), `Rol ${name} guardado`)}
         onRoleDrag={handleRoleDrag} onRoleRemove={handleRoleRemove} onRoleAdd={handleRoleAdd} />
@@ -451,6 +454,14 @@ export function PermisosPanel({ onNeedLogin }) {
           <Button onClick={() => setHierarchyOpen(false)} sx={{ textTransform: "none", fontWeight: 600 }}>Cerrar</Button>
         </DialogActions>
       </GlassDialog>
+
+      <UserPermissionsSummaryDialog
+        open={!!summaryUsername}
+        onClose={() => setSummaryUsername(null)}
+        username={summaryUsername}
+        users={data?.users ?? []}
+        roles={data?.roles ?? []}
+      />
     </Box>
   );
 }
