@@ -1,7 +1,6 @@
 /** Endpoints PatyIA — token `app` (AppSession) en gateway y puente Azure. */
 import { Session, Config } from "../core/platform.ts";
 import {
-  ORCH_ONLINE,
   isLocalMode,
   isPatyiaApiPath,
   patyiaBridgeBase,
@@ -10,9 +9,16 @@ import {
   PATYIA_ISS_LOCAL,
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
-import { convLogFromDetalle, getConversacionLogs } from "./patyiaChatApi.ts";
+import { convLogFromDetalle, getConversacionLogs, listConversaciones } from "./patyiaChatApi.ts";
 import { conversacionesListQueryParams } from "./issListFilter.ts";
+import type { PatyJwtRecord } from "../core/patyia-jwt.ts";
 import * as SessionApi from "./sessionApi.ts";
+import {
+  fetchInstruccionesSystemConfig,
+  putInstruccionUpsert,
+  putInstruccionesPublish,
+  type InstruccionUpsertPayload,
+} from "./systemConfigApi.ts";
 
 const bridgeHttp = window.ISAFront.createCapFetch({
   Session,
@@ -26,17 +32,6 @@ const bridgeHttp = window.ISAFront.createCapFetch({
   isLocal: isLocalMode,
 });
 
-/** Publish y mutaciones gateway: solo AppSession (verify-access en orquestador). */
-const orchHttp = window.ISAFront.createCapFetch({
-  Session,
-  Config,
-  getApiBase: () => ORCH_ONLINE.replace(/\/$/, ""),
-  orchOnlineInLocal: false,
-  isLocal: () => false,
-  handleApiError: SessionApi.handleApiError,
-  clearSession: SessionApi.clearSession,
-});
-
 export const capFetch = bridgeHttp.capFetch;
 export const apiUrl = bridgeHttp.apiUrl;
 export const rowVal = bridgeHttp.rowVal;
@@ -47,14 +42,9 @@ function patyiaBridgePath(path: string): string {
   return p;
 }
 
-function bridgePatyiaPath(path: string): string {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return p.startsWith("/patyia") ? p : `/patyia${p}`;
-}
-
 export async function fetchInstruccionesPaty() {
-  const data = await capFetch(bridgePatyiaPath("/instrucciones"), { method: "GET" });
-  return (data.rows ?? []) as Record<string, unknown>[];
+  const data = await fetchInstruccionesSystemConfig();
+  return data.rows as Record<string, unknown>[];
 }
 
 export async function publishInstruccionesPaty(sql: string) {
@@ -64,23 +54,10 @@ export async function publishInstruccionesPaty(sql: string) {
       || "Sin permiso para publicar instrucciones",
     );
   }
-  return orchHttp.capFetch(
-    "/patyia/instrucciones/publish",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sql }),
-    },
-    null,
-  );
+  return putInstruccionesPublish(sql);
 }
 
-export type InstruccionUpsertPayload = {
-  iinstruccion: string;
-  instruccion: string;
-  jconfig?: Record<string, unknown>;
-  author?: string;
-};
+export type { InstruccionUpsertPayload };
 
 /** Guarda una sola instrucción (sin publicar el lote completo). */
 export async function upsertInstruccionPaty(payload: InstruccionUpsertPayload) {
@@ -90,15 +67,7 @@ export async function upsertInstruccionPaty(payload: InstruccionUpsertPayload) {
       || "Sin permiso para publicar instrucciones",
     );
   }
-  return orchHttp.capFetch(
-    "/patyia/instrucciones/upsert",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-    null,
-  );
+  return putInstruccionUpsert(payload);
 }
 
 function isConvNotFound(err: unknown): boolean {
@@ -335,8 +304,12 @@ export async function fetchConversacionesBridge(input: {
   limit?: number;
   search?: string;
   sort?: string;
-}): Promise<ConversacionesBridgeResponse> {
-  const params = conversacionesListQueryParams({
+}, jwt?: PatyJwtRecord | null): Promise<ConversacionesBridgeResponse> {
+  const tokenJwt = jwt ?? loadPatyJwt();
+  if (!tokenJwt?.token) {
+    throw new Error("Configura el JWT de soporte-staging para listar conversaciones");
+  }
+  const res = await listConversaciones(tokenJwt, {
     page: input.page,
     limit: input.limit,
     search: input.search,
@@ -344,17 +317,12 @@ export async function fetchConversacionesBridge(input: {
     itercero: input.itercero,
     icontacto: input.icontacto,
   });
-  const raw = await capFetch(`${patyiaBridgePath("/conversaciones")}?${params.toString()}`, { method: "GET" });
-  const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
-    ? raw.body as ConversacionesBridgeResponse
-    : raw as ConversacionesBridgeResponse;
-  if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar conversaciones"));
   return {
     ok: true,
-    conversaciones: Array.isArray(data.conversaciones) ? data.conversaciones : [],
-    total: Number(data.total ?? 0) || 0,
-    page: Number(data.page ?? input.page ?? 1) || 1,
-    limit: Number(data.limit ?? input.limit ?? 10) || 10,
-    pages: Number(data.pages ?? 0) || 0,
+    conversaciones: res.conversaciones,
+    total: res.total,
+    page: res.page,
+    limit: res.limit,
+    pages: res.pages,
   };
 }
