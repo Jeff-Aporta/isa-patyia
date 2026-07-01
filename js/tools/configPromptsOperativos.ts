@@ -1,6 +1,6 @@
 import { preparePromptBodyForSave } from "../core/promptVariables.ts";
 import { bodyPreviewHtmlFromLines } from "../ui/promptMdEditorHtml.ts";
-import { DEFAULT_MODELO_OPERATIVO, modelAllowsSampling } from "./configOpenAi.ts";
+import { DEFAULT_MODELO_OPERATIVO, modelAllowsSampling, modelAllowsReasoningEffort } from "./configOpenAi.ts";
 
 export const REASONING_EFFORT_OPTIONS = ["low", "medium", "high"] as const;
 export type ReasoningEffort = (typeof REASONING_EFFORT_OPTIONS)[number];
@@ -105,7 +105,13 @@ function normalizePromptDef(raw: unknown, key: string, operativeModel: string, e
   }
 
   const maxTok = validateMaxTokens(`${key}.max_completion_tokens`, src.max_completion_tokens, errors);
-  if (maxTok != null) out.max_completion_tokens = maxTok;
+  if (maxTok != null) {
+    out.max_completion_tokens = maxTok;
+    const effort = out.reasoning_effort;
+    if (effort && modelAllowsReasoningEffort(operativeModel) && maxTok > 64 && maxTok < 128) {
+      errors.push(`${key}.max_completion_tokens: con modelo ${operativeModel} y reasoning_effort=${effort} use al menos 128 (el razonamiento consume el budget)`);
+    }
+  }
 
   const temp = validateTemperatureField(`${key}.temperatura`, src.temperatura, operativeModel, errors, { strict });
   if (temp != null) out.temperatura = temp;

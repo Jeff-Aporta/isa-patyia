@@ -1164,6 +1164,10 @@ html[data-mui-color-scheme="light"] .config-prompt-msg__head {
   & .paty-permisos-user-card--filter-draggable {
     cursor: grab;
   }
+  & .paty-permisos-user-card--transfer-blocked {
+    cursor: not-allowed;
+    opacity: 0.78;
+  }
   & .paty-permisos-user-card .paty-todos-card__title {
     font-size: 0.8125rem;
     line-height: 1.25;
@@ -1260,6 +1264,26 @@ html[data-mui-color-scheme="light"] .config-prompt-msg__head {
 
 .paty-permisos-kanban.paty-todos-kanban--dragging .paty-permisos-column--drag-source:not(.paty-permisos-column--drag-over) {
   opacity: 0.72;
+}
+
+.paty-permisos-kanban .paty-permisos-column--drop-blocked,
+.paty-permisos-kanban .paty-permisos-column--drop-forbidden {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+.paty-permisos-kanban .paty-permisos-column--drop-blocked .paty-todos-column__head,
+.paty-permisos-kanban .paty-permisos-column--drop-forbidden .paty-todos-column__head {
+  outline: 1px dashed color-mix(in srgb, var(--isa-glass-danger, #ef4444) 55%, transparent);
+}
+.paty-permisos-kanban .paty-todos-column__list--drop-blocked {
+  background: color-mix(in srgb, var(--isa-glass-danger, #ef4444) 8%, transparent);
+}
+.paty-permisos-kanban--no-assign .paty-permisos-user-card,
+.paty-permisos-kanban--no-assign .paty-todos-column__head {
+  cursor: default !important;
+}
+.paty-permisos-kanban--no-assign .paty-todos-card--draggable {
+  cursor: default !important;
 }
 
 .paty-permisos-kanban .paty-permisos-column--drag-over {

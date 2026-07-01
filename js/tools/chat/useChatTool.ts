@@ -22,7 +22,7 @@ import {
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
 import { CONVERSACIONES_LIST_SORT_DEFAULT } from "../../api/issListFilter.ts";
-import { fetchConvLogById, fetchConvLogByIdWithRetry, fetchConversacionesBridge } from "../../api/apiClient.ts";
+import { fetchConvLogById, fetchConvLogByIdWithRetry } from "../../api/apiClient.ts";
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
 import { persistChatConvId, persistChatMessageSource, persistChatMode, getSnapshot, subscribe } from "../../core/urlState.ts";
@@ -305,31 +305,31 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       const page = convListPage;
       const limit = convListPageSize;
       const search = convListSearch.trim() || undefined;
-      const scope = listScope?.itercero && listScope?.icontacto
-        ? { itercero: listScope.itercero, icontacto: listScope.icontacto }
-        : null;
-
-      const filterRows = (rows: PatyConversacionRow[]) => {
-        const filtered = !scope
-          ? rows
-          : rows.filter(
-            (r) => String(r.itercero ?? "") === scope.itercero
-              && String(r.icontacto ?? "") === scope.icontacto,
-          );
-        return [...filtered].sort(
-          (a, b) => Number(b.iconversacion) - Number(a.iconversacion),
-        );
-      };
-
       const listSort = CONVERSACIONES_LIST_SORT_DEFAULT;
 
+      /** Solo auditoría ajena envía itercero/icontacto; propio JWT → ISS resuelve dueño desde token. */
+      const auditOther = Boolean(
+        auditScope?.itercero
+        && auditScope?.icontacto
+        && !auditScopeIsOwnJwt(auditScope, jwt?.claims),
+      );
+      const listInput = {
+        page,
+        limit,
+        search,
+        sort: listSort,
+        ...(auditOther
+          ? { itercero: auditScope!.itercero, icontacto: auditScope!.icontacto }
+          : {}),
+      };
+
       if (jwt?.token) {
-        const res = await listConversaciones(jwt, { page, limit, search, sort: listSort, ...(scope || {}) });
-        setRows(filterRows(res.conversaciones));
-        setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
-      } else if (scope) {
-        const res = await fetchConversacionesBridge({ ...scope, page, limit, search, sort: listSort });
-        setRows(filterRows(res.conversaciones));
+        const res = await listConversaciones(jwt, listInput);
+        setRows(
+          [...res.conversaciones].sort(
+            (a, b) => Number(b.iconversacion) - Number(a.iconversacion),
+          ),
+        );
         setConvListMeta({ total: res.total, page: res.page, pages: res.pages });
       } else {
         setRows([]);
@@ -340,7 +340,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } finally {
       setLoadingList(false);
     }
-  }, [loggedIn, jwtLoading, sessionScopeLoading, jwt?.token, listScope?.itercero, listScope?.icontacto, convListPage, convListPageSize, convListSearch]);
+  }, [loggedIn, jwtLoading, sessionScopeLoading, jwt?.token, jwt?.claims, auditScope?.itercero, auditScope?.icontacto, convListPage, convListPageSize, convListSearch]);
 
   const handleConvListSearchChange = useCallback((text: string) => {
     setConvListSearch((prev) => {

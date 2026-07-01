@@ -35,6 +35,14 @@ export function modelAllowsSampling(model: string): boolean {
   return true;
 }
 
+/** Modelos OpenAI cuyo chat completions admite reasoning_effort (gpt-5, o*). */
+export function modelAllowsReasoningEffort(model: string): boolean {
+  const m = String(model ?? "").trim().toLowerCase();
+  if (!m) return false;
+  if (!modelAllowsSampling(m)) return true;
+  return /^gpt-5|^o[134]/.test(m);
+}
+
 function parseModel(v: unknown, fallback: string): string {
   return String(v ?? "").trim() || fallback;
 }
