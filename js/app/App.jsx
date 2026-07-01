@@ -15,8 +15,12 @@ const ALL_TOOLS = [
   { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
   { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
   { id: "config", label: "Config", icon: "mdi:cog-outline" },
+];
+
+// Vista pública Scrum/DevFlow: en ese modo la pestaña "todos" es la única útil.
+const PUBLIC_SCRUM_TOOLS = [
+  { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
 ];
 
 function isPublicScrumBoot(todos) {
@@ -112,7 +116,9 @@ export function App() {
       mobileBreakpoint="xs"
       chromeless={publicScrumView}
       toolbarExtra={toolbarTools}
-      navRows={publicScrumView ? [] : [
+      navRows={publicScrumView ? [
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
+      ] : [
         { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: ALL_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
     >
