@@ -8,6 +8,10 @@ export const CANONICAL_ROLE_META = {
     namedisplay: "Admn básico",
     descripcion: "Admn básico — permisos administrativos globales (hereda visitante)",
   },
+  admn_isapatyia: {
+    namedisplay: "Admn ISA-Paty",
+    descripcion: "Admn ISA-Paty — permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)",
+  },
 };
 
 export function canonicalRoleMeta(roleName) {

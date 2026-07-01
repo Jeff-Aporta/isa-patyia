@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-07-01T12:43:25.418Z",
+  "builtAt": "2026-07-01T12:46:03.324Z",
   "files": 127,
-  "bytesIn": 1163700,
-  "bytesOut": 682189,
+  "bytesIn": 1163880,
+  "bytesOut": 682260,
   "ratio": 0.586,
-  "hash": "fb0a1daefd15",
+  "hash": "f76aaadc01c4",
   "entries": [
     {
       "src": "css/app.css",
@@ -243,8 +243,8 @@
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 26701,
-      "bytesOut": 14488
+      "bytesIn": 26705,
+      "bytesOut": 14404
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
@@ -519,8 +519,8 @@
     {
       "src": "js/tools/roleCanonicalMeta.js",
       "dist": "_dist/js/tools/roleCanonicalMeta.js",
-      "bytesIn": 550,
-      "bytesOut": 391
+      "bytesIn": 726,
+      "bytesOut": 546
     },
     {
       "src": "js/tools/roleHierarchy.js",

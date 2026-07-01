@@ -756,10 +756,13 @@ export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, 
                   <Box sx={{ minWidth: 0 }}>
 
                     <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={col.roleName && col.title !== col.roleName ? `${col.title} (${col.roleName})` : col.title}>{col.title}</Box>
-                      {col.jerarquiaLabel ? (
-                        <Typography component="span" variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", flexShrink: 0 }} title={`Jerarquía ${col.jerarquia}`}>{col.jerarquiaLabel}</Typography>
-                      ) : null}
+                      <Box component="span" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }} title={
+                        col.jerarquia
+                          ? `${col.title} · Jerarquía ${col.jerarquia}${col.roleName && col.title !== col.roleName ? ` (${col.roleName})` : ""}`
+                          : col.roleName && col.title !== col.roleName
+                            ? `${col.title} (${col.roleName})`
+                            : col.title
+                      }>{col.title}</Box>
                     </Stack>
 
                     {col.descripcion ? <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.3, mt: 0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={col.descripcion}>{col.descripcion}</Typography> : null}
