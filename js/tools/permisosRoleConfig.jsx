@@ -21,6 +21,7 @@ import {
 } from "./permisosRouteCatalog.js";
 
 import { roleTitleFromEntry } from "./permisosKanbanShared.js";
+import { isSamePermisosUser, isTopDevLeadRole, moveRoleImpactBullets, removeRoleImpactBullets, canAddUserToRole, userJerarquiasFromBoard } from "./permisosRoleTransfer.js";
 import { PermisosUserAutocomplete } from "./PermisosUserAutocomplete.jsx";
 import { enforceVisitantePermisos, isVisitanteRole, visitanteRouteLocked } from "./permisosVisitante.js";
 import { FIX_FILTER_VAR_HINT, formatFixFilter } from "./permFixFilter.js";
@@ -40,6 +41,11 @@ const {
 } = getMaterialUI();
 
 const { Icon } = UI;
+
+function renderImpactLine(text) {
+  const parts = String(text ?? "").split(/\*\*(.*?)\*\*/g);
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));
+}
 
 
 
@@ -668,57 +674,167 @@ export function RoleConfigFullscreenDialog({ open, column, canManage, canEditRol
 
 
 
-export function RoleDragDialog({ open, pending, busy, onClose, onConfirm }) {
+export function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
+
+  const [moveStep, setMoveStep] = useState(false);
+
+  useEffect(() => { if (!open) setMoveStep(false); }, [open]);
 
   if (!pending) return null;
 
-  const { username, fromRole, toRole } = pending;
+  const { username, fromRole, toRole, fromRoleTitle, toRoleTitle, fromJerarquia, toJerarquia, copyBlocked, copyBlockReason } = pending;
+
+  const fromLabel = fromRoleTitle || fromRole;
+
+  const toLabel = toRoleTitle || toRole;
+
+  const isSelf = isSamePermisosUser(username, sessionUsername);
+
+  const leavesDevLead = isTopDevLeadRole(fromRole, fromJerarquia);
+
+  const copyDenied = !!copyBlocked;
+
+  const copyDeniedReason = copyBlockReason || "En la misma rama jerárquica solo puede moverse el rol, no copiarse.";
 
   function confirm(mode) {
 
     if (busy) return;
 
+    if (mode === "copy" && copyDenied) return;
+
     onConfirm(mode);
 
   }
+
+  function handleCopy() {
+
+    if (copyDenied) return;
+
+    confirm("copy");
+
+  }
+
+  const moveBullets = moveRoleImpactBullets({ username, fromRoleTitle: fromLabel, toRoleTitle: toLabel, isSelf, leavesDevLead });
 
   return (
 
     <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth disableEscapeKeyDown={busy}
 
-      header={<GlassDialogHeader icon="mdi:account-switch" title="Asignar rol" subtitle={`${username}: ${fromRole} → ${toRole}`} accent="#1e90ff" onClose={busy ? undefined : onClose} />}>
+      header={
 
-      <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
+        <GlassDialogHeader
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          icon={moveStep ? "mdi:alert-outline" : "mdi:account-switch"}
 
-          ¿Asignar <strong>{username}</strong> al rol <strong>{toRole}</strong>?
+          title={moveStep ? "Confirmar movimiento" : "Asignar rol"}
 
-        </Typography>
+          subtitle={`${username}: ${fromLabel} → ${toLabel}`}
 
-        <Stack spacing={1.25}>
+          accent={moveStep ? "#f59e0b" : "#1e90ff"}
 
-          <Button variant="contained" fullWidth disabled={busy} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+          onClose={busy ? undefined : onClose}
 
-            onClick={() => confirm("move")} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:arrow-right-bold" size={18} />}>
+        />
 
-            {busy ? "Procesando…" : `Mover (quitar de ${fromRole})`}
+      }>
 
-          </Button>
+      {!moveStep ? (
 
-          <Button variant="outlined" fullWidth disabled={busy} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+        <>
 
-            onClick={() => confirm("copy")} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:content-copy" size={18} />}>
+          <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
 
-            {busy ? "Procesando…" : `Copiar (mantener en ${fromRole})`}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 
-          </Button>
+              ¿Cómo asignar a <strong>{username}</strong> el rol <strong>{toLabel}</strong>?
 
-        </Stack>
+            </Typography>
 
-      </DialogContent>
+            {copyDenied ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {copyDeniedReason || "En la misma rama jerárquica solo puede moverse el rol, no copiarse."}
+              </Alert>
+            ) : null}
 
-      <DialogActions sx={glassDialogActionsSx()}><Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button></DialogActions>
+            <Stack spacing={1.25}>
+
+              <Button variant="outlined" fullWidth disabled={busy || copyDenied} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+
+                onClick={handleCopy} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:content-copy" size={18} />}>
+
+                {busy ? "Procesando…" : copyDenied ? "Copiar no disponible (misma rama)" : `Copiar (mantener también en ${fromLabel})`}
+
+              </Button>
+
+              {!copyDenied ? (
+                <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
+
+                  Copiar no quita el rol origen; no hay cambio de privilegios neto salvo sumar los del destino.
+
+                </Typography>
+              ) : null}
+
+              <Button variant="contained" fullWidth disabled={busy} sx={{ textTransform: "none", justifyContent: "flex-start", py: 1.25 }}
+
+                onClick={() => setMoveStep(true)} startIcon={<Icon icon="mdi:arrow-right-bold" size={18} />}>
+
+                {copyDenied ? `Mover a ${toLabel} (quitar de ${fromLabel})…` : `Mover (quitar de ${fromLabel})…`}
+
+              </Button>
+
+            </Stack>
+
+          </DialogContent>
+
+          <DialogActions sx={glassDialogActionsSx()}><Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button></DialogActions>
+
+        </>
+
+      ) : (
+
+        <>
+
+          <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
+
+            <Alert severity="warning" sx={{ mb: 2 }}>
+
+              Mover implica <strong>quitar</strong> a {isSelf ? "ti" : username} de <strong>{fromLabel}</strong>. Revisa el impacto antes de confirmar.
+
+            </Alert>
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+
+              {username} pasará de <strong>{fromLabel}</strong> a <strong>{toLabel}</strong> (sin duplicar el origen).
+
+            </Typography>
+
+            <Box component="ul" sx={{ m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }}>
+
+              {moveBullets.map((line) => (
+                <li key={line}>{renderImpactLine(line)}</li>
+              ))}
+
+            </Box>
+
+          </DialogContent>
+
+          <DialogActions sx={glassDialogActionsSx()}>
+
+            <Button onClick={() => setMoveStep(false)} disabled={busy} sx={{ textTransform: "none" }}>Atrás</Button>
+
+            <Button variant="contained" color="warning" disabled={busy} onClick={() => confirm("move")} sx={{ textTransform: "none", minWidth: 140 }}
+
+              startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:arrow-right-bold" size={18} />}>
+
+              {busy ? "Moviendo…" : "Confirmar movimiento"}
+
+            </Button>
+
+          </DialogActions>
+
+        </>
+
+      )}
 
     </GlassDialog>
 
@@ -730,9 +846,14 @@ export function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
   const [username, setUsername] = useState(null);
   useEffect(() => { if (open) setUsername(null); }, [open]);
   if (!pending) return null;
-  const { roleTitle, role, existingUsernames } = pending;
+  const { roleTitle, role, existingUsernames, toJerarquia, columns } = pending;
   const roleLabel = roleTitle || role;
   const alreadyInRole = username && existingUsernames?.has(String(username).trim().toUpperCase());
+  const userJerarquias = username ? userJerarquiasFromBoard(username, columns) : [];
+  const addCheck = username && !alreadyInRole
+    ? canAddUserToRole({ toJerarquia, userJerarquiasOnBoard: userJerarquias })
+    : { ok: true };
+  const inheritanceBlocked = username && !alreadyInRole && !addCheck.ok;
   return (
     <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth
       header={<GlassDialogHeader icon="mdi:account-plus-outline" title="Agregar al rol" subtitle={roleLabel} accent="#10b981" onClose={busy ? undefined : onClose} />}>
@@ -742,10 +863,11 @@ export function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
         </Typography>
         <PermisosUserAutocomplete value={username} onChange={setUsername} disabled={busy} label="Usuario" />
         {alreadyInRole ? <Alert severity="warning" sx={{ mt: 1.5 }}>Este usuario ya está en el rol.</Alert> : null}
+        {inheritanceBlocked ? <Alert severity="warning" sx={{ mt: 1.5 }}>{addCheck.reason}</Alert> : null}
       </DialogContent>
       <DialogActions sx={glassDialogActionsSx()}>
         <Button onClick={onClose} disabled={busy} sx={{ textTransform: "none" }}>Cancelar</Button>
-        <Button variant="contained" disabled={busy || !username || alreadyInRole} onClick={() => onConfirm(username)} sx={{ textTransform: "none", minWidth: 120 }}
+        <Button variant="contained" disabled={busy || !username || alreadyInRole || inheritanceBlocked} onClick={() => onConfirm(username)} sx={{ textTransform: "none", minWidth: 120 }}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : <Icon icon="mdi:account-plus-outline" size={18} />}>
           {busy ? "Agregando…" : "Agregar"}
         </Button>
@@ -754,25 +876,29 @@ export function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
   );
 }
 
-export function RoleRemoveDialog({ open, pending, busy, onClose, onConfirm }) {
+export function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   if (!pending) return null;
-  const { username, roleTitle, role } = pending;
+  const { username, roleTitle, role, fromJerarquia } = pending;
   const roleLabel = roleTitle || role;
+  const isSelf = isSamePermisosUser(username, sessionUsername);
+  const isDevLead = isTopDevLeadRole(role, fromJerarquia);
+  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel, isSelf, isDevLead });
   return (
     <GlassDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth disableEscapeKeyDown={busy}
       header={<GlassDialogHeader icon="mdi:account-remove-outline" title="Quitar del rol" subtitle={`${username} · ${roleLabel}`} accent="#f59e0b" onClose={busy ? undefined : onClose} />}>
       <DialogContent sx={glassDialogContentSx({ p: 2.5 })}>
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Esta acción revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar.
+          {isSelf && isDevLead
+            ? "Te quitarás dev_lead (máximo privilegio). Otro dev_lead o un ajuste en BD será necesario para recuperarlo."
+            : "Esta acción revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar."}
         </Alert>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           ¿Quitar a <strong>{username}</strong> del rol <strong>{roleLabel}</strong>?
         </Typography>
         <Box component="ul" sx={{ m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }}>
-          <li>Perderá los permisos, rutas y privilegios asociados a <strong>{roleLabel}</strong>.</li>
-          <li>Dejará de aparecer en la columna de ese rol en el tablero.</li>
-          <li>Sus otros roles asignados no se modifican.</li>
-          <li>Para restaurar el acceso, un dev_lead deberá volver a asignar el rol.</li>
+          {bullets.map((line) => (
+            <li key={line}>{renderImpactLine(line)}</li>
+          ))}
         </Box>
       </DialogContent>
       <DialogActions sx={glassDialogActionsSx()}>
