@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-07-01T09:09:54.302Z",
+  "builtAt": "2026-07-01T09:36:19.726Z",
   "files": 127,
-  "bytesIn": 1163019,
-  "bytesOut": 681834,
+  "bytesIn": 1163427,
+  "bytesOut": 682110,
   "ratio": 0.586,
-  "hash": "752e938ef54e",
+  "hash": "6ca9cee7139a",
   "entries": [
     {
       "src": "css/app.css",
@@ -729,8 +729,8 @@
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 26330,
-      "bytesOut": 16194
+      "bytesIn": 26738,
+      "bytesOut": 16470
     },
     {
       "src": "js/ui/treeView/TreeRowItem.tsx",

@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI } from "../core/platform.ts";
+import { getReact, getMaterialUI, UI, mdToHtml } from "../core/platform.ts";
 import {
   tokensFromUsage,
   formatUsageUsd,
@@ -9,9 +9,9 @@ import {
 import { CodeMirrorPanel } from "../core/platform.ts";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogTabsSx, resolveMetaDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
-import { archivosCitadosFromMeta, fileSearchFromMeta } from "../core/fileSearchTrace.js";
+import { archivosCitadosFromMeta, fileSearchFromMeta, chunksFromMeta, chunkPreview } from "../core/fileSearchTrace.js";
 
-export { mdToHtml } from "../core/platform.ts";
+export { mdToHtml };
 
 /** Botón con icono Iconify (mismo patrón que ISP ButtonIconify). */
 export function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
@@ -36,7 +36,7 @@ export function ButtonIconify({ icon, title = "", label = "", onClick, disabled 
 }
 
 const { useState, useEffect, useMemo } = getReact();
-const { createTheme, Tabs, Tab, Box, Typography, DialogContent } = getMaterialUI();
+const { createTheme, Tabs, Tab, Box, Typography, DialogContent, Stack, Chip } = getMaterialUI();
 
 function isOpenAiPmptId(id) {
   return /^pmpt_/i.test(String(id ?? "").trim());
@@ -187,13 +187,14 @@ function PromptSummaryCard({ meta, tokens, usageStats, isUserMessage = false }) 
         key: "prompt-ch",
         label: isUserMessage ? "Caracteres consulta" : "Caracteres prompt",
         value: Number(promptChars).toLocaleString("es-CO"),
+        tone: "accent",
       }]
       : []),
     ...(imageCount
-      ? [{ key: "img-n", label: "Imágenes adjuntas", value: String(imageCount) }]
+      ? [{ key: "img-n", label: "Imágenes adjuntas", value: String(imageCount), tone: "neutral" }]
       : []),
     ...(typeof responseChars === "number"
-      ? [{ key: "resp-ch", label: "Caracteres respuesta", value: responseChars.toLocaleString("es-CO") }]
+      ? [{ key: "resp-ch", label: "Caracteres respuesta", value: responseChars.toLocaleString("es-CO"), tone: "neutral" }]
       : []),
   ];
 
@@ -219,13 +220,28 @@ function PromptSummaryCard({ meta, tokens, usageStats, isUserMessage = false }) 
   return (
     <Box className="meta-prompt-summary">
       {hasCharStats || hasUsage ? (
-        <Typography variant="subtitle2" className="meta-prompt-summary__title">
-          {isUserMessage ? "Resumen de la consulta" : "Resumen del prompt"}
-        </Typography>
+        <Stack direction="row" alignItems="center" spacing={0.75} className="meta-prompt-summary__head">
+          <iconify-icon
+            icon={isUserMessage ? "mdi:message-text-outline" : "mdi:file-document-edit-outline"}
+            width="18"
+            height="18"
+          />
+          <Typography variant="subtitle2" className="meta-prompt-summary__title" sx={{ flex: 1, fontWeight: 700 }}>
+            {isUserMessage ? "Resumen de la consulta" : "Resumen del prompt"}
+          </Typography>
+          {hasUsage ? (
+            <Chip
+              size="small"
+              className="meta-prompt-summary__badge"
+              label={isUserMessage ? "tokens + costo" : "tokens + costo"}
+              icon={<iconify-icon icon="mdi:finance" width="13" height="13" />}
+            />
+          ) : null}
+        </Stack>
       ) : null}
       <div className="meta-prompt-summary__grid">
         {charStats.map((s) => (
-          <div key={s.key} className="meta-prompt-stat">
+          <div key={s.key} className={`meta-prompt-stat meta-prompt-stat--${s.tone || "neutral"}`}>
             <span className="meta-prompt-stat__k">{s.label}</span>
             <span className="meta-prompt-stat__v">{s.value}</span>
           </div>
@@ -292,43 +308,103 @@ export function metaWorthDialog(meta, isUser) {
 }
 
 function FileSearchMetaSection({ meta }) {
-  const { Typography, Box, Stack, Chip } = getMaterialUI();
+  const { Typography, Box, Stack, Chip, IconButton, Tooltip } = getMaterialUI();
+  const { useState, useMemo } = getReact();
   const trace = fileSearchFromMeta(meta);
   const archivos = archivosCitadosFromMeta(meta);
-  if (!trace?.length && !archivos.length) return null;
+  const chunks = useMemo(() => chunksFromMeta(meta), [meta]);
+  const [openChunk, setOpenChunk] = useState(null);
+
+  if (!trace?.length && !archivos.length && !chunks.length) return null;
 
   return (
     <Box className="meta-file-search" sx={{ mt: 1.5 }}>
-      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>File Search (archivos citados)</Typography>
+      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
+        File Search (archivos citados)
+      </Typography>
       {archivos.length ? (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: trace?.length ? 1 : 0 }}>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: chunks.length ? 1.25 : 0 }}>
           {archivos.map((name) => (
-            <Chip key={name} size="small" variant="outlined" icon={<iconify-icon icon="mdi:file-document-outline" width="14" height="14" />} label={name} title={name} />
+            <Chip
+              key={name}
+              size="small"
+              variant="outlined"
+              icon={<iconify-icon icon="mdi:file-document-outline" width="14" height="14" />}
+              label={name}
+              title={name}
+            />
           ))}
         </Stack>
       ) : null}
-      {trace?.map((call, ci) => (
-        <Box key={ci} sx={{ mb: ci < trace.length - 1 ? 1.25 : 0 }}>
-          {call.queries?.length ? (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-              Queries: {call.queries.join(" · ")}
-            </Typography>
-          ) : null}
-          {(call.results ?? []).map((fr, ri) => (
-            <Box key={`${fr.filename ?? ri}-${fr.file_id ?? ri}`} className="meta-file-search__fragment" sx={{ mb: 0.75, pl: 1, borderLeft: 2, borderColor: "divider" }}>
-              <Typography variant="body2" fontWeight={600}>
-                {fr.filename || fr.file_id || "fragmento"}
-                {fr.score != null ? ` · score ${Number(fr.score).toFixed(3)}` : ""}
-              </Typography>
-              {fr.text ? (
-                <Typography variant="caption" component="pre" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", mt: 0.35, mb: 0, fontFamily: "inherit", color: "text.secondary" }}>
-                  {String(fr.text).length > 480 ? `${String(fr.text).slice(0, 480)}…` : fr.text}
+      {chunks.length ? (
+        <Stack spacing={0.85} className="meta-file-search__chunk-list">
+          {chunks.map((c) => {
+            const preview = chunkPreview(c.text, 380);
+            return (
+              <Box key={c.key} className="meta-file-search__chunk">
+                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                  <iconify-icon icon="mdi:text-box-search-outline" width="16" height="16" />
+                  <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                    {c.filename || c.fileId || "fragmento"}
+                  </Typography>
+                  {c.score != null ? (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`score ${Number(c.score).toFixed(3)}`}
+                      className="meta-file-search__score"
+                    />
+                  ) : null}
+                  <Tooltip title="Ver fragmento en full-page">
+                    <IconButton
+                      size="small"
+                      aria-label={`Ver fragmento de ${c.filename || c.fileId || "fragmento"}`}
+                      onClick={() => setOpenChunk(c)}
+                      className="meta-file-search__open"
+                    >
+                      <iconify-icon icon="mdi:fullscreen" width="16" height="16" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+                {c.queries?.length ? (
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.35 }}>
+                    Queries: {c.queries.join(" · ")}
+                  </Typography>
+                ) : null}
+                <Typography
+                  variant="caption"
+                  component="pre"
+                  className="meta-file-search__preview"
+                  sx={{
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    m: 0,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {preview}
                 </Typography>
-              ) : null}
-            </Box>
-          ))}
-        </Box>
-      ))}
+              </Box>
+            );
+          })}
+        </Stack>
+      ) : null}
+      <MdFullPageDialog
+        open={Boolean(openChunk)}
+        onClose={() => setOpenChunk(null)}
+        source={openChunk?.text || ""}
+        title={openChunk ? `Fragmento · ${openChunk.filename || openChunk.fileId || "texto exacto"}` : "Fragmento"}
+        subtitle={
+          openChunk
+            ? [
+                openChunk.score != null ? `score ${Number(openChunk.score).toFixed(3)}` : "",
+                openChunk.queries?.length ? `Queries: ${openChunk.queries.join(" · ")}` : "",
+              ].filter(Boolean).join("  ·  ")
+            : ""
+        }
+        accent="#7c3aed"
+        icon="mdi:text-box-search-outline"
+      />
     </Box>
   );
 }
@@ -412,40 +488,6 @@ export function MetaDialog({
     );
   }
 
-  function renderPromptPanel() {
-    return (
-      <div className="meta-prompt-panel custom-scrollbar">
-        <PromptSummaryCard meta={resolvedMeta} tokens={tk} usageStats={usageStats} isUserMessage={isUserMessage} />
-        {promptMarkdown ? (
-          <Box className="meta-prompt-exact-wrap">
-            <CodeMirrorPanel
-              value={promptMarkdown}
-              readOnly
-              lineWrapping
-              lineNumbers
-              minHeight="8rem"
-              maxHeight="min(52dvh, 28rem)"
-              copyTitle="Copiar prompt exacto"
-              enableFullPage
-              fullPageTitle={isUserMessage ? "Consulta · texto exacto" : "Prompt · texto exacto"}
-              className="meta-prompt-exact-cm"
-            />
-          </Box>
-        ) : null}
-        {userImagenes.length ? (
-          <MetaDialogImages items={userImagenes} onImageClick={setLightboxSrc} topGap={promptMarkdown ? 1.25 : 0} />
-        ) : null}
-        {!promptMarkdown && !userImagenes.length ? (
-          <Typography variant="body2" color="text.secondary">
-            {isUserMessage
-              ? "Sin texto ni imágenes en el log de este mensaje."
-              : "Sin texto de instrucciones en el log de este turno."}
-          </Typography>
-        ) : null}
-      </div>
-    );
-  }
-
   const headerMeta = resolveMetaDialogHeader(title, isUserMessage);
 
   return (
@@ -477,7 +519,17 @@ export function MetaDialog({
           </Box>
           {hasPrompt && (
             <Box sx={{ display: tab === 1 ? "block" : "none", minHeight: 0, flex: 1 }}>
-              {renderPromptPanel()}
+              <PromptPanelBody
+                resolvedMeta={resolvedMeta}
+                tk={tk}
+                usageStats={usageStats}
+                isUserMessage={isUserMessage}
+                promptMarkdown={promptMarkdown}
+                userImagenes={userImagenes}
+                setLightboxSrc={setLightboxSrc}
+                iinstruccion={iinstruccion}
+                dialogTitle={title}
+              />
             </Box>
           )}
         </DialogContent>
@@ -485,5 +537,166 @@ export function MetaDialog({
       </GlassDialog>
       <ImageLightboxDialog open={Boolean(lightboxSrc)} src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </>
+  );
+}
+
+function PromptPanelBody({
+  resolvedMeta, tk, usageStats, isUserMessage,
+  promptMarkdown, userImagenes, setLightboxSrc, iinstruccion, dialogTitle,
+}) {
+  const [fullPage, setFullPage] = useState(false);
+  return (
+    <div className="meta-prompt-panel custom-scrollbar">
+      <PromptSummaryCard meta={resolvedMeta} tokens={tk} usageStats={usageStats} isUserMessage={isUserMessage} />
+      {promptMarkdown ? (
+        <Box className="meta-prompt-exact-wrap">
+          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.75 }}>
+            <iconify-icon icon="mdi:file-document-outline" width="18" height="18" />
+            <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 700 }}>
+              {isUserMessage ? "Consulta · texto exacto" : "Prompt · texto exacto"}
+            </Typography>
+            <Chip
+              size="small"
+              clickable
+              onClick={() => setFullPage(true)}
+              className="meta-prompt-exact-preview__open"
+              label="Ver full-page"
+              icon={<iconify-icon icon="mdi:fullscreen" width="14" height="14" />}
+            />
+            <Chip
+              size="small"
+              clickable
+              onClick={() => {
+                try {
+                  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(promptMarkdown);
+                } catch { /* ignore */ }
+              }}
+              className="meta-prompt-exact-preview__copy"
+              label="Copiar"
+              icon={<iconify-icon icon="mdi:content-copy" width="14" height="14" />}
+            />
+          </Stack>
+          <Box className="meta-prompt-exact-preview__body isa-md-content">
+            <MdRenderer source={promptMarkdown} />
+          </Box>
+          <MdFullPageDialog
+            open={fullPage}
+            onClose={() => setFullPage(false)}
+            source={promptMarkdown}
+            title={isUserMessage ? "Consulta · texto exacto" : "Prompt · texto exacto"}
+            subtitle={dialogTitle || (isUserMessage ? "Vista consulta full-page" : "Vista prompt full-page")}
+            icon={isUserMessage ? "mdi:message-text-outline" : "mdi:file-document-outline"}
+            accent={isUserMessage ? "#1e90ff" : "#22c55e"}
+          />
+        </Box>
+      ) : null}
+      {userImagenes.length ? (
+        <MetaDialogImages items={userImagenes} onImageClick={setLightboxSrc} topGap={promptMarkdown ? 1.25 : 0} />
+      ) : null}
+      {!promptMarkdown && !userImagenes.length ? (
+        <Typography variant="body2" color="text.secondary">
+          {isUserMessage
+            ? "Sin texto ni imágenes en el log de este mensaje."
+            : "Sin texto de instrucciones en el log de este turno."}
+        </Typography>
+      ) : null}
+    </div>
+  );
+}
+
+/** Renderizador in-place de markdown (sin CodeMirror) con clase estable. */
+export function MdRenderer({ source, className = "" }) {
+  const html = mdToHtml(String(source ?? ""));
+  return (
+    <div
+      className={`md-renderer isa-md-content ${className}`.trim()}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+/** Dialog full-page read-only con markdown renderizado.
+ *  Pensado para: prompt exacto, chunk de file_search, prompt user, etc. */
+export function MdFullPageDialog({
+  open,
+  onClose,
+  source,
+  title = "Visor full-page",
+  subtitle = "",
+  accent = "#1e90ff",
+  icon = "mdi:file-document-outline",
+}) {
+  const { Dialog, DialogTitle, DialogContent, IconButton, Typography, Box } = getMaterialUI();
+  const { Icon } = UI;
+  const html = mdToHtml(String(source ?? ""));
+  return (
+    <Dialog
+      open={Boolean(open)}
+      onClose={onClose}
+      fullScreen
+      scroll="paper"
+      className="md-full-page-dialog"
+      PaperProps={{
+        sx: {
+          backgroundImage: (theme) => `linear-gradient(160deg, ${
+            theme.palette.mode === "light" ? "#f8fbff" : "#0b1220"
+          } 0%, ${
+            theme.palette.mode === "light" ? "#e8f1ff" : "#0f1a30"
+          } 100%)`,
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.25,
+          borderBottom: 1,
+          borderColor: "divider",
+          py: 1.25,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: "0.5rem",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
+            color: "#fff",
+            flexShrink: 0,
+            boxShadow: `0 4px 16px ${accent}55`,
+          }}
+        >
+          <Icon icon={icon} size={20} />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h6" fontWeight={700} noWrap>{title}</Typography>
+          {subtitle ? (
+            <Typography variant="caption" color="text.secondary" noWrap>{subtitle}</Typography>
+          ) : null}
+        </Box>
+        <IconButton onClick={onClose} aria-label="Cerrar visor" size="small">
+          <iconify-icon icon="mdi:close" width="18" height="18" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent
+        dividers
+        sx={{
+          p: { xs: 2, sm: 3, md: 4 },
+          maxWidth: 920,
+          mx: "auto",
+          width: "100%",
+        }}
+      >
+        <div
+          className="md-full-page-dialog__body isa-md-content"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
