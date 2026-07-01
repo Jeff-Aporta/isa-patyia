@@ -1,8 +1,7 @@
 /** Construye nodos de jerarquía desde entradas de permisos (fallback si GET hierarchy falla o viene vacío). */
 
 import { getRoleJerarquia } from "../roleHierarchy.js";
-import { roleNameFromEntry } from "../permisosKanbanShared.js";
-import { roleDescripcion, roleNamedisplay } from "../permisosForm.js";
+import { roleNameFromEntry, roleTitleFromEntry, roleDescripcionFromEntry } from "../permisosKanbanShared.js";
 import type { HierarchyNode } from "./types.js";
 
 export function hierarchyNodesFromRoleEntries(
@@ -18,8 +17,8 @@ export function hierarchyNodesFromRoleEntries(
     out.push({
       iusuario,
       jerarquia,
-      namedisplay: roleNamedisplay(permisos) || null,
-      descripcion: roleDescripcion(permisos) || null,
+      namedisplay: roleTitleFromEntry(e) || null,
+      descripcion: roleDescripcionFromEntry(e) || null,
       bactivo: e.bactivo !== false,
     });
   }

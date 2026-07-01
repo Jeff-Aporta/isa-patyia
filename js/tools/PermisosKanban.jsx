@@ -2,9 +2,11 @@ import { getMaterialUI, getReact, getReactDOM, UI } from "../core/platform.ts";
 
 import { ButtonIconify } from "../ui/shared.jsx";
 
-import { columnAtPoint, pointInRef, userCardLabels, canActorManageColumn } from "./permisosKanbanShared.js";
+import { columnAtPoint, pointInRef, userCardLabels, canActorManageColumn, canActorTransferUser } from "./permisosKanbanShared.js";
 
 import { RoleDragDialog, RoleRemoveDialog, RoleAddDialog } from "./permisosRoleConfig.jsx";
+
+import { canCopyUserRole, userJerarquiasFromBoard } from "./permisosRoleTransfer.js";
 
 
 
@@ -22,11 +24,9 @@ const DRAG_THRESHOLD_PX = 6;
 
 
 
-const UserCard = memo(function UserCard({ card, columnId, columnTitle, readOnly, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, suppressClickRef }) {
+const UserCard = memo(function UserCard({ card, columnId, columnTitle, columnJerarquia, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, suppressClickRef }) {
 
-  const canDragRole = !readOnly && !userBusy;
-
-  const canStartDrag = !userBusy;
+  const canDragRole = !!canDragUser && !userBusy;
 
   const labels = card.labels ?? userCardLabels(card.username, card.displayName);
 
@@ -35,8 +35,6 @@ const UserCard = memo(function UserCard({ card, columnId, columnTitle, readOnly,
     "paty-todos-card", "paty-permisos-user-card", "isa-glass-card",
 
     canDragRole ? "paty-todos-card--draggable" : "",
-
-    readOnly && canStartDrag ? "paty-permisos-user-card--filter-draggable" : "",
 
     isDragSource ? "paty-todos-card--drag-source" : "",
 
@@ -52,15 +50,15 @@ const UserCard = memo(function UserCard({ card, columnId, columnTitle, readOnly,
 
     <Paper className={cardClass} elevation={0} aria-busy={userBusy || undefined}
 
-      onPointerDown={(e) => {
+      onPointerDown={canDragRole ? (e) => {
 
-        if (!canStartDrag || (e.button !== 0 && e.pointerType !== "touch")) return;
+        if (e.button !== 0 && e.pointerType !== "touch") return;
 
         if (e.target.closest(".paty-permisos-user-card__remove, .paty-permisos-user-card__busy")) return;
 
         onPointerDragStart(card.id, columnId, card.username, e);
 
-      }}
+      } : undefined}
 
       onClick={(e) => {
 
@@ -110,7 +108,7 @@ const UserCard = memo(function UserCard({ card, columnId, columnTitle, readOnly,
 
                   e.preventDefault();
 
-                  onRoleRemoveRequest?.({ cardId: card.id, username: card.username, role: columnId, roleTitle: columnTitle });
+                  onRoleRemoveRequest?.({ cardId: card.id, username: card.username, role: columnId, roleTitle: columnTitle, fromJerarquia: columnJerarquia });
 
                 }}>
 
@@ -173,7 +171,7 @@ function DragGhost({ card, column, x, y, width }) {
 
 
 
-export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy }) {
+export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, actorJerarquias, sessionUsername, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy }) {
 
   const [dragOverCol, setDragOverCol] = useState(null);
 
@@ -197,6 +195,12 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
   const [dragSourceCol, setDragSourceCol] = useState(null);
 
+  const effectiveActorJerarquias = useMemo(() => {
+    if (Array.isArray(actorJerarquias) && actorJerarquias.length) return actorJerarquias;
+    if (actorJerarquia != null && String(actorJerarquia).trim()) return [String(actorJerarquia).trim()];
+    return [];
+  }, [actorJerarquias, actorJerarquia]);
+
   const kanbanWrapRef = useRef(null);
 
   const listRefs = useRef({});
@@ -218,6 +222,10 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
   const columns = boardData?.columns ?? [];
 
   const filterActive = !!boardData?.filterActive;
+
+  const assignEnabled = !!loggedIn && !!canAssignRoles;
+
+  const filterDragEnabled = !!loggedIn && !canAssignRoles;
 
   const noUsersVisible = !!boardData?.noUsersVisible;
 
@@ -355,6 +363,8 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     if (!beginUserProcessing(pending.username)) return;
 
+    if (mode === "copy" && pending.copyBlocked) return;
+
     setDragPending(null);
 
     try {
@@ -417,7 +427,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
       if (state.kind === "column") onRoleFilterDrop?.(state.columnId);
 
-      else if (state.username) onUserFilterDrop?.(state.username);
+      else if (state.username && filterDragEnabled) onUserFilterDrop?.(state.username);
 
       return;
 
@@ -425,7 +435,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     if (state.kind === "column") return;
 
-    if (readOnly) return;
+    if (!assignEnabled) return;
 
     if (processingUserRef.current) return;
 
@@ -441,29 +451,51 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     const toRole = targetCol;
 
+    const sourceColData = columns.find((c) => c.id === fromRole);
+
     const targetColData = columns.find((c) => c.id === toRole);
 
     if (targetColData?.users?.some((u) => u.username === username)) return;
 
-    // Validar jerarquía cliente-side: bloquea si el actor no puede gestionar la columna destino.
-    if (actorJerarquia != null && !canActorManageColumn(actorJerarquia, targetColData)) {
+    if (!canActorTransferUser(effectiveActorJerarquias, sourceColData, targetColData)) {
       onJerarquiaToast?.({
         type: "info",
-        message: `Tu rol actual (jerarquía ${actorJerarquia}) no puede asignar a ${targetColData?.title ?? toRole} (jerarquía ${targetColData?.jerarquia ?? "?"})`,
-        actorJerarquia,
+        message: `Tu jerarquía (${effectiveActorJerarquias.join(", ") || "?"}) no puede mover usuarios entre ${sourceColData?.title ?? fromRole} (${sourceColData?.jerarquia ?? "?"}) y ${targetColData?.title ?? toRole} (${targetColData?.jerarquia ?? "?"})`,
+        actorJerarquia: effectiveActorJerarquias.join("|"),
         targetJerarquia: targetColData?.jerarquia,
         targetRole: toRole,
       });
       return;
     }
 
-    setDragPending({ username: userKey(username), fromRole, toRole });
+    const userJerarquiasOnBoard = userJerarquiasFromBoard(username, columns);
+
+    const copyCheck = canCopyUserRole({
+      fromJerarquia: sourceColData?.jerarquia,
+      toJerarquia: targetColData?.jerarquia,
+      userJerarquiasOnBoard,
+    });
+
+    setDragPending({
+      username: userKey(username),
+      fromRole,
+      toRole,
+      fromRoleTitle: sourceColData?.title ?? fromRole,
+      toRoleTitle: targetColData?.title ?? toRole,
+      fromJerarquia: sourceColData?.jerarquia,
+      toJerarquia: targetColData?.jerarquia,
+      userJerarquiasOnBoard,
+      copyBlocked: !copyCheck.ok,
+      copyBlockReason: copyCheck.reason,
+    });
 
   }
 
 
 
   function handleColumnHeadDragStart(col, e) {
+
+    if (!filterDragEnabled) return;
 
     if (e.target.closest("button, .MuiIconButton-root")) return;
 
@@ -506,6 +538,12 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
     const key = userKey(username);
 
     if (processingUserRef.current && key === processingUserRef.current) return;
+
+    if (!assignEnabled) return;
+
+    const sourceColData = columns.find((c) => c.id === sourceColumnId);
+
+    if (!canActorManageColumn(effectiveActorJerarquias, sourceColData)) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
 
@@ -595,7 +633,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
       if (overFilter || state.kind === "column") setDragOverCol(null);
 
-      else setDragOverCol(readOnly ? null : columnAtPoint(columnIds, columnRefs, e.clientX, e.clientY));
+      else setDragOverCol(assignEnabled ? columnAtPoint(columnIds, columnRefs, e.clientX, e.clientY) : null);
 
     }
 
@@ -627,7 +665,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     };
 
-  }, [readOnly, columnIds, columns, processingUserKey, filterToolbarRef, onDragOverFilterChange]);
+  }, [assignEnabled, columnIds, columns, processingUserKey, filterToolbarRef, onDragOverFilterChange, effectiveActorJerarquias, loggedIn, canAssignRoles]);
 
 
 
@@ -647,7 +685,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
     <Box ref={kanbanWrapRef} className="paty-todos-kanban-wrap paty-permisos-kanban-wrap" sx={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", p: 0 }}>
 
-      <Box className={`paty-todos-kanban paty-permisos-kanban${draggingId ? " paty-todos-kanban--dragging" : ""}${selectedUserKey ? " paty-permisos-kanban--user-selected" : ""}${processingUserKey ? " paty-permisos-kanban--user-busy" : ""}`} sx={{ flex: 1, minHeight: 0, maxHeight: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch", position: "relative" }}>
+      <Box className={`paty-todos-kanban paty-permisos-kanban${!assignEnabled ? " paty-permisos-kanban--no-assign" : ""}${draggingId ? " paty-todos-kanban--dragging" : ""}${selectedUserKey ? " paty-permisos-kanban--user-selected" : ""}${processingUserKey ? " paty-permisos-kanban--user-busy" : ""}`} sx={{ flex: 1, minHeight: 0, maxHeight: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch", position: "relative" }}>
 
         {dragGhost ? <DragGhost card={ghostCard} column={ghostColumn} x={dragGhost.x} y={dragGhost.y} width={dragGhost.width} /> : null}
 
@@ -669,7 +707,15 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
         {columns.map((col) => {
 
+          const canManageCol = assignEnabled && canActorManageColumn(effectiveActorJerarquias, col);
+
+          const canDropOnCol = canManageCol;
+
           const isOver = draggingId && !String(draggingId).startsWith("col:") && dragOverCol === col.id;
+
+          const isOverAllowed = isOver && canDropOnCol;
+
+          const isOverBlocked = isOver && !canDropOnCol;
 
           const isSource = draggingId && !String(draggingId).startsWith("col:") && dragSourceCol === col.id;
 
@@ -681,9 +727,13 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
             col.roleFilteredOut ? "paty-permisos-column--role-filtered" : "",
 
-            isOver ? "paty-permisos-column--drag-over" : "",
+            isOverAllowed ? "paty-permisos-column--drag-over" : "",
+
+            isOverBlocked ? "paty-permisos-column--drop-blocked" : "",
 
             isSource && !isOver ? "paty-permisos-column--drag-source" : "",
+
+            draggingId && !String(draggingId).startsWith("col:") && !isOver && assignEnabled && !canDropOnCol ? "paty-permisos-column--drop-forbidden" : "",
 
             draggingId && !String(draggingId).startsWith("col:") && !isOver ? "paty-permisos-column--drag-idle" : "",
 
@@ -695,8 +745,8 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
               sx={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%", alignSelf: "stretch" }}>
 
               <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}
-                className="paty-todos-column__head paty-permisos-column__head--filter-draggable"
-                sx={{ flexShrink: 0, px: 1.75, py: 1.25, pb: 1, cursor: "grab" }}
+                className={`paty-todos-column__head${filterDragEnabled ? " paty-permisos-column__head--filter-draggable" : ""}`}
+                sx={{ flexShrink: 0, px: 1.75, py: 1.25, pb: 1, cursor: filterDragEnabled ? "grab" : "default" }}
                 onPointerDown={(e) => handleColumnHeadDragStart(col, e)}>
 
                 <Stack direction="row" alignItems="center" spacing={0.75} className="paty-todos-column__title" sx={{ minWidth: 0, flex: 1 }}>
@@ -731,7 +781,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
                     </Tooltip>
                   ) : null}
 
-                  {canManage ? (
+                  {canManageCol ? (
 
                     <Tooltip title={addBusy && addingRoleId === col.id ? "Agregando…" : "Agregar usuario"}>
 
@@ -750,6 +800,10 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
                               role: col.id,
 
                               roleTitle: col.title,
+
+                              toJerarquia: col.jerarquia,
+
+                              columns,
 
                               existingUsernames: new Set(col.users.map((u) => u.username)),
 
@@ -772,7 +826,7 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
               </Stack>
 
               <Box ref={(el) => { listRefs.current[col.id] = el; }} data-column-id={col.id}
-                className={`paty-todos-column__list paty-permisos-column__list${isOver ? " paty-todos-column__list--drag-over" : ""}`}
+                className={`paty-todos-column__list paty-permisos-column__list${isOverAllowed ? " paty-todos-column__list--drag-over" : ""}${isOverBlocked ? " paty-todos-column__list--drop-blocked" : ""}`}
                 sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 1.25, px: 1.5, boxSizing: "border-box" }}>
 
                 {col.users.map((card) => {
@@ -785,9 +839,13 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
                   const isDimmed = !!selectedUserKey && !isSelected;
 
+                  const canDragUser = canManageCol;
+
                   return (
 
-                    <UserCard key={card.id} card={card} columnId={col.id} columnTitle={col.title} readOnly={readOnly}
+                    <UserCard key={card.id} card={card} columnId={col.id} columnTitle={col.title} columnJerarquia={col.jerarquia}
+
+                      canDragUser={canDragUser}
 
                       isDragSource={draggingId === card.id} userBusy={userBusy} isSelected={isSelected} isDimmed={isDimmed}
 
@@ -815,9 +873,9 @@ export function PermisosKanban({ boardData, readOnly, canManage, canEditRoleDesc
 
       {typeof document !== "undefined" ? createPortal((
         <>
-          <RoleDragDialog open={!!dragPending} pending={dragPending} busy={transferBusy}
+          <RoleDragDialog open={!!dragPending} pending={dragPending} busy={transferBusy} sessionUsername={sessionUsername}
             onClose={() => { if (!transferBusy) setDragPending(null); }} onConfirm={handleDragConfirm} />
-          <RoleRemoveDialog open={!!removePending} pending={removePending} busy={removeBusy}
+          <RoleRemoveDialog open={!!removePending} pending={removePending} busy={removeBusy} sessionUsername={sessionUsername}
             onClose={() => { if (!removeBusy) setRemovePending(null); }} onConfirm={handleRemoveConfirm} />
           <RoleAddDialog open={!!addPending} pending={addPending} busy={addBusy}
             onClose={() => { if (!addBusy) setAddPending(null); }} onConfirm={handleAddConfirm} />

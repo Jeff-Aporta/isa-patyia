@@ -21,6 +21,8 @@ export const ROUTE_GROUPS = [
       { key: "PUT:/api/system/openai", label: "Guardar config OpenAI" },
       { key: "GET:/api/system/prompts-operativos", label: "Leer prompts operativos" },
       { key: "PUT:/api/system/prompts-operativos", label: "Guardar prompts operativos" },
+      { key: "GET:/api/system/instrucciones", label: "Leer instrucciones PatyIA" },
+      { key: "PUT:/api/system/instrucciones", label: "Guardar instrucciones PatyIA" },
       { key: "GET:/api/system/permisos", label: "Leer permisos" },
       { key: "PUT:/api/system/permisos", label: "Actualizar permisos" },
       { key: "PUT:/api/system/permisos/roles/*", label: "Editar rol" },

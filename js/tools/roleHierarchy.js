@@ -4,11 +4,13 @@
  */
 
 export const DEFAULT_ROLE_JERARQUIA = {
-  dev_lead: "0",
-  dev_iss: "0.1",
-  admn_isapatyia: "1",
-  auditador: "2",
-  visitante: "999",
+  visitante: "0",
+  dev: "0.0",
+  dev_lead: "0.0.0",
+  dev_iss: "0.0.1",
+  admn: "0.1",
+  auditador: "0.1.0",
+  admn_isapatyia: "0.1.0.0",
 };
 
 const DEFAULT_FOR_UNKNOWN = "999";
@@ -45,21 +47,50 @@ export function ancestorsFromPath(jerarquia) {
   return out;
 }
 
-/** Actor más privilegiado (jerarquía menor) puede gestionar roles menos privilegiados. */
+/** Misma rama si una jerarquía es prefijo dot-notation de la otra (incl. iguales). */
+export function isSameInheritanceLine(a, b) {
+  const x = String(a ?? "").trim();
+  const y = String(b ?? "").trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+}
+
+/** Actor gestiona roles en su rama (ancestros, descendientes o igual). */
 export function canManageRole(actorJerarquia, targetJerarquia) {
-  return compareHierarchy(actorJerarquia, targetJerarquia) < 0;
+  const target = String(targetJerarquia ?? "").trim();
+  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
+  return isSameInheritanceLine(actorJerarquia, target);
+}
+
+export function actorCanManageTarget(actorJerarquias, targetJerarquia) {
+  for (const j of actorJerarquias ?? []) {
+    if (canManageRole(j, targetJerarquia)) return true;
+  }
+  return false;
+}
+
+export function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
+  return (roles ?? [])
+    .map((r) => String(r ?? "").trim().toLowerCase())
+    .filter((r) => r && r !== "visitante")
+    .map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
 }
 
 export function canAssignRole(actorJerarquia, targetRole, targetPermisos) {
   return canManageRole(actorJerarquia, getRoleJerarquia(targetRole, targetPermisos));
 }
 
-/** Resuelve la jerarquía MENOR (más privilegiada) de un conjunto de roles del actor. */
+/** Resuelve la jerarquía de mayor grado (path más profundo) del actor — display. */
 export function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
-  const keys = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
-  if (!keys.length) return "999";
-  const jerarquias = keys.map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
-  jerarquias.sort(compareHierarchy);
+  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
+  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
+  jerarquias.sort((a, b) => {
+    const depth = (s) => String(s).split(".").filter(Boolean).length;
+    const d = depth(b) - depth(a);
+    if (d !== 0) return d;
+    return compareHierarchy(a, b);
+  });
   return jerarquias[0];
 }
 
