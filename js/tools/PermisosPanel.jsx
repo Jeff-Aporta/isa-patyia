@@ -4,8 +4,7 @@ import {
   fetchPermisos, putPermisoRolePath, patchUsuarioRoles, removeUsuarioRole, addUsuarioRole, requireAppSession,
   fetchHierarchy, createHierarchyRole, updateHierarchyRole, deleteHierarchyRole,
 } from "../api/systemConfigApi.ts";
-import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiaFromRoles, buildRolePermisosIndex, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
-import { actorJerarquiaFromRoles as actorJerarquiaPure } from "./roleHierarchy.js";
+import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiasFromRoles, actorJerarquiaFromRoles, buildRolePermisosIndex, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
 import { isBranchZero } from "./roleHierarchy.js";
 import { PermisosKanban } from "./PermisosKanban.jsx";
 import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete.jsx";
@@ -21,7 +20,11 @@ export function PermisosPanel({ onNeedLogin }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [canManage, setCanManage] = useState(false);
+  const [canAssignUserRoles, setCanAssignUserRoles] = useState(false);
   const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState(false);
+  const [authTick, setAuthTick] = useState(0);
+  const loggedIn = useMemo(() => !!Session?.isLoggedIn?.(), [authTick]);
+  const sessionUsername = useMemo(() => String(Session.username?.() ?? "").trim().toUpperCase(), [authTick]);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ roles: [], users: [] });
   const [userSearch, setUserSearch] = useState("");
@@ -31,6 +34,7 @@ export function PermisosPanel({ onNeedLogin }) {
   const [dragOverFilter, setDragOverFilter] = useState(false);
 
   const [actorJerarquia, setActorJerarquia] = useState(null);
+  const [actorJerarquias, setActorJerarquias] = useState([]);
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
   const [hierarchyFocusRole, setHierarchyFocusRole] = useState(null);
   const [hierarchyNodes, setHierarchyNodes] = useState([]);
@@ -47,12 +51,14 @@ export function PermisosPanel({ onNeedLogin }) {
 
   const applyFlags = useCallback((result) => {
     setCanManage(!!result.canManage);
+    setCanAssignUserRoles(!!result.canAssignUserRoles);
     setCanEditRoleDescriptions(!!result.canEditRoleDescriptions);
     const actorRoles = Array.isArray(result.actorRoles)
       ? result.actorRoles
       : (Array.isArray(Session?.roles) ? Session.roles : []);
     const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
-    setActorJerarquia(actorJerarquiaPure(actorRoles, rolePermisosIdx));
+    setActorJerarquias(actorJerarquiasFromRoles(actorRoles, rolePermisosIdx));
+    setActorJerarquia(actorJerarquiaFromRoles(actorRoles, rolePermisosIdx));
   }, []);
 
   const load = useCallback(async () => {
@@ -203,7 +209,10 @@ export function PermisosPanel({ onNeedLogin }) {
 
   useEffect(() => {
     Assets.ensureTodosCss();
-    const onAuth = () => { loadRef.current(); };
+    const onAuth = () => {
+      setAuthTick((t) => t + 1);
+      loadRef.current();
+    };
     window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("isa-patyia:auth", onAuth);
     return () => {
@@ -230,6 +239,7 @@ export function PermisosPanel({ onNeedLogin }) {
 
   const handleRoleRemove = useCallback(async ({ username, role, roleTitle }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
     try {
       const result = await removeUsuarioRole(username, role);
@@ -242,10 +252,11 @@ export function PermisosPanel({ onNeedLogin }) {
       setErr(msg); toastError(msg);
       throw e;
     }
-  }, [onNeedLogin, applyFlags]);
+  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
 
   const handleRoleAdd = useCallback(async ({ username, role, roleTitle }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
     try {
       const result = await addUsuarioRole(username, role);
@@ -258,10 +269,11 @@ export function PermisosPanel({ onNeedLogin }) {
       setErr(msg); toastError(msg);
       throw e;
     }
-  }, [onNeedLogin, applyFlags]);
+  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
 
   const handleRoleDrag = useCallback(async ({ username, fromRole, toRole, mode }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
+    if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
     try {
       const result = await patchUsuarioRoles(username, { fromRole, toRole, mode });
@@ -274,7 +286,7 @@ export function PermisosPanel({ onNeedLogin }) {
       setErr(msg); toastError(msg);
       throw e;
     }
-  }, [onNeedLogin, applyFlags]);
+  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
 
   const fetchPermisosWithSearch = useCallback(async (search) => {
     const q = String(search ?? "").trim();
@@ -347,7 +359,7 @@ export function PermisosPanel({ onNeedLogin }) {
     () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory, hideEmptyColumns: hideEmptyStacks }),
     [data, userSearch, roleFilters, userDirectory, hideEmptyStacks],
   );
-  const readOnly = !canManage;
+  const readOnly = !canAssignUserRoles;
   const managePermisos = canManage;
   const editRoleMeta = canEditRoleDescriptions || canManage;
   const filtersActive = !!(userSearch.trim() || roleFilters.length);
@@ -406,8 +418,9 @@ export function PermisosPanel({ onNeedLogin }) {
 
       {err ? <Alert severity="warning" className="config-form-alert config-permisos-alert">{err}</Alert> : null}
 
-      <PermisosKanban boardData={boardData} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={editRoleMeta} busy={busy || filterBusy}
+      <PermisosKanban boardData={boardData} loggedIn={loggedIn} sessionUsername={sessionUsername} canAssignRoles={canAssignUserRoles} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={editRoleMeta} busy={busy || filterBusy}
         actorJerarquia={actorJerarquia}
+        actorJerarquias={actorJerarquias}
         onJerarquiaToast={(t) => toastInfo?.(t.message) ?? alert(t.message)}
         onOpenRoleHierarchy={openHierarchyForRole}
         filterToolbarRef={filterToolbarRef} onUserFilterDrop={handleUserFilterDrop} onRoleFilterDrop={handleRoleFilterDrop} onDragOverFilterChange={setDragOverFilter}

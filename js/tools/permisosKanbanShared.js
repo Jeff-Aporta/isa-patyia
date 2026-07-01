@@ -1,5 +1,6 @@
 import { roleDescripcion, roleNamedisplay, userRoles } from "./permisosForm.js";
-import { getRoleJerarquia, compareHierarchy, canManageRole, formatJerarquiaLabel } from "./roleHierarchy.js";
+import { getRoleJerarquia, compareHierarchy, canManageRole, actorCanManageTarget, formatJerarquiaLabel, actorJerarquiasFromRoles, actorJerarquiaFromRoles } from "./roleHierarchy.js";
+import { canonicalRoleMeta } from "./roleCanonicalMeta.js";
 
 export const VISITANTE = "visitante";
 
@@ -25,11 +26,20 @@ function formatRoleTitle(roleName) {
 
 export function roleTitleFromEntry(entry) {
   const roleName = roleNameFromEntry(entry);
+  const canon = canonicalRoleMeta(roleName);
+  if (canon?.namedisplay) return canon.namedisplay;
   const namedisplay = roleNamedisplay(entry?.permisos);
   const formatted = formatRoleTitle(roleName);
   if (!namedisplay) return formatted;
   if (formatted.length > namedisplay.length) return formatted;
   return namedisplay;
+}
+
+export function roleDescripcionFromEntry(entry) {
+  const roleName = roleNameFromEntry(entry);
+  const canon = canonicalRoleMeta(roleName);
+  if (canon?.descripcion) return canon.descripcion;
+  return roleDescripcion(entry?.permisos);
 }
 
 export function themeForRole(roleName, index = 0, permisos = null) {
@@ -118,7 +128,7 @@ export function buildPermisosBoard(data, filters = {}) {
       title: roleTitleFromEntry(entry),
       jerarquia,
       jerarquiaLabel: formatJerarquiaLabel(jerarquia),
-      descripcion: roleDescripcion(entry.permisos),
+      descripcion: roleDescripcionFromEntry(entry),
       entry,
       accent: theme.accent,
       icon: theme.icon,
@@ -181,18 +191,20 @@ export function buildRolePermisosIndex(roles) {
 }
 
 /** Resuelve la jerarquía efectiva del actor desde sus roles. */
-export function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
-  const keys = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
-  if (!keys.length) return "999";
-  const jerarquias = keys.map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
-  jerarquias.sort(compareHierarchy);
-  return jerarquias[0];
+export { actorJerarquiasFromRoles, actorJerarquiaFromRoles };
+
+/** ¿El actor puede mover usuarios al rol `targetRole`? (cualquiera de sus jerarquías cubre la rama). */
+export function canActorManageColumn(actorJerarquias, targetColumn) {
+  if (!targetColumn) return false;
+  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
+  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
+  if (!filtered.length) return false;
+  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
 }
 
-/** ¿El actor (con su jerarquía efectiva) puede mover usuarios al rol `targetRole`? */
-export function canActorManageColumn(actorJerarquia, targetColumn) {
-  if (!targetColumn) return false;
-  return canManageRole(actorJerarquia, targetColumn.jerarquia ?? "999");
+/** Origen y destino deben estar bajo alguna rama jerárquica del actor. */
+export function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
+  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
 }
 
 export function pointInRef(ref, clientX, clientY) {
