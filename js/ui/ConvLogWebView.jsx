@@ -3,11 +3,12 @@
  */
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
-import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetricsGrid } from "./shared.jsx";
+import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetricsGrid, MdRenderer, MdFullPageDialog } from "./shared.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, resolveUsageDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageSummary, formatLatencySeconds, usageHasData } from "../core/convLog.ts";
-import { archivosCitadosFromMeta, formatArchivosCitadosLabel } from "../core/fileSearchTrace.js";
+import { archivosCitadosFromMeta, formatArchivosCitadosLabel, chunksFromMeta, chunkPreview } from "../core/fileSearchTrace.js";
+import { getGlass } from "../core/platform.ts";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
 
@@ -744,7 +745,11 @@ function UsageDialogMetaPanel({ meta }) {
 }
 
 function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
-  const { DialogContent, Typography, Box } = getMaterialUI();
+  const { DialogContent, Typography, Box, Chip, Stack, Tooltip, IconButton } = getMaterialUI();
+  const { useMemo, useState } = getReact();
+  let glass = null;
+  try { glass = getGlass(); } catch (_) { glass = null; }
+  const { GlassSection, GlassInner } = glass || {};
   if (!stats) return null;
 
   const sections = [
@@ -754,6 +759,9 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
       subtitle: "Costo y tokens de este turno",
       tokens: stats.tokens,
       cost: stats.cost,
+      accent: "#34d399",
+      tone: "success",
+      icon: <UI.Icon icon="mdi:message-text-outline" size={18} />,
       show: true,
     },
     {
@@ -762,6 +770,9 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
       subtitle: "Suma del hilo antes de este mensaje",
       tokens: stats.previousTokens,
       cost: stats.previousCost,
+      accent: "#60a5fa",
+      tone: "blue",
+      icon: <UI.Icon icon="mdi:history" size={18} />,
       show: usageHasData(stats.previousTokens, stats.previousCost),
     },
     {
@@ -770,9 +781,16 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
       subtitle: "Suma del hilo incluyendo este mensaje",
       tokens: stats.cumulativeTokens,
       cost: stats.cumulativeCost,
+      accent: "#f59e0b",
+      tone: "warn",
+      icon: <UI.Icon icon="mdi:sigma" size={18} />,
       show: usageHasData(stats.cumulativeTokens, stats.cumulativeCost),
     },
   ].filter((s) => s.show);
+
+  const chunks = useMemo(() => chunksFromMeta(meta), [meta]);
+  const archivos = useMemo(() => archivosCitadosFromMeta(meta), [meta]);
+  const [openChunk, setOpenChunk] = useState(null);
 
   const opKey = meta?.extra?.operativa_key;
   const header = resolveUsageDialogHeader(msgLabel, fecha, opKey);
@@ -785,45 +803,341 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
   );
 
   return (
-    <GlassDialog
-      open={open}
-      onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      header={(
-        <GlassDialogHeader
-          icon={header.icon}
-          title={header.title}
-          subtitle={header.subtitle}
-          accent={header.accent}
-          onClose={onClose}
-        />
-      )}
-    >
-      <DialogContent dividers className="conv-usage-dialog" sx={glassDialogContentSx({ p: { xs: 1.5, sm: 2 } })}>
-        <Box className="conv-usage-dialog__stack">
-          {showMetaPanel ? <UsageDialogMetaPanel meta={meta} /> : null}
-          {sections.map((section) => (
-            <Box key={section.key} className={`conv-usage-dialog__section-card conv-usage-dialog__section-card--${section.key}`}>
-              <div className="conv-usage-dialog__section-head">
-                <Typography component="h3" variant="subtitle2" className="conv-usage-dialog__section-title">
-                  {section.title}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" className="conv-usage-dialog__section-sub">
-                  {section.subtitle}
-                </Typography>
-              </div>
-              <UsageMetricsGrid
-                className="conv-usage-dialog__metrics"
-                hideRowLabels
-                sections={[{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]}
+    <>
+      <GlassDialog
+        open={open}
+        onClose={onClose}
+        maxWidth="sm"
+        fullWidth
+        header={(
+          <GlassDialogHeader
+            icon={header.icon}
+            title={header.title}
+            subtitle={header.subtitle}
+            accent={header.accent}
+            onClose={onClose}
+          />
+        )}
+      >
+        <DialogContent dividers className="conv-usage-dialog" sx={glassDialogContentSx({ p: { xs: 1.5, sm: 2 } })}>
+          <Box className="conv-usage-dialog__stack">
+            {showMetaPanel ? <UsageDialogMetaPanel meta={meta} /> : null}
+            {sections.map((section) => (
+              <UsageDialogSection
+                key={section.key}
+                section={section}
+                GlassSection={GlassSection}
+                GlassInner={GlassInner}
               />
-            </Box>
-          ))}
+            ))}
+            {(chunks.length || archivos.length) ? (
+              GlassSection ? (
+                <GlassSection
+                  sectionKey="conv-usage-chunks"
+                  className="conv-usage-dialog__chunks-section"
+                  title="Fragmentos citados"
+                  accent="#7c3aed"
+                  tone="purple"
+                  headerSx={{ borderRadius: "0.75rem 0.75rem 0 0" }}
+                  bodySx={{ pt: { xs: 1.25, sm: 1.5 } }}
+                >
+                  <Typography variant="caption" color="text.secondary" component="div" className="conv-usage-dialog__section-sub" sx={{ mb: 1 }}>
+                    {archivos.length
+                      ? `Chunks extraídos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).`
+                      : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.`}
+                  </Typography>
+                  {archivos.length ? (
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap className="conv-usage-dialog__files" sx={{ mb: 1 }}>
+                      {archivos.map((name) => {
+                        const clickable = chunks.some((c) => c.filename === name);
+                        return (
+                          <Chip
+                            key={name}
+                            size="small"
+                            variant="outlined"
+                            clickable={clickable}
+                            onClick={clickable ? () => {
+                              const first = chunks.find((c) => c.filename === name);
+                              if (first) setOpenChunk(first);
+                            } : undefined}
+                            icon={<iconify-icon icon="mdi:file-document-outline" width="14" height="14" />}
+                            label={name}
+                            title={clickable ? `Ver fragmentos de ${name}` : name}
+                            className="conv-usage-dialog__file-chip"
+                          />
+                        );
+                      })}
+                    </Stack>
+                  ) : null}
+                  <Stack spacing={0.75} className="conv-usage-dialog__chunks">
+                    {chunks.map((c) => (
+                      <Box
+                        key={c.key}
+                        className="conv-usage-dialog__chunk"
+                        onClick={() => setOpenChunk(c)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setOpenChunk(c);
+                          }
+                        }}
+                        aria-label={`Ver fragmento de ${c.filename || c.fileId || "texto"}`}
+                      >
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.35 }}>
+                          <iconify-icon icon="mdi:text-box-search-outline" width="16" height="16" />
+                          <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                            {c.filename || c.fileId || "fragmento"}
+                          </Typography>
+                          {c.score != null ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`score ${Number(c.score).toFixed(3)}`}
+                              className="conv-usage-dialog__chunk-score"
+                            />
+                          ) : null}
+                          <Tooltip title="Ver fragmento en full-page">
+                            <IconButton size="small" aria-label="Abrir fragmento" className="conv-usage-dialog__chunk-open">
+                              <iconify-icon icon="mdi:fullscreen" width="16" height="16" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                        <Typography
+                          variant="caption"
+                          component="pre"
+                          className="conv-usage-dialog__chunk-preview"
+                          sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0, fontFamily: "inherit" }}
+                        >
+                          {chunkPreview(c.text, 280)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </GlassSection>
+              ) : (
+                <Box className="conv-usage-dialog__section-card conv-usage-dialog__section-card--chunks">
+                  <div className="conv-usage-dialog__section-head">
+                    <Typography component="h3" variant="subtitle2" className="conv-usage-dialog__section-title">
+                      Fragmentos citados
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" className="conv-usage-dialog__section-sub">
+                      {archivos.length
+                        ? `Chunks extraídos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).`
+                        : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.`}
+                    </Typography>
+                  </div>
+                  {archivos.length ? (
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap className="conv-usage-dialog__files">
+                      {archivos.map((name) => {
+                        const clickable = chunks.some((c) => c.filename === name);
+                        return (
+                          <Chip
+                            key={name}
+                            size="small"
+                            variant="outlined"
+                            clickable={clickable}
+                            onClick={clickable ? () => {
+                              const first = chunks.find((c) => c.filename === name);
+                              if (first) setOpenChunk(first);
+                            } : undefined}
+                            icon={<iconify-icon icon="mdi:file-document-outline" width="14" height="14" />}
+                            label={name}
+                            title={clickable ? `Ver fragmentos de ${name}` : name}
+                            className="conv-usage-dialog__file-chip"
+                          />
+                        );
+                      })}
+                    </Stack>
+                  ) : null}
+                  <Stack spacing={0.75} className="conv-usage-dialog__chunks">
+                    {chunks.map((c) => (
+                      <Box
+                        key={c.key}
+                        className="conv-usage-dialog__chunk"
+                        onClick={() => setOpenChunk(c)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setOpenChunk(c);
+                          }
+                        }}
+                        aria-label={`Ver fragmento de ${c.filename || c.fileId || "texto"}`}
+                      >
+                        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.35 }}>
+                          <iconify-icon icon="mdi:text-box-search-outline" width="16" height="16" />
+                          <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                            {c.filename || c.fileId || "fragmento"}
+                          </Typography>
+                          {c.score != null ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`score ${Number(c.score).toFixed(3)}`}
+                              className="conv-usage-dialog__chunk-score"
+                            />
+                          ) : null}
+                          <Tooltip title="Ver fragmento en full-page">
+                            <IconButton size="small" aria-label="Abrir fragmento" className="conv-usage-dialog__chunk-open">
+                              <iconify-icon icon="mdi:fullscreen" width="16" height="16" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                        <Typography
+                          variant="caption"
+                          component="pre"
+                          className="conv-usage-dialog__chunk-preview"
+                          sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0, fontFamily: "inherit" }}
+                        >
+                          {chunkPreview(c.text, 280)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )
+            ) : null}
+          </Box>
+        </DialogContent>
+        <GlassDialogCloseActions onClose={onClose} />
+      </GlassDialog>
+      <MdFullPageDialog
+        open={Boolean(openChunk)}
+        onClose={() => setOpenChunk(null)}
+        source={openChunk?.text || ""}
+        title={openChunk ? `Fragmento · ${openChunk.filename || openChunk.fileId || "texto exacto"}` : "Fragmento"}
+        subtitle={
+          openChunk
+            ? [
+                openChunk.score != null ? `score ${Number(openChunk.score).toFixed(3)}` : "",
+                openChunk.queries?.length ? `Queries: ${openChunk.queries.join(" · ")}` : "",
+              ].filter(Boolean).join("  ·  ")
+            : ""
+        }
+        accent="#7c3aed"
+        icon="mdi:text-box-search-outline"
+      />
+    </>
+  );
+}
+
+function UsageDialogSection({ section, GlassSection, GlassInner }) {
+  const { Box, Typography, Stack } = getMaterialUI();
+  const { Icon } = UI;
+  const cost = section?.cost;
+  const tokens = section?.tokens;
+  const totalCost = Number(cost?.total ?? 0) || 0;
+  const totalTokens = Number(tokens?.total ?? 0) || 0;
+  const reasoning = Number(tokens?.reason ?? tokens?.reasoning ?? 0) || 0;
+  const totalTokLabel = totalTokens ? totalTokens.toLocaleString("es-CO") : "—";
+  const costLabel = totalCost > 0 ? `$${totalCost.toFixed(6)}` : "—";
+  const reasonLabel = reasoning > 0
+    ? `${reasoning.toLocaleString("es-CO")} razon.`
+    : null;
+
+  const body = (
+    <Box className="conv-usage-dialog__section-body">
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={{ xs: 1, sm: 2 }}
+        alignItems={{ xs: "stretch", sm: "center" }}
+        justifyContent="space-between"
+        className="conv-usage-dialog__headline"
+      >
+        <Box className="conv-usage-dialog__headline-main">
+          <Typography variant="overline" className="conv-usage-dialog__headline-k" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
+            Costo
+          </Typography>
+          <Typography
+            variant="h4"
+            component="span"
+            className={`conv-usage-dialog__headline-v conv-usage-dialog__headline-v--${section.key}`}
+            sx={{ fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.05, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+          >
+            {costLabel}
+          </Typography>
         </Box>
-      </DialogContent>
-      <GlassDialogCloseActions onClose={onClose} />
-    </GlassDialog>
+        <Stack direction="row" spacing={1} alignItems="center" className="conv-usage-dialog__headline-meta">
+          <Box className="conv-usage-dialog__headline-meta-item">
+            <Typography variant="overline" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
+              Tokens
+            </Typography>
+            <Typography
+              variant="h6"
+              component="span"
+              className="conv-usage-dialog__headline-meta-v"
+              sx={{ fontWeight: 700, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+            >
+              {totalTokLabel}
+            </Typography>
+          </Box>
+          {reasonLabel ? (
+            <Box className="conv-usage-dialog__headline-meta-item conv-usage-dialog__headline-meta-item--reason">
+              <Typography variant="overline" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
+                Razonamiento
+              </Typography>
+              <Typography
+                variant="body1"
+                component="span"
+                sx={{ fontWeight: 600, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+              >
+                {reasonLabel}
+              </Typography>
+            </Box>
+          ) : null}
+        </Stack>
+      </Stack>
+      <Box className="conv-usage-dialog__metrics-wrap">
+        <UsageMetricsGrid
+          className="conv-usage-dialog__metrics"
+          hideRowLabels
+          sections={[{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]}
+        />
+      </Box>
+    </Box>
+  );
+
+  if (!GlassSection) {
+    return (
+      <Box className={`conv-usage-dialog__section-card conv-usage-dialog__section-card--${section.key}`}>
+        <div className="conv-usage-dialog__section-head">
+          <Typography component="h3" variant="subtitle2" className="conv-usage-dialog__section-title">
+            {section.title}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" className="conv-usage-dialog__section-sub">
+            {section.subtitle}
+          </Typography>
+        </div>
+        {body}
+      </Box>
+    );
+  }
+
+  return (
+    <GlassSection
+      sectionKey={`conv-usage-${section.key}`}
+      className={`conv-usage-dialog__glass-section conv-usage-dialog__glass-section--${section.key}`}
+      title={
+        <Stack direction="row" spacing={1} alignItems="baseline" sx={{ minWidth: 0, flex: 1 }}>
+          <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700, letterSpacing: -0.2 }}>
+            {section.title}
+          </Typography>
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
+            {section.subtitle}
+          </Typography>
+        </Stack>
+      }
+      icon={section.icon}
+      accent={section.accent}
+      tone={section.tone}
+      headerSx={{ borderRadius: "0.75rem 0.75rem 0 0" }}
+      bodySx={{ pt: 1.25, pb: { xs: 1.25, sm: 1.5 } }}
+    >
+      {body}
+    </GlassSection>
   );
 }
 

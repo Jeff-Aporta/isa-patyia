@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-06-30T20:10:38.849Z",
-  "files": 125,
-  "bytesIn": 1107622,
-  "bytesOut": 650172,
-  "ratio": 0.587,
-  "hash": "9e65344086b3",
+  "builtAt": "2026-07-01T09:09:54.302Z",
+  "files": 127,
+  "bytesIn": 1163019,
+  "bytesOut": 681834,
+  "ratio": 0.586,
+  "hash": "752e938ef54e",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 90597,
-      "bytesOut": 64879
+      "bytesIn": 101738,
+      "bytesOut": 73386
     },
     {
       "src": "css/boot-loading.css",
@@ -27,8 +27,8 @@
     {
       "src": "css/neon-glass-bridge.css",
       "dist": "_dist/css/neon-glass-bridge.css",
-      "bytesIn": 47726,
-      "bytesOut": 38079
+      "bytesIn": 48676,
+      "bytesOut": 38931
     },
     {
       "src": "css/theme.css",
@@ -51,8 +51,8 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 12928,
-      "bytesOut": 6214
+      "bytesIn": 11773,
+      "bytesOut": 5564
     },
     {
       "src": "js/api/issListFilter.ts",
@@ -69,8 +69,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 10706,
-      "bytesOut": 4426
+      "bytesIn": 10608,
+      "bytesOut": 4342
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -99,8 +99,8 @@
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 12110,
-      "bytesOut": 5804
+      "bytesIn": 17445,
+      "bytesOut": 7448
     },
     {
       "src": "js/api/todosApi.ts",
@@ -141,14 +141,14 @@
     {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 34536,
-      "bytesOut": 17421
+      "bytesIn": 34907,
+      "bytesOut": 17592
     },
     {
       "src": "js/core/fileSearchTrace.js",
       "dist": "_dist/js/core/fileSearchTrace.js",
-      "bytesIn": 1255,
-      "bytesOut": 719
+      "bytesIn": 2866,
+      "bytesOut": 1444
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -243,14 +243,14 @@
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 24091,
-      "bytesOut": 13354
+      "bytesIn": 26701,
+      "bytesOut": 14488
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 19388,
-      "bytesOut": 9679
+      "bytesIn": 20369,
+      "bytesOut": 10149
     },
     {
       "src": "js/tools/PermisosRoleFilterAutocomplete.jsx",
@@ -375,8 +375,8 @@
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 41970,
-      "bytesOut": 17345
+      "bytesIn": 41696,
+      "bytesOut": 17106
     },
     {
       "src": "js/tools/configFieldPersist.ts",
@@ -387,14 +387,14 @@
     {
       "src": "js/tools/configOpenAi.ts",
       "dist": "_dist/js/tools/configOpenAi.js",
-      "bytesIn": 4369,
-      "bytesOut": 2326
+      "bytesIn": 4687,
+      "bytesOut": 2460
     },
     {
       "src": "js/tools/configPromptsOperativos.ts",
       "dist": "_dist/js/tools/configPromptsOperativos.js",
-      "bytesIn": 9220,
-      "bytesOut": 4468
+      "bytesIn": 9569,
+      "bytesOut": 4681
     },
     {
       "src": "js/tools/configToolState.ts",
@@ -423,20 +423,26 @@
     {
       "src": "js/tools/permisosKanbanShared.js",
       "dist": "_dist/js/tools/permisosKanbanShared.js",
-      "bytesIn": 8122,
-      "bytesOut": 4122
+      "bytesIn": 8807,
+      "bytesOut": 4420
     },
     {
       "src": "js/tools/permisosRoleConfig.jsx",
       "dist": "_dist/js/tools/permisosRoleConfig.js",
-      "bytesIn": 25217,
-      "bytesOut": 16676
+      "bytesIn": 29523,
+      "bytesOut": 18976
+    },
+    {
+      "src": "js/tools/permisosRoleTransfer.js",
+      "dist": "_dist/js/tools/permisosRoleTransfer.js",
+      "bytesIn": 4146,
+      "bytesOut": 2668
     },
     {
       "src": "js/tools/permisosRouteCatalog.js",
       "dist": "_dist/js/tools/permisosRouteCatalog.js",
-      "bytesIn": 5237,
-      "bytesOut": 3506
+      "bytesIn": 5410,
+      "bytesOut": 3653
     },
     {
       "src": "js/tools/permisosVisitante.js",
@@ -511,10 +517,16 @@
       "bytesOut": 5603
     },
     {
+      "src": "js/tools/roleCanonicalMeta.js",
+      "dist": "_dist/js/tools/roleCanonicalMeta.js",
+      "bytesIn": 550,
+      "bytesOut": 391
+    },
+    {
       "src": "js/tools/roleHierarchy.js",
       "dist": "_dist/js/tools/roleHierarchy.js",
-      "bytesIn": 2752,
-      "bytesOut": 1206
+      "bytesIn": 3777,
+      "bytesOut": 1686
     },
     {
       "src": "js/tools/roleHierarchyTree/RoleHierarchyView.tsx",
@@ -531,8 +543,8 @@
     {
       "src": "js/tools/roleHierarchyTree/hierarchyFromRoles.ts",
       "dist": "_dist/js/tools/roleHierarchyTree/hierarchyFromRoles.js",
-      "bytesIn": 1104,
-      "bytesOut": 496
+      "bytesIn": 1076,
+      "bytesOut": 476
     },
     {
       "src": "js/tools/roleHierarchyTree/index.ts",
@@ -669,8 +681,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 48215,
-      "bytesOut": 26398
+      "bytesIn": 63330,
+      "bytesOut": 34707
     },
     {
       "src": "js/ui/GlassDialog.jsx",
@@ -717,8 +729,8 @@
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 19044,
-      "bytesOut": 11982
+      "bytesIn": 26330,
+      "bytesOut": 16194
     },
     {
       "src": "js/ui/treeView/TreeRowItem.tsx",
