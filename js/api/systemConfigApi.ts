@@ -61,7 +61,7 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
         if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
         else {
           const inner = j.respuesta || j.body || j;
-          msg = String((inner as Record<string, unknown>)?.error || j.error || j.message || msg);
+          msg = String((inner as Record<string, unknown>)?.message || (inner as Record<string, unknown>)?.error || j.message || j.error || msg);
         }
       } catch { /* ignore */ }
     }
@@ -113,6 +113,62 @@ export async function putPromptsOperativosConfig(config: PromptsOperativosConfig
   return body.config ?? config;
 }
 
+export type InstruccionesSystemRow = Record<string, unknown>;
+
+export type InstruccionesSystemConfig = {
+  rows: InstruccionesSystemRow[];
+  canEdit: boolean;
+  storage?: string;
+  schema?: string;
+  rowCount?: number;
+};
+
+export type InstruccionUpsertPayload = {
+  iinstruccion: string;
+  instruccion: string;
+  jconfig?: Record<string, unknown>;
+  ninstruccion?: string;
+  descripcion?: string;
+  author?: string;
+};
+
+/** GET /api/system/instrucciones — dbo.INSTRUCCION (reemplaza rag-lab / patyia bridge). */
+export async function fetchInstruccionesSystemConfig(): Promise<InstruccionesSystemConfig> {
+  const body = await jsonFetch<{
+    rows?: InstruccionesSystemRow[];
+    canEdit?: boolean;
+    storage?: string;
+    schema?: string;
+    rowCount?: number;
+  }>("/system/instrucciones", { method: "GET", headers: systemApiHeaders() });
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  return {
+    rows,
+    canEdit: !!body.canEdit,
+    storage: body.storage,
+    schema: body.schema,
+    rowCount: Number(body.rowCount ?? rows.length) || rows.length,
+  };
+}
+
+/** PUT upsert una instrucción. */
+export async function putInstruccionUpsert(payload: InstruccionUpsertPayload): Promise<{ ok: boolean; iinstruccion?: string }> {
+  return jsonFetch("/system/instrucciones", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** PUT publish batch MERGE SQL. */
+export async function putInstruccionesPublish(sql: string): Promise<{ ok: boolean; mode?: string }> {
+  return jsonFetch("/system/instrucciones", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sql }),
+  });
+}
+
 /** PERMISOS JSON único: roles de usuario en permisos.roles; descripción de rol en permisos.descripcion */
 export type PermEntry = { iusuario: string; itipo: "user" | "role"; permisos: Record<string, unknown>; bactivo: boolean };
 export type PermissionsData = {
@@ -122,6 +178,7 @@ export type PermissionsData = {
   usersTruncated?: boolean;
   canManage?: boolean;
   canEditRoleDescriptions?: boolean;
+  canAssignUserRoles?: boolean;
   actorRoles?: string[];
 };
 
@@ -138,6 +195,89 @@ export type HierarchyListResponse = {
 };
 
 export type PermisosFetchOpts = { search?: string; role?: string };
+
+/**
+ * Shape insoft.permissions-me v1 — fuente de verdad de permisos del usuario.
+ * Refleja el sistema de herencias + override del ISS; ver GET /api/permissions/me.
+ */
+export type PermissionsMe = {
+  kind: "insoft.permissions-me";
+  version: 1;
+  username: string;
+  loginRole: string | null;
+  roles: string[];
+  jerarquias: string[];
+  jerarquiaMax: string;
+  isWildcard: boolean;
+  permisos: Record<string, true>;
+  permisosEfectivos: Record<string, unknown>;
+  restricciones: Record<string, unknown>;
+  capabilities: {
+    canEditOpenAiConfig: boolean;
+    canEditSwagger: boolean;
+    canEditInstrucciones: boolean;
+    canEditPromptsOperativos: boolean;
+    canEditConversacionConfig: boolean;
+    canOverrideSampling: boolean;
+    canManagePermissions: boolean;
+    canImpersonate: boolean;
+    canAssignUserRoles: boolean;
+    canAccessOthers: boolean;
+    canViewKanban: boolean;
+    canEditKanbanCards: boolean;
+  };
+  iat: number;
+  ttlMs: number;
+};
+
+const PERMISSIONS_ME_CACHE: { value: PermissionsMe | null; iat: number; ttlMs: number; key: string } = { value: null, iat: 0, ttlMs: 0, key: "" };
+
+/** Devuelve los permisos del usuario actual. Cache en memoria con TTL del servidor. */
+export async function fetchPermissionsMe(opts?: { force?: boolean; fetchImpl?: typeof fetch }): Promise<PermissionsMe | null> {
+  if (!Session.isLoggedIn()) return null;
+  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
+    return PERMISSIONS_ME_CACHE.value;
+  }
+  const f = opts?.fetchImpl ?? fetch;
+  const res = await f(`${systemApiBase()}/permissions/me`, {
+    method: "GET",
+    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    credentials: "omit",
+  });
+  if (res.status === 401) {
+    PERMISSIONS_ME_CACHE.value = null;
+    return null;
+  }
+  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+  const data = unwrapBody<PermissionsMe>(await res.json());
+  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+  PERMISSIONS_ME_CACHE.value = data;
+  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 60_000;
+  PERMISSIONS_ME_CACHE.key = sessionKey;
+  return data;
+}
+
+export function clearPermissionsMeCache(): void {
+  PERMISSIONS_ME_CACHE.value = null;
+  PERMISSIONS_ME_CACHE.iat = 0;
+  PERMISSIONS_ME_CACHE.ttlMs = 0;
+  PERMISSIONS_ME_CACHE.key = "";
+}
+
+/** Aplica capabilities de PermissionsMe sobre el shape PermissionsData del kanban. */
+export function applyPermissionsMeToKanban(data: PermissionsData, me: PermissionsMe | null): PermissionsData {
+  if (!me) return data;
+  return {
+    ...data,
+    canManage: me.capabilities.canManagePermissions,
+    canAssignUserRoles: me.capabilities.canAssignUserRoles,
+    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
+    actorRoles: me.roles,
+    _permissionsMe: me,
+  } as PermissionsData;
+}
 
 /** GET /api/system/permisos/hierarchy — árbol completo de roles con jerarquía y parents. */
 export async function fetchHierarchy(): Promise<HierarchyListResponse> {
@@ -185,8 +325,13 @@ export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<Permissio
   if (search) qs.set("search", search);
   if (role) qs.set("role", role);
   const q = qs.toString();
-  const raw = await jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() });
-  return normalizePermissionsPayload(raw);
+  // Fuente de verdad: /permissions/me (capabilities del JWT actual con herencias).
+  // Se llama en paralelo al listado y sus flags sobrescriben los del listado.
+  const [raw, me] = await Promise.all([
+    jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermissionsMe().catch(() => null),
+  ]);
+  return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
 }
 
 export type PermisosUserOption = { username: string; displayName: string | null };

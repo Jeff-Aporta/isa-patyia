@@ -719,6 +719,12 @@ function pushImage(images: string[], ref: unknown) {
         : [];
     } else {
       contenido = resolveAssistantLogContenido(others as Record<string, unknown>, receive, m.text);
+      if (esOperativa && !contenido.trim() && receive && typeof receive === "object") {
+        const finish = (receive as { choices?: Array<{ finish_reason?: string }> }).choices?.[0]?.finish_reason;
+        if (finish === "length") {
+          contenido = "(sin texto visible: max_completion_tokens agotado en razonamiento interno del modelo)";
+        }
+      }
     }
 
     const streamErrorRaw = typeof others.stream_error === "string"
