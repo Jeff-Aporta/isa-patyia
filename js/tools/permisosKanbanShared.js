@@ -7,8 +7,12 @@ export const VISITANTE = "visitante";
 const ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 const ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
 
+export function permEntryKey(entry) {
+  return String(entry?.iusuario ?? entry?.ientity ?? "").trim();
+}
+
 export function roleNameFromEntry(entry) {
-  return String(entry?.iusuario ?? "").trim().toLowerCase().replace(/^role:/i, "");
+  return permEntryKey(entry).toLowerCase().replace(/^role:/i, "");
 }
 
 function formatRoleTitle(roleName) {
@@ -78,7 +82,7 @@ export function normalizePermisosUsername(raw) {
 export function buildUserDirectoryFromPermisos(users) {
   const map = {};
   for (const e of users ?? []) {
-    const key = normalizePermisosUsername(e?.iusuario);
+    const key = normalizePermisosUsername(permEntryKey(e));
     if (!key) continue;
     const name = displayNameFromUserEntry(e);
     if (name) map[key] = name;
@@ -143,7 +147,7 @@ export function buildPermisosBoard(data, filters = {}) {
 
   const colById = new Map(columns.map((c) => [c.id, c]));
   for (const userEntry of users) {
-    const username = String(userEntry.iusuario ?? "").trim().toUpperCase();
+    const username = permEntryKey(userEntry).toUpperCase();
     const displayName = resolveDisplayName(username, userEntry, userDirectory);
     if (!matchesUserFilter(username, displayName, userQuery)) continue;
     for (const role of userRoles(userEntry.permisos)) {

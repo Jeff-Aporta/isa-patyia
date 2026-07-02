@@ -711,7 +711,11 @@ export function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, 
 
         {columns.length === 0 ? (
           <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
-            <Typography variant="body2" color="text.secondary">No hay roles configurados.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {boardData?.hideEmptyColumns
+                ? "No hay columnas visibles (activa roles o desactiva «Ocultar vacíos»)."
+                : "No hay roles configurados."}
+            </Typography>
           </Box>
         ) : null}
 

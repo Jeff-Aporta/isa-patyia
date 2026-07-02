@@ -74,9 +74,34 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return unwrapBody<T>(raw);
 }
 
+function permEntityKey(entry: Record<string, unknown> | null | undefined): string {
+  return String(entry?.ientity ?? entry?.iusuario ?? "").trim();
+}
+
+function normalizePermEntry(entry: Record<string, unknown>): PermEntry {
+  const key = permEntityKey(entry);
+  return {
+    iusuario: key,
+    ientity: key || undefined,
+    itipo: (entry?.itipo === "user" ? "user" : "role") as "user" | "role",
+    permisos: (entry?.permisos && typeof entry.permisos === "object" ? entry.permisos : {}) as Record<string, unknown>,
+    bactivo: entry?.bactivo !== false,
+  };
+}
+
+function normalizeHierarchyNode(node: Record<string, unknown>): HierarchyNode {
+  const iusuario = permEntityKey(node).toLowerCase();
+  return {
+    iusuario,
+    jerarquia: String(node.jerarquia ?? iusuario ?? "").trim(),
+    namedisplay: node.namedisplay != null ? String(node.namedisplay) : null,
+    descripcion: node.descripcion != null ? String(node.descripcion) : null,
+  };
+}
+
 function normalizePermissionsPayload(raw: PermissionsData): PermissionsData {
-  const roles = Array.isArray(raw?.roles) ? raw.roles : [];
-  const users = Array.isArray(raw?.users) ? raw.users : [];
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e as Record<string, unknown>));
+  const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e as Record<string, unknown>));
   return { ...raw, roles, users };
 }
 
@@ -170,7 +195,7 @@ export async function putInstruccionesPublish(sql: string): Promise<{ ok: boolea
 }
 
 /** PERMISOS JSON único: roles de usuario en permisos.roles; descripción de rol en permisos.descripcion */
-export type PermEntry = { iusuario: string; itipo: "user" | "role"; permisos: Record<string, unknown>; bactivo: boolean };
+export type PermEntry = { iusuario: string; ientity?: string; itipo: "user" | "role"; permisos: Record<string, unknown>; bactivo: boolean };
 export type PermissionsData = {
   roles: PermEntry[];
   users: PermEntry[];
@@ -281,10 +306,14 @@ export function applyPermissionsMeToKanban(data: PermissionsData, me: Permission
 
 /** GET /api/system/permisos/hierarchy — árbol completo de roles con jerarquía y parents. */
 export async function fetchHierarchy(): Promise<HierarchyListResponse> {
-  return jsonFetch<HierarchyListResponse>(`/system/permisos/hierarchy`, {
+  const raw = await jsonFetch<HierarchyListResponse>(`/system/permisos/hierarchy`, {
     method: "GET",
     headers: systemApiHeaders(),
   });
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : [])
+    .map((r) => normalizeHierarchyNode(r as Record<string, unknown>))
+    .filter((r) => r.iusuario && r.jerarquia);
+  return { roles, count: roles.length || Number(raw?.count ?? 0) || 0 };
 }
 
 /** POST /api/system/permisos/hierarchy/roles — crea un rol. */

@@ -36,6 +36,24 @@ export const capFetch = bridgeHttp.capFetch;
 export const apiUrl = bridgeHttp.apiUrl;
 export const rowVal = bridgeHttp.rowVal;
 
+/** Envelope ISS: `{ encabezado, respuesta }` o legacy `{ body }`. */
+function unwrapIssEnvelope<T>(raw: unknown): T {
+  const d = raw as Record<string, unknown>;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && (enc as { resultado?: boolean }).resultado === false) {
+    const e = enc as { mensaje?: unknown; imensaje?: unknown };
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    return d.respuesta as T;
+  }
+  if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    return d.body as T;
+  }
+  return d as T;
+}
+
 /** Rutas ISS AyudasCPIA — sin prefijo /patyia salvo instrucciones. */
 function patyiaBridgePath(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -205,9 +223,7 @@ export async function fetchTercerosAudit(input: {
     if (isLocalMode() && input.jwtToken) return fetchTercerosAuditFromLocalConversaciones(input as Parameters<typeof fetchTercerosAuditFromLocalConversaciones>[0]);
     throw err;
   }
-  const data = (raw && typeof raw === "object" && raw.body && typeof raw.body === "object")
-    ? raw.body as TercerosAuditResponse
-    : raw as TercerosAuditResponse;
+  const data = unwrapIssEnvelope<TercerosAuditResponse>(raw);
   if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar terceros"));
   return {
     ok: true,
