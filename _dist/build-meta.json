@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-07-01T12:49:28.940Z",
+  "builtAt": "2026-07-01T14:33:18.501Z",
   "files": 128,
-  "bytesIn": 1177701,
-  "bytesOut": 689949,
-  "ratio": 0.586,
-  "hash": "04fa2efb5fc0",
+  "bytesIn": 1181122,
+  "bytesOut": 691503,
+  "ratio": 0.585,
+  "hash": "c2f48cc1d567",
   "entries": [
     {
       "src": "css/app.css",
@@ -93,8 +93,8 @@
     {
       "src": "js/api/sessionApi.ts",
       "dist": "_dist/js/api/sessionApi.js",
-      "bytesIn": 3475,
-      "bytesOut": 2094
+      "bytesIn": 6733,
+      "bytesOut": 3563
     },
     {
       "src": "js/api/systemConfigApi.ts",
@@ -117,8 +117,8 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 5418,
-      "bytesOut": 3141
+      "bytesIn": 5581,
+      "bytesOut": 3226
     },
     {
       "src": "js/boot/cdn.mjs",

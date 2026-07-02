@@ -767,6 +767,19 @@ html[data-mui-color-scheme="light"] .isa-split-view.conv-log-shell-split[data-is
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    &.conv-msg-meta-chip--clickable {
+      cursor: pointer;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      &:hover {
+        border-color: rgba(124, 58, 237, 0.55) !important;
+        box-shadow: 0 0 12px rgba(124, 58, 237, 0.22);
+        background: rgba(30, 27, 75, 0.55) !important;
+      }
+      &:focus-visible {
+        outline: 2px solid rgba(124, 58, 237, 0.65);
+        outline-offset: 1px;
+      }
+    }
     &--context {
       border-color: rgba(167, 139, 250, 0.45) !important;
       background: rgba(139, 92, 246, 0.12) !important;

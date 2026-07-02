@@ -9,7 +9,7 @@ import {
 import { CodeMirrorPanel } from "../core/platform.ts";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogTabsSx, resolveMetaDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
-import { archivosCitadosFromMeta, fileSearchFromMeta, chunksFromMeta, chunkPreview } from "../core/fileSearchTrace.js";
+import { archivosCitadosFromMeta, fileSearchFromMeta, chunksFromMeta, chunkPreview, metaHasFileSearch, vectorStoresFromMeta, vectorStoreIndexLabel } from "../core/fileSearchTrace.js";
 
 export { mdToHtml };
 
@@ -300,6 +300,8 @@ export function metaWorthDialog(meta, isUser) {
   if (meta.extra?.operativa_key) return true;
   if (Array.isArray(meta.archivos_citados) && meta.archivos_citados.length) return true;
   if (Array.isArray(meta.file_search) && meta.file_search.length) return true;
+  if (meta.file_search && typeof meta.file_search === "object" && !Array.isArray(meta.file_search)) return true;
+  if (Array.isArray(meta.vector_store_ids) && meta.vector_store_ids.length) return true;
   const pv = meta.prompt_variables;
   if (pv && typeof pv === "object") {
     if (Object.keys(pv).some((k) => k !== "nombre_usuario")) return true;
@@ -313,12 +315,43 @@ function FileSearchMetaSection({ meta }) {
   const trace = fileSearchFromMeta(meta);
   const archivos = archivosCitadosFromMeta(meta);
   const chunks = useMemo(() => chunksFromMeta(meta), [meta]);
+  const vectorStores = useMemo(() => vectorStoresFromMeta(meta), [meta]);
   const [openChunk, setOpenChunk] = useState(null);
 
-  if (!trace?.length && !archivos.length && !chunks.length) return null;
+  if (!trace?.length && !archivos.length && !chunks.length && !vectorStores.length) return null;
 
   return (
     <Box className="meta-file-search" sx={{ mt: 1.5 }}>
+      {vectorStores.length ? (
+        <Box className="meta-file-search__vector-stores" sx={{ mb: 1.5 }}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
+            Vector stores consultados
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+            Índice = posición en <code>vector_store_ids</code> enviado al modelo (0 = primero). Usa el ID completo para verificar en OpenAI/BD.
+          </Typography>
+          <Stack spacing={0.5}>
+            {vectorStores.map((vs) => (
+              <Box
+                key={vs.id}
+                className="meta-file-search__vs-row"
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  gap: 0.75,
+                  fontSize: "0.82rem",
+                }}
+              >
+                <Chip size="small" variant="outlined" label={`índice ${vs.index}`} className="meta-file-search__vs-index" />
+                <Typography component="code" variant="body2" sx={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+                  {vs.id}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
       <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
         File Search (archivos citados)
       </Typography>
@@ -340,6 +373,7 @@ function FileSearchMetaSection({ meta }) {
         <Stack spacing={0.85} className="meta-file-search__chunk-list">
           {chunks.map((c) => {
             const preview = chunkPreview(c.text, 380);
+            const vsIdx = c.vectorStoreId ? vectorStoreIndexLabel(vectorStores, c.vectorStoreId) : null;
             return (
               <Box key={c.key} className="meta-file-search__chunk">
                 <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
@@ -347,6 +381,15 @@ function FileSearchMetaSection({ meta }) {
                   <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
                     {c.filename || c.fileId || "fragmento"}
                   </Typography>
+                  {vsIdx != null ? (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`VS índice ${vsIdx}`}
+                      title={c.vectorStoreId || undefined}
+                      className="meta-file-search__vs-chip"
+                    />
+                  ) : null}
                   {c.score != null ? (
                     <Chip
                       size="small"
@@ -397,6 +440,9 @@ function FileSearchMetaSection({ meta }) {
         subtitle={
           openChunk
             ? [
+                openChunk.vectorStoreId
+                  ? `VS índice ${vectorStoreIndexLabel(vectorStores, openChunk.vectorStoreId) ?? "?"} · ${openChunk.vectorStoreId}`
+                  : "",
                 openChunk.score != null ? `score ${Number(openChunk.score).toFixed(3)}` : "",
                 openChunk.queries?.length ? `Queries: ${openChunk.queries.join(" · ")}` : "",
               ].filter(Boolean).join("  ·  ")
@@ -406,6 +452,28 @@ function FileSearchMetaSection({ meta }) {
         icon="mdi:text-box-search-outline"
       />
     </Box>
+  );
+}
+
+/** Modal standalone: fragmentos File Search (mismo panel que MetaDialog). */
+export function FileSearchDialog({ open, onClose, meta, title = "File Search", subtitle = "" }) {
+  const { DialogContent } = getMaterialUI();
+  if (!meta || !metaHasFileSearch(meta)) return null;
+  const headerMeta = resolveMetaDialogHeader(title, false);
+  return (
+    <GlassDialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <GlassDialogHeader
+        icon={headerMeta.icon}
+        title={headerMeta.title}
+        subtitle={subtitle || "Archivos citados y fragmentos consultados"}
+        accent={headerMeta.accent}
+        onClose={onClose}
+      />
+      <DialogContent dividers sx={glassDialogContentSx()}>
+        <FileSearchMetaSection meta={meta} />
+      </DialogContent>
+      <GlassDialogCloseActions onClose={onClose} />
+    </GlassDialog>
   );
 }
 

@@ -1,1 +1,333 @@
-import{ensureIssLocalDefault as c,migrateIssLocalFromGatewayFlag as S,isLocalMode as a,setLocalMode as p,ORCH_ONLINE as h,GATEWAY_LS_KEY as I,PATYIA_ISS_LOCAL as f}from"./patyia.js";const e=()=>window.ISAFront.createPlatformBridge("ISA"),x={get Icon(){return e().UI.Icon},get TargetSwitch(){return e().UI.TargetSwitch},get ThemeSwitch(){return e().UI.ThemeSwitch},get useRealtimeStatus(){return e().UI.useRealtimeStatus},get RealtimeStatusDot(){return e().UI.RealtimeStatusDot},get Loading(){return e().UI.Loading},get ErrorBox(){return e().UI.ErrorBox},get LoginGate(){return e().UI.LoginGate},get LoginButton(){return e().UI.LoginButton}},C={current:()=>e().Session.current(),isLoggedIn:()=>e().Session.isLoggedIn(),username:()=>e().Session.username(),realUsername:()=>e().Session.realUsername?.()??e().Session.username(),viewAsUsername:()=>e().Session.viewAsUsername?.()??null,isViewingAs:()=>e().Session.isViewingAs?.()??!1,auditAuthor:()=>e().Session.auditAuthor?.()??String(e().Session.username()||"").trim().toUpperCase(),authHeader:()=>e().Session.authHeader(),appHeader:()=>e().Session.appHeader(),appId:()=>e().Session.appId(),login:(t,o,n)=>e().Session.login(t,o,n),logout:()=>e().Session.logout(),refreshProfile:()=>e().Session.refreshProfile(),fetchViewAsCatalog:()=>e().Session.fetchViewAsCatalog?.(),searchSuplantacionUsers:(t,o)=>e().Session.searchSuplantacionUsers?.(t,o),setViewAs:t=>e().Session.setViewAs?.(t),clearViewAs:()=>e().Session.clearViewAs?.(),capabilities:()=>e().Session.capabilities(),adminCapabilities:()=>e().Session.adminCapabilities?.()??e().Session.capabilities(),capabilityCatalog:()=>e().Session.capabilityCatalog?.()??[],can:t=>e().Session.can(t),blockReason:t=>e().Session.blockReason(t),get EVENT(){return e().Session.EVENT}},_={show:t=>e().Toast.show(t)},y={base:()=>e().Config.base(),apiUrl:t=>e().Config.apiUrl(t),isLocal:()=>e().Config.isLocal(),setLocal:t=>e().Config.setLocal(t),get EVENT(){return e().Config.EVENT}};function E(){const t=window.ISAFront;if(!t?.ensureCodeMirrorLoaded)throw new Error("ISAFront lazy-assets no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function i(){const t=window.ISAFront;return t?.ensureCodeMirrorLoaded?t:null}const M={ensureCodeMirrorLoaded:t=>{const o=i();return o?o.ensureCodeMirrorLoaded(t):Promise.resolve()},ensureMarked:()=>{const t=i();return t?t.ensureMarked():Promise.resolve()},ensureStylesheet:t=>{const o=i();return o?o.ensureLazyStylesheet(t):Promise.resolve()},ensureChatStagingCss:()=>{const t=i();if(!t)return;const o=typeof window<"u"&&window.__ISA_DIST__?"_dist/":"";t.ensureLazyStylesheet(`${o}css/chat-staging.css`).catch(n=>{console.warn("chat-staging.css:",n)})},ensureTodosCss:()=>{const t=i();if(!t)return;const o=typeof window<"u"&&window.__ISA_DIST__?"_dist/":"";t.ensureLazyStylesheet(`${o}css/todos-staging.css`).catch(n=>{console.warn("todos-staging.css:",n)})}};function T(t){const o=i();return o?.mdToHtml?o.mdToHtml(t):String(t??"")}const U={estimatePrompt:t=>{const o=window.ISAFront?.estimatePromptTokens;if(typeof o=="function")return o(t);const n=String(t??"");return n.trim()?Math.ceil(n.length/4):0}},R=()=>window.ISAFront.getReact(),P=()=>window.ISAFront.getReactDOM(),F=()=>window.ISAFront.getMaterialUI();function Z(){const t=window.ISAFront?.Layout?.IsaSplitView;if(!t)throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function V(){const t=window.ISAFront?.Glass;if(!t?.GlassCard)throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function r(){const t=window.ISAComponents?.LightboxZoom;if(!t?.LightboxZoomDialog)throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}const k={get LightboxZoomDialog(){return r().LightboxZoomDialog},get LightboxZoomImage(){return r().LightboxZoomImage},get useLightboxZoom(){return r().useLightboxZoom},get ZOOM_MIN(){return r().ZOOM_MIN},get ZOOM_MAX(){return r().ZOOM_MAX},get PAN_STEP(){return r().PAN_STEP}},v={get ImageLightboxDialog(){return r().LightboxZoomDialog},get LightboxImage(){return r().LightboxZoomImage},get useImageLightboxZoom(){return r().useLightboxZoom}};function O(t){const o=window.ISAFront?.CodeMirrorPanel;if(!o)throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return o(t)}const s=()=>globalThis.ISAFront?.Feedback;function D(t,o){s()?.toast?.error?.(t,o)}function N(t,o){s()?.toast?.success?.(t,o)}function H(t,o){s()?.toast?.info?.(t,o)}function B(t,o){s()?.toast?.warning?.(t,o)}function G(t){return s()?.confirm?.(t)??Promise.resolve(!1)}function m(){const t=window.ISA?.Session;if(!t?.login||!t?.logout)return;const o=t.login.bind(t),n=t.logout.bind(t),g=async(u,l,d)=>{const w=await o(u,l,d);return window.dispatchEvent(new Event("isa-patyia:auth")),w};t.login=g,window.ISA?.Auth?.login&&(window.ISA.Auth.login=g),t.logout=()=>{n(),window.dispatchEvent(new Event("isa-patyia:auth"))}}function A(){c(),S();try{localStorage.setItem(I,"0")}catch{}const t=window.ISA?.Config;if(!t)return;const o=String(t.ONLINE||h).replace(/\/$/,"");t.isLocal=a,t.setLocal=n=>{p(n)},t.base=()=>o,t.apiUrl=n=>o+(n.charAt(0)==="/"?n:`/${n}`),t.connectionHint=()=>"",t.label=()=>a()?"Local":"Producci\xF3n",t.EVENT="patyia-apptools:lab-target"}function L(){return(a()?f:"https://ayudascp-ia-staging.azurewebsites.net").replace(/\/$/,"")}function z(){if(c(),window.ISAFront.registerApp({ns:"ISA",app:"isa-patyia",theme:!0,widgets:{targetStyle:"chip"},session:!0,auth:!1,toast:!0,loginButton:{runUnitTestUrl:()=>`${L()}/api/run-unit-test`,getAuthHeaders:()=>window.ISA?.Session?.current?.()?.token?window.ISA.Session.authHeader():{},unitTestTitle:"Test unitario \u2014 ISS-AyudasCPIA"}}),A(),m(),window.ISAFront?.registerCodeMirror&&window.React&&window.MaterialUI&&window.ISAFront.registerCodeMirror(window.React,window.MaterialUI),!window.ISA?.Session)throw new Error("No se pudo iniciar la aplicaci\xF3n. Recargue sin cach\xE9 (Ctrl+Shift+R).")}export{M as Assets,O as CodeMirrorPanel,y as Config,v as Lightbox,k as LightboxZoom,C as Session,_ as Toast,U as Tokens,x as UI,z as bootstrapIsaPatyia,V as getGlass,Z as getIsaSplitView,F as getMaterialUI,R as getReact,P as getReactDOM,T as mdToHtml,G as requestConfirm,D as toastError,H as toastInfo,N as toastSuccess,B as toastWarning};
+// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
+var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
+var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
+var GATEWAY_LS_KEY = "jeff:gateway-local";
+function isLocalMode() {
+  try {
+    return localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function ensureIssLocalDefault() {
+  try {
+    if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
+    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
+  } catch {
+  }
+}
+function setLocalMode(on) {
+  const next = on ? "1" : "0";
+  let prev = "";
+  try {
+    prev = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) ?? "";
+  } catch {
+  }
+  if (prev === next) return on;
+  try {
+    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, next);
+  } catch {
+  }
+  window.location.reload();
+  return on;
+}
+function migrateIssLocalFromGatewayFlag() {
+  try {
+    if (localStorage.getItem(GATEWAY_LS_KEY) === "1") {
+      if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) == null) {
+        localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1");
+      }
+      localStorage.setItem(GATEWAY_LS_KEY, "0");
+    }
+  } catch {
+  }
+}
+
+// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+var bridge = () => window.ISAFront.createPlatformBridge("ISA");
+var UI = {
+  get Icon() {
+    return bridge().UI.Icon;
+  },
+  get TargetSwitch() {
+    return bridge().UI.TargetSwitch;
+  },
+  get ThemeSwitch() {
+    return bridge().UI.ThemeSwitch;
+  },
+  get useRealtimeStatus() {
+    return bridge().UI.useRealtimeStatus;
+  },
+  get RealtimeStatusDot() {
+    return bridge().UI.RealtimeStatusDot;
+  },
+  get Loading() {
+    return bridge().UI.Loading;
+  },
+  get ErrorBox() {
+    return bridge().UI.ErrorBox;
+  },
+  get LoginGate() {
+    return bridge().UI.LoginGate;
+  },
+  get LoginButton() {
+    return bridge().UI.LoginButton;
+  }
+};
+var Session = {
+  current: () => bridge().Session.current(),
+  isLoggedIn: () => bridge().Session.isLoggedIn(),
+  username: () => bridge().Session.username(),
+  realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+  viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+  isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+  auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+  authHeader: () => bridge().Session.authHeader(),
+  appHeader: () => bridge().Session.appHeader(),
+  appId: () => bridge().Session.appId(),
+  login: (u, p, opts) => bridge().Session.login(u, p, opts),
+  logout: () => bridge().Session.logout(),
+  refreshProfile: () => bridge().Session.refreshProfile(),
+  fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+  searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+  setViewAs: (u) => bridge().Session.setViewAs?.(u),
+  clearViewAs: () => bridge().Session.clearViewAs?.(),
+  capabilities: () => bridge().Session.capabilities(),
+  adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+  capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+  can: (cap) => bridge().Session.can(cap),
+  blockReason: (cap) => bridge().Session.blockReason(cap),
+  get EVENT() {
+    return bridge().Session.EVENT;
+  }
+};
+var Toast = {
+  show: (opts) => bridge().Toast.show(opts)
+};
+var Config = {
+  base: () => bridge().Config.base(),
+  apiUrl: (path) => bridge().Config.apiUrl(path),
+  isLocal: () => bridge().Config.isLocal(),
+  setLocal: (on) => bridge().Config.setLocal(on),
+  get EVENT() {
+    return bridge().Config.EVENT;
+  }
+};
+function frontSharedLazy() {
+  const api = window.ISAFront;
+  return api?.ensureCodeMirrorLoaded ? api : null;
+}
+var Assets = {
+  ensureCodeMirrorLoaded: (opts) => {
+    const api = frontSharedLazy();
+    return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
+  },
+  ensureMarked: () => {
+    const api = frontSharedLazy();
+    return api ? api.ensureMarked() : Promise.resolve();
+  },
+  ensureStylesheet: (href) => {
+    const api = frontSharedLazy();
+    return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
+  },
+  ensureChatStagingCss: () => {
+    const api = frontSharedLazy();
+    if (!api) return;
+    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+    api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
+      console.warn("chat-staging.css:", err);
+    });
+  },
+  ensureTodosCss: () => {
+    const api = frontSharedLazy();
+    if (!api) return;
+    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+    api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
+      console.warn("todos-staging.css:", err);
+    });
+  }
+};
+function mdToHtml(src) {
+  const api = frontSharedLazy();
+  if (api?.mdToHtml) return api.mdToHtml(src);
+  return String(src ?? "");
+}
+var Tokens = {
+  estimatePrompt: (text) => {
+    const fn = window.ISAFront?.estimatePromptTokens;
+    if (typeof fn === "function") return fn(text);
+    const s = String(text ?? "");
+    return s.trim() ? Math.ceil(s.length / 4) : 0;
+  }
+};
+var getReact = () => window.ISAFront.getReact();
+var getReactDOM = () => window.ISAFront.getReactDOM();
+var getMaterialUI = () => window.ISAFront.getMaterialUI();
+function getIsaSplitView() {
+  const C = window.ISAFront?.Layout?.IsaSplitView;
+  if (!C) {
+    throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return C;
+}
+function getGlass() {
+  const g = window.ISAFront?.Glass;
+  if (!g?.GlassCard) {
+    throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return g;
+}
+function lightboxApi() {
+  const api = window.ISAComponents?.LightboxZoom;
+  if (!api?.LightboxZoomDialog) {
+    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return api;
+}
+var LightboxZoom = {
+  get LightboxZoomDialog() {
+    return lightboxApi().LightboxZoomDialog;
+  },
+  get LightboxZoomImage() {
+    return lightboxApi().LightboxZoomImage;
+  },
+  get useLightboxZoom() {
+    return lightboxApi().useLightboxZoom;
+  },
+  get ZOOM_MIN() {
+    return lightboxApi().ZOOM_MIN;
+  },
+  get ZOOM_MAX() {
+    return lightboxApi().ZOOM_MAX;
+  },
+  get PAN_STEP() {
+    return lightboxApi().PAN_STEP;
+  }
+};
+var Lightbox = {
+  get ImageLightboxDialog() {
+    return lightboxApi().LightboxZoomDialog;
+  },
+  get LightboxImage() {
+    return lightboxApi().LightboxZoomImage;
+  },
+  get useImageLightboxZoom() {
+    return lightboxApi().useLightboxZoom;
+  }
+};
+function CodeMirrorPanel(props) {
+  const Panel = window.ISAFront?.CodeMirrorPanel;
+  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  return Panel(props);
+}
+var fb = () => globalThis.ISAFront?.Feedback;
+function toastError(text, timeout) {
+  fb()?.toast?.error?.(text, timeout);
+}
+function toastSuccess(text, timeout) {
+  fb()?.toast?.success?.(text, timeout);
+}
+function toastInfo(text, timeout) {
+  fb()?.toast?.info?.(text, timeout);
+}
+function toastWarning(text, timeout) {
+  fb()?.toast?.warning?.(text, timeout);
+}
+function requestConfirm(opts) {
+  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
+}
+function patchIsaPatyiaAuthEvents() {
+  const Session2 = window.ISA?.Session;
+  if (!Session2?.login || !Session2?.logout) return;
+  const origLogin = Session2.login.bind(Session2);
+  const origLogout = Session2.logout.bind(Session2);
+  const wrapLogin = async (u, p, opts) => {
+    const session = await origLogin(u, p, opts);
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+    return session;
+  };
+  Session2.login = wrapLogin;
+  if (window.ISA?.Auth?.login) window.ISA.Auth.login = wrapLogin;
+  Session2.logout = () => {
+    origLogout();
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+  };
+}
+function patchIssOnlyLocalConfig() {
+  ensureIssLocalDefault();
+  migrateIssLocalFromGatewayFlag();
+  try {
+    localStorage.setItem(GATEWAY_LS_KEY, "0");
+  } catch {
+  }
+  const cfg = window.ISA?.Config;
+  if (!cfg) return;
+  const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
+  cfg.isLocal = isLocalMode;
+  cfg.setLocal = (on) => {
+    setLocalMode(on);
+  };
+  cfg.base = () => online;
+  cfg.apiUrl = (path) => online + (path.charAt(0) === "/" ? path : `/${path}`);
+  cfg.connectionHint = () => "";
+  cfg.label = () => isLocalMode() ? "Local" : "Producci\xF3n";
+  cfg.EVENT = "patyia-apptools:lab-target";
+}
+function patyiaBridgeBaseForLogin() {
+  const base = isLocalMode() ? PATYIA_ISS_LOCAL : "https://ayudascp-ia-staging.azurewebsites.net";
+  return base.replace(/\/$/, "");
+}
+function bootstrapIsaPatyia() {
+  ensureIssLocalDefault();
+  window.ISAFront.registerApp({
+    ns: "ISA",
+    app: "isa-patyia",
+    theme: true,
+    widgets: { targetStyle: "chip" },
+    session: true,
+    auth: false,
+    toast: true,
+    loginButton: {
+      runUnitTestUrl: () => `${patyiaBridgeBaseForLogin()}/api/run-unit-test`,
+      getAuthHeaders: () => {
+        const tok = window.ISA?.Session?.current?.()?.token;
+        return tok ? window.ISA.Session.authHeader() : {};
+      },
+      unitTestTitle: "Test unitario \u2014 ISS-AyudasCPIA"
+    }
+  });
+  patchIssOnlyLocalConfig();
+  patchIsaPatyiaAuthEvents();
+  if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
+    window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);
+  }
+  if (!window.ISA?.Session) {
+    throw new Error("No se pudo iniciar la aplicaci\xF3n. Recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+}
+export {
+  Assets,
+  CodeMirrorPanel,
+  Config,
+  Lightbox,
+  LightboxZoom,
+  Session,
+  Toast,
+  Tokens,
+  UI,
+  bootstrapIsaPatyia,
+  getGlass,
+  getIsaSplitView,
+  getMaterialUI,
+  getReact,
+  getReactDOM,
+  mdToHtml,
+  requestConfirm,
+  toastError,
+  toastInfo,
+  toastSuccess,
+  toastWarning
+};

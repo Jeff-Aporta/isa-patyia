@@ -3,11 +3,11 @@
  */
 import { getReact, getMaterialUI } from "../core/platform.ts";
 import { UI } from "../core/platform.ts";
-import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetricsGrid, MdRenderer, MdFullPageDialog } from "./shared.jsx";
+import { mdToHtml, shortId, metaWorthDialog, instructionKeyFromMeta, UsageMetricsGrid, MdRenderer, MdFullPageDialog, FileSearchDialog } from "./shared.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, resolveUsageDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { tokensFromUsage, attachUsageStats, threadHasUsageStats, sideLogPanelWorthShowing, formatUsageSummary, formatLatencySeconds, usageHasData } from "../core/convLog.ts";
-import { archivosCitadosFromMeta, formatArchivosCitadosLabel, chunksFromMeta, chunkPreview } from "../core/fileSearchTrace.js";
+import { archivosCitadosFromMeta, chunksFromMeta, chunkPreview, metaHasFileSearch, compactFileChipLabel } from "../core/fileSearchTrace.js";
 import { getGlass } from "../core/platform.ts";
 
 const { useMemo, useState, useRef, useEffect, memo } = getReact();
@@ -477,14 +477,19 @@ const META_CHIP_TONE_CLASS = {
   neutral: "",
 };
 
-function MetaBadge({ tag, label, tone = "neutral", title }) {
+function MetaBadge({ tag, label, tone = "neutral", title, onClick }) {
   const toneClass = META_CHIP_TONE_CLASS[tone] || "";
+  const clickable = typeof onClick === "function";
+  const chipLabel = tone === "files" ? compactFileChipLabel(label) : compactMetaLabel(label);
   return (
     <UsageSummaryChip
       tag={tag}
-      label={compactMetaLabel(label)}
+      label={chipLabel}
       title={title || label}
-      className={`conv-msg-usage-chip conv-msg-meta-chip ${toneClass}`.trim()}
+      className={`conv-msg-usage-chip conv-msg-meta-chip ${toneClass}${clickable ? " conv-msg-meta-chip--clickable" : ""}`.trim()}
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
     />
   );
 }
@@ -521,7 +526,7 @@ function buildMetaClassificationChips(meta, cardTitle = "", { isUser = false } =
   return chips;
 }
 
-function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClassificationChips = false, align = "left", cardTitle = "" }) {
+function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClassificationChips = false, align = "left", cardTitle = "", onFileSearch }) {
   if (!meta) return null;
   const hideUsage = hideUsageMetrics || isUser;
   const tk = meta.tokens?.total ? meta.tokens : tokensFromUsage(meta.usage);
@@ -551,12 +556,14 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
   }
   if (!isUser) {
     const archivos = archivosCitadosFromMeta(meta);
-    if (archivos.length) {
+    const openFileSearch = typeof onFileSearch === "function" ? () => onFileSearch(meta) : undefined;
+    for (const name of archivos) {
       chips.push({
-        key: "files",
-        label: formatArchivosCitadosLabel(archivos, 2),
+        key: `file-${name}`,
+        label: name,
         tone: "files",
-        title: `Archivos citados (File Search):\n${archivos.join("\n")}`,
+        title: openFileSearch ? `Ver fragmento consultado: ${name}` : name,
+        onClick: openFileSearch,
       });
     }
   }
@@ -574,7 +581,7 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
       sx={{ justifyContent: align === "right" ? "flex-end" : "flex-start" }}
     >
       {chips.map((c) => (
-        <MetaBadge key={c.key} tag={c.tag} label={c.label} tone={c.tone} title={c.title} />
+        <MetaBadge key={c.key} tag={c.tag} label={c.label} tone={c.tone} title={c.title} onClick={c.onClick} />
       ))}
     </Stack>
   );
@@ -704,10 +711,26 @@ function ConvMsgImages({ items, align = "right", onImageClick }) {
   );
 }
 
-function UsageSummaryChip({ label, className = "", title, tag }) {
+function UsageSummaryChip({ label, className = "", title, tag, onClick, role, tabIndex }) {
   const showVal = label != null && String(label).trim() !== "";
+  const clickable = typeof onClick === "function";
+  const handleKeyDown = clickable
+    ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(e);
+        }
+      }
+    : undefined;
   return (
-    <span className={className || "conv-msg-usage-chip"} title={title || (showVal ? label : tag)}>
+    <span
+      className={className || "conv-msg-usage-chip"}
+      title={title || (showVal ? label : tag)}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={role}
+      tabIndex={tabIndex}
+    >
       <span className="conv-msg-usage-chip__inner">
         {tag ? <span className="conv-msg-usage-chip__key">{tag}</span> : null}
         {showVal ? <span className="conv-msg-usage-chip__val">{label}</span> : null}
@@ -1386,6 +1409,7 @@ function resolveMsgImensaje(msg) {
 
 const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
   const { Alert, Box } = getMaterialUI();
+  const [fileSearchOpen, setFileSearchOpen] = useState(false);
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, chatUserDisplayName, chatUserNick);
   const titleCaption = roleUserCaption(msg, chatUserNick);
@@ -1395,6 +1419,8 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   const isOperativa = msg.esOperativa;
   const isStreaming = Boolean(msg.isStreaming || (streamingMsgId && msg.idMsg === streamingMsgId));
   const showMetaBtn = Boolean(onMeta && msg.meta && metaWorthDialog(msg.meta, isUser));
+  const showFileSearchChips = Boolean(!compactMeta && !isUser && msg.meta && metaHasFileSearch(msg.meta));
+  const showMetaChips = Boolean(!compactMeta && (onMeta || showFileSearchChips));
   const statsSide = isUser ? "left" : "right";
   const msgImensaje = resolveMsgImensaje(msg);
   const showRating = Boolean(
@@ -1482,8 +1508,16 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
             compact={compactMeta}
             streaming={isStreaming}
             onMeta={showMetaBtn ? () => onMeta(msg) : undefined}
-            metaChips={!compactMeta && onMeta ? (
-              <MetaChipRow meta={msg.meta} isUser={isUser} hideUsageMetrics={hideUsageInChips || isUser} hideClassificationChips={showUsageStats} align={isUser ? "right" : "left"} cardTitle={title} />
+            metaChips={showMetaChips ? (
+              <MetaChipRow
+                meta={msg.meta}
+                isUser={isUser}
+                hideUsageMetrics={hideUsageInChips || isUser}
+                hideClassificationChips={showUsageStats}
+                align={isUser ? "right" : "left"}
+                cardTitle={title}
+                onFileSearch={showFileSearchChips ? () => setFileSearchOpen(true) : undefined}
+              />
             ) : null}
           >
             {msg.streamFailed && msg.streamError && (
@@ -1533,6 +1567,12 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
           </Box>
         )}
       </Box>
+      <FileSearchDialog
+        open={fileSearchOpen}
+        onClose={() => setFileSearchOpen(false)}
+        meta={msg.meta}
+        title={`File Search · ${title}`}
+      />
     </Box>
   );
 }, (prev, next) => (

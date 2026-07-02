@@ -6,7 +6,7 @@
 import { formatMsgFecha } from "./msgDateFormat.ts";
 
 /** Mensaje conv-log aplanado — campos base + propiedades según rol (user/assistant/operativa). */
-type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number };
+type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; vector_store_ids?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number; file_search?: unknown; archivos_citados?: string[]; chunks?: unknown[]; chunks_total?: number; clasificador_vector_usado?: string[] };
 
 type NormalizeMetaOptions = { isUser?: boolean };
 
@@ -380,7 +380,6 @@ function pushImage(images: string[], ref: unknown) {
       const prompt = s?.prompt;
       if (prompt?.id) flat.prompt_id = prompt.id;
       if (prompt?.variables) flat.prompt_variables = prompt.variables;
-      if (o.vector_store_ids) flat.vectorStoreIds = o.vector_store_ids;
     } else if (m.role === "operativa") {
       if (o.operativa_key) {
         flat.operativa_key = o.operativa_key;
@@ -414,6 +413,12 @@ function pushImage(images: string[], ref: unknown) {
     if (typeof o.response_chars === "number") flat.response_chars = o.response_chars;
     if (Array.isArray(o.file_search) && o.file_search.length) flat.file_search = o.file_search;
     if (Array.isArray(o.archivos_citados) && o.archivos_citados.length) flat.archivos_citados = o.archivos_citados;
+    if (Array.isArray(o.chunks) && o.chunks.length) flat.chunks = o.chunks;
+    if (typeof o.chunks_total === "number") flat.chunks_total = o.chunks_total;
+    if (o.vector_store_ids) flat.vector_store_ids = o.vector_store_ids;
+    if (Array.isArray(o.clasificador_vector_usado) && o.clasificador_vector_usado.length) {
+      flat.clasificador_vector_usado = o.clasificador_vector_usado.map(String);
+    }
     if (Array.isArray(o.instrucciones) && o.instrucciones.length) flat.instrucciones = o.instrucciones;
     return flat;
   }
@@ -688,6 +693,15 @@ function pushImage(images: string[], ref: unknown) {
       archivos_citados: Array.isArray(raw.archivos_citados) && raw.archivos_citados.length
         ? raw.archivos_citados.map(String)
         : undefined,
+      vector_store_ids: (() => {
+        const ids = raw.vector_store_ids ?? raw.vectorStoreIds;
+        return Array.isArray(ids) && ids.length ? ids.map(String) : undefined;
+      })(),
+      chunks: Array.isArray(raw.chunks) && raw.chunks.length ? raw.chunks : undefined,
+      chunks_total: typeof raw.chunks_total === "number" ? raw.chunks_total : undefined,
+      clasificador_vector_usado: Array.isArray(raw.clasificador_vector_usado) && raw.clasificador_vector_usado.length
+        ? raw.clasificador_vector_usado.map(String)
+        : undefined,
     };
   }
 
@@ -695,7 +709,7 @@ function pushImage(images: string[], ref: unknown) {
     return formatMsgFecha(raw).label;
   }
 
-  function convLogToMsgVista(m, i, userSendForTurn) {
+  function convLogToMsgVista(m, i, userSendForTurn, userVectorStoreIds) {
     const role = String(m.role ?? "assistant");
     const esOperativa = role === "operativa";
     const esUsuario = role === "user";
@@ -738,7 +752,10 @@ function pushImage(images: string[], ref: unknown) {
     if (!esUsuario && !esOperativa && userSendForTurn && !flat.send) {
       flat.send = userSendForTurn;
     }
-    const meta = normalizeMeta(flat, { isUser: esUsuario });
+    let meta = normalizeMeta(flat, { isUser: esUsuario });
+    if (!esUsuario && userVectorStoreIds?.length && !meta?.vector_store_ids?.length) {
+      meta = { ...meta, vector_store_ids: userVectorStoreIds.map(String) };
+    }
     const logImensaje = (() => {
       const turno = Number(m.turno);
       const seq = Number(m.seq);
@@ -790,16 +807,20 @@ function pushImage(images: string[], ref: unknown) {
   function logToMensajesVista(log) {
     const ordenados = ordenarMensajesConvLog(log.mensajes ?? []);
     const sendByTurno = new Map();
+    const vectorStoreIdsByTurno = new Map();
     for (const m of ordenados) {
-      if (String(m.role) === "user" && m.send && m.turno != null) {
-        sendByTurno.set(m.turno, m.send);
+      if (String(m.role) === "user" && m.turno != null) {
+        if (m.send) sendByTurno.set(m.turno, m.send);
+        const vsIds = m.others?.vector_store_ids;
+        if (Array.isArray(vsIds) && vsIds.length) vectorStoreIdsByTurno.set(m.turno, vsIds.map(String));
       }
     }
     let lastUserSend = null;
     return attachUsageStats(ordenados.map((m, i) => {
       if (String(m.role) === "user" && m.send) lastUserSend = m.send;
       const userSend = m.turno != null ? (sendByTurno.get(m.turno) ?? lastUserSend) : lastUserSend;
-      return convLogToMsgVista(m, i, userSend);
+      const userVsIds = m.turno != null ? vectorStoreIdsByTurno.get(m.turno) : undefined;
+      return convLogToMsgVista(m, i, userSend, userVsIds);
     }));
   }
 

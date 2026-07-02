@@ -55,12 +55,16 @@ async function compileOne(srcRel, distRel) {
 
 const jobs = [
   ["js/api/todosApi.ts", "js/api/todosApi.js"],
+  ["js/api/sessionApi.ts", "js/api/sessionApi.js"],
   ["js/core/patyia.ts", "js/core/patyia.js"],
   ["js/core/platform.ts", "js/core/platform.js"],
   ["js/api/apiClient.ts", "js/api/apiClient.js"],
+  ["js/app/App.jsx", "js/app/App.js"],
   ["js/tools/PermisosKanban.jsx", "js/tools/PermisosKanban.js"],
   ["js/tools/permisosKanbanShared.js", "js/tools/permisosKanbanShared.js"],
   ["js/tools/PermisosPanel.jsx", "js/tools/PermisosPanel.js"],
+  ["js/tools/UserPermissionsSummaryDialog.jsx", "js/tools/UserPermissionsSummaryDialog.js"],
+  ["js/tools/promptsSql/usePromptsSqlTool.ts", "js/tools/promptsSql/usePromptsSqlTool.js"],
   ["js/tools/roleHierarchy.js", "js/tools/roleHierarchy.js"],
   ["js/ui/treeView/index.ts", "js/ui/treeView/index.js"],
   ["js/ui/treeView/TreeView.tsx", "js/ui/treeView/TreeView.js"],

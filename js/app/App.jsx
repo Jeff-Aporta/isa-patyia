@@ -8,14 +8,19 @@ import { TodosTool } from "../tools/TodosTool.jsx";
 import { ConfigTool } from "../tools/ConfigTool.jsx";
 import { Session } from "../core/platform.ts";
 import { Assets } from "../core/platform.ts";
+import * as SessionApi from "../api/sessionApi.ts";
 
 const BRAND_HOME_EVENT = "isa:brand-home";
 
+/** ponytail: DevFlow fuera del nav hasta estabilizar kanban/SCRUM. */
+const DEVFLOW_NAV_ENABLED = false;
+
 const ALL_TOOLS = [
-  { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
-  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
-  { id: "config", label: "Config", icon: "mdi:cog-outline" },
+  { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline", cap: "canViewLogs" },
+  { id: "prompts", label: "Prompts", icon: "mdi:database-export", cap: "canViewPrompts" },
+  { id: "chat", label: "Chat", icon: "mdi:chat-outline", cap: "canViewChat" },
+  { id: "todos", label: "DevFlow", icon: "mdi:view-column", cap: null, devflow: true },
+  { id: "config", label: "Config", icon: "mdi:cog-outline", cap: "canViewConfig" },
 ];
 
 // Vista pública Scrum/DevFlow: en ese modo la pestaña "todos" es la única útil.
@@ -69,13 +74,50 @@ export function App() {
     }
   }, [publicScrumView, tool]);
 
+  /** Tabs visibles: DevFlow oculto temporalmente; el resto siempre en nav (permisos en cada tool). */
+  const visibleToolTabs = ALL_TOOLS.filter((t) => {
+    if (t.devflow) return DEVFLOW_NAV_ENABLED;
+    if (publicScrumView) return false;
+    return true;
+  });
+
   useEffect(() => {
-    function onAuth() { setAuthTick((n) => n + 1); }
+    if (publicScrumView) return;
+    if (!DEVFLOW_NAV_ENABLED && tool === "todos") {
+      const fallback = visibleToolTabs[0]?.id || "log";
+      setTool(fallback);
+      mergePartial({ tool: fallback });
+    }
+  }, [publicScrumView, tool, authTick]);
+
+  /** Si la tool actual no es visible → redirigir a la primera visible. */
+  useEffect(() => {
+    if (publicScrumView) return;
+    if (!visibleToolTabs.length) return;
+    const stillVisible = visibleToolTabs.some((t) => t.id === tool);
+    if (!stillVisible) {
+      const fallback = visibleToolTabs[0].id;
+      setTool(fallback);
+      mergePartial({ tool: fallback });
+    }
+  }, [publicScrumView, tool, authTick]);
+
+  useEffect(() => {
+    let alive = true;
+    function onAuth() {
+      if (!alive) return;
+      setAuthTick((n) => n + 1);
+      void SessionApi.bootMeCaps();
+    }
     window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("isa-patyia:auth", onAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onAuth);
+    if (Session.isLoggedIn()) void SessionApi.bootMeCaps();
     return () => {
+      alive = false;
       window.removeEventListener(Session.EVENT, onAuth);
       window.removeEventListener("isa-patyia:auth", onAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onAuth);
     };
   }, []);
 
@@ -119,7 +161,7 @@ export function App() {
       navRows={publicScrumView ? [
         { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
       ] : [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: ALL_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: visibleToolTabs, tabHref: (id) => hrefFor({ tool: id }) },
       ]}
     >
       {publicScrumView ? (
@@ -133,7 +175,7 @@ export function App() {
           {tool === "chat" && (
             <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
-          {tool === "todos" && (
+          {tool === "todos" && DEVFLOW_NAV_ENABLED && (
             <TodosTool key={`${homeTick}-${authTick}`} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
           {tool === "config" && (

@@ -15,7 +15,7 @@ import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogAction
 const { Typography, Stack, Box, Chip, Divider, CircularProgress } = getMaterialUI();
 const { useMemo } = getReact();
 
-const ROLE_KEYS_OMIT = new Set(["descripcion", "namedisplay", "roles", "jerarquia", "accent", "color", "icon", "all_permissions"]);
+const ROLE_KEYS_OMIT = new Set(["descripcion", "namedisplay", "roles", "jerarquia", "accent", "color", "icon"]);
 
 function getRoleEntry(roles, roleName) {
     const key = String(roleName ?? "").trim().toLowerCase();

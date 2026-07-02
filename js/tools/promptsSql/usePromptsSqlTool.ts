@@ -33,12 +33,14 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     const onAuth = () => setAuthTick((n) => n + 1);
     window.addEventListener("isa-patyia:auth", onAuth);
     window.addEventListener(Session.EVENT, onAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onAuth);
     if (Session.isLoggedIn()) {
       Session.refreshProfile().finally(onAuth);
     }
     return () => {
       window.removeEventListener("isa-patyia:auth", onAuth);
       window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onAuth);
     };
   }, []);
 
