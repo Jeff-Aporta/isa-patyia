@@ -165,11 +165,16 @@ function TreeRow({ node, ...ctx }) {
       e.stopPropagation();
       return;
     }
-    const clickedSymbol = target.closest(".trvwr-itm-symb");
-    if (isGrouper && clickedSymbol && canMutate && features.collapse !== false) {
+    if (!canMutate || features.collapse === false) {
       e.preventDefault();
-      onToggleCollapse(path, !isOpen);
-      customs.onExpand?.(node, !isOpen);
+      if (detailsRef.current) detailsRef.current.open = isOpen;
+    } else {
+      const clickedSymbol = target.closest(".trvwr-itm-symb");
+      if (isGrouper && clickedSymbol) {
+        e.preventDefault();
+        onToggleCollapse(path, !isOpen);
+        customs.onExpand?.(node, !isOpen);
+      }
     }
     onSelect(path);
     customs.onSelect?.(node);
@@ -1416,7 +1421,7 @@ function RoleHierarchyView(props) {
   );
   const rolePermisosSig = useMemo4(
     () => currentRoleEntry ? JSON.stringify(currentRoleEntry.permisos ?? EMPTY_PERMISOS) : "",
-    [currentRoleEntry]
+    [currentRoleEntry?.iusuario, currentRoleEntry?.permisos]
   );
   const roleEditorEntry = useMemo4(() => {
     if (!currentRoleEntry) return null;
@@ -1430,19 +1435,25 @@ function RoleHierarchyView(props) {
     if (node?.jerarquia) setSelectedJer((prev) => prev === node.jerarquia ? prev : node.jerarquia);
   }, [initialSelectedRole, nodes]);
   useEffect6(() => {
-    if (!currentEditNode || !isVisitanteRole(currentEditNode.iusuario)) {
+    if (!selectedJer) {
       setVisitanteDraft(null);
-      return;
-    }
-    setVisitanteDraft(enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS));
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, visitantePermisosSig]);
-  useEffect6(() => {
-    if (!currentEditNode || isVisitanteRole(currentEditNode.iusuario)) {
       setRoleDraft(null);
       return;
     }
-    setRoleDraft({ ...currentRoleEntry?.permisos ?? EMPTY_PERMISOS });
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, rolePermisosSig, currentRoleEntry]);
+    const node = nodes.find((n) => n.jerarquia === selectedJer);
+    if (!node) return;
+    if (isVisitanteRole(node.iusuario)) {
+      setRoleDraft(null);
+      const next2 = enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS);
+      setVisitanteDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next2) ? prev : next2);
+      return;
+    }
+    setVisitanteDraft(null);
+    const key = String(node.iusuario ?? "").trim().toLowerCase();
+    const entry = (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key);
+    const next = { ...entry?.permisos ?? EMPTY_PERMISOS };
+    setRoleDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
+  }, [selectedJer, visitantePermisosSig, rolePermisosSig, nodes, roleEntries, visitanteEntry]);
   const openCreateDialog = useCallback3(() => {
     setEditTarget({
       isNew: true,
@@ -1487,12 +1498,13 @@ function RoleHierarchyView(props) {
     /* @__PURE__ */ jsx9(Box5, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx9(
       RoleConfigEditor,
       {
-        entry: visitanteEntry,
+        entry: visitanteDraft ? { ...visitanteEntry, permisos: visitanteDraft } : visitanteEntry,
         roleName: "visitante",
         canManage: !!canManagePermisos,
         canEditRoleDescriptions: !!canEditRoleDescriptions,
         onChange: (permisos) => setVisitanteDraft(enforceVisitantePermisos(permisos))
-      }
+      },
+      `visitante-${visitantePermisosSig}`
     ) }),
     (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx9(Stack4, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx9(
       Button3,
@@ -1525,7 +1537,8 @@ function RoleHierarchyView(props) {
         canManage: !!canManagePermisos,
         canEditRoleDescriptions: !!canEditRoleDescriptions,
         onChange: (permisos) => setRoleDraft(permisos)
-      }
+      },
+      `${currentEditNode.iusuario}-${rolePermisosSig}`
     ) }),
     (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx9(Stack4, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx9(
       Button3,

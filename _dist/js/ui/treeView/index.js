@@ -119,11 +119,16 @@ function TreeRow({ node, ...ctx }) {
       e.stopPropagation();
       return;
     }
-    const clickedSymbol = target.closest(".trvwr-itm-symb");
-    if (isGrouper && clickedSymbol && canMutate && features.collapse !== false) {
+    if (!canMutate || features.collapse === false) {
       e.preventDefault();
-      onToggleCollapse(path, !isOpen);
-      customs.onExpand?.(node, !isOpen);
+      if (detailsRef.current) detailsRef.current.open = isOpen;
+    } else {
+      const clickedSymbol = target.closest(".trvwr-itm-symb");
+      if (isGrouper && clickedSymbol) {
+        e.preventDefault();
+        onToggleCollapse(path, !isOpen);
+        customs.onExpand?.(node, !isOpen);
+      }
     }
     onSelect(path);
     customs.onSelect?.(node);

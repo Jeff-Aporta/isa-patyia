@@ -97,10 +97,10 @@ export function PermisosPanel({ onNeedLogin }) {
         const r = await fetchHierarchy();
         let nodes = Array.isArray(r.roles) ? r.roles : [];
         if (!nodes.length) nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        setHierarchyNodes(nodes);
+        if (nodes.length) setHierarchyNodes(nodes);
       } catch (e) {
         const nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        setHierarchyNodes(nodes);
+        if (nodes.length) setHierarchyNodes(nodes);
         if (!nodes.length) {
           toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando jerarquía");
         }
@@ -114,22 +114,34 @@ export function PermisosPanel({ onNeedLogin }) {
   }, []);
 
   const openHierarchyDialog = useCallback(() => {
+    hierarchyLoadRef.current = null;
     setHierarchyFocusRole(null);
+    const roles = rolesRef.current;
+    if (Array.isArray(roles) && roles.length) {
+      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
+    }
     setHierarchyOpen(true);
   }, []);
 
   const openHierarchyForRole = useCallback((roleName) => {
     const id = String(roleName ?? "").trim().toLowerCase();
     if (!id) return;
+    hierarchyLoadRef.current = null;
+    const roles = rolesRef.current;
+    if (Array.isArray(roles) && roles.length) {
+      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
+    }
     setHierarchyFocusRole(id);
     setHierarchyOpen(true);
   }, []);
 
   useEffect(() => {
     if (!hierarchyOpen) return undefined;
-    void loadHierarchy(rolesRef.current);
+    const roles = rolesRef.current;
+    if (!Array.isArray(roles) || !roles.length) return undefined;
+    void loadHierarchy(roles);
     return undefined;
-  }, [hierarchyOpen, loadHierarchy]);
+  }, [hierarchyOpen, data.roles, loadHierarchy]);
 
   const handleHierarchySave = useCallback(async (name, jerarquia) => {
     setHierarchyBusy(true);

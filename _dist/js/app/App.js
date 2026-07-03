@@ -16955,11 +16955,16 @@ function TreeRow({ node, ...ctx }) {
       e.stopPropagation();
       return;
     }
-    const clickedSymbol = target.closest(".trvwr-itm-symb");
-    if (isGrouper && clickedSymbol && canMutate && features.collapse !== false) {
+    if (!canMutate || features.collapse === false) {
       e.preventDefault();
-      onToggleCollapse(path, !isOpen);
-      customs.onExpand?.(node, !isOpen);
+      if (detailsRef.current) detailsRef.current.open = isOpen;
+    } else {
+      const clickedSymbol = target.closest(".trvwr-itm-symb");
+      if (isGrouper && clickedSymbol) {
+        e.preventDefault();
+        onToggleCollapse(path, !isOpen);
+        customs.onExpand?.(node, !isOpen);
+      }
     }
     onSelect(path);
     customs.onSelect?.(node);
@@ -17446,7 +17451,7 @@ function RoleHierarchyView(props) {
   );
   const rolePermisosSig = useMemo17(
     () => currentRoleEntry ? JSON.stringify(currentRoleEntry.permisos ?? EMPTY_PERMISOS) : "",
-    [currentRoleEntry]
+    [currentRoleEntry?.iusuario, currentRoleEntry?.permisos]
   );
   const roleEditorEntry = useMemo17(() => {
     if (!currentRoleEntry) return null;
@@ -17460,19 +17465,25 @@ function RoleHierarchyView(props) {
     if (node?.jerarquia) setSelectedJer((prev) => prev === node.jerarquia ? prev : node.jerarquia);
   }, [initialSelectedRole, nodes]);
   useEffect26(() => {
-    if (!currentEditNode || !isVisitanteRole(currentEditNode.iusuario)) {
+    if (!selectedJer) {
       setVisitanteDraft(null);
-      return;
-    }
-    setVisitanteDraft(enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS));
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, visitantePermisosSig]);
-  useEffect26(() => {
-    if (!currentEditNode || isVisitanteRole(currentEditNode.iusuario)) {
       setRoleDraft(null);
       return;
     }
-    setRoleDraft({ ...currentRoleEntry?.permisos ?? EMPTY_PERMISOS });
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, rolePermisosSig, currentRoleEntry]);
+    const node = nodes.find((n) => n.jerarquia === selectedJer);
+    if (!node) return;
+    if (isVisitanteRole(node.iusuario)) {
+      setRoleDraft(null);
+      const next2 = enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS);
+      setVisitanteDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next2) ? prev : next2);
+      return;
+    }
+    setVisitanteDraft(null);
+    const key = String(node.iusuario ?? "").trim().toLowerCase();
+    const entry = (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key);
+    const next = { ...entry?.permisos ?? EMPTY_PERMISOS };
+    setRoleDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
+  }, [selectedJer, visitantePermisosSig, rolePermisosSig, nodes, roleEntries, visitanteEntry]);
   const openCreateDialog = useCallback13(() => {
     setEditTarget({
       isNew: true,
@@ -17517,12 +17528,13 @@ function RoleHierarchyView(props) {
     /* @__PURE__ */ jsx44(Box29, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx44(
       RoleConfigEditor,
       {
-        entry: visitanteEntry,
+        entry: visitanteDraft ? { ...visitanteEntry, permisos: visitanteDraft } : visitanteEntry,
         roleName: "visitante",
         canManage: !!canManagePermisos,
         canEditRoleDescriptions: !!canEditRoleDescriptions,
         onChange: (permisos) => setVisitanteDraft(enforceVisitantePermisos(permisos))
-      }
+      },
+      `visitante-${visitantePermisosSig}`
     ) }),
     (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx44(Stack22, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx44(
       Button20,
@@ -17555,7 +17567,8 @@ function RoleHierarchyView(props) {
         canManage: !!canManagePermisos,
         canEditRoleDescriptions: !!canEditRoleDescriptions,
         onChange: (permisos) => setRoleDraft(permisos)
-      }
+      },
+      `${currentEditNode.iusuario}-${rolePermisosSig}`
     ) }),
     (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx44(Stack22, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx44(
       Button20,
@@ -17970,10 +17983,10 @@ function PermisosPanel({ onNeedLogin }) {
         const r = await fetchHierarchy();
         let nodes = Array.isArray(r.roles) ? r.roles : [];
         if (!nodes.length) nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        setHierarchyNodes(nodes);
+        if (nodes.length) setHierarchyNodes(nodes);
       } catch (e) {
         const nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        setHierarchyNodes(nodes);
+        if (nodes.length) setHierarchyNodes(nodes);
         if (!nodes.length) {
           toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando jerarqu\xEDa");
         }
@@ -17986,20 +17999,32 @@ function PermisosPanel({ onNeedLogin }) {
     return task;
   }, []);
   const openHierarchyDialog = useCallback15(() => {
+    hierarchyLoadRef.current = null;
     setHierarchyFocusRole(null);
+    const roles = rolesRef.current;
+    if (Array.isArray(roles) && roles.length) {
+      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
+    }
     setHierarchyOpen(true);
   }, []);
   const openHierarchyForRole = useCallback15((roleName) => {
     const id = String(roleName ?? "").trim().toLowerCase();
     if (!id) return;
+    hierarchyLoadRef.current = null;
+    const roles = rolesRef.current;
+    if (Array.isArray(roles) && roles.length) {
+      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
+    }
     setHierarchyFocusRole(id);
     setHierarchyOpen(true);
   }, []);
   useEffect28(() => {
     if (!hierarchyOpen) return void 0;
-    void loadHierarchy(rolesRef.current);
+    const roles = rolesRef.current;
+    if (!Array.isArray(roles) || !roles.length) return void 0;
+    void loadHierarchy(roles);
     return void 0;
-  }, [hierarchyOpen, loadHierarchy]);
+  }, [hierarchyOpen, data.roles, loadHierarchy]);
   const handleHierarchySave = useCallback15(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {

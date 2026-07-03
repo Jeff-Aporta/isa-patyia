@@ -104,7 +104,7 @@ export function RoleHierarchyView(props: RoleHierarchyViewProps): React.ReactEle
 
   const rolePermisosSig = useMemo(
     () => (currentRoleEntry ? JSON.stringify(currentRoleEntry.permisos ?? EMPTY_PERMISOS) : ""),
-    [currentRoleEntry],
+    [currentRoleEntry?.iusuario, currentRoleEntry?.permisos],
   );
 
   const roleEditorEntry = useMemo(() => {
@@ -121,20 +121,25 @@ export function RoleHierarchyView(props: RoleHierarchyViewProps): React.ReactEle
   }, [initialSelectedRole, nodes]);
 
   useEffect(() => {
-    if (!currentEditNode || !isVisitanteRole(currentEditNode.iusuario)) {
+    if (!selectedJer) {
       setVisitanteDraft(null);
-      return;
-    }
-    setVisitanteDraft(enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS));
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, visitantePermisosSig]);
-
-  useEffect(() => {
-    if (!currentEditNode || isVisitanteRole(currentEditNode.iusuario)) {
       setRoleDraft(null);
       return;
     }
-    setRoleDraft({ ...(currentRoleEntry?.permisos ?? EMPTY_PERMISOS) });
-  }, [currentEditNode?.iusuario, currentEditNode?.jerarquia, rolePermisosSig, currentRoleEntry]);
+    const node = nodes.find((n) => n.jerarquia === selectedJer);
+    if (!node) return;
+    if (isVisitanteRole(node.iusuario)) {
+      setRoleDraft(null);
+      const next = enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS);
+      setVisitanteDraft((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      return;
+    }
+    setVisitanteDraft(null);
+    const key = String(node.iusuario ?? "").trim().toLowerCase();
+    const entry = (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key);
+    const next = { ...(entry?.permisos ?? EMPTY_PERMISOS) };
+    setRoleDraft((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+  }, [selectedJer, visitantePermisosSig, rolePermisosSig, nodes, roleEntries, visitanteEntry]);
 
 
 
@@ -227,7 +232,8 @@ export function RoleHierarchyView(props: RoleHierarchyViewProps): React.ReactEle
         </Stack>
         <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }}>
           <RoleConfigEditor
-            entry={visitanteEntry}
+            key={`visitante-${visitantePermisosSig}`}
+            entry={visitanteDraft ? { ...visitanteEntry, permisos: visitanteDraft } : visitanteEntry}
             roleName="visitante"
             canManage={!!canManagePermisos}
             canEditRoleDescriptions={!!canEditRoleDescriptions}
@@ -263,6 +269,7 @@ export function RoleHierarchyView(props: RoleHierarchyViewProps): React.ReactEle
       </Stack>
       <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }}>
         <RoleConfigEditor
+          key={`${currentEditNode.iusuario}-${rolePermisosSig}`}
           entry={roleEditorEntry ?? { iusuario: currentEditNode.iusuario, permisos: EMPTY_PERMISOS, bactivo: true }}
           roleName={currentEditNode.iusuario}
           canManage={!!canManagePermisos}
