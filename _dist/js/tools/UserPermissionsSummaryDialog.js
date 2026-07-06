@@ -1,9 +1,9 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -37,7 +37,7 @@ var UI = {
 var getReact = () => window.ISAFront.getReact();
 var getMaterialUI = () => window.ISAFront.getMaterialUI();
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
@@ -53,7 +53,7 @@ function userRoles(permisos) {
   return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 var DEFAULT_ROLE_JERARQUIA = {
   visitante: "0",
   dev: "0.0",
@@ -81,7 +81,7 @@ function ancestorsFromPath(jerarquia) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleCanonicalMeta.js
+// js/tools/roleCanonicalMeta.js
 var CANONICAL_ROLE_META = {
   dev: {
     namedisplay: "Desarrollador b\xE1sico",
@@ -101,7 +101,7 @@ function canonicalRoleMeta(roleName) {
   return CANONICAL_ROLE_META[key] ?? null;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 function permEntryKey(entry) {
   return String(entry?.iusuario ?? entry?.ientity ?? "").trim();
 }
@@ -127,7 +127,7 @@ function roleTitleFromEntry(entry) {
   return namedisplay;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/GlassDialog.jsx
+// js/ui/GlassDialog.jsx
 import { jsx, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -253,7 +253,7 @@ function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWid
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/UserPermissionsSummaryDialog.jsx
+// js/tools/UserPermissionsSummaryDialog.jsx
 import { Fragment, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var { Typography, Stack, Box, Chip, Divider, CircularProgress } = getMaterialUI();
 var { useMemo } = getReact();

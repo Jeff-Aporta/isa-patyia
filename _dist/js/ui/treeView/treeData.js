@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeData.ts
+// js/ui/treeView/treeData.ts
 function dedupeItems(items, keyFn) {
   const seen = /* @__PURE__ */ new Map();
   for (const item of items) {

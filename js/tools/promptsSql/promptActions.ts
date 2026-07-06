@@ -28,7 +28,7 @@ export async function discardAllPrompts({
   setActionBusy(true);
   setLoadErr("");
   try {
-    const rows = await LabApi.fetchInstruccionesPaty();
+    const { rows } = await LabApi.fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: toReset, ignoreUrl: true });
     clearUrlBodies(toReset);
     toastInfo(`${toReset.length} instrucción(es) restaurada(s) desde la base`);
@@ -78,7 +78,7 @@ export async function saveAllPrompts({
     await LabApi.publishInstruccionesPaty(sqlMssql);
     const savedTipos = [...pendingTipos];
     clearUrlBodies(savedTipos);
-    const rows = await LabApi.fetchInstruccionesPaty();
+    const { rows } = await LabApi.fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
     toastSuccess(`${savedTipos.length} instrucción(es) guardada(s) en Paty`);
   } catch (e) {
@@ -130,7 +130,7 @@ export async function saveOnePrompt({
       author,
     });
     clearUrlBodies([key]);
-    const rows = await LabApi.fetchInstruccionesPaty();
+    const { rows } = await LabApi.fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: [key], ignoreUrl: true });
     toastSuccess(`${key.replace(/_/g, " ")} guardada en Paty`);
   } catch (e) {

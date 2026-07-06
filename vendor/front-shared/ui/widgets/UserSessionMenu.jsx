@@ -48,6 +48,12 @@
       return function () { window.removeEventListener(Session.EVENT, onAuth); };
     }, [Session]);
 
+    React.useEffect(function () {
+      function onCaps() { authRev(function (n) { return n + 1; }); }
+      window.addEventListener("patyia-apptools:caps-changed", onCaps);
+      return function () { window.removeEventListener("patyia-apptools:caps-changed", onCaps); };
+    }, []);
+
     void authRev;
 
     const fmt = window.ISAFront || {};
@@ -65,7 +71,11 @@
       ? (props.viewAsUsername || "")
       : (Session?.viewAsUsername?.() || "");
     const sessionRole = String(
-      props.role || Session?.current?.()?.role || "",
+      props.role
+      || bag.AppSession?.resolveDisplayRole?.()
+      || bag.AppSession?.getSession?.()?.role
+      || Session?.current?.()?.role
+      || "",
     ).trim();
     const canViewAs = props.canViewAs !== undefined
       ? props.canViewAs

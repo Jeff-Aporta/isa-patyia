@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
@@ -16,7 +16,7 @@ function resolveIssApiBase() {
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -78,11 +78,11 @@ var getReact = () => window.ISAFront.getReact();
 var getReactDOM = () => window.ISAFront.getReactDOM();
 var getMaterialUI = () => window.ISAFront.getMaterialUI();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ImageLightboxDialog.jsx
+// js/ui/ImageLightboxDialog.jsx
 import { jsx } from "react/jsx-runtime";
 var { useEffect, useState } = getReact();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/GlassDialog.jsx
+// js/ui/GlassDialog.jsx
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -208,7 +208,7 @@ function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWid
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/shared.jsx
+// js/ui/shared.jsx
 import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 var { useState: useState2, useEffect: useEffect2, useMemo } = getReact();
 var { createTheme, Tabs, Tab, Box, Typography, DialogContent, Stack, Chip } = getMaterialUI();
@@ -234,13 +234,13 @@ var theme = createTheme({
   }
 });
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permFixFilter.js
+// js/tools/permFixFilter.js
 var SESSION_OWNER_FIX_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
@@ -253,7 +253,7 @@ var ACCESS_MODES = [
 ];
 var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 var DEFAULT_FOR_UNKNOWN = "999";
 function isSameInheritanceLine(a, b) {
   const x = String(a ?? "").trim();
@@ -274,7 +274,7 @@ function actorCanManageTarget(actorJerarquias, targetJerarquia) {
   return false;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 function userCardLabels(username, displayName) {
   const user = String(username ?? "").trim().toUpperCase();
   const name = String(displayName ?? "").trim();
@@ -311,10 +311,10 @@ function pointInRef(ref, clientX, clientY) {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/editors/jsonEditor.jsx
+// js/editors/jsonEditor.jsx
 import { jsx as jsx4 } from "react/jsx-runtime";
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRouteCatalog.js
+// js/tools/permisosRouteCatalog.js
 var ROUTE_GROUPS = [
   {
     id: "conversaciones",
@@ -367,7 +367,7 @@ var ROUTE_GROUPS = [
 ];
 var CATALOG_KEYS = new Set(ROUTE_GROUPS.flatMap((g) => g.routes.map((r) => r.key)));
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleTransfer.js
+// js/tools/permisosRoleTransfer.js
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -452,7 +452,7 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
   return { ok: true };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/systemConfigApi.ts
+// js/api/systemConfigApi.ts
 function systemApiBase() {
   return resolveIssApiBase();
 }
@@ -529,9 +529,15 @@ function normalizePermissionsPayload(raw) {
   return { ...raw, roles, users };
 }
 var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
 async function fetchPermissionsMe(opts) {
   if (!Session.isLoggedIn()) return null;
-  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
@@ -594,7 +600,7 @@ async function searchPermisosUsers(query = "", opts) {
   })).filter((u) => u.username);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosUserAutocomplete.jsx
+// js/tools/PermisosUserAutocomplete.jsx
 import { jsx as jsx5 } from "react/jsx-runtime";
 import { createElement } from "react";
 var { useState: useState3, useEffect: useEffect3, useRef, useCallback } = getReact();
@@ -718,7 +724,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosVisitante.js
+// js/tools/permisosVisitante.js
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
   descripcion: "Visitante \u2014 solo sus propias conversaciones; logs abiertos; resto lectura",
@@ -730,7 +736,7 @@ var VISITANTE_DEFAULT_PERMISOS = {
   "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } }
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleConfig.jsx
+// js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment2, jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
 var { useState: useState4, useEffect: useEffect4, useMemo: useMemo2 } = getReact();
 var {
@@ -981,7 +987,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosKanban.jsx
+// js/tools/PermisosKanban.jsx
 import { Fragment as Fragment3, jsx as jsx7, jsxs as jsxs4 } from "react/jsx-runtime";
 var { useState: useState5, useMemo: useMemo3, useRef: useRef2, useEffect: useEffect5, memo } = getReact();
 var { createPortal } = getReactDOM();

@@ -7,6 +7,37 @@
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../core/platform.ts";
 import { fetchPermissionsMe } from "./systemConfigApi.ts";
+import { compareHierarchy, getRoleJerarquia } from "../tools/roleHierarchy.js";
+import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
+
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "")
+    .split("_")
+    .map((part) => {
+      const p = part.toLowerCase();
+      if (p === "iss" || p === "isw") return p.toUpperCase();
+      if (!p) return "";
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
 
 /** Cap legacy que se conserva solo para chat (auditoría + admin JWT). */
 export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
@@ -35,13 +66,24 @@ type MeCapabilities = {
 };
 let ME_CAPS: MeCapabilities = {};
 let ME_CAPS_KEY = "";
+let ME_ISS_ROLES: string[] = [];
+let ME_LOGIN_ROLE = "";
 let ME_CAPS_BOOTSTRAP_TS = 0;
 let ME_CAPS_INFLIGHT: Promise<void> | null = null;
 let ME_CAPS_RETRY_TIMER: ReturnType<typeof setTimeout> | null = null;
+/** Hint del ISS en GET /system/instrucciones (canEdit) cuando /permissions/me aún no hidrató. */
+let ME_SERVER_INSTRUCCIONES_EDIT: boolean | null = null;
+
+function sessionCacheKey(): string {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
 
 function localMeCaps(): MeCapabilities {
   if (!Session.isLoggedIn()) return {};
-  const key = (Session?.current?.()?.token) ?? "";
+  const key = sessionCacheKey();
   if (key !== ME_CAPS_KEY) return {};
   return ME_CAPS;
 }
@@ -60,7 +102,9 @@ async function primeMeCaps(force = false): Promise<void> {
     try {
       const me = await fetchPermissionsMe({ force });
       if (me?.capabilities) {
-        ME_CAPS_KEY = (Session?.current?.()?.token) ?? "";
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
         ME_CAPS = {
           canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
           canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
@@ -98,8 +142,17 @@ async function primeMeCaps(force = false): Promise<void> {
 function clearMeCaps(): void {
   ME_CAPS = {};
   ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
   ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
   if (ME_CAPS_RETRY_TIMER) { clearTimeout(ME_CAPS_RETRY_TIMER); ME_CAPS_RETRY_TIMER = null; }
+}
+
+/** ISS GET /system/instrucciones devuelve canEdit — refuerzo si /permissions/me no cargó aún. */
+export function setServerInstruccionesCanEdit(v: boolean): void {
+  ME_SERVER_INSTRUCCIONES_EDIT = v;
+  window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
 }
 
 function notifyAuth() {
@@ -119,8 +172,10 @@ export function canViewChat(): boolean { return !!localMeCaps().canViewChat; }
 export function canViewConfig(): boolean { return !!localMeCaps().canViewConfig; }
 export function canViewKanban(): boolean { return !!localMeCaps().canViewKanban; }
 
-// ─── Capabilities de edición (ISS /api/permissions/me) ───
-export function canEditInstrucciones(): boolean { return !!localMeCaps().canEditInstrucciones; }
+// ─── Capabilities de edición (ISS /api/permissions/me + hints GET system/*) ───
+export function canEditInstrucciones(): boolean {
+  return !!localMeCaps().canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+}
 export function canEditOpenAiConfig(): boolean { return !!localMeCaps().canEditOpenAiConfig; }
 export function canEditPromptsOperativos(): boolean { return !!localMeCaps().canEditPromptsOperativos; }
 export function canEditConversacionConfig(): boolean { return !!localMeCaps().canEditConversacionConfig; }
@@ -146,7 +201,7 @@ export function patyChatInteractCap(): string | null {
   return canViewChat() && (Session.can("patyia.chat.interact") || Session.can("patyia.jwt.admin")) ? "patyia.chat.interact" : null;
 }
 export function patyChatAuditCap(): string | null {
-  return Session.can("patyia.chat.audit") ? "patyia.chat.audit" : null;
+  return canAccessOthers() || Session.can("patyia.chat.audit") ? "patyia.chat.audit" : null;
 }
 export function patyJwtAdminCap(): string | null {
   return Session.can("patyia.jwt.admin") ? "patyia.jwt.admin" : null;
@@ -170,6 +225,18 @@ export async function bootMeCaps(): Promise<void> {
   return primeMeCaps(true);
 }
 
+/** Rol visible en header — ISS /api/permissions/me (no system-login). */
+export function resolveDisplayRole(): string {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return roleLabel(ME_LOGIN_ROLE);
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
+
 export const clearSession = logout;
 
 export function getSession() {
@@ -179,7 +246,7 @@ export function getSession() {
     username: Session.username(),
     realUsername: Session.realUsername(),
     viewAsUsername: Session.viewAsUsername(),
-    role: s.role,
+    role: resolveDisplayRole(),
     expiresAt: s.expiresAt,
     sessionToken: s.token,
     app: Session.appId(),
@@ -213,4 +280,6 @@ export function handleApiError(err: Error & { code?: string }, cap: string) {
   logout,
   refreshProfile: () => Session.refreshProfile(),
   clearSession,
+  getSession,
+  resolveDisplayRole,
 };

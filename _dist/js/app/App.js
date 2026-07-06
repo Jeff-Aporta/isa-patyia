@@ -13,7 +13,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/boot/cdn.mjs
+// js/boot/cdn.mjs
 var cdn_exports = {};
 __export(cdn_exports, {
   CDN: () => CDN,
@@ -128,7 +128,7 @@ async function ensureSwaggerViewer(base = swaggerViewerBase()) {
 }
 var PIN, isDevHost2, JSDELIVR_CDN, CDN, asset, LIGHTBOX_ZOOM_REF, SWAGGER_VIEWER_REF;
 var init_cdn = __esm({
-  "../../Personal/apps/isa-patyia/frontend/js/boot/cdn.mjs"() {
+  "js/boot/cdn.mjs"() {
     PIN = "a13fc29";
     isDevHost2 = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
     JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
@@ -139,7 +139,7 @@ var init_cdn = __esm({
   }
 });
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
@@ -147,7 +147,7 @@ var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var ORCH_LOCAL = "http://localhost:8790";
 var SCRUM_LOCAL = "http://localhost:8798";
 var TREE_MSGS_LOCAL = "http://localhost:8799";
-var PATYIA_BRIDGE_LOCAL2 = `${PATYIA_ISS_LOCAL}/api`;
+var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
 function isPatyiaApiPath(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -178,7 +178,7 @@ function ensureIssLocalDefault() {
   }
 }
 function resolveIssApiBase() {
-  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL2 : PATYIA_BRIDGE_URL).replace(/\/$/, "");
+  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 function buildUserAvatarUrl(name, size = 72) {
@@ -234,7 +234,7 @@ async function readPatyiaSseStream(response, onEvent) {
   return lastPayload;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -405,7 +405,7 @@ function requestConfirm(opts) {
   return fb()?.confirm?.(opts) ?? Promise.resolve(false);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/urlState.ts
+// js/core/urlState.ts
 var STATE_VERSION = 1;
 function normalizeLog(raw) {
   if (!raw || typeof raw !== "object") return {};
@@ -645,7 +645,7 @@ function persistPermisosHideEmpty(hide) {
   return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/msgDateFormat.ts
+// js/core/msgDateFormat.ts
 function parseMsgDate(v) {
   if (v == null || v === "") return null;
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
@@ -685,7 +685,7 @@ function formatTs(v) {
   return formatMsgFecha(v).label;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/convLog.ts
+// js/core/convLog.ts
 var STREAM_ERROR_LABELS = {
   stream_incomplete_or_error: "La respuesta del modelo no se complet\xF3. Vuelve a intentar o reduce el tama\xF1o de las im\xE1genes.",
   stream_failed: "El stream de respuesta fall\xF3. Vuelve a intentar.",
@@ -1365,7 +1365,7 @@ function convLogSurfaceSx(extra = {}) {
   return { flex: 1, minHeight: 0, overflow: "auto", bgcolor: "transparent", ...CONV_LOG_PAD, ...extra };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/lightboxBoot.ts
+// js/core/lightboxBoot.ts
 function isLightboxZoomReady() {
   return Boolean(globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog);
 }
@@ -1383,7 +1383,7 @@ function ensureLightboxReady() {
   return loadPromise;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ImageLightboxDialog.jsx
+// js/ui/ImageLightboxDialog.jsx
 import { jsx } from "react/jsx-runtime";
 var { useEffect, useState } = getReact();
 function ImageLightboxDialog(props) {
@@ -1412,7 +1412,7 @@ function ImageLightboxDialog(props) {
   return /* @__PURE__ */ jsx(Comp, { ns: "ISA", ...props, onClose });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/GlassDialog.jsx
+// js/ui/GlassDialog.jsx
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -1587,7 +1587,7 @@ function resolveMetaDialogHeader(title, isUserMessage = false) {
   return { title: "Trazabilidad", subtitle: rol, icon: "mdi:robot-outline", accent: "#1e90ff" };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/fileSearchTrace.js
+// js/core/fileSearchTrace.js
 function archivosCitadosFromTrace(trace) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
@@ -1743,7 +1743,7 @@ function compactFileChipLabel(filename, maxLen = 28) {
   return `${base.slice(0, maxLen - 1)}\u2026`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/shared.jsx
+// js/ui/shared.jsx
 import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
   const shown = busy ? "mdi:loading" : icon;
@@ -2411,7 +2411,7 @@ function MdFullPageDialog({
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/editors/jsonEditor.jsx
+// js/editors/jsonEditor.jsx
 import { jsx as jsx4 } from "react/jsx-runtime";
 function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra = null, readOnly = false }) {
   return /* @__PURE__ */ jsx4(
@@ -2431,7 +2431,7 @@ function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra =
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ConvLogWebView.jsx
+// js/ui/ConvLogWebView.jsx
 import { Fragment as Fragment2, jsx as jsx5, jsxs as jsxs3 } from "react/jsx-runtime";
 var { useMemo: useMemo2, useState: useState3, useRef, useEffect: useEffect3, memo } = getReact();
 function useOperativaEnterIds(mensajes, threadKey, { enabled = true } = {}) {
@@ -3920,7 +3920,7 @@ function convLogNavItems(mensajes) {
   });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ConvLogThread.jsx
+// js/ui/ConvLogThread.jsx
 import { jsx as jsx6, jsxs as jsxs4 } from "react/jsx-runtime";
 var { Box: Box2, Alert } = getMaterialUI();
 function ThreadLoading({ label = "Cargando conversaci\xF3n\u2026" }) {
@@ -3990,7 +3990,7 @@ function ConvLogThread({
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/portalJwtApi.ts
+// js/api/portalJwtApi.ts
 var PATYIA_PORTAL_ID = "soporte-staging";
 function authHeaders() {
   const h = { Accept: "application/json" };
@@ -4024,7 +4024,7 @@ async function savePortalJwt(token, portal = PATYIA_PORTAL_ID) {
   return data;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia-jwt.ts
+// js/core/patyia-jwt.ts
 var PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
 var PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
 function parseJwtExp(token) {
@@ -4191,7 +4191,7 @@ function browseScopeKey(scope) {
   return `${scope.itercero}|${scope.icontacto}`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/issListFilter.ts
+// js/api/issListFilter.ts
 var ISS_LIST_FILTER_QUERY_PARAM = "f";
 var CONVERSACIONES_LIST_SORT_DEFAULT = "-iconversacion";
 function encodeIssListFilterB64(filter) {
@@ -4230,7 +4230,7 @@ function conversacionesListQueryParams(input = {}) {
   return qs3;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/patyiaTokens.ts
+// js/api/patyiaTokens.ts
 function patyAuthHeaders(jwt, extra = {}) {
   return {
     Authorization: `Bearer ${jwt.token}`,
@@ -4239,7 +4239,7 @@ function patyAuthHeaders(jwt, extra = {}) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/patyiaChatApi.ts
+// js/api/patyiaChatApi.ts
 function authHeaders2(jwt, extra = {}) {
   return patyAuthHeaders(jwt, extra);
 }
@@ -4420,7 +4420,7 @@ async function sendConversacionStream(jwt, input, onDelta) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/systemConfigApi.ts
+// js/api/systemConfigApi.ts
 var OPENAI_DEFAULTS = {
   max_num_results: 8,
   modeloOperativo: "gpt-4.1-nano",
@@ -4563,9 +4563,15 @@ async function putInstruccionesPublish(sql) {
   });
 }
 var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
 async function fetchPermissionsMe(opts) {
   if (!Session.isLoggedIn()) return null;
-  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
@@ -4695,16 +4701,146 @@ function requireAppSession(onNeedLogin) {
   return false;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/sessionApi.ts
+// js/tools/roleHierarchy.js
+var DEFAULT_ROLE_JERARQUIA = {
+  visitante: "0",
+  dev: "0.0",
+  dev_lead: "0.0.0",
+  dev_iss: "0.0.1",
+  admn: "0.1",
+  auditador: "0.1.0",
+  admn_isapatyia: "0.1.0.0"
+};
+var DEFAULT_FOR_UNKNOWN = "999";
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+function ancestorsFromPath(jerarquia) {
+  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
+  const out = [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    out.push(parts.slice(0, i + 1).join("."));
+  }
+  return out;
+}
+function isSameInheritanceLine(a, b) {
+  const x = String(a ?? "").trim();
+  const y = String(b ?? "").trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+}
+function canManageRole(actorJerarquia, targetJerarquia) {
+  const target = String(targetJerarquia ?? "").trim();
+  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
+  return isSameInheritanceLine(actorJerarquia, target);
+}
+function actorCanManageTarget(actorJerarquias, targetJerarquia) {
+  for (const j of actorJerarquias ?? []) {
+    if (canManageRole(j, targetJerarquia)) return true;
+  }
+  return false;
+}
+function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
+  return (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter((r) => r && r !== "visitante").map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
+}
+function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
+  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
+  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
+  jerarquias.sort((a, b) => {
+    const depth = (s) => String(s).split(".").filter(Boolean).length;
+    const d = depth(b) - depth(a);
+    if (d !== 0) return d;
+    return compareHierarchy(a, b);
+  });
+  return jerarquias[0];
+}
+function formatJerarquiaLabel(jerarquia) {
+  if (jerarquia == null || jerarquia === "") return "";
+  return `(${jerarquia})`;
+}
+function isBranchZero(jerarquia) {
+  const j = String(jerarquia ?? "").trim();
+  return j === "0" || j.startsWith("0.");
+}
+
+// js/tools/roleCanonicalMeta.js
+var CANONICAL_ROLE_META = {
+  dev: {
+    namedisplay: "Desarrollador b\xE1sico",
+    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+  },
+  admn: {
+    namedisplay: "Admn b\xE1sico",
+    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+  },
+  admn_isapatyia: {
+    namedisplay: "Admn ISA-Paty",
+    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+  }
+};
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+
+// js/api/sessionApi.ts
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
 var INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
 var ME_CAPS = {};
 var ME_CAPS_KEY = "";
+var ME_ISS_ROLES = [];
+var ME_LOGIN_ROLE = "";
 var ME_CAPS_BOOTSTRAP_TS = 0;
 var ME_CAPS_INFLIGHT = null;
 var ME_CAPS_RETRY_TIMER = null;
+var ME_SERVER_INSTRUCCIONES_EDIT = null;
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
 function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
-  const key = Session?.current?.()?.token ?? "";
+  const key = sessionCacheKey();
   if (key !== ME_CAPS_KEY) return {};
   return ME_CAPS;
 }
@@ -4721,7 +4857,9 @@ async function primeMeCaps(force = false) {
     try {
       const me = await fetchPermissionsMe({ force });
       if (me?.capabilities) {
-        ME_CAPS_KEY = Session?.current?.()?.token ?? "";
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
         ME_CAPS = {
           canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
           canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
@@ -4761,11 +4899,18 @@ async function primeMeCaps(force = false) {
 function clearMeCaps() {
   ME_CAPS = {};
   ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
   ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
   if (ME_CAPS_RETRY_TIMER) {
     clearTimeout(ME_CAPS_RETRY_TIMER);
     ME_CAPS_RETRY_TIMER = null;
   }
+}
+function setServerInstruccionesCanEdit(v) {
+  ME_SERVER_INSTRUCCIONES_EDIT = v;
+  window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
 }
 function notifyAuth() {
   window.dispatchEvent(new Event(Session.EVENT));
@@ -4776,7 +4921,13 @@ var isLoggedIn = () => Session.isLoggedIn();
 var can = (cap) => Session.can(cap);
 var blockReason = (cap) => Session.blockReason(cap);
 function canEditInstrucciones() {
-  return !!localMeCaps().canEditInstrucciones;
+  return !!localMeCaps().canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+}
+function canEditPromptsOperativos() {
+  return !!localMeCaps().canEditPromptsOperativos;
+}
+function canAccessOthers() {
+  return !!localMeCaps().canAccessOthers;
 }
 function instruccionesPublishCap() {
   return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
@@ -4795,7 +4946,31 @@ function logout() {
 async function bootMeCaps() {
   return primeMeCaps(true);
 }
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return roleLabel(ME_LOGIN_ROLE);
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
 var clearSession = logout;
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
 function auditAuthor() {
   const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
   const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
@@ -4818,10 +4993,12 @@ function handleApiError(err, cap) {
   login,
   logout,
   refreshProfile: () => Session.refreshProfile(),
-  clearSession
+  clearSession,
+  getSession,
+  resolveDisplayRole
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/apiClient.ts
+// js/api/apiClient.ts
 var bridgeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
@@ -4858,10 +5035,11 @@ function patyiaBridgePath(path) {
 }
 async function fetchInstruccionesPaty() {
   const data = await fetchInstruccionesSystemConfig();
-  return data.rows;
+  setServerInstruccionesCanEdit(!!data.canEdit);
+  return { rows: data.rows, canEdit: !!data.canEdit };
 }
-async function publishInstruccionesPaty(sql) {
-  if (!instruccionesPublishCap()) {
+function publishInstruccionesPaty(sql) {
+  if (!canEditInstrucciones()) {
     throw new Error(
       blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
     );
@@ -4869,7 +5047,7 @@ async function publishInstruccionesPaty(sql) {
   return putInstruccionesPublish(sql);
 }
 async function upsertInstruccionPaty(payload) {
-  if (!instruccionesPublishCap()) {
+  if (!canEditInstrucciones()) {
     throw new Error(
       blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
     );
@@ -5021,7 +5199,7 @@ async function fetchTercerosAuditFromLocalConversaciones(input) {
   return { ok: true, rows: rows.slice(offset, offset + limit), total: rows.length, page, limit, pages: Math.max(1, Math.ceil(rows.length / limit)) };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/mobileDrawer.ts
+// js/ui/mobileDrawer.ts
 var MOBILE_DRAWER_PAPER_SX = {
   width: "min(300px, calc(100vw - 12px))",
   maxWidth: "100%",
@@ -5039,7 +5217,7 @@ function mobileDrawerPaperProps(className) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/LogViewer.jsx
+// js/tools/LogViewer.jsx
 import { Fragment as Fragment3, jsx as jsx7, jsxs as jsxs5 } from "react/jsx-runtime";
 var LOG_SIDEBAR_DEFAULT_W = 400;
 function readLogSidebarWidthFromUrl() {
@@ -5650,7 +5828,7 @@ function LogViewer({ bootLog = {} }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/promptsSql.ts
+// js/api/promptsSql.ts
 var PATY_PROMPT_TIPOS = [
   "SALUDO_OTRO",
   "FUERA_DE_ALCANCE_TECNICO",
@@ -6063,7 +6241,7 @@ function emptyPromptState() {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/helpers.ts
+// js/tools/promptsSql/helpers.ts
 var { createElement, Fragment: Fragment4 } = getReact();
 function isDraftPrompt(p) {
   if (!p) return false;
@@ -6199,7 +6377,7 @@ function unitIntervalFieldProps(value, fallback, onValue) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/promptVariables.ts
+// js/core/promptVariables.ts
 var PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
 var MALFORMED_PROMPT_VAR_PATTERN = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}(?!\})/g;
 var INSTRUCCION_TIPO_SLOT_RES = [/\{\{\s*instruccion_tipo\s*\}\}/i, /\{\{\s*instrucion_tipo\s*\}\}/i];
@@ -6266,7 +6444,7 @@ function preparePromptBodyForSave(text) {
   return repairPromptVarBraces(String(text ?? "").trim());
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/cloudRows.ts
+// js/tools/promptsSql/cloudRows.ts
 function buildInitialPromptState(bootPrompts, urlBodies) {
   const base = emptyPromptState();
   for (const [tipo, body] of Object.entries(urlBodies)) {
@@ -6327,7 +6505,7 @@ function mergeCloudRows(prev, rows, { onlyTipo = null, onlyTipos = null, ignoreU
   return { next, unknownKeys };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/promptActions.ts
+// js/tools/promptsSql/promptActions.ts
 async function discardAllPrompts({
   instruccionKeys,
   prompts,
@@ -6344,7 +6522,7 @@ async function discardAllPrompts({
   setActionBusy(true);
   setLoadErr("");
   try {
-    const rows = await fetchInstruccionesPaty();
+    const { rows } = await fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: toReset, ignoreUrl: true });
     clearUrlBodies(toReset);
     toastInfo(`${toReset.length} instrucci\xF3n(es) restaurada(s) desde la base`);
@@ -6393,7 +6571,7 @@ async function saveAllPrompts({
     await publishInstruccionesPaty(sqlMssql);
     const savedTipos = [...pendingTipos];
     clearUrlBodies(savedTipos);
-    const rows = await fetchInstruccionesPaty();
+    const { rows } = await fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
     toastSuccess(`${savedTipos.length} instrucci\xF3n(es) guardada(s) en Paty`);
   } catch (e) {
@@ -6444,7 +6622,7 @@ async function saveOnePrompt({
       author
     });
     clearUrlBodies([key]);
-    const rows = await fetchInstruccionesPaty();
+    const { rows } = await fetchInstruccionesPaty();
     applyCloudRows(rows, { onlyTipos: [key], ignoreUrl: true });
     toastSuccess(`${key.replace(/_/g, " ")} guardada en Paty`);
   } catch (e) {
@@ -6536,17 +6714,19 @@ function resetPromptConfigToDefaults(tipo, setPrompts) {
   });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/usePromptsSqlTool.ts
+// js/tools/promptsSql/usePromptsSqlTool.ts
 var { useState: useState5, useEffect: useEffect5, useCallback: useCallback2, useMemo: useMemo4, useRef: useRef2 } = getReact();
 var EMPTY_BODIES = Object.freeze({});
 function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [authTick, setAuthTick] = useState5(0);
+  const [instruccionesCanEdit, setInstruccionesCanEdit] = useState5(false);
   useEffect5(() => {
     const onAuth = () => setAuthTick((n) => n + 1);
     window.addEventListener("isa-patyia:auth", onAuth);
     window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("patyia-apptools:caps-changed", onAuth);
     if (Session.isLoggedIn()) {
+      void bootMeCaps(true);
       Session.refreshProfile().finally(onAuth);
     }
     return () => {
@@ -6555,7 +6735,10 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       window.removeEventListener("patyia-apptools:caps-changed", onAuth);
     };
   }, []);
-  const canPublish = useMemo4(() => canEditInstrucciones(), [authTick]);
+  const canPublish = useMemo4(
+    () => instruccionesCanEdit || canEditInstrucciones() || canEditPromptsOperativos(),
+    [authTick, instruccionesCanEdit]
+  );
   const loggedIn = useMemo4(() => isLoggedIn(), [authTick]);
   const canEdit = canPublish;
   const editBlockReason = useMemo4(() => {
@@ -6641,8 +6824,9 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       setLoadBusy(true);
       setLoadErr("");
       try {
-        const rows = await fetchInstruccionesPaty();
+        const { rows, canEdit: canEdit2 } = await fetchInstruccionesPaty();
         if (cancelled) return;
+        setInstruccionesCanEdit(!!canEdit2);
         applyCloudRowsRef.current(rows);
       } catch (e) {
         if (!cancelled) {
@@ -6847,7 +7031,7 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/PromptsSqlActionBar.jsx
+// js/tools/promptsSql/PromptsSqlActionBar.jsx
 import { jsx as jsx8, jsxs as jsxs6 } from "react/jsx-runtime";
 var { Typography: Typography3, Stack: Stack3, Chip: Chip3, CircularProgress } = getMaterialUI();
 function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, actionBusy, hasLocalChanges, pendingTiposLength, canPublish, saveTitle, importTitle, fileInputRef, onFileInput, onImportClick, onDiscardAll, onSaveAll }) {
@@ -6909,7 +7093,7 @@ function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, act
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/constants.ts
+// js/tools/promptsSql/constants.ts
 var ICON_BY_TIPO = {
   SALUDO_OTRO: "mdi:hand-wave",
   FUERA_DE_ALCANCE_TECNICO: "mdi:alert-circle-outline",
@@ -6930,7 +7114,7 @@ var ICON_BY_TIPO = {
   CLASIFICADOR_MODULO: "mdi:view-module-outline"
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/PromptInstructionDot.jsx
+// js/tools/promptsSql/PromptInstructionDot.jsx
 import { jsx as jsx9 } from "react/jsx-runtime";
 function PromptInstructionDot({ tipo, prompts, row, showWhenEmpty = "dot" }) {
   const p = prompts[tipo];
@@ -6963,7 +7147,7 @@ function MapeoRowDot(props) {
   return /* @__PURE__ */ jsx9(PromptInstructionDot, { ...props, showWhenEmpty: "dot" });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/PromptsSqlTree.jsx
+// js/tools/promptsSql/PromptsSqlTree.jsx
 import { jsx as jsx10, jsxs as jsxs7 } from "react/jsx-runtime";
 var { Tabs: Tabs2, Tab: Tab2 } = getMaterialUI();
 function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTabChange, dragOver, onDragEnter, onDragLeave, onDragOverZone, onDrop, children }) {
@@ -7033,7 +7217,7 @@ function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTabChange
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/promptMdEditorHtml.ts
+// js/ui/promptMdEditorHtml.ts
 function escAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
@@ -7243,7 +7427,7 @@ function surfaceHasRawVarTokens(root) {
   return false;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/mdImagePaste.ts
+// js/ui/mdImagePaste.ts
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -7293,7 +7477,7 @@ function insertImageNodeAtSelection(dataUrl, alt = "imagen") {
   sel.addRange(range);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/PromptBodyEditor.jsx
+// js/ui/PromptBodyEditor.jsx
 import { Fragment as Fragment5, jsx as jsx11, jsxs as jsxs8 } from "react/jsx-runtime";
 var { useState: useState6, useEffect: useEffect6, useLayoutEffect, useRef: useRef3, useCallback: useCallback3, useMemo: useMemo5 } = getReact();
 var {
@@ -8164,7 +8348,7 @@ function PromptBodyEditor({
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/PromptsSqlEditorPane.jsx
+// js/tools/promptsSql/PromptsSqlEditorPane.jsx
 import { jsx as jsx12, jsxs as jsxs9 } from "react/jsx-runtime";
 var {
   Table,
@@ -8320,7 +8504,7 @@ function PromptsSqlMapeoTable({
   ] }) }) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/FileImportMapDialog.jsx
+// js/tools/promptsSql/FileImportMapDialog.jsx
 import { jsx as jsx13, jsxs as jsxs10 } from "react/jsx-runtime";
 var {
   Dialog: Dialog3,
@@ -8408,7 +8592,7 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/promptsSql/JconfigDetailDialog.jsx
+// js/tools/promptsSql/JconfigDetailDialog.jsx
 import { jsx as jsx14, jsxs as jsxs11 } from "react/jsx-runtime";
 var { useMemo: useMemo6 } = getReact();
 var { Dialog: Dialog4, DialogTitle: DialogTitle4, DialogContent: DialogContent5, Typography: Typography6, Box: Box5 } = getMaterialUI();
@@ -8477,7 +8661,7 @@ function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PromptsSqlTool.jsx
+// js/tools/PromptsSqlTool.jsx
 import { jsx as jsx15, jsxs as jsxs12 } from "react/jsx-runtime";
 var { Paper, Alert: Alert5 } = getMaterialUI();
 var { useState: useState7, useCallback: useCallback4 } = getReact();
@@ -8583,7 +8767,7 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/constants.ts
+// js/tools/chat/constants.ts
 var CHAT_SIDEBAR_W = 320;
 var MAX_CHAT_IMAGES = 10;
 var MAX_CHAT_AUDIOS = 5;
@@ -8663,7 +8847,7 @@ function messageSourceFromUrl(chat) {
   return null;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/threadScroll.ts
+// js/tools/chat/threadScroll.ts
 var { useEffect: useEffect7, useLayoutEffect: useLayoutEffect2, useCallback: useCallback5, useRef: useRef4, useMemo: useMemo7 } = getReact();
 var THREAD_SCROLL_NEAR_BOTTOM = 72;
 function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
@@ -8712,7 +8896,7 @@ function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
   return onThreadScroll;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/auditScope.ts
+// js/tools/chat/auditScope.ts
 function auditScopeKey(scope) {
   if (!scope) return "";
   return `${scope.itercero}|${scope.icontacto}`;
@@ -8785,7 +8969,7 @@ function formatAuditTs(v) {
   return Number.isNaN(d.getTime()) ? String(v).slice(0, 16) : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/mensajesModel.ts
+// js/tools/chat/mensajesModel.ts
 function vistaFechas(raw) {
   const { label, iso } = formatMsgFecha(raw);
   return { fecha: label, fechaIso: iso || void 0 };
@@ -9114,7 +9298,7 @@ function buildOptimisticUserMsg({
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/images.ts
+// js/tools/chat/images.ts
 var IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
 function mimeFromFileName(name) {
   const lower = name.trim().toLowerCase();
@@ -9190,7 +9374,7 @@ function hasHeicLikeFiles(files) {
   return false;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/audio.ts
+// js/tools/chat/audio.ts
 var AUDIO_EXT_RE = /\.(webm|mp3|m4a|wav|ogg|aac|mp4)$/i;
 var BACKEND_AUDIO_MIMES = /* @__PURE__ */ new Set([
   "audio/webm",
@@ -9311,7 +9495,7 @@ function isVoiceRecordingSupported() {
   return typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== "undefined";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/useChatTool.ts
+// js/tools/chat/useChatTool.ts
 var { useState: useState8, useEffect: useEffect8, useCallback: useCallback6, useRef: useRef5, useMemo: useMemo8 } = getReact();
 function readBootConvId(bootChat) {
   const fromBoot = Number(bootChat?.convId);
@@ -9403,7 +9587,10 @@ function useChatTool({ bootChat }) {
   const sessionUser = Session.username();
   const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
-  const canAuditChat = Session.can("patyia.chat.audit");
+  const canAuditChat = useMemo8(
+    () => canAccessOthers() || Session.can("patyia.chat.audit"),
+    [authTick]
+  );
   const canInteract = canInteractPatyChat(sessionUser, jwt);
   const listScope = auditScope ?? activeConvOwnerScope(null, jwt?.claims) ?? sessionBrowseScope;
   const selectedConvRow = selectedId ? rows.find((r) => convIdsEqual(r.iconversacion, selectedId)) : null;
@@ -9431,10 +9618,12 @@ function useChatTool({ bootChat }) {
     window.addEventListener("isa-patyia:paty-jwt", onPatyJwt);
     window.addEventListener(Session.EVENT, onSessionAuth);
     window.addEventListener("isa-patyia:auth", onSessionAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onSessionAuth);
     return () => {
       window.removeEventListener("isa-patyia:paty-jwt", onPatyJwt);
       window.removeEventListener(Session.EVENT, onSessionAuth);
       window.removeEventListener("isa-patyia:auth", onSessionAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onSessionAuth);
     };
   }, []);
   const prevSessionUserRef = useRef5(null);
@@ -10277,7 +10466,7 @@ function useChatTool({ bootChat }) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatLoggedOutShell.jsx
+// js/tools/chat/ChatLoggedOutShell.jsx
 import { jsx as jsx16, jsxs as jsxs13 } from "react/jsx-runtime";
 var {
   Box: Box6,
@@ -10357,7 +10546,7 @@ function ChatLoggedOutShell({ onNeedLogin }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatSessionPanel.jsx
+// js/tools/chat/ChatSessionPanel.jsx
 import { jsx as jsx17, jsxs as jsxs14 } from "react/jsx-runtime";
 var { useState: useState9, useEffect: useEffect9, useMemo: useMemo9 } = getReact();
 var { Box: Box7, Typography: Typography8, CircularProgress: CircularProgress3, Chip: Chip6 } = getMaterialUI();
@@ -10496,7 +10685,7 @@ function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, own
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ConvSearchAutocomplete.jsx
+// js/tools/chat/ConvSearchAutocomplete.jsx
 import { Fragment as Fragment6, jsx as jsx18, jsxs as jsxs15 } from "react/jsx-runtime";
 import { createElement as createElement2 } from "react";
 var { useState: useState10, useEffect: useEffect10, useRef: useRef6, useCallback: useCallback7, useMemo: useMemo10 } = getReact();
@@ -10645,7 +10834,7 @@ function ConvSearchAutocomplete({
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatThreadSidebar.jsx
+// js/tools/chat/ChatThreadSidebar.jsx
 import { Fragment as Fragment7, jsx as jsx19, jsxs as jsxs16 } from "react/jsx-runtime";
 var {
   Box: Box9,
@@ -11077,7 +11266,7 @@ function ChatThreadSidebar({
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatPayloadPreview.jsx
+// js/tools/chat/ChatPayloadPreview.jsx
 import { jsx as jsx20, jsxs as jsxs17 } from "react/jsx-runtime";
 var { useMemo: useMemo11 } = getReact();
 var { Icon: Icon5 } = UI;
@@ -11159,7 +11348,7 @@ function ChatPayloadPreview({ open, body, endpoint, onClose }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatComposer.jsx
+// js/tools/chat/ChatComposer.jsx
 import { jsx as jsx21, jsxs as jsxs18 } from "react/jsx-runtime";
 var { useState: useState11 } = getReact();
 var {
@@ -11301,7 +11490,7 @@ function ChatComposer({
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/ChatMainPanel.jsx
+// js/tools/chat/ChatMainPanel.jsx
 import { jsx as jsx22, jsxs as jsxs19 } from "react/jsx-runtime";
 var {
   Box: Box11,
@@ -11462,7 +11651,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/JwtModal.jsx
+// js/tools/chat/JwtModal.jsx
 import { jsx as jsx23, jsxs as jsxs20 } from "react/jsx-runtime";
 var { useState: useState12, useEffect: useEffect11 } = getReact();
 var { Button: Button8, TextField: TextField6, DialogContent: DialogContent6, DialogActions: DialogActions4, CircularProgress: CircularProgress6 } = getMaterialUI();
@@ -11527,7 +11716,7 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/chat/TercerosAuditDialog.jsx
+// js/tools/chat/TercerosAuditDialog.jsx
 import { jsx as jsx24, jsxs as jsxs21 } from "react/jsx-runtime";
 var { useState: useState13, useEffect: useEffect12 } = getReact();
 var {
@@ -11727,7 +11916,7 @@ function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, curren
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/ChatTool.jsx
+// js/tools/ChatTool.jsx
 import { Fragment as Fragment8, jsx as jsx25, jsxs as jsxs22 } from "react/jsx-runtime";
 var { Box: Box13, Drawer: Drawer2, Fab: Fab2, IconButton: IconButton6, Tooltip: Tooltip5, useTheme: useTheme2, useMediaQuery: useMediaQuery2 } = getMaterialUI();
 var { useState: useState14 } = getReact();
@@ -11962,7 +12151,7 @@ function ChatTool({ bootChat, onNeedLogin }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/todosApi.ts
+// js/api/todosApi.ts
 var scrumHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
@@ -12134,7 +12323,7 @@ async function addTodoComment(taskId, body) {
   return data.event;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/todosBoardState.js
+// js/tools/todos/todosBoardState.js
 function patchTaskInBoard(board, taskId, patch) {
   if (!board) return board;
   return {
@@ -12174,7 +12363,7 @@ function buildOptimisticTask(opts) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/boardsHomeState.js
+// js/tools/todos/boardsHomeState.js
 var LS_KEY = "isa-patyia:todos-boards-expand";
 function readBoardExpandState() {
   try {
@@ -12218,7 +12407,7 @@ function boardRoleChips(board) {
   return chips;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/todosKanbanShared.js
+// js/tools/todos/todosKanbanShared.js
 var MAX_COLUMN_TASKS = 4;
 var IN_PROGRESS_COLUMN_KEY = "in_progress";
 function normalizeTodoBoardData(boardData) {
@@ -12296,7 +12485,7 @@ function assigneeTheme(assignedTo) {
   return { label: username, ...palette };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/useTodosTool.ts
+// js/tools/todos/useTodosTool.ts
 var { useState: useState15, useEffect: useEffect13, useCallback: useCallback8, useRef: useRef7 } = getReact();
 function useTodosTool({ bootTodos }) {
   const [loggedIn, setLoggedIn] = useState15(Session.isLoggedIn());
@@ -12737,7 +12926,7 @@ function useTodosTool({ bootTodos }) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TaskAssigneeLabel.jsx
+// js/tools/todos/TaskAssigneeLabel.jsx
 import { jsx as jsx26 } from "react/jsx-runtime";
 var { Typography: Typography13 } = getMaterialUI();
 function TaskAssigneeLabel({ assignedTo }) {
@@ -12758,7 +12947,7 @@ function TaskAssigneeLabel({ assignedTo }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TodosKanban.jsx
+// js/tools/todos/TodosKanban.jsx
 import { Fragment as Fragment9, jsx as jsx27, jsxs as jsxs23 } from "react/jsx-runtime";
 var { useState: useState16, useMemo: useMemo12, useRef: useRef8, useEffect: useEffect14, memo: memo2 } = getReact();
 var { Box: Box14, Paper: Paper2, Typography: Typography14, TextField: TextField8, Button: Button10, Stack: Stack11, Chip: Chip9 } = getMaterialUI();
@@ -13164,7 +13353,7 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/UserAssignAutocomplete.jsx
+// js/tools/todos/UserAssignAutocomplete.jsx
 import { jsx as jsx28 } from "react/jsx-runtime";
 import { createElement as createElement3 } from "react";
 var { useState: useState17, useEffect: useEffect15, useRef: useRef9, useCallback: useCallback9 } = getReact();
@@ -13313,7 +13502,7 @@ function UserAssignAutocomplete({ value, onChange, disabled = false, label = "As
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/treeMsgsApi.ts
+// js/api/treeMsgsApi.ts
 var treeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
@@ -13361,12 +13550,12 @@ function scrumTaskContext(taskId) {
   return `scrum-task:${taskId}`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/treePathUtils.js
+// js/tools/todos/treePathUtils.js
 function pathDepth(path) {
   return String(path || "").split(".").filter(Boolean).length;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TaskConvoThread.jsx
+// js/tools/todos/TaskConvoThread.jsx
 import { jsx as jsx29, jsxs as jsxs24 } from "react/jsx-runtime";
 var { useState: useState18, useEffect: useEffect16, useCallback: useCallback10 } = getReact();
 var {
@@ -13554,7 +13743,7 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TaskDetailDialog.jsx
+// js/tools/todos/TaskDetailDialog.jsx
 import { jsx as jsx30, jsxs as jsxs25 } from "react/jsx-runtime";
 var { useState: useState19, useEffect: useEffect17, useRef: useRef10 } = getReact();
 var {
@@ -14024,7 +14213,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/NewBoardDialog.jsx
+// js/tools/todos/NewBoardDialog.jsx
 import { jsx as jsx31, jsxs as jsxs26 } from "react/jsx-runtime";
 var { useState: useState20 } = getReact();
 var {
@@ -14151,7 +14340,7 @@ function NewBoardDialog({ open, onClose, onCreate, busy }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/PublicScrumBoard.jsx
+// js/tools/todos/PublicScrumBoard.jsx
 import { jsx as jsx32, jsxs as jsxs27 } from "react/jsx-runtime";
 var { useState: useState21, useEffect: useEffect18 } = getReact();
 var { Box: Box19, Alert: Alert10, CircularProgress: CircularProgress10 } = getMaterialUI();
@@ -14211,7 +14400,7 @@ function PublicScrumBoard({ publicSlug }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/BoardsHome.jsx
+// js/tools/todos/BoardsHome.jsx
 import { jsx as jsx33, jsxs as jsxs28 } from "react/jsx-runtime";
 var { useState: useState22, useEffect: useEffect19, useMemo: useMemo13 } = getReact();
 var { Box: Box20, Typography: Typography18, Button: Button14, Stack: Stack15, Chip: Chip12, CircularProgress: CircularProgress11, Skeleton, Accordion: Accordion2, AccordionSummary: AccordionSummary2, AccordionDetails: AccordionDetails2, IconButton: IconButton9, Tooltip: Tooltip8 } = getMaterialUI();
@@ -14377,7 +14566,7 @@ function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loadi
   return /* @__PURE__ */ jsx33(Box20, { className: "paty-todos-boards-home", children: /* @__PURE__ */ jsx33(Box20, { className: "paty-todos-boards-list", children: sortedBoards.map((board) => /* @__PURE__ */ jsx33(BoardAccordionRow, { board, preview: boardPreviews[board.id], previewReady: Object.prototype.hasOwnProperty.call(boardPreviews, board.id), loadingPreviews, expanded: isExpanded(board.id), onToggleExpand: handleToggleExpand, onOpenBoard, onOpenTask, onPreviewDragStart, onPreviewDropColumn, onDeleteBoard: handleDeleteBoard, deleting: deletingId === board.id }, board.id)) }) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/BoardSettingsDialog.jsx
+// js/tools/todos/BoardSettingsDialog.jsx
 import { Fragment as Fragment10, jsx as jsx34, jsxs as jsxs29 } from "react/jsx-runtime";
 var { useState: useState23, useEffect: useEffect20 } = getReact();
 var {
@@ -14400,7 +14589,7 @@ var {
   CircularProgress: CircularProgress12
 } = getMaterialUI();
 var { Icon: Icon16 } = UI;
-function roleLabel(boardRole) {
+function roleLabel2(boardRole) {
   return boardRole === "readonly" ? "Solo lectura" : "Editor";
 }
 function BoardMembersSection({
@@ -14485,7 +14674,7 @@ function BoardMembersSection({
               sx: { flex: 1, minWidth: 0, justifyContent: "flex-start" }
             }
           ),
-          readOnly ? /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { flexShrink: 0 }, children: roleLabel(m.boardRole) }) : /* @__PURE__ */ jsxs29(Fragment10, { children: [
+          readOnly ? /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { flexShrink: 0 }, children: roleLabel2(m.boardRole) }) : /* @__PURE__ */ jsxs29(Fragment10, { children: [
             /* @__PURE__ */ jsx34(FormControl5, { size: "small", disabled, className: "paty-todos-board-members__role", children: /* @__PURE__ */ jsxs29(
               Select5,
               {
@@ -14690,7 +14879,7 @@ function BoardSettingsDialog({
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TodosShellParts.jsx
+// js/tools/todos/TodosShellParts.jsx
 import { jsx as jsx35, jsxs as jsxs30 } from "react/jsx-runtime";
 var { Box: Box22, Typography: Typography20, Button: Button16, Stack: Stack17, Alert: Alert11, CircularProgress: CircularProgress13, Tooltip: Tooltip10, IconButton: IconButton11 } = getMaterialUI();
 var { Icon: Icon17 } = UI;
@@ -14750,7 +14939,7 @@ function TodosBoardToolbar({
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/todos/TodosPublicHome.jsx
+// js/tools/todos/TodosPublicHome.jsx
 import { jsx as jsx36, jsxs as jsxs31 } from "react/jsx-runtime";
 var { useState: useState24, useEffect: useEffect21 } = getReact();
 var { Box: Box23, Typography: Typography21, Button: Button17, Stack: Stack18, Alert: Alert12, CircularProgress: CircularProgress14, Chip: Chip14 } = getMaterialUI();
@@ -14851,7 +15040,7 @@ function TodosPublicHome() {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/TodosTool.jsx
+// js/tools/TodosTool.jsx
 import { Fragment as Fragment11, jsx as jsx37, jsxs as jsxs32 } from "react/jsx-runtime";
 var { useState: useState25 } = getReact();
 var { Box: Box24, Alert: Alert13 } = getMaterialUI();
@@ -15033,7 +15222,7 @@ function TodosTool({ bootTodos, onNeedLogin }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permFixFilter.js
+// js/tools/permFixFilter.js
 var SESSION_OWNER_FIX_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
@@ -15055,7 +15244,7 @@ function withSessionOwnerFixFilter(restriction) {
   return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var PERM_META = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles"]);
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
@@ -15133,106 +15322,7 @@ function countActiveRoutes(routes) {
   return (routes || []).filter((r) => r.mode && r.mode !== "off").length;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
-var DEFAULT_ROLE_JERARQUIA = {
-  visitante: "0",
-  dev: "0.0",
-  dev_lead: "0.0.0",
-  dev_iss: "0.0.1",
-  admn: "0.1",
-  auditador: "0.1.0",
-  admn_isapatyia: "0.1.0.0"
-};
-var DEFAULT_FOR_UNKNOWN = "999";
-function compareHierarchy(a, b) {
-  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
-  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
-  const len = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < len; i++) {
-    const av = aParts[i] ?? 0;
-    const bv = bParts[i] ?? 0;
-    if (av !== bv) return av - bv;
-  }
-  return 0;
-}
-function getRoleJerarquia(roleName, permisos) {
-  if (permisos && typeof permisos === "object") {
-    const j = permisos.jerarquia;
-    if (typeof j === "string" && j.trim()) return j.trim();
-  }
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
-}
-function ancestorsFromPath(jerarquia) {
-  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
-  const out = [];
-  for (let i = parts.length - 1; i >= 0; i--) {
-    out.push(parts.slice(0, i + 1).join("."));
-  }
-  return out;
-}
-function isSameInheritanceLine(a, b) {
-  const x = String(a ?? "").trim();
-  const y = String(b ?? "").trim();
-  if (!x || !y) return false;
-  if (x === y) return true;
-  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
-}
-function canManageRole(actorJerarquia, targetJerarquia) {
-  const target = String(targetJerarquia ?? "").trim();
-  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
-  return isSameInheritanceLine(actorJerarquia, target);
-}
-function actorCanManageTarget(actorJerarquias, targetJerarquia) {
-  for (const j of actorJerarquias ?? []) {
-    if (canManageRole(j, targetJerarquia)) return true;
-  }
-  return false;
-}
-function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
-  return (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter((r) => r && r !== "visitante").map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
-}
-function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
-  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
-  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
-  jerarquias.sort((a, b) => {
-    const depth = (s) => String(s).split(".").filter(Boolean).length;
-    const d = depth(b) - depth(a);
-    if (d !== 0) return d;
-    return compareHierarchy(a, b);
-  });
-  return jerarquias[0];
-}
-function formatJerarquiaLabel(jerarquia) {
-  if (jerarquia == null || jerarquia === "") return "";
-  return `(${jerarquia})`;
-}
-function isBranchZero(jerarquia) {
-  const j = String(jerarquia ?? "").trim();
-  return j === "0" || j.startsWith("0.");
-}
-
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleCanonicalMeta.js
-var CANONICAL_ROLE_META = {
-  dev: {
-    namedisplay: "Desarrollador b\xE1sico",
-    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
-  },
-  admn: {
-    namedisplay: "Admn b\xE1sico",
-    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
-  },
-  admn_isapatyia: {
-    namedisplay: "Admn ISA-Paty",
-    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
-  }
-};
-function canonicalRoleMeta(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return CANONICAL_ROLE_META[key] ?? null;
-}
-
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 var VISITANTE = "visitante";
 var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
@@ -15242,7 +15332,7 @@ function permEntryKey(entry) {
 function roleNameFromEntry(entry) {
   return permEntryKey(entry).toLowerCase().replace(/^role:/i, "");
 }
-function formatRoleTitle(roleName) {
+function formatRoleTitle2(roleName) {
   return String(roleName ?? "").split("_").map((part) => {
     const p = part.toLowerCase();
     if (p === "iss" || p === "isw") return p.toUpperCase();
@@ -15255,7 +15345,7 @@ function roleTitleFromEntry(entry) {
   const canon = canonicalRoleMeta(roleName);
   if (canon?.namedisplay) return canon.namedisplay;
   const namedisplay = roleNamedisplay(entry?.permisos);
-  const formatted = formatRoleTitle(roleName);
+  const formatted = formatRoleTitle2(roleName);
   if (!namedisplay) return formatted;
   if (formatted.length > namedisplay.length) return formatted;
   return namedisplay;
@@ -15408,7 +15498,7 @@ function pointInRef(ref, clientX, clientY) {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRouteCatalog.js
+// js/tools/permisosRouteCatalog.js
 var ROUTE_GROUPS = [
   {
     id: "conversaciones",
@@ -15515,7 +15605,7 @@ function groupsFromRouteRows(routes, flags, { includeInactive = false } = {}) {
   return routesForRoleEditor(permisos, { includeInactive });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleTransfer.js
+// js/tools/permisosRoleTransfer.js
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -15600,7 +15690,7 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
   return { ok: true };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosUserAutocomplete.jsx
+// js/tools/PermisosUserAutocomplete.jsx
 import { jsx as jsx38 } from "react/jsx-runtime";
 import { createElement as createElement4 } from "react";
 var { useState: useState26, useEffect: useEffect22, useRef: useRef11, useCallback: useCallback11 } = getReact();
@@ -15724,7 +15814,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosVisitante.js
+// js/tools/permisosVisitante.js
 var VISITANTE_ROLE = "visitante";
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
@@ -15780,7 +15870,7 @@ function getVisitanteRoleEntry(data) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleConfig.jsx
+// js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment12, jsx as jsx39, jsxs as jsxs33 } from "react/jsx-runtime";
 var { useState: useState27, useEffect: useEffect23, useMemo: useMemo14 } = getReact();
 var {
@@ -16176,7 +16266,7 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
   }, [open]);
   if (!pending) return null;
   const { roleTitle: roleTitle2, role, existingUsernames, toJerarquia, columns } = pending;
-  const roleLabel2 = roleTitle2 || role;
+  const roleLabel3 = roleTitle2 || role;
   const alreadyInRole = username && existingUsernames?.has(String(username).trim().toUpperCase());
   const userJerarquias = username ? userJerarquiasFromBoard(username, columns) : [];
   const addCheck = username && !alreadyInRole ? canAddUserToRole({ toJerarquia, userJerarquiasOnBoard: userJerarquias }) : { ok: true };
@@ -16188,12 +16278,12 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
       onClose: busy ? void 0 : onClose,
       maxWidth: "sm",
       fullWidth: true,
-      header: /* @__PURE__ */ jsx39(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel2, accent: "#10b981", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx39(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel3, accent: "#10b981", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsxs33(Typography23, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
             "Busque un usuario en permisos ISS o escriba un login nuevo para asignarlo al rol ",
-            /* @__PURE__ */ jsx39("strong", { children: roleLabel2 }),
+            /* @__PURE__ */ jsx39("strong", { children: roleLabel3 }),
             "."
           ] }),
           /* @__PURE__ */ jsx39(PermisosUserAutocomplete, { value: username, onChange: setUsername, disabled: busy, label: "Usuario" }),
@@ -16221,10 +16311,10 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
 function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   if (!pending) return null;
   const { username, roleTitle: roleTitle2, role, fromJerarquia } = pending;
-  const roleLabel2 = roleTitle2 || role;
+  const roleLabel3 = roleTitle2 || role;
   const isSelf = isSamePermisosUser(username, sessionUsername);
   const isDevLead = isTopDevLeadRole(role, fromJerarquia);
-  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel2, isSelf, isDevLead });
+  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel3, isSelf, isDevLead });
   return /* @__PURE__ */ jsxs33(
     GlassDialog,
     {
@@ -16233,7 +16323,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
       maxWidth: "sm",
       fullWidth: true,
       disableEscapeKeyDown: busy,
-      header: /* @__PURE__ */ jsx39(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel2}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx39(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel3}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsx39(Alert14, { severity: "warning", sx: { mb: 2 }, children: isSelf && isDevLead ? "Te quitar\xE1s dev_lead (m\xE1ximo privilegio). Otro dev_lead o un ajuste en BD ser\xE1 necesario para recuperarlo." : "Esta acci\xF3n revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar." }),
@@ -16241,7 +16331,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
             "\xBFQuitar a ",
             /* @__PURE__ */ jsx39("strong", { children: username }),
             " del rol ",
-            /* @__PURE__ */ jsx39("strong", { children: roleLabel2 }),
+            /* @__PURE__ */ jsx39("strong", { children: roleLabel3 }),
             "?"
           ] }),
           /* @__PURE__ */ jsx39(Box26, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: bullets.map((line) => /* @__PURE__ */ jsx39("li", { children: renderImpactLine(line) }, line)) })
@@ -16266,7 +16356,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosKanban.jsx
+// js/tools/PermisosKanban.jsx
 import { Fragment as Fragment13, jsx as jsx40, jsxs as jsxs34 } from "react/jsx-runtime";
 var { useState: useState28, useMemo: useMemo15, useRef: useRef12, useEffect: useEffect24, memo: memo3 } = getReact();
 var { createPortal } = getReactDOM();
@@ -16816,7 +16906,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosRoleFilterAutocomplete.jsx
+// js/tools/PermisosRoleFilterAutocomplete.jsx
 import { jsx as jsx41 } from "react/jsx-runtime";
 var { Autocomplete: Autocomplete4, TextField: TextField15, Chip: Chip17 } = getMaterialUI();
 function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = false }) {
@@ -16844,13 +16934,13 @@ function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = f
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import * as React2 from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import * as React from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeDrag.ts
+// js/ui/treeView/treeDrag.ts
 function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
   if (isGrouper) {
     const y = clientY - rectTop;
@@ -16875,7 +16965,7 @@ function summaryDragClass(dragOver, forbidden) {
   return "trvwr-itm-sum--drg-into";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import { Fragment as Fragment14, jsx as jsx42, jsxs as jsxs35 } from "react/jsx-runtime";
 var { IconButton: IconButton13, Tooltip: Tooltip13 } = getMaterialUI();
 function TreeRow({ node, ...ctx }) {
@@ -17069,7 +17159,7 @@ function TreeRowItem(props) {
   return /* @__PURE__ */ jsx42(Fragment14, { children: nodes.map((node) => /* @__PURE__ */ jsx42(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeData.ts
+// js/ui/treeView/treeData.ts
 function dedupeItems(items, keyFn) {
   const seen = /* @__PURE__ */ new Map();
   for (const item of items) {
@@ -17167,7 +17257,7 @@ function collectPathsWithChildren(roots) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeView.tsx
+// js/ui/treeView/TreeView.tsx
 import { Fragment as Fragment15, jsx as jsx43, jsxs as jsxs36 } from "react/jsx-runtime";
 var { useState: useState29, useMemo: useMemo16, useCallback: useCallback12 } = getReact();
 var { Box: Box28, Stack: Stack21, Typography: Typography25, Chip: Chip18, IconButton: IconButton14, Tooltip: Tooltip14, Button: Button19, CircularProgress: CircularProgress17 } = getMaterialUI();
@@ -17286,7 +17376,7 @@ function TreeView(props) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/treeLogic.ts
+// js/tools/roleHierarchyTree/treeLogic.ts
 function immediateParentJer(jer) {
   const ancestors = ancestorsFromPath(jer);
   return ancestors.length > 1 ? ancestors[1] : null;
@@ -17329,7 +17419,7 @@ function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
   return String(seg);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
+// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
 var ROLE_HIERARCHY_MANIFEST = {
   ariaLabel: "\xC1rbol de roles",
   entrie: "rol",
@@ -17422,7 +17512,7 @@ function createRoleHierarchyCustoms(handlers) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import { jsx as jsx44, jsxs as jsxs37 } from "react/jsx-runtime";
 var { useState: useState30, useMemo: useMemo17, useCallback: useCallback13, useEffect: useEffect26 } = getReact();
 var { Box: Box29, Typography: Typography26, Button: Button20, Dialog: Dialog9, DialogTitle: DialogTitle9, DialogContent: DialogContent12, DialogActions: DialogActions10, TextField: TextField16, Alert: Alert15, CircularProgress: CircularProgress18, Stack: Stack22, Chip: Chip19 } = getMaterialUI();
@@ -17674,13 +17764,13 @@ function HierarchyEditDialog({ target, busy, onClose, onSave }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
+// js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
 import { Fragment as Fragment16, jsx as jsx45, jsxs as jsxs38 } from "react/jsx-runtime";
 var { useState: useState31, useMemo: useMemo18, useCallback: useCallback14, useEffect: useEffect27 } = getReact();
 var { Box: Box30, Stack: Stack23, Typography: Typography27, Breadcrumbs, Link, Chip: Chip20, IconButton: IconButton15, Tooltip: Tooltip15, Button: Button21, TextField: TextField17, Alert: Alert16, CircularProgress: CircularProgress19 } = getMaterialUI();
 var { Icon: Icon21 } = UI;
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/hierarchyFromRoles.ts
+// js/tools/roleHierarchyTree/hierarchyFromRoles.ts
 function hierarchyNodesFromRoleEntries(roleEntries) {
   const out = [];
   for (const e of roleEntries ?? []) {
@@ -17700,7 +17790,7 @@ function hierarchyNodesFromRoleEntries(roleEntries) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/UserPermissionsSummaryDialog.jsx
+// js/tools/UserPermissionsSummaryDialog.jsx
 import { Fragment as Fragment17, jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
 var { Typography: Typography28, Stack: Stack24, Box: Box31, Chip: Chip21, Divider: Divider7, CircularProgress: CircularProgress20 } = getMaterialUI();
 var { useMemo: useMemo19 } = getReact();
@@ -17903,7 +17993,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosPanel.jsx
+// js/tools/PermisosPanel.jsx
 import { jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
 var { useState: useState32, useEffect: useEffect28, useCallback: useCallback15, useMemo: useMemo20, useRef: useRef14 } = getReact();
 var { Typography: Typography29, TextField: TextField18, Stack: Stack25, Alert: Alert17, CircularProgress: CircularProgress21, Box: Box32, Chip: Chip22, DialogContent: DialogContent13, DialogActions: DialogActions11, Button: Button22, FormControlLabel: FormControlLabel4, Switch: Switch2 } = getMaterialUI();
@@ -18402,7 +18492,7 @@ function PermisosPanel({ onNeedLogin }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/configOpenAi.ts
+// js/tools/configOpenAi.ts
 var DEFAULT_MAX_NUM_RESULTS = 8;
 var MIN_MAX_NUM_RESULTS = 3;
 var MAX_MAX_NUM_RESULTS = 50;
@@ -18508,7 +18598,7 @@ function parseAndValidateJsonText(text, opts = {}) {
   return { ...result, parsed: result.normalized };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/configPromptsOperativos.ts
+// js/tools/configPromptsOperativos.ts
 var REASONING_EFFORT_OPTIONS = ["low", "medium", "high"];
 var MESSAGE_ROLES = ["system", "user", "assistant"];
 var LEGACY_META_KEYS = ["modeloOperativo", "modeloConversacion", "temperaturaConversacion"];
@@ -18682,7 +18772,7 @@ function writePromptSkeletonCount(count) {
   }
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/configFieldPersist.ts
+// js/tools/configFieldPersist.ts
 var { useRef: useRef15, useState: useState33 } = getReact();
 function useConfigFieldPersist() {
   const saveGenRef = useRef15(0);
@@ -18703,7 +18793,7 @@ function useConfigFieldPersist() {
   return { saveGenRef, beginSave, endSave, fieldDisabled };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/ConfigPromptsOperativosPanel.jsx
+// js/tools/ConfigPromptsOperativosPanel.jsx
 import { Fragment as Fragment18, jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
 var { useState: useState34, useEffect: useEffect29, useCallback: useCallback16, useRef: useRef16 } = getReact();
 var {
@@ -19045,7 +19135,7 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/configToolState.ts
+// js/tools/configToolState.ts
 var LS_KEY2 = "isa-patyia:config-tab";
 var DEFAULT_TAB = "sistema";
 var VALID_TABS = /* @__PURE__ */ new Set(["sistema", "permisos"]);
@@ -19064,7 +19154,7 @@ function writeConfigToolTab(tab) {
   }
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/ConfigTool.jsx
+// js/tools/ConfigTool.jsx
 import { Fragment as Fragment19, jsx as jsx49, jsxs as jsxs42 } from "react/jsx-runtime";
 var { useState: useState35, useEffect: useEffect30, useCallback: useCallback17, useMemo: useMemo21, useRef: useRef17 } = getReact();
 var { Paper: Paper4, Typography: Typography31, TextField: TextField20, Stack: Stack27, Alert: Alert19, Tabs: Tabs4, Tab: Tab4, Box: Box34, FormControl: FormControl8, InputLabel: InputLabel5, Select: Select8, MenuItem: MenuItem8, Tooltip: Tooltip17, DialogContent: DialogContent15, DialogActions: DialogActions13, Button: Button24, Divider: Divider8 } = getMaterialUI();
@@ -19335,7 +19425,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/app/App.jsx
+// js/app/App.jsx
 import { Fragment as Fragment20, jsx as jsx50, jsxs as jsxs43 } from "react/jsx-runtime";
 var BRAND_HOME_EVENT = "isa:brand-home";
 var DEVFLOW_NAV_ENABLED = false;

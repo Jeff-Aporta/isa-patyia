@@ -108,6 +108,12 @@ export function createLoginButton(React, MUI, ns, opts = {}) {
     }, [authEvt]);
 
     useEffect(() => {
+      const onCaps = () => tick((n) => n + 1);
+      window.addEventListener("patyia-apptools:caps-changed", onCaps);
+      return () => window.removeEventListener("patyia-apptools:caps-changed", onCaps);
+    }, []);
+
+    useEffect(() => {
       if (!open) return;
       const saved = readLoginCredentials();
       setUser(saved.username || "");
@@ -193,7 +199,7 @@ export function createLoginButton(React, MUI, ns, opts = {}) {
           ns,
           username: Session?.username?.() || loggedIn.username,
           displayName: Session?.displayName?.() || loggedIn.displayName || "",
-          role: session?.role || Session?.current?.()?.role || "",
+          role: session?.role || auth.resolveDisplayRole?.() || Session?.current?.()?.role || "",
           signalDot: realtimeEl,
           showTarget: opts.showTarget,
           onLogout: logout,

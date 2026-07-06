@@ -29,12 +29,14 @@ const EMPTY_BODIES = Object.freeze({});
 
 export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const [authTick, setAuthTick] = useState(0);
+  const [instruccionesCanEdit, setInstruccionesCanEdit] = useState(false);
   useEffect(() => {
     const onAuth = () => setAuthTick((n) => n + 1);
     window.addEventListener("isa-patyia:auth", onAuth);
     window.addEventListener(Session.EVENT, onAuth);
     window.addEventListener("patyia-apptools:caps-changed", onAuth);
     if (Session.isLoggedIn()) {
+      void LabSession.bootMeCaps(true);
       Session.refreshProfile().finally(onAuth);
     }
     return () => {
@@ -44,7 +46,10 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     };
   }, []);
 
-  const canPublish = useMemo(() => LabSession.canEditInstrucciones(), [authTick]);
+  const canPublish = useMemo(
+    () => instruccionesCanEdit || LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos(),
+    [authTick, instruccionesCanEdit],
+  );
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);
   const canEdit = canPublish;
   const editBlockReason = useMemo(() => {
@@ -147,8 +152,9 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       setLoadBusy(true);
       setLoadErr("");
       try {
-        const rows = await LabApi.fetchInstruccionesPaty();
+        const { rows, canEdit } = await LabApi.fetchInstruccionesPaty();
         if (cancelled) return;
+        setInstruccionesCanEdit(!!canEdit);
         applyCloudRowsRef.current(rows);
       } catch (e) {
         if (!cancelled) {

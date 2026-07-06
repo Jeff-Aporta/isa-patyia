@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 var DEFAULT_ROLE_JERARQUIA = {
   visitante: "0",
   dev: "0.0",

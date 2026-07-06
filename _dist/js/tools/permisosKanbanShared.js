@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
@@ -18,7 +18,7 @@ function userRoles(permisos) {
   return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 var DEFAULT_ROLE_JERARQUIA = {
   visitante: "0",
   dev: "0.0",
@@ -85,7 +85,7 @@ function formatJerarquiaLabel(jerarquia) {
   return `(${jerarquia})`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleCanonicalMeta.js
+// js/tools/roleCanonicalMeta.js
 var CANONICAL_ROLE_META = {
   dev: {
     namedisplay: "Desarrollador b\xE1sico",
@@ -105,7 +105,7 @@ function canonicalRoleMeta(roleName) {
   return CANONICAL_ROLE_META[key] ?? null;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 var VISITANTE = "visitante";
 var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];

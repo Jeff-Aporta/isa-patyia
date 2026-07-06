@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 function compareHierarchy(a, b) {
   const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
   const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
@@ -23,7 +23,7 @@ function formatJerarquiaLabel(jerarquia) {
   return `(${jerarquia})`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/treeLogic.ts
+// js/tools/roleHierarchyTree/treeLogic.ts
 function immediateParentJer(jer) {
   const ancestors = ancestorsFromPath(jer);
   return ancestors.length > 1 ? ancestors[1] : null;
@@ -66,12 +66,12 @@ function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
   return String(seg);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var fb = () => globalThis.ISAFront?.Feedback;
 function toastError(text, timeout) {
   fb()?.toast?.error?.(text, timeout);
@@ -80,7 +80,7 @@ function toastInfo(text, timeout) {
   fb()?.toast?.info?.(text, timeout);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
+// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
 var ROLE_HIERARCHY_MANIFEST = {
   ariaLabel: "\xC1rbol de roles",
   entrie: "rol",

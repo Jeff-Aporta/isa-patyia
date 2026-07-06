@@ -257,10 +257,17 @@ export type PermissionsMe = {
 
 const PERMISSIONS_ME_CACHE: { value: PermissionsMe | null; iat: number; ttlMs: number; key: string } = { value: null, iat: 0, ttlMs: 0, key: "" };
 
+function permissionsMeSessionKey(): string {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
+
 /** Devuelve los permisos del usuario actual. Cache en memoria con TTL del servidor. */
 export async function fetchPermissionsMe(opts?: { force?: boolean; fetchImpl?: typeof fetch }): Promise<PermissionsMe | null> {
   if (!Session.isLoggedIn()) return null;
-  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }

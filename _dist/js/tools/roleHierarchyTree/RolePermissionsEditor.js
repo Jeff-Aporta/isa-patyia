@@ -1,9 +1,9 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -44,7 +44,7 @@ function toastSuccess(text, timeout) {
   fb()?.toast?.success?.(text, timeout);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 function ancestorsFromPath(jerarquia) {
   const parts = String(jerarquia ?? "").split(".").filter(Boolean);
   const out = [];
@@ -54,7 +54,7 @@ function ancestorsFromPath(jerarquia) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
+// js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var { useState, useMemo, useCallback, useEffect } = getReact();
 var { Box, Stack, Typography, Breadcrumbs, Link, Chip, IconButton, Tooltip, Button, TextField, Alert, CircularProgress } = getMaterialUI();

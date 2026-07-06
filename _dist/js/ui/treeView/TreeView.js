@@ -1,16 +1,16 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var getReact = () => window.ISAFront.getReact();
 var getMaterialUI = () => window.ISAFront.getMaterialUI();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import * as React from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeDrag.ts
+// js/ui/treeView/treeDrag.ts
 function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
   if (isGrouper) {
     const y = clientY - rectTop;
@@ -35,7 +35,7 @@ function summaryDragClass(dragOver, forbidden) {
   return "trvwr-itm-sum--drg-into";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var { IconButton, Tooltip } = getMaterialUI();
 function TreeRow({ node, ...ctx }) {
@@ -229,7 +229,7 @@ function TreeRowItem(props) {
   return /* @__PURE__ */ jsx(Fragment, { children: nodes.map((node) => /* @__PURE__ */ jsx(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeData.ts
+// js/ui/treeView/treeData.ts
 function dedupeItems(items, keyFn) {
   const seen = /* @__PURE__ */ new Map();
   for (const item of items) {
@@ -327,7 +327,7 @@ function collectPathsWithChildren(roots) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeView.tsx
+// js/ui/treeView/TreeView.tsx
 import { Fragment as Fragment2, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var { useState, useMemo, useCallback } = getReact();
 var { Box, Stack, Typography, Chip, IconButton: IconButton2, Tooltip: Tooltip2, Button, CircularProgress } = getMaterialUI();

@@ -1,15 +1,15 @@
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import * as React from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var getMaterialUI = () => window.ISAFront.getMaterialUI();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeDrag.ts
+// js/ui/treeView/treeDrag.ts
 function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
   if (isGrouper) {
     const y = clientY - rectTop;
@@ -34,7 +34,7 @@ function summaryDragClass(dragOver, forbidden) {
   return "trvwr-itm-sum--drg-into";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var { IconButton, Tooltip } = getMaterialUI();
 function TreeRow({ node, ...ctx }) {

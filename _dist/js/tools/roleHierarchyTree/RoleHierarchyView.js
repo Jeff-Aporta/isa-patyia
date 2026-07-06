@@ -1,12 +1,12 @@
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import * as React2 from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -54,10 +54,10 @@ function toastInfo(text, timeout) {
   fb()?.toast?.info?.(text, timeout);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import * as React from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeDrag.ts
+// js/ui/treeView/treeDrag.ts
 function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
   if (isGrouper) {
     const y = clientY - rectTop;
@@ -82,7 +82,7 @@ function summaryDragClass(dragOver, forbidden) {
   return "trvwr-itm-sum--drg-into";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var { IconButton, Tooltip } = getMaterialUI();
 function TreeRow({ node, ...ctx }) {
@@ -276,7 +276,7 @@ function TreeRowItem(props) {
   return /* @__PURE__ */ jsx(Fragment, { children: nodes.map((node) => /* @__PURE__ */ jsx(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeData.ts
+// js/ui/treeView/treeData.ts
 function dedupeItems(items, keyFn) {
   const seen = /* @__PURE__ */ new Map();
   for (const item of items) {
@@ -374,7 +374,7 @@ function collectPathsWithChildren(roots) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeView.tsx
+// js/ui/treeView/TreeView.tsx
 import { Fragment as Fragment2, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var { useState, useMemo, useCallback } = getReact();
 var { Box, Stack, Typography, Chip, IconButton: IconButton2, Tooltip: Tooltip2, Button, CircularProgress } = getMaterialUI();
@@ -493,14 +493,14 @@ function TreeView(props) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ImageLightboxDialog.jsx
+// js/ui/ImageLightboxDialog.jsx
 import { jsx as jsx3 } from "react/jsx-runtime";
 var { useEffect, useState: useState2 } = getReact();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/GlassDialog.jsx
+// js/ui/GlassDialog.jsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/shared.jsx
+// js/ui/shared.jsx
 import { Fragment as Fragment3, jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
 function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
   const shown = busy ? "mdi:loading" : icon;
@@ -548,10 +548,10 @@ var theme = createTheme({
   }
 });
 
-// ../../Personal/apps/isa-patyia/frontend/js/editors/jsonEditor.jsx
+// js/editors/jsonEditor.jsx
 import { jsx as jsx6 } from "react/jsx-runtime";
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permFixFilter.js
+// js/tools/permFixFilter.js
 var SESSION_OWNER_FIX_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
@@ -573,7 +573,7 @@ function withSessionOwnerFixFilter(restriction) {
   return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var PERM_META = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles"]);
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
@@ -647,7 +647,7 @@ function countActiveRoutes(routes) {
   return (routes || []).filter((r) => r.mode && r.mode !== "off").length;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRouteCatalog.js
+// js/tools/permisosRouteCatalog.js
 var ROUTE_GROUPS = [
   {
     id: "conversaciones",
@@ -754,7 +754,7 @@ function groupsFromRouteRows(routes, flags, { includeInactive = false } = {}) {
   return routesForRoleEditor(permisos, { includeInactive });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 function compareHierarchy(a, b) {
   const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
   const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
@@ -779,7 +779,7 @@ function formatJerarquiaLabel(jerarquia) {
   return `(${jerarquia})`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleCanonicalMeta.js
+// js/tools/roleCanonicalMeta.js
 var CANONICAL_ROLE_META = {
   dev: {
     namedisplay: "Desarrollador b\xE1sico",
@@ -799,7 +799,7 @@ function canonicalRoleMeta(roleName) {
   return CANONICAL_ROLE_META[key] ?? null;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 function permEntryKey(entry) {
   return String(entry?.iusuario ?? entry?.ientity ?? "").trim();
 }
@@ -825,13 +825,13 @@ function roleTitleFromEntry(entry) {
   return namedisplay;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosUserAutocomplete.jsx
+// js/tools/PermisosUserAutocomplete.jsx
 import { jsx as jsx7 } from "react/jsx-runtime";
 import { createElement } from "react";
 var { useState: useState4, useEffect: useEffect3, useRef: useRef2, useCallback: useCallback2 } = getReact();
 var { Autocomplete, TextField, Typography: Typography3, Box: Box3 } = getMaterialUI();
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosVisitante.js
+// js/tools/permisosVisitante.js
 var VISITANTE_ROLE = "visitante";
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
@@ -887,7 +887,7 @@ function getVisitanteRoleEntry(data) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleConfig.jsx
+// js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment4, jsx as jsx8, jsxs as jsxs5 } from "react/jsx-runtime";
 var { useState: useState5, useEffect: useEffect4, useMemo: useMemo3 } = getReact();
 var {
@@ -1153,7 +1153,7 @@ function RoleConfigEditor({ entry, roleName, canManage, canEditRoleDescriptions,
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/treeLogic.ts
+// js/tools/roleHierarchyTree/treeLogic.ts
 function immediateParentJer(jer) {
   const ancestors = ancestorsFromPath(jer);
   return ancestors.length > 1 ? ancestors[1] : null;
@@ -1196,7 +1196,7 @@ function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
   return String(seg);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
+// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
 var ROLE_HIERARCHY_MANIFEST = {
   ariaLabel: "\xC1rbol de roles",
   entrie: "rol",
@@ -1289,7 +1289,7 @@ function createRoleHierarchyCustoms(handlers) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
 var { useState: useState6, useMemo: useMemo4, useCallback: useCallback3, useEffect: useEffect6 } = getReact();
 var { Box: Box5, Typography: Typography5, Button: Button3, Dialog, DialogTitle, DialogContent: DialogContent3, DialogActions: DialogActions2, TextField: TextField3, Alert: Alert2, CircularProgress: CircularProgress3, Stack: Stack4, Chip: Chip4 } = getMaterialUI();

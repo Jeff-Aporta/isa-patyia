@@ -23,6 +23,7 @@ import {
 } from "../../api/patyiaChatApi.ts";
 import { CONVERSACIONES_LIST_SORT_DEFAULT } from "../../api/issListFilter.ts";
 import { fetchConvLogById, fetchConvLogByIdWithRetry } from "../../api/apiClient.ts";
+import * as LabSession from "../../api/sessionApi.ts";
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
 import { persistChatConvId, persistChatMessageSource, persistChatMode, getSnapshot, subscribe } from "../../core/urlState.ts";
@@ -192,7 +193,10 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const sessionUser = Session.username();
   const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
-  const canAuditChat = Session.can("patyia.chat.audit");
+  const canAuditChat = useMemo(
+    () => LabSession.canAccessOthers() || Session.can("patyia.chat.audit"),
+    [authTick],
+  );
   const canInteract = canInteractPatyChat(sessionUser, jwt);
   const listScope = auditScope ?? activeConvOwnerScope(null, jwt?.claims) ?? sessionBrowseScope;
   const selectedConvRow = selectedId
@@ -226,10 +230,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     window.addEventListener("isa-patyia:paty-jwt", onPatyJwt);
     window.addEventListener(Session.EVENT, onSessionAuth);
     window.addEventListener("isa-patyia:auth", onSessionAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onSessionAuth);
     return () => {
       window.removeEventListener("isa-patyia:paty-jwt", onPatyJwt);
       window.removeEventListener(Session.EVENT, onSessionAuth);
       window.removeEventListener("isa-patyia:auth", onSessionAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onSessionAuth);
     };
   }, []);
 

@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";

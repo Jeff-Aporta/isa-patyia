@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 function compareHierarchy(a, b) {
   const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
   const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
@@ -19,7 +19,7 @@ function ancestorsFromPath(jerarquia) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/treeLogic.ts
+// js/tools/roleHierarchyTree/treeLogic.ts
 function buildTreeRows(nodes) {
   const unique = dedupeNodes(nodes);
   const byJerarquia = /* @__PURE__ */ new Map();

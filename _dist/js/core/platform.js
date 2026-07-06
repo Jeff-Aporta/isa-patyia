@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
@@ -46,7 +46,7 @@ function migrateIssLocalFromGatewayFlag() {
   }
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {

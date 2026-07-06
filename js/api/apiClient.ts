@@ -7,6 +7,7 @@ import {
   patyiaCapFetchBase,
   PATYIA_BRIDGE_URL,
   PATYIA_ISS_LOCAL,
+  PATYIA_BRIDGE_LOCAL,
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
 import { convLogFromDetalle, getConversacionLogs, listConversaciones } from "./patyiaChatApi.ts";
@@ -60,13 +61,14 @@ function patyiaBridgePath(path: string): string {
   return p;
 }
 
-export async function fetchInstruccionesPaty() {
+export async function fetchInstruccionesPaty(): Promise<{ rows: Record<string, unknown>[]; canEdit: boolean }> {
   const data = await fetchInstruccionesSystemConfig();
-  return data.rows as Record<string, unknown>[];
+  SessionApi.setServerInstruccionesCanEdit(!!data.canEdit);
+  return { rows: data.rows as Record<string, unknown>[], canEdit: !!data.canEdit };
 }
 
-export async function publishInstruccionesPaty(sql: string) {
-  if (!SessionApi.instruccionesPublishCap()) {
+export function publishInstruccionesPaty(sql: string) {
+  if (!SessionApi.canEditInstrucciones()) {
     throw new Error(
       SessionApi.blockReason(SessionApi.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para publicar instrucciones",
@@ -79,7 +81,7 @@ export type { InstruccionUpsertPayload };
 
 /** Guarda una sola instrucción (sin publicar el lote completo). */
 export async function upsertInstruccionPaty(payload: InstruccionUpsertPayload) {
-  if (!SessionApi.instruccionesPublishCap()) {
+  if (!SessionApi.canEditInstrucciones()) {
     throw new Error(
       SessionApi.blockReason(SessionApi.INSTRUCCIONES_WRITE_CAP)
       || "Sin permiso para publicar instrucciones",

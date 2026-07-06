@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
@@ -23,7 +23,7 @@ function resolveIssApiBase() {
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var UI = {
   get Icon() {
@@ -143,11 +143,11 @@ function toastInfo(text, timeout) {
   fb()?.toast?.info?.(text, timeout);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/ImageLightboxDialog.jsx
+// js/ui/ImageLightboxDialog.jsx
 import { jsx } from "react/jsx-runtime";
 var { useEffect, useState } = getReact();
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/GlassDialog.jsx
+// js/ui/GlassDialog.jsx
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -273,7 +273,7 @@ function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWid
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/shared.jsx
+// js/ui/shared.jsx
 import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
   const shown = busy ? "mdi:loading" : icon;
@@ -321,7 +321,7 @@ var theme = createTheme({
   }
 });
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/systemConfigApi.ts
+// js/api/systemConfigApi.ts
 function systemApiBase() {
   return resolveIssApiBase();
 }
@@ -407,9 +407,15 @@ function normalizePermissionsPayload(raw) {
   return { ...raw, roles, users };
 }
 var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
 async function fetchPermissionsMe(opts) {
   if (!Session.isLoggedIn()) return null;
-  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
@@ -539,7 +545,7 @@ function requireAppSession(onNeedLogin) {
   return false;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permFixFilter.js
+// js/tools/permFixFilter.js
 var SESSION_OWNER_FIX_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
@@ -561,7 +567,7 @@ function withSessionOwnerFixFilter(restriction) {
   return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosForm.js
+// js/tools/permisosForm.js
 var PERM_META = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles"]);
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
@@ -639,7 +645,7 @@ function countActiveRoutes(routes) {
   return (routes || []).filter((r) => r.mode && r.mode !== "off").length;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchy.js
+// js/tools/roleHierarchy.js
 var DEFAULT_ROLE_JERARQUIA = {
   visitante: "0",
   dev: "0.0",
@@ -718,7 +724,7 @@ function isBranchZero(jerarquia) {
   return j === "0" || j.startsWith("0.");
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleCanonicalMeta.js
+// js/tools/roleCanonicalMeta.js
 var CANONICAL_ROLE_META = {
   dev: {
     namedisplay: "Desarrollador b\xE1sico",
@@ -738,7 +744,7 @@ function canonicalRoleMeta(roleName) {
   return CANONICAL_ROLE_META[key] ?? null;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosKanbanShared.js
+// js/tools/permisosKanbanShared.js
 var VISITANTE = "visitante";
 var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
@@ -914,10 +920,10 @@ function pointInRef(ref, clientX, clientY) {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/editors/jsonEditor.jsx
+// js/editors/jsonEditor.jsx
 import { jsx as jsx4 } from "react/jsx-runtime";
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRouteCatalog.js
+// js/tools/permisosRouteCatalog.js
 var ROUTE_GROUPS = [
   {
     id: "conversaciones",
@@ -1024,7 +1030,7 @@ function groupsFromRouteRows(routes, flags, { includeInactive = false } = {}) {
   return routesForRoleEditor(permisos, { includeInactive });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleTransfer.js
+// js/tools/permisosRoleTransfer.js
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -1109,7 +1115,7 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
   return { ok: true };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosUserAutocomplete.jsx
+// js/tools/PermisosUserAutocomplete.jsx
 import { jsx as jsx5 } from "react/jsx-runtime";
 import { createElement } from "react";
 var { useState: useState3, useEffect: useEffect3, useRef, useCallback } = getReact();
@@ -1233,7 +1239,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosVisitante.js
+// js/tools/permisosVisitante.js
 var VISITANTE_ROLE = "visitante";
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
@@ -1289,7 +1295,7 @@ function getVisitanteRoleEntry(data) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/permisosRoleConfig.jsx
+// js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment2, jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
 var { useState: useState4, useEffect: useEffect4, useMemo: useMemo2 } = getReact();
 var {
@@ -1775,7 +1781,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosKanban.jsx
+// js/tools/PermisosKanban.jsx
 import { Fragment as Fragment3, jsx as jsx7, jsxs as jsxs4 } from "react/jsx-runtime";
 var { useState: useState5, useMemo: useMemo3, useRef: useRef2, useEffect: useEffect5, memo } = getReact();
 var { createPortal } = getReactDOM();
@@ -2325,7 +2331,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosRoleFilterAutocomplete.jsx
+// js/tools/PermisosRoleFilterAutocomplete.jsx
 import { jsx as jsx8 } from "react/jsx-runtime";
 var { Autocomplete: Autocomplete2, TextField: TextField3, Chip: Chip4 } = getMaterialUI();
 function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = false }) {
@@ -2353,13 +2359,13 @@ function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = f
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import * as React2 from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import * as React from "react";
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeDrag.ts
+// js/ui/treeView/treeDrag.ts
 function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
   if (isGrouper) {
     const y = clientY - rectTop;
@@ -2384,7 +2390,7 @@ function summaryDragClass(dragOver, forbidden) {
   return "trvwr-itm-sum--drg-into";
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeRowItem.tsx
+// js/ui/treeView/TreeRowItem.tsx
 import { Fragment as Fragment4, jsx as jsx9, jsxs as jsxs5 } from "react/jsx-runtime";
 var { IconButton: IconButton2, Tooltip: Tooltip3 } = getMaterialUI();
 function TreeRow({ node, ...ctx }) {
@@ -2578,7 +2584,7 @@ function TreeRowItem(props) {
   return /* @__PURE__ */ jsx9(Fragment4, { children: nodes.map((node) => /* @__PURE__ */ jsx9(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/treeData.ts
+// js/ui/treeView/treeData.ts
 function dedupeItems(items, keyFn) {
   const seen = /* @__PURE__ */ new Map();
   for (const item of items) {
@@ -2676,7 +2682,7 @@ function collectPathsWithChildren(roots) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/ui/treeView/TreeView.tsx
+// js/ui/treeView/TreeView.tsx
 import { Fragment as Fragment5, jsx as jsx10, jsxs as jsxs6 } from "react/jsx-runtime";
 var { useState: useState6, useMemo: useMemo4, useCallback: useCallback2 } = getReact();
 var { Box: Box5, Stack: Stack4, Typography: Typography5, Chip: Chip5, IconButton: IconButton3, Tooltip: Tooltip4, Button: Button2, CircularProgress: CircularProgress3 } = getMaterialUI();
@@ -2795,7 +2801,7 @@ function TreeView(props) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/treeLogic.ts
+// js/tools/roleHierarchyTree/treeLogic.ts
 function immediateParentJer(jer) {
   const ancestors = ancestorsFromPath(jer);
   return ancestors.length > 1 ? ancestors[1] : null;
@@ -2838,7 +2844,7 @@ function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
   return String(seg);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
+// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
 var ROLE_HIERARCHY_MANIFEST = {
   ariaLabel: "\xC1rbol de roles",
   entrie: "rol",
@@ -2931,7 +2937,7 @@ function createRoleHierarchyCustoms(handlers) {
   };
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
 import { jsx as jsx11, jsxs as jsxs7 } from "react/jsx-runtime";
 var { useState: useState7, useMemo: useMemo5, useCallback: useCallback3, useEffect: useEffect7 } = getReact();
 var { Box: Box6, Typography: Typography6, Button: Button3, Dialog, DialogTitle, DialogContent: DialogContent3, DialogActions: DialogActions2, TextField: TextField4, Alert: Alert2, CircularProgress: CircularProgress4, Stack: Stack5, Chip: Chip6 } = getMaterialUI();
@@ -3183,13 +3189,13 @@ function HierarchyEditDialog({ target, busy, onClose, onSave }) {
   ] });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
+// js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
 import { Fragment as Fragment6, jsx as jsx12, jsxs as jsxs8 } from "react/jsx-runtime";
 var { useState: useState8, useMemo: useMemo6, useCallback: useCallback4, useEffect: useEffect8 } = getReact();
 var { Box: Box7, Stack: Stack6, Typography: Typography7, Breadcrumbs, Link, Chip: Chip7, IconButton: IconButton4, Tooltip: Tooltip5, Button: Button4, TextField: TextField5, Alert: Alert3, CircularProgress: CircularProgress5 } = getMaterialUI();
 var { Icon: Icon3 } = UI;
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/roleHierarchyTree/hierarchyFromRoles.ts
+// js/tools/roleHierarchyTree/hierarchyFromRoles.ts
 function hierarchyNodesFromRoleEntries(roleEntries) {
   const out = [];
   for (const e of roleEntries ?? []) {
@@ -3209,7 +3215,7 @@ function hierarchyNodesFromRoleEntries(roleEntries) {
   return out;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/UserPermissionsSummaryDialog.jsx
+// js/tools/UserPermissionsSummaryDialog.jsx
 import { Fragment as Fragment7, jsx as jsx13, jsxs as jsxs9 } from "react/jsx-runtime";
 var { Typography: Typography8, Stack: Stack7, Box: Box8, Chip: Chip8, Divider: Divider2, CircularProgress: CircularProgress6 } = getMaterialUI();
 var { useMemo: useMemo7 } = getReact();
@@ -3412,7 +3418,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
   );
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/urlState.ts
+// js/core/urlState.ts
 var STATE_VERSION = 1;
 function normalizeLog(raw) {
   if (!raw || typeof raw !== "object") return {};
@@ -3618,7 +3624,7 @@ function persistPermisosHideEmpty(hide) {
   return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/tools/PermisosPanel.jsx
+// js/tools/PermisosPanel.jsx
 import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
 var { useState: useState9, useEffect: useEffect9, useCallback: useCallback5, useMemo: useMemo8, useRef: useRef4 } = getReact();
 var { Typography: Typography9, TextField: TextField6, Stack: Stack8, Alert: Alert4, CircularProgress: CircularProgress7, Box: Box9, Chip: Chip9, DialogContent: DialogContent4, DialogActions: DialogActions3, Button: Button5, FormControlLabel: FormControlLabel2, Switch } = getMaterialUI();

@@ -1,4 +1,4 @@
-// ../../Personal/apps/isa-patyia/frontend/js/core/patyia.ts
+// js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
 var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
@@ -26,7 +26,7 @@ function resolveIssApiBase() {
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/core/platform.ts
+// js/core/platform.ts
 var bridge = () => window.ISAFront.createPlatformBridge("ISA");
 var Session = {
   current: () => bridge().Session.current(),
@@ -72,7 +72,7 @@ function toastWarning(text, timeout) {
   fb()?.toast?.warning?.(text, timeout);
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/systemConfigApi.ts
+// js/api/systemConfigApi.ts
 function systemApiBase() {
   return resolveIssApiBase();
 }
@@ -106,9 +106,15 @@ function unwrapBody(data) {
   return inner;
 }
 var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
 async function fetchPermissionsMe(opts) {
   if (!Session.isLoggedIn()) return null;
-  const sessionKey = Session?.currentSession?.()?.token ?? "anon";
+  const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
@@ -132,12 +138,94 @@ async function fetchPermissionsMe(opts) {
   return data;
 }
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/sessionApi.ts
+// js/tools/roleHierarchy.js
+var DEFAULT_ROLE_JERARQUIA = {
+  visitante: "0",
+  dev: "0.0",
+  dev_lead: "0.0.0",
+  dev_iss: "0.0.1",
+  admn: "0.1",
+  auditador: "0.1.0",
+  admn_isapatyia: "0.1.0.0"
+};
+var DEFAULT_FOR_UNKNOWN = "999";
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+
+// js/tools/roleCanonicalMeta.js
+var CANONICAL_ROLE_META = {
+  dev: {
+    namedisplay: "Desarrollador b\xE1sico",
+    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+  },
+  admn: {
+    namedisplay: "Admn b\xE1sico",
+    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+  },
+  admn_isapatyia: {
+    namedisplay: "Admn ISA-Paty",
+    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+  }
+};
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+
+// js/api/sessionApi.ts
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
 var ME_CAPS = {};
 var ME_CAPS_KEY = "";
+var ME_ISS_ROLES = [];
+var ME_LOGIN_ROLE = "";
 var ME_CAPS_BOOTSTRAP_TS = 0;
 var ME_CAPS_INFLIGHT = null;
 var ME_CAPS_RETRY_TIMER = null;
+var ME_SERVER_INSTRUCCIONES_EDIT = null;
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
 var ME_CAPS_FETCH_GUARD_MS = 5e3;
 var ME_CAPS_REENTRY_GUARD_MS = 1500;
 async function primeMeCaps(force = false) {
@@ -151,7 +239,9 @@ async function primeMeCaps(force = false) {
     try {
       const me = await fetchPermissionsMe({ force });
       if (me?.capabilities) {
-        ME_CAPS_KEY = Session?.current?.()?.token ?? "";
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
         ME_CAPS = {
           canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
           canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
@@ -191,7 +281,10 @@ async function primeMeCaps(force = false) {
 function clearMeCaps() {
   ME_CAPS = {};
   ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
   ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
   if (ME_CAPS_RETRY_TIMER) {
     clearTimeout(ME_CAPS_RETRY_TIMER);
     ME_CAPS_RETRY_TIMER = null;
@@ -216,7 +309,31 @@ function logout() {
   clearMeCaps();
   notifyAuth();
 }
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return roleLabel(ME_LOGIN_ROLE);
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
 var clearSession = logout;
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
 function handleApiError(err, cap) {
   window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
 }
@@ -230,10 +347,12 @@ function handleApiError(err, cap) {
   login,
   logout,
   refreshProfile: () => Session.refreshProfile(),
-  clearSession
+  clearSession,
+  getSession,
+  resolveDisplayRole
 };
 
-// ../../Personal/apps/isa-patyia/frontend/js/api/todosApi.ts
+// js/api/todosApi.ts
 var scrumHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
