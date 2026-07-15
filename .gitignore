@@ -3,6 +3,10 @@ Thumbs.db
 node_modules/
 package-lock.json
 
+# Componentes Jeff-Aporta: viven como submódulos en el monorepo Apps-fullstack,
+# no aquí. Si reaparecen por accidente, no se versionan.
+components/
+
 # Carpetas ocultas (prefijo .) — excepto workflows CI
 **/.*/
 !/.github/
