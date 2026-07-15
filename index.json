@@ -42,6 +42,7 @@
     "prodUnderTitle": true,
     "badges": ["cloudflare-pages", "github-pages-prod", "github-repo", "react", "mui", "typescript"],
     "mergeHistory": [
+      { "date": "2026-07-15", "url": "https://121cc5cc.isa-patyia-dev.pages.dev" },
       { "date": "2026-07-06", "url": "https://8dc93bfd.isa-patyia-dev.pages.dev" },
       { "date": "2026-07-02", "url": "https://8ce645b1.isa-patyia-dev.pages.dev" },
       { "date": "2026-06-30", "url": "https://9555f121.isa-patyia-dev.pages.dev" },
