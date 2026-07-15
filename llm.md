@@ -450,3 +450,152 @@ node --input-type=module -e "import('./dist/src/health/_register.js'); ..."
 
 **NO hacer:** confiar solo en `Session.can("patyia.instrucciones.publish")` ni en `blockReason` de esa cap para habilitar edición.
 
+---
+
+## Sesión jul 2026 (15-jul) — Vendor local, adjuntos firmados y limpieza de submódulos fantasma
+
+> **Rama:** `dev` (5 commits previos al merge) → **PR #1** abierto `dev → main`.  
+> **Commits:** `ea1124f` feat vendor+adjuntos fuente · `433b1a5` bundle regen · `5871848` vendor/cdn · `339ef36` adjuntosApi · `dc2d9a8` limpieza components/ · `983cfdc` mergeHistory.
+
+### 1. `cdnVendor: true` y `vendor/cdn/` (vendor pack local)
+
+El front pasa a resolver React/MUI/Emotion/Babel/Iconify desde rutas internas en lugar de CDNs públicos. Beneficios: operación en redes restringidas y eliminación de latencia intercontinental.
+
+**Sí hacer:**
+- Mantener `"cdnVendor": true` y `"frontSharedVendor": true` en `index.json`.
+- Tras cualquier cambio en vendor pack: **regenerar** con `node front/gen-front-vendor.mjs --slug isa-patyia` desde `apps/src/scripts`.
+- Regenerar `_dist/` después con `node front/gen-front-dist.mjs --slug isa-patyia`.
+- `"preconnect": []` (sin CDNs externos que pre-cargar).
+- Verificar `vendor/cdn/meta.json` para conocer el hash y la versión exacta de cada dependencia.
+
+**No hacer:**
+- Volver a usar `<script src="https://esm.sh/...">` o `<link rel="preconnect" href="https://cdn.jsdelivr.net">`. Los CDNs externos rompen el modo offline.
+- Regenerar `_dist/` sin antes regenerar vendor si se actualizó alguna dependencia compartida.
+- Ignorar la advertencia `Siguiente: node gen-front-index.mjs (requiere useDist:true en index.json)` del script.
+
+### 2. Cliente `js/api/adjuntosApi.ts` — URLs firmadas en R2
+
+Se retira el helper legacy de base64 inline y se introduce un cliente dedicado que firma URLs de subida contra el backend (`POST /api/adjuntos/imagenes`, `POST /api/adjuntos/audios`).
+
+**Sí hacer:**
+- Consumir `adjuntosApi.subirImagen(file)` y `subirAudio(file)` desde los composers de chat (audio/images).
+- Validar que el `Content-Type` del archivo coincida con el declarado al firmar.
+- Manejar errores con `toastError` (ISAFront feedback) y un fallback a mensaje legible al usuario.
+
+**No hacer:**
+- Volver a `ensureBase64DataUrl(src)` para audio/imagen — deprecated.
+- Construir manualmente el fetch contra `/api/adjuntos/...` desde los componentes: siempre pasar por `adjuntosApi.ts`.
+- Subir data URLs base64 a `/conversacion` — el backend rechaza y/o no los almacena.
+
+### 3. Bundle `_dist/` — regenerar y commitear
+
+El CI usa `_dist/` precompilado. Si editaste un `.ts/.tsx/.jsx`, **siempre** regenerar y commitear el bundle junto con la fuente.
+
+**Sí hacer:**
+```bash
+cd "C:\ContaPyme\Personal\apps\src\scripts"
+node front/gen-front-dist.mjs --slug isa-patyia
+```
+- Commitear **siempre** los cambios de `_dist/` que correspondan al `js/` editado.
+- Confirmar `_dist/build-meta.json` (hash cambia) — un SHA nuevo sin cambios en `_dist/` es síntoma de drift.
+
+**No hacer:**
+- Confiar en que el CI recompile desde fuente: para `isa-patyia`, **no lo hace** en todos los flujos.
+- Hacer commit de `js/` sin su `_dist/`: deploy queda con bundle viejo.
+- Mezclar vendor pack y bundle en el mismo commit: preferible **un commit de vendor**, **otro de bundle** para revertir selectivamente.
+
+### 4. `components/` — submódulos fantasma (NO versionar localmente)
+
+`Personal/apps/isa-patyia/frontend/components/` apareció con 5400 archivos (copia local de los submódulos Jeff-Aporta `front-shared`, `jagudeloe-react-ui`, `lightbox`, `swagger`). Eran **submódulos del monorepo `apps/`**, NO de este repo. Si se commitean como archivos normales, git no los trata como submódulos y se duplica el código.
+
+**Sí hacer:**
+- Si reaparecen: `rm -rf components/` y commitear un chore: "Se retira la copia local de componentes".
+- Mantener `.gitignore` con `components/`.
+- Documentar en `COMPONENTS.md` el origen canónico (`Personal/apps/components/`).
+- Sincronizar versiones con `sync:all-versions` desde la raíz del monorepo.
+
+**No hacer:**
+- Commitear `components/` con `git add -A` "porque ya estaban ahí". 5400 archivos contaminan el diff y rompen el flujo de revisión.
+- Crear submódulos dentro de un repo que ya forma parte de otro monorepo con submódulos — la clonación se vuelve ambigua.
+- Asumir que `cd components/... && git status` indica el repo del submodule: aquí indicaba el repo del monorepo, **no** este repo.
+
+### 5. PR `dev → main` con `isa-patyia-merge-readme`
+
+Workflow obligatorio: **antes** de abrir el PR, actualizar `mergeHistory`.
+
+**Sí hacer (orden exacto):**
+1. `git push origin dev` (los deploys de Cloudflare se disparan en push).
+2. Esperar a que el run de GH Actions finalice (`gh run list --branch dev --limit 5`).
+3. Obtener el deployment ID: `gh api repos/Jeff-Aporta/isa-patyia/deployments` y filtrar `environment == "isa-patyia-dev (Production)"`.
+4. Obtener URL preview: `gh api repos/Jeff-Aporta/isa-patyia/deployments/{id}/statuses` → `environment_url` (formato `https://HASH.isa-patyia-dev.pages.dev`, no el alias).
+5. Añadir `{ date, url }` **al inicio** del array `readme.mergeHistory` en `index.json`.
+6. Regenerar README: `node front/gen-front-readme.mjs --slug isa-patyia` desde `apps/src/scripts`.
+7. Commit en `dev` (un commit separado, no junto al feature).
+8. `git push origin dev` (re-push para que el CI tome la fila).
+9. `gh pr create --base main --head dev --title "..." --body "..."` con el preview en el body.
+10. **Al mergear:** dejar la rama activa en `dev` (no quedarse en `main`).
+
+**No hacer:**
+- Omitir la fila "porque el merge ya está hecho". El README queda desincronizado del último release.
+- Usar el alias `https://isa-patyia-dev.pages.dev` sin hash en la tabla.
+- Editar `README.md` a mano — siempre `gen-front-readme.mjs`.
+- Crear el PR sin antes regenerar el bundle (el preview mostrará código viejo).
+- Mergear con CI rojo en `dev` (la URL preview puede ser stale).
+
+### 6. `tests/` local — regresiones automatizadas sin contaminar el repo
+
+Carpeta `tests/` ignorada por git. Alberga `.test.mjs` ejecutables con `node --test` para validar patrones críticos (envelope ISS, gitignore, mergeHistory, vendor pack, etc.).
+
+**Sí hacer:**
+- Crear tests que fallen loud si alguien revierte un fix conocido (e.g. `mergeHistory` sin entry, vendor sin `cdnVendor:true`).
+- Usar `node --test tests/*.test.mjs` desde `frontend/` o desde la raíz.
+- Documentar cada test con su motivación (qué error previene).
+- Mover a `src/health/` en `ISS-AyudasCPIA/` solo si debe ejecutarse en CI; el resto queda local.
+
+**No hacer:**
+- Commitear `tests/` aunque los archivos parezcan útiles — `.gitignore` está por diseño.
+- Confiar solo en tests automatizados para regresiones de UI: el ojo humano sigue siendo necesario en Cloudflare preview.
+- Tests con dependencias externas (red, BD): frágiles en este checkout; usar fixtures inline.
+
+### 7. Resumen de archivos clave para esta sesión
+
+| Archivo | Cambio | Notas |
+|---------|--------|-------|
+| `index.json` | `cdnVendor:true`, `preconnect:[]` | Sin CDN externos |
+| `index.html` | Ajustado a vendor local | Regenerado por `gen-front-index.mjs` |
+| `js/api/adjuntosApi.ts` | Nuevo cliente | Sustituye base64 inline |
+| `js/api/patyiaChatApi.ts` | Refactor a URLs firmadas | Quita `ensureBase64DataUrl` |
+| `js/app/App.jsx`, `js/core/patyia.ts`, `js/core/platform.ts` | Wiring del nuevo cliente | |
+| `js/tools/chat/{ChatComposer,ChatLoggedOutShell,audio,images,types,useChatTool}.{tsx,ts}` | Composers ajustados | |
+| `js/tools/ChatTool.jsx`, `js/tools/todos/TodosShellParts.jsx`, `js/ui/ConvLogWebView.jsx` | Ajustes de routing/UI | |
+| `css/chat-staging.css` | Estilos del nuevo flujo | |
+| `_dist/**` | Regenerado contra nueva config | 40.000+ líneas diff |
+| `vendor/cdn/*.{js,min.js,meta.json}` | Pack vendor local | 10 archivos, ~4MB |
+| `COMPONENTS.md` | Nuevo, doc de origen monorepo | |
+| `.gitignore` | `components/` y `tests/` ignorados | |
+
+### 8. Anti-patrones ampliados (NO repetir)
+
+| # | Anti-patrón | Por qué | Cómo detectarlo |
+|---|-------------|---------|-----------------|
+| 16 | `git add -A` sin revisar | Arrastra `components/` (5400 archivos) | `git status --short \| wc -l` antes de stage |
+| 17 | Regenerar `_dist/` sin `cdnVendor:true` | Vendor global vuelve a CDNs | Buscar `https://esm.sh` en `_dist/index.html` |
+| 18 | Mezclar `vendor/cdn/` y `_dist/` en un commit | Difícil de revertir selectivamente | `git diff --stat HEAD~1 HEAD` por grupo |
+| 19 | Push a `dev` y abrir PR sin esperar CI | URL preview stale | `gh run list --branch dev --limit 1` |
+| 20 | Asumir que `components/` es "parte del repo" | Son submódulos del monorepo `apps/` | `ls components/*/.git` debe existir en `apps/` no aquí |
+| 21 | Hardcodear URLs externas en código | Rompe modo offline | `rg "https://(esm\.sh\|cdn\.jsdelivr)" js/` debe dar 0 |
+| 22 | Editar `README.md` a mano | Driftea de `index.json` | Diff `README.md` vs `node gen-front-readme.mjs` |
+| 23 | `git add vendor/cdn/*.js` sin commitear `meta.json` | Rompe versionado del pack | Stage siempre `vendor/cdn/` completo |
+
+### 9. Checklist actualizado «lo que sí hay que hacer»
+
+- [ ] Tras editar `js/`: `gen:front-dist --slug isa-patyia` y commitear `_dist/`.
+- [ ] Si cambias vendor pack: `gen:front-vendor` **y luego** `gen:front-dist`.
+- [ ] `cdnVendor:true` y `preconnect:[]` siempre en `index.json`.
+- [ ] `components/` ignorado. Si reaparece, `rm -rf` + chore commit.
+- [ ] Antes de PR: añadir fila a `mergeHistory` + regenerar README + re-push `dev`.
+- [ ] PR con URL preview (`https://HASH.isa-patyia-dev.pages.dev`) en el body.
+- [ ] Mergear y dejar rama activa en `dev`.
+- [ ] Adjuntos: pasar por `adjuntosApi.ts`, nunca base64 inline.
+- [ ] `tests/` vive solo en checkout local; ignorar en `.gitignore`.
+

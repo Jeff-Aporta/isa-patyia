@@ -7,6 +7,10 @@ package-lock.json
 # no aquí. Si reaparecen por accidente, no se versionan.
 components/
 
+# Tests locales: .mjs/.test.mjs/.test.ts que viven solo en este checkout.
+# No se suben a Git. Para activarlos globalmente, moverlos a src/health/.
+tests/
+
 # Carpetas ocultas (prefijo .) — excepto workflows CI
 **/.*/
 !/.github/
