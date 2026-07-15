@@ -69,11 +69,11 @@ export function isDevHost() {
   try { return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname); } catch { return false; }
 }
 
-/** Primera visita → prod (0). Solo LS; no URL ni gateway. */
+/** Primera visita → ISS local (1). isa-patyia no expone switch a staging en el front. */
 export function ensureIssLocalDefault() {
   try {
     if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
-    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
+    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1");
   } catch { /* ignore */ }
 }
 
@@ -85,16 +85,9 @@ export function resolveIssApiBase() {
 
 
 
-export function setLocalMode(on: boolean) {
-
-  const next = on ? "1" : "0";
-  let prev = "";
-  try { prev = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) ?? ""; } catch { /* ignore */ }
-  if (prev === next) return on;
-  try { localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, next); } catch { /* ignore */ }
-  window.location.reload();
-  return on;
-
+export function setLocalMode(_on: boolean) {
+  try { localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1"); } catch { /* ignore */ }
+  return true;
 }
 
 

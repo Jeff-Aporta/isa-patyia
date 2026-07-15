@@ -3,11 +3,11 @@ import { convLogSurfaceSx } from "../../core/convLog.ts";
 import { CHAT_SIDEBAR_W } from "./constants.ts";
 
 const {
-  Box, Typography, Button, Stack, Divider, Alert,
+  Box, Typography, Stack, Alert,
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatLoggedOutShell({ onNeedLogin }) {
+export function ChatLoggedOutShell() {
   return (
     <Box
       className="conv-log-shell paty-chat-shell paty-chat-shell--logged-out"
@@ -42,12 +42,6 @@ export function ChatLoggedOutShell({ onNeedLogin }) {
             </Box>
           </Box>
         </Box>
-        <Box className="conv-log-sidebar-block" sx={{ pt: 1 }}>
-          <Button fullWidth variant="contained" size="small" disabled startIcon={<Icon icon="mdi:plus" size={16} />}>
-            Nueva conversación
-          </Button>
-        </Box>
-        <Divider sx={{ my: 1 }} />
         <Box className="conv-log-sidebar-block" sx={{ flex: 1, pb: 1.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>Conversaciones</Typography>
           {[1, 2, 3, 4].map((i) => (
@@ -75,9 +69,8 @@ export function ChatLoggedOutShell({ onNeedLogin }) {
               <Typography variant="h6" sx={{ fontWeight: 700 }}>Chat</Typography>
             </Stack>
             <Alert severity="info" sx={{ textAlign: "left", py: 0.75, px: 1.25 }}>
-              Inicia sesión para ver conversaciones.
+              Inicia sesión con el botón de la barra superior para ver conversaciones.
             </Alert>
-            <Button variant="contained" sx={{ alignSelf: "center", px: 3, py: 1.15, minHeight: 44 }} onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
           </Box>
         </Box>
       </Box>

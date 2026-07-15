@@ -14,6 +14,7 @@
   },
   "frontSharedPin": "a13fc29",
   "frontSharedVendor": true,
+  "cdnVendor": true,
   "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
@@ -29,13 +30,7 @@
     "local:css/neon-glass-bridge.css",
     "local:css/app.css"
   ],
-  "preconnect": [
-    "https://cdn.jsdelivr.net",
-    "https://cdnjs.cloudflare.com",
-    "https://esm.sh",
-    "https://unpkg.com",
-    "https://code.iconify.design"
-  ],
+  "preconnect": [],
   "libs": [
     "iconify",
     "loader-mjs"

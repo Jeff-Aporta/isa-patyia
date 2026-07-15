@@ -21,10 +21,14 @@ function mimeFromFileName(name: string): string | undefined {
   return undefined;
 }
 
-function isBackendSupportedAudioDataUrl(dataUrl: string): boolean {
-  const m = String(dataUrl || "").match(/^data:([^;]+);base64,/i);
-  const mime = (m?.[1] || "").toLowerCase();
-  return BACKEND_AUDIO_MIMES.has(mime);
+function isBackendSupportedAudioMime(mime: string | undefined): boolean {
+  const m = String(mime || "").toLowerCase();
+  if (m && BACKEND_AUDIO_MIMES.has(m)) return true;
+  // MediaRecorder a veces declara "audio/webm;codecs=opus" — recortamos al tipo base.
+  if (m.startsWith("audio/webm")) return true;
+  if (m.startsWith("audio/mp4") || m.startsWith("audio/m4a")) return true;
+  if (m.startsWith("audio/mpeg")) return true;
+  return false;
 }
 
 export function isChatAudioFile(file: File | null | undefined): boolean {
@@ -42,25 +46,28 @@ export function fileToDataUrl(file: File | Blob): Promise<string> {
   });
 }
 
-function normalizeAudioDataUrl(dataUrl: string, file: File): string {
-  const raw = String(dataUrl || "").trim();
-  if (!raw.startsWith("data:")) return raw;
-  if (isBackendSupportedAudioDataUrl(raw)) return raw;
-  const fallbackMime = mimeFromFileName(file.name || "") || (file.type?.startsWith("audio/") ? file.type : "audio/webm");
-  const i = raw.indexOf("base64,");
-  if (i < 0) return raw;
-  return `data:${fallbackMime};base64,${raw.slice(i + 7)}`;
-}
-
+/**
+ * Construye entradas de audio en **binario puro**: cada ChatAudioEntry trae
+ * `Blob` + `File` listo para `multipart/form-data`. NO se genera base64 en
+ * el cliente (binario de extremo a extremo: Blobs → POST /adjuntos/audios →
+ * R2 URL → chat payload).
+ *
+ * Si alguien necesita preview local en el hilo, use `previewUrl(dataUrl)` con
+ * un Object URL temporal a partir del blob.
+ */
 export async function filesToAudioEntries(files: Iterable<File> | null | undefined): Promise<ChatAudioEntry[]> {
   const added: ChatAudioEntry[] = [];
   for (const file of files || []) {
     if (!isChatAudioFile(file)) continue;
-    const dataUrl = normalizeAudioDataUrl(await fileToDataUrl(file), file);
-    if (!isBackendSupportedAudioDataUrl(dataUrl)) continue;
-    added.push({ name: file.name || "audio", dataUrl });
+    const mime = (file.type || mimeFromFileName(file.name || "") || "audio/webm").toLowerCase().split(";")[0];
+    if (!isBackendSupportedAudioMime(mime)) continue;
+    added.push({ name: file.name || "audio", blob: file, mime });
   }
   return added;
+}
+
+export function blobToPreviewUrl(blob: Blob): string {
+  try { return URL.createObjectURL(blob); } catch { return ""; }
 }
 
 export type VoiceRecorderHandle = {
@@ -78,6 +85,15 @@ export function createVoiceRecorder(): VoiceRecorderHandle {
   const stopStream = () => {
     stream?.getTracks().forEach((t) => t.stop());
     stream = null;
+  };
+
+  const chooseExt = (recMime: string): "webm" | "m4a" | "mp3" | "wav" | "ogg" => {
+    if (recMime.includes("webm")) return "webm";
+    if (recMime.includes("mp4") || recMime.includes("m4a")) return "m4a";
+    if (recMime.includes("mpeg") || recMime.includes("mp3")) return "mp3";
+    if (recMime.includes("wav")) return "wav";
+    if (recMime.includes("ogg")) return "ogg";
+    return "webm";
   };
 
   return {
@@ -113,11 +129,11 @@ export function createVoiceRecorder(): VoiceRecorderHandle {
             resolve(null);
             return;
           }
-          const dataUrl = await fileToDataUrl(blob);
-          resolve({
-            name: `nota-voz-${new Date().toISOString().replace(/[:.]/g, "-")}.webm`,
-            dataUrl,
-          });
+          const mime = (recorder.mimeType || "audio/webm").toLowerCase().split(";")[0];
+          const fileName = `nota-voz-${new Date().toISOString().replace(/[:.]/g, "-")}.${chooseExt(mime)}`;
+          // Wrap como File (nombre + última modificación) — no requiere base64.
+          const file = new File([blob], fileName, { type: mime });
+          resolve({ name: fileName, blob: file, mime });
         };
         recorder.stop();
       });

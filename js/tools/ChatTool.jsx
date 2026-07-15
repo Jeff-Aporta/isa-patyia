@@ -23,7 +23,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [refreshingThread, setRefreshingThread] = useState(false);
 
   if (!chat.loggedIn) {
-    return <ChatLoggedOutShell onNeedLogin={onNeedLogin} />;
+    return <ChatLoggedOutShell />;
   }
 
   const IsaSplitView = getIsaSplitView();

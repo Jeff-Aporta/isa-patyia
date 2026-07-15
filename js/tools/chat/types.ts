@@ -49,12 +49,23 @@ export type ConvLogSnapshot = {
 
 export type ChatImageEntry = {
   name: string;
-  dataUrl: string;
+  /** File binario (lista para multipart/form-data). */
+  blob: File;
+  mime: string;
+  /** Ancho/alto (opcional — UI preview). */
+  width?: number;
+  height?: number;
+  /** URL firmada R2 una vez subido; null todavía no subido. */
+  uploadedUrl?: string | null;
 };
 
 export type ChatAudioEntry = {
   name: string;
-  dataUrl: string;
+  /** File binario (lista para multipart/form-data). */
+  blob: File;
+  mime: string;
+  /** URL firmada R2 una vez subido; null todavía no subido. */
+  uploadedUrl?: string | null;
 };
 
 export type ConvListMeta = {

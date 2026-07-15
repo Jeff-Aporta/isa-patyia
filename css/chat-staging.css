@@ -126,35 +126,41 @@ html[data-mui-color-scheme="light"] .conv-log-shell::before {
     justify-content: flex-start;
   }
   &__btn {
-    opacity: 0.72;
-    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
-    &--down {
-      &.conv-msg-rating__btn--active {
-        color: #ef4444 !important;
-        opacity: 1;
-      }
+    opacity: 0.78;
+    transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+    iconify-icon {
+      color: inherit !important;
     }
-    &--up {
-      &.conv-msg-rating__btn--active {
-        color: #10b981 !important;
-        opacity: 1;
-      }
+    /* Sin calificar: neutro. Tras calificar: like verde / dislike rojo (vence Mui-disabled). */
+    &--up.conv-msg-rating__btn--active,
+    &--up.conv-msg-rating__btn--active.Mui-disabled {
+      color: #16a34a !important;
+      opacity: 1 !important;
+      filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.55));
     }
-    &:hover:not(:disabled) {
+    &--down.conv-msg-rating__btn--active,
+    &--down.conv-msg-rating__btn--active.Mui-disabled {
+      color: #ef4444 !important;
+      opacity: 1 !important;
+      filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.55));
+    }
+    &:hover:not(:disabled):not(.Mui-disabled) {
       opacity: 1;
+    }
+    &.Mui-disabled:not(.conv-msg-rating__btn--active) {
+      opacity: 0.35;
+      filter: none;
     }
   }
   html[data-mui-color-scheme="light"] & {
     &__btn {
-      &--down {
-        &.conv-msg-rating__btn--active {
-          color: #dc2626 !important;
-        }
+      &--up.conv-msg-rating__btn--active,
+      &--up.conv-msg-rating__btn--active.Mui-disabled {
+        color: #15803d !important;
       }
-      &--up {
-        &.conv-msg-rating__btn--active {
-          color: #059669 !important;
-        }
+      &--down.conv-msg-rating__btn--active,
+      &--down.conv-msg-rating__btn--active.Mui-disabled {
+        color: #dc2626 !important;
       }
     }
   }

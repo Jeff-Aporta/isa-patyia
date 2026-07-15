@@ -1,5 +1,5 @@
 /** Puente al runtime ISAFront (window.ISA). */
-import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY, PATYIA_ISS_LOCAL } from "./patyia.ts";
+import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_LS_KEY } from "./patyia.ts";
 
 const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
@@ -199,24 +199,59 @@ function patchIsaPatyiaAuthEvents(): void {
 function patchIssOnlyLocalConfig(): void {
   ensureIssLocalDefault();
   migrateIssLocalFromGatewayFlag();
+  try { localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1"); } catch { /* isa-patyia: solo ISS local */ }
   try { localStorage.setItem(GATEWAY_LS_KEY, "0"); } catch { /* auth/orquestador siempre prod */ }
   const cfg = window.ISA?.Config;
   if (!cfg) return;
   const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
-  cfg.isLocal = isLocalMode;
-  cfg.setLocal = (on: boolean) => { setLocalMode(on); };
+  cfg.isLocal = () => true;
+  cfg.setLocal = () => { /* sin switch de entorno en isa-patyia */ };
   cfg.base = () => online;
   cfg.apiUrl = (path: string) => online + (path.charAt(0) === "/" ? path : `/${path}`);
   cfg.connectionHint = () => "";
-  cfg.label = () => (isLocalMode() ? "Local" : "Producción");
+  cfg.label = () => "Local";
   cfg.EVENT = "patyia-apptools:lab-target";
+  patchIsaPatyiaTargetSwitchReadOnly();
+}
+
+/** Chip Local solo lectura (sin toggle staging) aunque AppShell/SessionMenu pidan TargetSwitch. */
+function patchIsaPatyiaTargetSwitchReadOnly(): void {
+  const bag = window.ISA;
+  const React = window.React;
+  const MUI = window.MaterialUI;
+  if (!bag?.UI || !React || !MUI) return;
+  const Icon = bag.UI.Icon;
+  bag.UI.TargetSwitch = function IsaPatyiaLocalBadge() {
+    return React.createElement(
+      MUI.Tooltip,
+      { title: "ISS local (127.0.0.1:8802)" },
+      React.createElement(
+        MUI.Chip,
+        {
+          size: "small",
+          color: "warning",
+          variant: "outlined",
+          icon: Icon ? React.createElement(Icon, { icon: "mdi:laptop", size: 16 }) : undefined,
+          label: "Local",
+          sx: { height: 28, cursor: "default", "& .MuiChip-label": { px: 0.75 } },
+        },
+      ),
+    );
+  };
+  if (bag.UI.TargetSwitchMenu) {
+    bag.UI.TargetSwitchMenu = function IsaPatyiaLocalMenuRow() {
+      return React.createElement(
+        MUI.Box,
+        { sx: { display: "flex", alignItems: "center", width: "100%", pl: 2, pr: 1.5, minHeight: 36, gap: 1 } },
+        Icon ? React.createElement(Icon, { icon: "mdi:laptop", size: 18 }) : null,
+        React.createElement(MUI.Typography, { variant: "body2" }, "Local"),
+      );
+    };
+  }
 }
 
 function patyiaBridgeBaseForLogin(): string {
-  const base = isLocalMode()
-    ? PATYIA_ISS_LOCAL
-    : "https://ayudascp-ia-staging.azurewebsites.net";
-  return base.replace(/\/$/, "");
+  return PATYIA_ISS_LOCAL.replace(/\/$/, "");
 }
 
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
@@ -226,11 +261,12 @@ export function bootstrapIsaPatyia(): void {
     ns: "ISA",
     app: "isa-patyia",
     theme: true,
-    widgets: { targetStyle: "chip" },
+    widgets: { targetStyle: "chip", targetReadOnlyLocal: true },
     session: true,
     auth: false,
     toast: true,
     loginButton: {
+      showTarget: false,
       runUnitTestUrl: () => `${patyiaBridgeBaseForLogin()}/api/run-unit-test`,
       getAuthHeaders: () => {
         const tok = window.ISA?.Session?.current?.()?.token;

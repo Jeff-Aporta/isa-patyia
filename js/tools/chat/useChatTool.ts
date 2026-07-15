@@ -21,6 +21,7 @@ import {
   buildConversacionPostBody,
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
+import { uploadAudios, uploadImagenes, type AdjuntoSubido } from "../../api/adjuntosApi.ts";
 import { CONVERSACIONES_LIST_SORT_DEFAULT } from "../../api/issListFilter.ts";
 import { fetchConvLogById, fetchConvLogByIdWithRetry } from "../../api/apiClient.ts";
 import * as LabSession from "../../api/sessionApi.ts";
@@ -761,8 +762,12 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
     setSending(true);
     setStreamText("");
-    const imagenes = images.map((i) => i.dataUrl);
-    const audioUrls = audios.map((a) => a.dataUrl);
+    // Snapshot local de adjuntos (File binario) — limpiamos la UI ya, los blobs quedan en entriesSnapshot.
+    const imageEntries: ChatImageEntry[] = [...images];
+    const audioEntries: ChatAudioEntry[] = [...audios];
+    // Placeholders para optimistic msg (URL firmada todavía no llega).
+    const imagenesPlaceholder: string[] = imageEntries.map((_, i) => `__img_pending_${i}__`);
+    const audioUrlsPlaceholder: string[] = audioEntries.map((_, i) => `__aud_pending_${i}__`);
     const convIdBefore = selectedId;
     const userName = convOwnerDisplayLabel(displayScope, jwt, sessionUser);
     const logCountBefore = lastLogApiCountRef.current;
@@ -771,13 +776,31 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setAudios([]);
     if (attachInputRef.current) attachInputRef.current.value = "";
     setLogMensajes((prev) => enrichLogVista(
-      [...prev, buildOptimisticUserMsg({ text, imagenes, audios: audioUrls, userName })],
+      [...prev, buildOptimisticUserMsg({ text, imagenes: imagenesPlaceholder, audios: audioUrlsPlaceholder, userName })],
       userName,
     ));
+    let uploadedImages: AdjuntoSubido[] = [];
+    let uploadedAudios: AdjuntoSubido[] = [];
     try {
+      if (imageEntries.length) {
+        uploadedImages = await uploadImagenes(
+          jwt,
+          imageEntries.map((i) => i.blob),
+          undefined,
+        );
+      }
+      if (audioEntries.length) {
+        uploadedAudios = await uploadAudios(
+          jwt,
+          audioEntries.map((a) => a.blob),
+          undefined,
+        );
+      }
+      const imagenesUrls = uploadedImages.map((u) => u.url);
+      const audiosUrls = uploadedAudios.map((u) => u.url);
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || undefined, imagenes, audios: audioUrls, mode: chatMode },
+        { prompt: text, iconversacion: selectedId || undefined, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode },
         (partial) => setStreamText(partial),
       );
       const finalText = String(result.respuesta || "").trim();
@@ -831,11 +854,11 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
       if (text) setDraft(text);
-      if (imagenes.length) {
-        setImages(imagenes.map((dataUrl, i) => ({ name: `imagen-${i + 1}`, dataUrl })));
+      if (imageEntries.length) {
+        setImages(imageEntries);
       }
-      if (audioUrls.length) {
-        setAudios(audioUrls.map((dataUrl, i) => ({ name: `audio-${i + 1}`, dataUrl })));
+      if (audioEntries.length) {
+        setAudios(audioEntries);
       }
       setLogMensajes((prev) => {
         const copy = [...prev];
@@ -1026,8 +1049,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     () => buildConversacionPostBody({
       prompt: draft,
       iconversacion: selectedId || undefined,
-      imagenes: images.map((i) => i.dataUrl),
-      audios: audios.map((a) => a.dataUrl),
+      // preview sin URLs (se generan tras subir); muestra placeholders.
+      imagenes: images.map((i) => i.uploadedUrl ?? `[local image: ${i.name} · ${i.mime} · ${i.blob.size}B]`),
+      audios: audios.map((a) => a.uploadedUrl ?? `[local audio: ${a.name} · ${a.mime} · ${a.blob.size}B]`),
       mode: chatMode,
     }),
     [draft, selectedId, images, audios, chatMode],

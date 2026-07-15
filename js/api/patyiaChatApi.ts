@@ -208,29 +208,34 @@ export async function postMensajeCalificado(
 export type SendMessageInput = {
   prompt: string;
   iconversacion?: number;
+  /**
+   * URLs R2 firmadas (multimedia/...). Subidas en cliente vía POST /api/adjuntos/imagenes.
+   * Compatibilidad: data URLs base64 legacy se rechazan (subir antes).
+   */
   imagenes?: string[];
+  /** URLs R2 firmadas (multimedia/...). Subidas en cliente vía POST /api/adjuntos/audios. */
   audios?: string[];
   mode?: string;
 };
 
-/** Normaliza a data URL base64 (formato esperado por POST /conversacion). */
-export function ensureBase64DataUrl(src: string): string {
-  const s = String(src || "").trim();
-  if (!s) return s;
-  if (s.startsWith("data:")) return s;
-  if (/^[A-Za-z0-9+/=\s]+$/.test(s.replace(/\s/g, ""))) {
-    return `data:image/png;base64,${s.replace(/\s/g, "")}`;
-  }
-  return s;
+function isHttpUrl(s: string): boolean {
+  return /^https?:\/\//i.test(String(s || "").trim());
 }
 
-/** Cuerpo JSON del POST /conversacion (misma forma que envía el chat). */
+function isLegacyDataUrl(s: string): boolean {
+  const v = String(s || "").trim();
+  return v.startsWith("data:audio/") || v.startsWith("data:image/");
+}
+
+/** Cuerpo JSON del POST /conversacion (URLs R2 firmadas; sin base64). */
 export function buildConversacionPostBody(input: SendMessageInput): Record<string, unknown> {
   const text = String(input.prompt || "").trim();
   const imagenes = (input.imagenes || [])
-    .map(ensureBase64DataUrl)
-    .filter(Boolean);
-  const audios = (input.audios || []).filter(Boolean);
+    .map((s) => String(s || "").trim())
+    .filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
+  const audios = (input.audios || [])
+    .map((s) => String(s || "").trim())
+    .filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
   const hasMedia = imagenes.length > 0 || audios.length > 0;
   const body: Record<string, unknown> = {
     prompt: text || (imagenes.length ? "(imagen adjunta)" : audios.length ? "(nota de voz)" : ""),
@@ -247,28 +252,23 @@ export function buildConversacionPostBody(input: SendMessageInput): Record<strin
   return body;
 }
 
-/** JSON legible para vista previa; trunca base64 largo manteniendo la estructura. */
+/** JSON legible para vista previa; resume URLs firmadas (no base64). */
 export function formatConversacionPostBodyPreview(
   body: Record<string, unknown>,
-  { maxB64 = 72 }: { maxB64?: number } = {},
+  { maxUrl = 80 }: { maxUrl?: number } = {},
 ): string {
   const clone = JSON.parse(JSON.stringify(body)) as Record<string, unknown>;
-  if (Array.isArray(clone.imagenes)) {
-    clone.imagenes = clone.imagenes.map((img, i) => {
-      const s = String(img ?? "");
-      if (s.length <= maxB64 + 24) return s;
-      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
-      return `${s.slice(0, maxB64)}… [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, img ${i + 1}]`;
-    });
-  }
-  if (Array.isArray(clone.audios)) {
-    clone.audios = clone.audios.map((aud, i) => {
-      const s = String(aud ?? "");
-      if (s.length <= maxB64 + 24) return s;
-      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
-      return `${s.slice(0, maxB64)}… [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, audio ${i + 1}]`;
-    });
-  }
+  const summarize = (u: unknown, label: string, i: number): string => {
+    const s = String(u ?? "");
+    if (s.length <= maxUrl + 24) return s;
+    if (s.startsWith("data:") || s.startsWith("http")) {
+      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "url";
+      return `${s.slice(0, maxUrl)}… [${mime}, ${s.length.toLocaleString("es-CO")} chars, ${label} ${i + 1}]`;
+    }
+    return `${s.slice(0, maxUrl)}…`;
+  };
+  if (Array.isArray(clone.imagenes)) clone.imagenes = clone.imagenes.map((img, i) => summarize(img, "img", i));
+  if (Array.isArray(clone.audios)) clone.audios = clone.audios.map((a, i) => summarize(a, "audio", i));
   return JSON.stringify(clone, null, 2);
 }
 

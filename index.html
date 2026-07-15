@@ -48,11 +48,6 @@
   <script>window.__ISA_DIST__=true;</script>
   <script src="vendor/front-shared/isa/js/core/app-meta.js"></script>
   <script>AppMeta.initFromDocument();</script>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
-  <link rel="preconnect" href="https://esm.sh" crossorigin />
-  <link rel="preconnect" href="https://unpkg.com" crossorigin />
-  <link rel="preconnect" href="https://code.iconify.design" crossorigin />
   <link rel="stylesheet" href="vendor/front-shared/isa/css/base.css" />
   <link rel="stylesheet" href="vendor/front-shared/isa/css/feedback.css" />
   <link rel="stylesheet" href="_dist/css/boot-loading.css" />
@@ -62,19 +57,18 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?external=react",
-    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-    "@emotion/react": "https://esm.sh/@emotion/react@11.14.0?external=react,react-dom",
-    "@emotion/styled": "https://esm.sh/@emotion/styled@11.14.1?external=react,react-dom,@emotion/react",
-    "@mui/material": "https://esm.sh/@mui/material@9.1.0?external=react,react-dom,@emotion/react,@emotion/styled",
-    "@mui/material/": "https://esm.sh/@mui/material@9.1.0/"
+    "react": "vendor/cdn/react.js",
+    "react-dom": "vendor/cdn/react-dom.js",
+    "react-dom/client": "vendor/cdn/react-dom-client.js",
+    "react/jsx-runtime": "vendor/cdn/jsx-runtime.js",
+    "@emotion/react": "vendor/cdn/emotion-react.js",
+    "@emotion/styled": "vendor/cdn/emotion-styled.js",
+    "@mui/material": "vendor/cdn/mui-material.js"
   }
 }
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.9/babel.min.js"></script>
-  <script defer src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js"></script>
+  <script defer src="vendor/cdn/babel.min.js"></script>
+  <script defer src="vendor/cdn/iconify-icon.min.js"></script>
   <script type="module" src="_dist/js/boot/loader.mjs"></script>
 </head>
 

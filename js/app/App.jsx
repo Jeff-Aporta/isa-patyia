@@ -1,14 +1,13 @@
-import { getReact, getReactDOM } from "../core/platform.ts";
+import { getReact, getMaterialUI, getReactDOM, UI, Session, Assets } from "../core/platform.ts";
 import { mergePartial, bootState, getSnapshot, hrefFor, subscribe } from "../core/urlState.ts";
-import { UI } from "../core/platform.ts";
 import { LogViewer } from "../tools/LogViewer.jsx";
 import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { TodosTool } from "../tools/TodosTool.jsx";
 import { ConfigTool } from "../tools/ConfigTool.jsx";
-import { Session } from "../core/platform.ts";
-import { Assets } from "../core/platform.ts";
 import * as SessionApi from "../api/sessionApi.ts";
+
+const { Stack, Tooltip, IconButton, Chip, Box } = getMaterialUI();
 
 const BRAND_HOME_EVENT = "isa:brand-home";
 
@@ -30,6 +29,24 @@ const PUBLIC_SCRUM_TOOLS = [
 
 function isPublicScrumBoot(todos) {
   return !!String(todos?.publicSlug ?? "").trim();
+}
+
+function LocalIssBadge() {
+  const { Icon } = UI;
+  return (
+    <Tooltip title="ISS local (127.0.0.1:8802)">
+      <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+        <Chip
+          size="small"
+          color="warning"
+          variant="outlined"
+          icon={<Icon icon="mdi:laptop" size={16} />}
+          label="Local"
+          sx={{ height: 28, cursor: "default", pointerEvents: "none", "& .MuiChip-label": { px: 0.75 } }}
+        />
+      </Box>
+    </Tooltip>
+  );
 }
 
 export function App() {
@@ -140,14 +157,33 @@ export function App() {
   if (!Shell) throw new Error("AppShell no cargado — revisar loader.mjs");
 
   const toolbarTools = publicScrumView ? null : (
-    <LoginButton
-      loginOpen={authOpen}
-      onLoginOpenChange={setAuthOpen}
-      onLoggedIn={() => {
-        setAuthTick((n) => n + 1);
-        window.dispatchEvent(new Event("isa-patyia:auth"));
-      }}
-    />
+    <Stack direction="row" spacing={0.75} alignItems="center" className="header-session-wrap">
+      <LocalIssBadge />
+      <LoginButton
+        loginOpen={authOpen}
+        onLoginOpenChange={setAuthOpen}
+        onLoggedIn={() => {
+          setAuthTick((n) => n + 1);
+          window.dispatchEvent(new Event("isa-patyia:auth"));
+        }}
+      />
+      {Session.isLoggedIn() ? (
+        <Tooltip title="Cerrar sesión" arrow>
+          <IconButton
+            size="small"
+            color="inherit"
+            aria-label="Cerrar sesión"
+            onClick={() => {
+              SessionApi.logout();
+              setAuthTick((n) => n + 1);
+              window.dispatchEvent(new Event("isa-patyia:auth"));
+            }}
+          >
+            <UI.Icon icon="mdi:logout" size={20} />
+          </IconButton>
+        </Tooltip>
+      ) : null}
+    </Stack>
   );
 
   return (
