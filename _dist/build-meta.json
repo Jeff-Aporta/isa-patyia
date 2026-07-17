@@ -1,10 +1,10 @@
 {
-  "builtAt": "2026-07-15T17:49:36.360Z",
-  "files": 129,
-  "bytesIn": 1215358,
-  "bytesOut": 706490,
-  "ratio": 0.581,
-  "hash": "6bebf2776676",
+  "builtAt": "2026-07-17T04:12:48.249Z",
+  "files": 132,
+  "bytesIn": 1235003,
+  "bytesOut": 715261,
+  "ratio": 0.579,
+  "hash": "41f33af6a1c0",
   "entries": [
     {
       "src": "css/app.css",
@@ -57,8 +57,8 @@
     {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 12604,
-      "bytesOut": 5955
+      "bytesIn": 12601,
+      "bytesOut": 5956
     },
     {
       "src": "js/api/issListFilter.ts",
@@ -103,9 +103,15 @@
       "bytesOut": 6062
     },
     {
+      "src": "js/api/sysValuesCopy.ts",
+      "dist": "_dist/js/api/sysValuesCopy.js",
+      "bytesIn": 5190,
+      "bytesOut": 2566
+    },
+    {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 19070,
+      "bytesIn": 19046,
       "bytesOut": 8223
     },
     {
@@ -123,26 +129,38 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 8274,
-      "bytesOut": 4569
+      "bytesIn": 7870,
+      "bytesOut": 4275
     },
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 5003,
-      "bytesOut": 3099
+      "bytesIn": 7370,
+      "bytesOut": 3728
     },
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2777,
-      "bytesOut": 1715
+      "bytesIn": 2964,
+      "bytesOut": 1681
     },
     {
       "src": "js/boot/theme-init.mjs",
       "dist": "_dist/js/boot/theme-init.mjs",
       "bytesIn": 376,
       "bytesOut": 227
+    },
+    {
+      "src": "js/components/CopySysValuesModal.jsx",
+      "dist": "_dist/js/components/CopySysValuesModal.js",
+      "bytesIn": 3637,
+      "bytesOut": 1882
+    },
+    {
+      "src": "js/components/IssTargetSwitch.jsx",
+      "dist": "_dist/js/components/IssTargetSwitch.js",
+      "bytesIn": 7183,
+      "bytesOut": 3485
     },
     {
       "src": "js/core/convLog.ts",
@@ -183,14 +201,14 @@
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 5550,
-      "bytesOut": 2527
+      "bytesIn": 6987,
+      "bytesOut": 3111
     },
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 11810,
-      "bytesOut": 7078
+      "bytesIn": 11885,
+      "bytesOut": 7030
     },
     {
       "src": "js/core/promptVariables.ts",
