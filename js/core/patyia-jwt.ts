@@ -163,7 +163,8 @@ export async function hydratePatyJwtFromServer(username: string | null | undefin
       return null;
     }
     return savePatyJwt(data.token, u, data.expiresAt ?? null);
-  } catch {
+  } catch (err) {
+    console.warn("[paty-jwt] hydrate falló:", err instanceof Error ? err.message : err);
     return loadPatyJwt();
   }
 }

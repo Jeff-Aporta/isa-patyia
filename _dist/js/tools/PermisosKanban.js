@@ -1,88 +1,427 @@
-// js/core/patyia.ts
-window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
-var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
-var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
-var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
-function isLocalMode() {
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
   try {
-    return localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) === "1";
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+
+// js/core/patyia.ts
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
+  try {
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
+  } catch {
+  }
+  return isDevHost() ? "local" : "staging";
+}
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
   } catch {
     return false;
   }
 }
-function resolveIssApiBase() {
-  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
-  return base.endsWith("/api") ? base : `${base}/api`;
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
 }
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
 
 // js/core/platform.ts
-var bridge = () => window.ISAFront.createPlatformBridge("ISA");
-var UI = {
-  get Icon() {
-    return bridge().UI.Icon;
-  },
-  get TargetSwitch() {
-    return bridge().UI.TargetSwitch;
-  },
-  get ThemeSwitch() {
-    return bridge().UI.ThemeSwitch;
-  },
-  get useRealtimeStatus() {
-    return bridge().UI.useRealtimeStatus;
-  },
-  get RealtimeStatusDot() {
-    return bridge().UI.RealtimeStatusDot;
-  },
-  get Loading() {
-    return bridge().UI.Loading;
-  },
-  get ErrorBox() {
-    return bridge().UI.ErrorBox;
-  },
-  get LoginGate() {
-    return bridge().UI.LoginGate;
-  },
-  get LoginButton() {
-    return bridge().UI.LoginButton;
+var bridge, UI, Session, getReact, getReactDOM, getMaterialUI;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
+      }
+    };
+    Session = {
+      current: () => bridge().Session.current(),
+      isLoggedIn: () => bridge().Session.isLoggedIn(),
+      username: () => bridge().Session.username(),
+      realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+      auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+      authHeader: () => bridge().Session.authHeader(),
+      appHeader: () => bridge().Session.appHeader(),
+      appId: () => bridge().Session.appId(),
+      login: (u, p, opts) => bridge().Session.login(u, p, opts),
+      logout: () => bridge().Session.logout(),
+      refreshProfile: () => bridge().Session.refreshProfile(),
+      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+      setViewAs: (u) => bridge().Session.setViewAs?.(u),
+      clearViewAs: () => bridge().Session.clearViewAs?.(),
+      capabilities: () => bridge().Session.capabilities(),
+      adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+      capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+      can: (cap) => bridge().Session.can(cap),
+      blockReason: (cap) => bridge().Session.blockReason(cap),
+      get EVENT() {
+        return bridge().Session.EVENT;
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getReactDOM = () => window.ISAFront.getReactDOM();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
   }
-};
-var Session = {
-  current: () => bridge().Session.current(),
-  isLoggedIn: () => bridge().Session.isLoggedIn(),
-  username: () => bridge().Session.username(),
-  realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-  viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-  isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
-  auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
-  authHeader: () => bridge().Session.authHeader(),
-  appHeader: () => bridge().Session.appHeader(),
-  appId: () => bridge().Session.appId(),
-  login: (u, p, opts) => bridge().Session.login(u, p, opts),
-  logout: () => bridge().Session.logout(),
-  refreshProfile: () => bridge().Session.refreshProfile(),
-  fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-  searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-  setViewAs: (u) => bridge().Session.setViewAs?.(u),
-  clearViewAs: () => bridge().Session.clearViewAs?.(),
-  capabilities: () => bridge().Session.capabilities(),
-  adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
-  capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
-  can: (cap) => bridge().Session.can(cap),
-  blockReason: (cap) => bridge().Session.blockReason(cap),
-  get EVENT() {
-    return bridge().Session.EVENT;
+});
+
+// js/tools/roleHierarchy.js
+function isSameInheritanceLine(a, b) {
+  const x = String(a ?? "").trim();
+  const y = String(b ?? "").trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+}
+function canManageRole(actorJerarquia, targetJerarquia) {
+  const target = String(targetJerarquia ?? "").trim();
+  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
+  return isSameInheritanceLine(actorJerarquia, target);
+}
+function actorCanManageTarget(actorJerarquias, targetJerarquia) {
+  for (const j of actorJerarquias ?? []) {
+    if (canManageRole(j, targetJerarquia)) return true;
   }
+  return false;
+}
+var DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
+
+// js/tools/roleCanonicalMeta.js
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+  }
+});
+
+// js/api/systemConfigApi.ts
+function systemApiBase() {
+  return resolveIssApiBase();
+}
+function systemApiHeaders(extra = {}) {
+  const h = {
+    Accept: "application/json",
+    "X-Patyia-Auth-Mode": "w",
+    ...extra
+  };
+  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
+  return h;
+}
+function unwrapBody(data) {
+  const d = data;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
+    const e = enc;
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  let inner = d;
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    inner = d.respuesta;
+  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    inner = d.body;
+  }
+  const nested = inner;
+  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
+    inner = nested.respuesta;
+  }
+  return inner;
+}
+async function jsonFetch(path, init) {
+  const res = await fetch(`${systemApiBase()}${path}`, init);
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok) {
+    let msg = res.statusText;
+    if (ct.includes("json")) {
+      try {
+        const j = await res.json();
+        const enc = j.encabezado;
+        if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
+        else {
+          const inner = j.respuesta || j.body || j;
+          msg = String(inner?.message || inner?.error || j.message || j.error || msg);
+        }
+      } catch {
+      }
+    }
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  if (!ct.includes("json")) {
+    throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
+  }
+  const raw = await res.json();
+  return unwrapBody(raw);
+}
+function permEntityKey(entry) {
+  return String(entry?.ientity ?? entry?.iusuario ?? "").trim();
+}
+function normalizePermEntry(entry) {
+  const key = permEntityKey(entry);
+  return {
+    iusuario: key,
+    ientity: key || void 0,
+    itipo: entry?.itipo === "user" ? "user" : "role",
+    permisos: entry?.permisos && typeof entry.permisos === "object" ? entry.permisos : {},
+    bactivo: entry?.bactivo !== false
+  };
+}
+function normalizePermissionsPayload(raw) {
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e));
+  const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
+  return { ...raw, roles, users };
+}
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
+async function fetchPermissionsMe(opts) {
+  if (!Session.isLoggedIn()) return null;
+  const sessionKey = permissionsMeSessionKey();
+  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
+    return PERMISSIONS_ME_CACHE.value;
+  }
+  const f = opts?.fetchImpl ?? fetch;
+  const res = await f(`${systemApiBase()}/permissions/me`, {
+    method: "GET",
+    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    credentials: "omit"
+  });
+  if (res.status === 401) {
+    PERMISSIONS_ME_CACHE.value = null;
+    return null;
+  }
+  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+  const data = unwrapBody(await res.json());
+  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+  PERMISSIONS_ME_CACHE.value = data;
+  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
+  PERMISSIONS_ME_CACHE.key = sessionKey;
+  return data;
+}
+function applyPermissionsMeToKanban(data, me) {
+  if (!me) return data;
+  return {
+    ...data,
+    canManage: me.capabilities.canManagePermissions,
+    canAssignUserRoles: me.capabilities.canAssignUserRoles,
+    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
+    actorRoles: me.roles,
+    _permissionsMe: me
+  };
+}
+async function fetchPermisos(opts) {
+  const qs = new URLSearchParams();
+  const search = String(opts?.search ?? "").trim();
+  const role = String(opts?.role ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : void 0;
+  if (search) qs.set("search", search);
+  if (role) qs.set("role", role);
+  if (limit != null) qs.set("limit", String(limit));
+  const q = qs.toString();
+  const [raw, me] = await Promise.all([
+    jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermissionsMe().catch(() => null)
+  ]);
+  return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
+}
+async function searchPermisosUsers(query = "", opts) {
+  const q = String(query ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : 10;
+  const result = await fetchPermisos({
+    ...q ? { search: q } : {},
+    ...opts?.role ? { role: opts.role } : {},
+    limit
+  });
+  return (result.users ?? []).map((e) => ({
+    username: String(e.iusuario ?? "").trim().toUpperCase(),
+    displayName: (() => {
+      const p = e.permisos;
+      const name = p?.nombre ?? p?.namedisplay;
+      return name != null && String(name).trim() ? String(name).trim() : null;
+    })()
+  })).filter((u) => u.username).slice(0, limit);
+}
+var PERMISSIONS_ME_CACHE;
+var init_systemConfigApi = __esm({
+  "js/api/systemConfigApi.ts"() {
+    init_platform();
+    init_patyia();
+    PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+  }
+});
+
+// js/tools/PermisosKanban.jsx
+init_platform();
+
+// js/tools/permFixFilter.js
+var SESSION_OWNER_FIX_FILTER = {
+  itercero: "{{itercero}}",
+  icontacto: "{{icontacto}}"
 };
-var getReact = () => window.ISAFront.getReact();
-var getReactDOM = () => window.ISAFront.getReactDOM();
-var getMaterialUI = () => window.ISAFront.getMaterialUI();
+
+// js/tools/permisosForm.js
+var FLAG_DEFS = [
+  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
+  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
+];
+var ACCESS_MODES = [
+  { value: "off", label: "Sin acceso" },
+  { value: "allow", label: "Permitido" },
+  { value: "filtered", label: "Filtrado (fixFilter)" }
+];
+var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
+
+// js/tools/permisosKanbanShared.js
+init_roleHierarchy();
+init_roleCanonicalMeta();
+function userCardLabels(username, displayName) {
+  const user = String(username ?? "").trim().toUpperCase();
+  const name = String(displayName ?? "").trim();
+  if (name) return { primary: name, secondary: user };
+  return { primary: user, secondary: null };
+}
+function normalizePermisosUsername(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  return s || null;
+}
+function columnAtPoint(columnIds, listRefs, clientX, clientY) {
+  for (const colId of columnIds) {
+    const el = listRefs.current[colId];
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
+  }
+  return null;
+}
+function canActorManageColumn(actorJerarquias, targetColumn) {
+  if (!targetColumn) return false;
+  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
+  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
+  if (!filtered.length) return false;
+  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
+}
+function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
+  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
+}
+function pointInRef(ref, clientX, clientY) {
+  const el = ref?.current;
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+
+// js/tools/permisosRoleConfig.jsx
+init_platform();
+
+// js/ui/shared.jsx
+init_platform();
+init_platform();
 
 // js/ui/ImageLightboxDialog.jsx
+init_platform();
+init_platform();
 import { jsx } from "react/jsx-runtime";
 var { useEffect, useState } = getReact();
 
 // js/ui/GlassDialog.jsx
+init_platform();
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -120,6 +459,7 @@ function resolveGlassDialogProps({
   onClose,
   maxWidth = "md",
   fullWidth = true,
+  fullScreen = false,
   paperMaxWidth,
   paperClassName = "",
   slotProps,
@@ -128,13 +468,28 @@ function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (fullScreen) {
+    paper.sx = {
+      ...paper.sx,
+      m: 0,
+      margin: 0,
+      maxWidth: "100%",
+      width: "100%",
+      height: "100%",
+      maxHeight: "100dvh",
+      borderRadius: 0,
+      border: "none",
+      boxShadow: "none"
+    };
+  }
   const shared = {
     open,
     onClose,
-    maxWidth,
+    maxWidth: fullScreen ? false : maxWidth,
     fullWidth,
+    fullScreen,
     scroll: "paper",
-    className: "isa-login-dialog isa-glass-dialog",
+    className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
     slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
     PaperProps: paper,
     ...rest
@@ -199,9 +554,9 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
     onClose ? /* @__PURE__ */ jsx2(IconButton2, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon3, { icon: "mdi:close", size: 18 }) }) : null
   ] });
 }
-function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
   return /* @__PURE__ */ jsxs(Dialog, { ...props, children: [
     header,
     children
@@ -234,84 +589,8 @@ var theme = createTheme({
   }
 });
 
-// js/tools/permFixFilter.js
-var SESSION_OWNER_FIX_FILTER = {
-  itercero: "{{itercero}}",
-  icontacto: "{{icontacto}}"
-};
-
-// js/tools/permisosForm.js
-var FLAG_DEFS = [
-  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
-  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
-  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
-];
-var ACCESS_MODES = [
-  { value: "off", label: "Sin acceso" },
-  { value: "allow", label: "Permitido" },
-  { value: "filtered", label: "Filtrado (fixFilter)" }
-];
-var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
-
-// js/tools/roleHierarchy.js
-var DEFAULT_FOR_UNKNOWN = "999";
-function isSameInheritanceLine(a, b) {
-  const x = String(a ?? "").trim();
-  const y = String(b ?? "").trim();
-  if (!x || !y) return false;
-  if (x === y) return true;
-  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
-}
-function canManageRole(actorJerarquia, targetJerarquia) {
-  const target = String(targetJerarquia ?? "").trim();
-  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
-  return isSameInheritanceLine(actorJerarquia, target);
-}
-function actorCanManageTarget(actorJerarquias, targetJerarquia) {
-  for (const j of actorJerarquias ?? []) {
-    if (canManageRole(j, targetJerarquia)) return true;
-  }
-  return false;
-}
-
-// js/tools/permisosKanbanShared.js
-function userCardLabels(username, displayName) {
-  const user = String(username ?? "").trim().toUpperCase();
-  const name = String(displayName ?? "").trim();
-  if (name) return { primary: name, secondary: user };
-  return { primary: user, secondary: null };
-}
-function normalizePermisosUsername(raw) {
-  const s = String(raw ?? "").trim().toUpperCase();
-  return s || null;
-}
-function columnAtPoint(columnIds, listRefs, clientX, clientY) {
-  for (const colId of columnIds) {
-    const el = listRefs.current[colId];
-    if (!el) continue;
-    const rect = el.getBoundingClientRect();
-    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
-  }
-  return null;
-}
-function canActorManageColumn(actorJerarquias, targetColumn) {
-  if (!targetColumn) return false;
-  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
-  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
-  if (!filtered.length) return false;
-  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
-}
-function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
-  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
-}
-function pointInRef(ref, clientX, clientY) {
-  const el = ref?.current;
-  if (!el) return false;
-  const rect = el.getBoundingClientRect();
-  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
-}
-
 // js/editors/jsonEditor.jsx
+init_platform();
 import { jsx as jsx4 } from "react/jsx-runtime";
 
 // js/tools/permisosRouteCatalog.js
@@ -368,6 +647,7 @@ var ROUTE_GROUPS = [
 var CATALOG_KEYS = new Set(ROUTE_GROUPS.flatMap((g) => g.routes.map((r) => r.key)));
 
 // js/tools/permisosRoleTransfer.js
+init_roleHierarchy();
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -452,160 +732,15 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
   return { ok: true };
 }
 
-// js/api/systemConfigApi.ts
-function systemApiBase() {
-  return resolveIssApiBase();
-}
-function systemApiHeaders(extra = {}) {
-  const h = {
-    Accept: "application/json",
-    "X-Patyia-Auth-Mode": "w",
-    ...extra
-  };
-  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
-  return h;
-}
-function unwrapBody(data) {
-  const d = data;
-  const enc = d?.encabezado;
-  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
-    const e = enc;
-    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
-  }
-  let inner = d;
-  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
-    inner = d.respuesta;
-  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
-    inner = d.body;
-  }
-  const nested = inner;
-  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
-    inner = nested.respuesta;
-  }
-  return inner;
-}
-async function jsonFetch(path, init) {
-  const res = await fetch(`${systemApiBase()}${path}`, init);
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    let msg = res.statusText;
-    if (ct.includes("json")) {
-      try {
-        const j = await res.json();
-        const enc = j.encabezado;
-        if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
-        else {
-          const inner = j.respuesta || j.body || j;
-          msg = String(inner?.message || inner?.error || j.message || j.error || msg);
-        }
-      } catch {
-      }
-    }
-    throw new Error(msg || `HTTP ${res.status}`);
-  }
-  if (!ct.includes("json")) {
-    throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
-  }
-  const raw = await res.json();
-  return unwrapBody(raw);
-}
-function permEntityKey(entry) {
-  return String(entry?.ientity ?? entry?.iusuario ?? "").trim();
-}
-function normalizePermEntry(entry) {
-  const key = permEntityKey(entry);
-  return {
-    iusuario: key,
-    ientity: key || void 0,
-    itipo: entry?.itipo === "user" ? "user" : "role",
-    permisos: entry?.permisos && typeof entry.permisos === "object" ? entry.permisos : {},
-    bactivo: entry?.bactivo !== false
-  };
-}
-function normalizePermissionsPayload(raw) {
-  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e));
-  const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
-  return { ...raw, roles, users };
-}
-var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
-function permissionsMeSessionKey() {
-  if (!Session.isLoggedIn()) return "anon";
-  const tok = Session?.current?.()?.token;
-  const user = Session.username?.() || Session?.current?.()?.username;
-  return String(tok || user || "anon").trim();
-}
-async function fetchPermissionsMe(opts) {
-  if (!Session.isLoggedIn()) return null;
-  const sessionKey = permissionsMeSessionKey();
-  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
-    return PERMISSIONS_ME_CACHE.value;
-  }
-  const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...systemApiHeaders(), Accept: "application/json" },
-    credentials: "omit"
-  });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
-}
-function applyPermissionsMeToKanban(data, me) {
-  if (!me) return data;
-  return {
-    ...data,
-    canManage: me.capabilities.canManagePermissions,
-    canAssignUserRoles: me.capabilities.canAssignUserRoles,
-    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
-    actorRoles: me.roles,
-    _permissionsMe: me
-  };
-}
-async function fetchPermisos(opts) {
-  const qs = new URLSearchParams();
-  const search = String(opts?.search ?? "").trim();
-  const role = String(opts?.role ?? "").trim();
-  if (search) qs.set("search", search);
-  if (role) qs.set("role", role);
-  const q = qs.toString();
-  const [raw, me] = await Promise.all([
-    jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
-    fetchPermissionsMe().catch(() => null)
-  ]);
-  return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
-}
-async function searchPermisosUsers(query = "", opts) {
-  const q = String(query ?? "").trim();
-  const result = await fetchPermisos({
-    ...q ? { search: q } : {},
-    ...opts?.role ? { role: opts.role } : {}
-  });
-  return (result.users ?? []).map((e) => ({
-    username: String(e.iusuario ?? "").trim().toUpperCase(),
-    displayName: (() => {
-      const p = e.permisos;
-      const name = p?.nombre ?? p?.namedisplay;
-      return name != null && String(name).trim() ? String(name).trim() : null;
-    })()
-  })).filter((u) => u.username);
-}
-
 // js/tools/PermisosUserAutocomplete.jsx
+init_platform();
+init_systemConfigApi();
 import { jsx as jsx5 } from "react/jsx-runtime";
 import { createElement } from "react";
 var { useState: useState3, useEffect: useEffect3, useRef, useCallback } = getReact();
 var { Autocomplete, TextField, Typography: Typography2, Box: Box2 } = getMaterialUI();
 var DEBOUNCE_MS = 300;
+var DEFAULT_LIMIT = 10;
 function optionLabel(row) {
   if (!row) return "";
   return row.displayName ? `${row.displayName} (${row.username})` : row.username;
@@ -617,7 +752,20 @@ function usernameFromInput(text) {
   if (paren) return normalizePermisosUsername(paren[1]);
   return normalizePermisosUsername(raw.split(/\s+/)[0]);
 }
-function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "Usuario", roleFilter = null, allowNew = true }) {
+function PermisosUserAutocomplete({
+  value,
+  onChange,
+  disabled = false,
+  label = "Usuario",
+  roleFilter = null,
+  allowNew = true,
+  limit = DEFAULT_LIMIT,
+  variant = "dialog",
+  placeholder,
+  className,
+  sx
+}) {
+  const toolbar = variant === "toolbar";
   const username = value ? normalizePermisosUsername(value) : null;
   const [inputValue, setInputValue] = useState3("");
   const [options, setOptions] = useState3([]);
@@ -629,7 +777,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     const id = ++requestIdRef.current;
     setLoading(true);
     try {
-      const users = await searchPermisosUsers(query, roleFilter ? { role: roleFilter } : void 0);
+      const users = await searchPermisosUsers(query, {
+        ...roleFilter ? { role: roleFilter } : {},
+        limit
+      });
       if (id !== requestIdRef.current) return users;
       setOptions(users);
       return users;
@@ -639,7 +790,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     } finally {
       if (id === requestIdRef.current) setLoading(false);
     }
-  }, [roleFilter]);
+  }, [roleFilter, limit]);
   const scheduleSearch = useCallback((query) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -666,12 +817,25 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     runSearch("");
   }, [disabled, runSearch]);
   if (disabled) {
-    return /* @__PURE__ */ jsx5(TextField, { label, fullWidth: true, size: "small", value: username || "", disabled: true, placeholder: "Sin usuario" });
+    return /* @__PURE__ */ jsx5(
+      TextField,
+      {
+        label,
+        fullWidth: !toolbar,
+        size: "small",
+        value: username || "",
+        disabled: true,
+        placeholder: "Sin usuario",
+        className,
+        sx
+      }
+    );
   }
+  const ph = placeholder ?? (toolbar ? "Buscar usuario\u2026" : "Buscar login ISS\u2026");
   return /* @__PURE__ */ jsx5(
     Autocomplete,
     {
-      fullWidth: true,
+      fullWidth: !toolbar,
       size: "small",
       openOnFocus: true,
       autoHighlight: true,
@@ -686,8 +850,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
       filterOptions: (x) => x,
       getOptionLabel: optionLabel,
       isOptionEqualToValue: (a, b) => String(a?.username) === String(b?.username),
-      noOptionsText: loading ? "Buscando\u2026" : "Sin coincidencias \u2014 escriba login",
+      noOptionsText: loading ? "Buscando\u2026" : toolbar ? "Sin coincidencias" : "Sin coincidencias \u2014 escriba login",
       loadingText: "Buscando\u2026",
+      className,
+      sx,
       onOpen: () => {
         if (!options.length) runSearch(inputValue);
       },
@@ -697,7 +863,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         scheduleSearch(text);
         if (allowNew) {
           const u = usernameFromInput(text);
-          if (u && !text.includes("(")) onChange(u);
+          onChange(u);
         }
       },
       onChange: (_e, row) => {
@@ -715,9 +881,16 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         TextField,
         {
           ...params,
-          label,
-          placeholder: "Buscar login ISS\u2026",
-          helperText: allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS"
+          label: toolbar ? "" : label,
+          placeholder: ph,
+          InputLabelProps: { ...params.InputLabelProps, shrink: toolbar ? false : true },
+          helperText: toolbar ? void 0 : allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS",
+          sx: toolbar ? {
+            "& .MuiOutlinedInput-root": { height: 28, minHeight: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 }
+          } : void 0
         }
       )
     }

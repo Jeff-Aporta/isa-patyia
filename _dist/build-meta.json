@@ -1,16 +1,16 @@
 {
-  "builtAt": "2026-07-01T14:33:18.501Z",
-  "files": 128,
-  "bytesIn": 1181122,
-  "bytesOut": 691503,
-  "ratio": 0.585,
-  "hash": "c2f48cc1d567",
+  "builtAt": "2026-07-17T04:12:48.249Z",
+  "files": 132,
+  "bytesIn": 1235003,
+  "bytesOut": 715261,
+  "ratio": 0.579,
+  "hash": "41f33af6a1c0",
   "entries": [
     {
       "src": "css/app.css",
       "dist": "_dist/css/app.css",
-      "bytesIn": 101738,
-      "bytesOut": 73386
+      "bytesIn": 102214,
+      "bytesOut": 73726
     },
     {
       "src": "css/boot-loading.css",
@@ -21,8 +21,8 @@
     {
       "src": "css/chat-staging.css",
       "dist": "_dist/css/chat-staging.css",
-      "bytesIn": 45895,
-      "bytesOut": 33929
+      "bytesIn": 46467,
+      "bytesOut": 34383
     },
     {
       "src": "css/neon-glass-bridge.css",
@@ -49,10 +49,16 @@
       "bytesOut": 6463
     },
     {
+      "src": "js/api/adjuntosApi.ts",
+      "dist": "_dist/js/api/adjuntosApi.js",
+      "bytesIn": 4549,
+      "bytesOut": 1489
+    },
+    {
       "src": "js/api/apiClient.ts",
       "dist": "_dist/js/api/apiClient.js",
-      "bytesIn": 11773,
-      "bytesOut": 5564
+      "bytesIn": 12601,
+      "bytesOut": 5956
     },
     {
       "src": "js/api/issListFilter.ts",
@@ -69,8 +75,8 @@
     {
       "src": "js/api/patyiaChatApi.ts",
       "dist": "_dist/js/api/patyiaChatApi.js",
-      "bytesIn": 10608,
-      "bytesOut": 4342
+      "bytesIn": 10775,
+      "bytesOut": 4278
     },
     {
       "src": "js/api/patyiaTokens.ts",
@@ -93,14 +99,20 @@
     {
       "src": "js/api/sessionApi.ts",
       "dist": "_dist/js/api/sessionApi.js",
-      "bytesIn": 6733,
-      "bytesOut": 3563
+      "bytesIn": 11897,
+      "bytesOut": 6062
+    },
+    {
+      "src": "js/api/sysValuesCopy.ts",
+      "dist": "_dist/js/api/sysValuesCopy.js",
+      "bytesIn": 5190,
+      "bytesOut": 2566
     },
     {
       "src": "js/api/systemConfigApi.ts",
       "dist": "_dist/js/api/systemConfigApi.js",
-      "bytesIn": 17445,
-      "bytesOut": 7448
+      "bytesIn": 19046,
+      "bytesOut": 8223
     },
     {
       "src": "js/api/todosApi.ts",
@@ -117,20 +129,20 @@
     {
       "src": "js/app/App.jsx",
       "dist": "_dist/js/app/App.js",
-      "bytesIn": 5581,
-      "bytesOut": 3226
+      "bytesIn": 7870,
+      "bytesOut": 4275
     },
     {
       "src": "js/boot/cdn.mjs",
       "dist": "_dist/js/boot/cdn.mjs",
-      "bytesIn": 4908,
-      "bytesOut": 3099
+      "bytesIn": 7370,
+      "bytesOut": 3728
     },
     {
       "src": "js/boot/loader.mjs",
       "dist": "_dist/js/boot/loader.mjs",
-      "bytesIn": 2777,
-      "bytesOut": 1715
+      "bytesIn": 2964,
+      "bytesOut": 1681
     },
     {
       "src": "js/boot/theme-init.mjs",
@@ -139,16 +151,28 @@
       "bytesOut": 227
     },
     {
+      "src": "js/components/CopySysValuesModal.jsx",
+      "dist": "_dist/js/components/CopySysValuesModal.js",
+      "bytesIn": 3637,
+      "bytesOut": 1882
+    },
+    {
+      "src": "js/components/IssTargetSwitch.jsx",
+      "dist": "_dist/js/components/IssTargetSwitch.js",
+      "bytesIn": 7183,
+      "bytesOut": 3485
+    },
+    {
       "src": "js/core/convLog.ts",
       "dist": "_dist/js/core/convLog.js",
-      "bytesIn": 34907,
-      "bytesOut": 17592
+      "bytesIn": 36468,
+      "bytesOut": 18521
     },
     {
       "src": "js/core/fileSearchTrace.js",
       "dist": "_dist/js/core/fileSearchTrace.js",
-      "bytesIn": 2866,
-      "bytesOut": 1444
+      "bytesIn": 7060,
+      "bytesOut": 3385
     },
     {
       "src": "js/core/isa-setup.ts",
@@ -177,14 +201,14 @@
     {
       "src": "js/core/patyia.ts",
       "dist": "_dist/js/core/patyia.js",
-      "bytesIn": 5730,
-      "bytesOut": 2636
+      "bytesIn": 6987,
+      "bytesOut": 3111
     },
     {
       "src": "js/core/platform.ts",
       "dist": "_dist/js/core/platform.js",
-      "bytesIn": 10395,
-      "bytesOut": 6370
+      "bytesIn": 11885,
+      "bytesOut": 7030
     },
     {
       "src": "js/core/promptVariables.ts",
@@ -219,8 +243,8 @@
     {
       "src": "js/tools/ChatTool.jsx",
       "dist": "_dist/js/tools/ChatTool.js",
-      "bytesIn": 9031,
-      "bytesOut": 5876
+      "bytesIn": 9005,
+      "bytesOut": 5865
     },
     {
       "src": "js/tools/ConfigPromptsOperativosPanel.jsx",
@@ -243,14 +267,14 @@
     {
       "src": "js/tools/PermisosKanban.jsx",
       "dist": "_dist/js/tools/PermisosKanban.js",
-      "bytesIn": 27006,
-      "bytesOut": 14602
+      "bytesIn": 27181,
+      "bytesOut": 14703
     },
     {
       "src": "js/tools/PermisosPanel.jsx",
       "dist": "_dist/js/tools/PermisosPanel.js",
-      "bytesIn": 20825,
-      "bytesOut": 10377
+      "bytesIn": 21356,
+      "bytesOut": 10601
     },
     {
       "src": "js/tools/PermisosRoleFilterAutocomplete.jsx",
@@ -279,20 +303,20 @@
     {
       "src": "js/tools/UserPermissionsSummaryDialog.jsx",
       "dist": "_dist/js/tools/UserPermissionsSummaryDialog.js",
-      "bytesIn": 13064,
-      "bytesOut": 7263
+      "bytesIn": 13045,
+      "bytesOut": 7245
     },
     {
       "src": "js/tools/chat/ChatComposer.jsx",
       "dist": "_dist/js/tools/chat/ChatComposer.js",
-      "bytesIn": 6177,
-      "bytesOut": 4130
+      "bytesIn": 7119,
+      "bytesOut": 4421
     },
     {
       "src": "js/tools/chat/ChatLoggedOutShell.jsx",
       "dist": "_dist/js/tools/chat/ChatLoggedOutShell.js",
-      "bytesIn": 4319,
-      "bytesOut": 3628
+      "bytesIn": 3873,
+      "bytesOut": 3227
     },
     {
       "src": "js/tools/chat/ChatMainPanel.jsx",
@@ -339,8 +363,8 @@
     {
       "src": "js/tools/chat/audio.ts",
       "dist": "_dist/js/tools/chat/audio.js",
-      "bytesIn": 4794,
-      "bytesOut": 2312
+      "bytesIn": 5748,
+      "bytesOut": 2549
     },
     {
       "src": "js/tools/chat/auditScope.ts",
@@ -357,8 +381,8 @@
     {
       "src": "js/tools/chat/images.ts",
       "dist": "_dist/js/tools/chat/images.js",
-      "bytesIn": 3335,
-      "bytesOut": 1814
+      "bytesIn": 3832,
+      "bytesOut": 1883
     },
     {
       "src": "js/tools/chat/mensajesModel.ts",
@@ -375,14 +399,14 @@
     {
       "src": "js/tools/chat/types.ts",
       "dist": "_dist/js/tools/chat/types.js",
-      "bytesIn": 2550,
+      "bytesIn": 2971,
       "bytesOut": 0
     },
     {
       "src": "js/tools/chat/useChatTool.ts",
       "dist": "_dist/js/tools/chat/useChatTool.js",
-      "bytesIn": 41696,
-      "bytesOut": 17106
+      "bytesIn": 43197,
+      "bytesOut": 17657
     },
     {
       "src": "js/tools/configFieldPersist.ts",
@@ -429,8 +453,8 @@
     {
       "src": "js/tools/permisosKanbanShared.js",
       "dist": "_dist/js/tools/permisosKanbanShared.js",
-      "bytesIn": 8807,
-      "bytesOut": 4420
+      "bytesIn": 8888,
+      "bytesOut": 4446
     },
     {
       "src": "js/tools/permisosRoleConfig.jsx",
@@ -513,14 +537,14 @@
     {
       "src": "js/tools/promptsSql/promptActions.ts",
       "dist": "_dist/js/tools/promptsSql/promptActions.js",
-      "bytesIn": 7550,
-      "bytesOut": 4553
+      "bytesIn": 7562,
+      "bytesOut": 4571
     },
     {
       "src": "js/tools/promptsSql/usePromptsSqlTool.ts",
       "dist": "_dist/js/tools/promptsSql/usePromptsSqlTool.js",
-      "bytesIn": 11576,
-      "bytesOut": 5603
+      "bytesIn": 11999,
+      "bytesOut": 5815
     },
     {
       "src": "js/tools/roleCanonicalMeta.js",
@@ -537,8 +561,8 @@
     {
       "src": "js/tools/roleHierarchyTree/RoleHierarchyView.tsx",
       "dist": "_dist/js/tools/roleHierarchyTree/RoleHierarchyView.js",
-      "bytesIn": 14325,
-      "bytesOut": 7033
+      "bytesIn": 14846,
+      "bytesOut": 7300
     },
     {
       "src": "js/tools/roleHierarchyTree/RolePermissionsEditor.tsx",
@@ -639,8 +663,8 @@
     {
       "src": "js/tools/todos/TodosShellParts.jsx",
       "dist": "_dist/js/tools/todos/TodosShellParts.js",
-      "bytesIn": 2952,
-      "bytesOut": 2349
+      "bytesIn": 2876,
+      "bytesOut": 2288
     },
     {
       "src": "js/tools/todos/UserAssignAutocomplete.jsx",
@@ -687,8 +711,8 @@
     {
       "src": "js/ui/ConvLogWebView.jsx",
       "dist": "_dist/js/ui/ConvLogWebView.js",
-      "bytesIn": 63330,
-      "bytesOut": 34707
+      "bytesIn": 65511,
+      "bytesOut": 35509
     },
     {
       "src": "js/ui/GlassDialog.jsx",
@@ -735,14 +759,14 @@
     {
       "src": "js/ui/shared.jsx",
       "dist": "_dist/js/ui/shared.js",
-      "bytesIn": 26738,
-      "bytesOut": 16470
+      "bytesIn": 30005,
+      "bytesOut": 18397
     },
     {
       "src": "js/ui/treeView/TreeRowItem.tsx",
       "dist": "_dist/js/ui/treeView/TreeRowItem.js",
-      "bytesIn": 10291,
-      "bytesOut": 4851
+      "bytesIn": 10426,
+      "bytesOut": 4908
     },
     {
       "src": "js/ui/treeView/TreeView.tsx",

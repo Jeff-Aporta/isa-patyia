@@ -1360,13 +1360,17 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
     return "Marcar como no útil";
   })();
 
+  /* Colores intensos solo tras calificar (activo); el otro voto queda atenuado por CSS disabled. */
+  const upRatedSx = useful ? { color: "#16a34a !important" } : undefined;
+  const downRatedSx = notUseful ? { color: "#ef4444 !important" } : undefined;
+
   return (
     <Stack
       direction="row"
       spacing={0.25}
       alignItems="center"
       justifyContent={align === "right" ? "flex-end" : "flex-start"}
-      className={`conv-msg-rating conv-msg-rating--${align}`}
+      className={`conv-msg-rating conv-msg-rating--${align}${rated ? " conv-msg-rating--rated" : ""}`}
       role="group"
       aria-label="Calificación del mensaje"
     >
@@ -1379,8 +1383,17 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
             aria-pressed={useful}
             disabled={disabled || busy || rated}
             onClick={() => onRate(true)}
+            sx={upRatedSx}
           >
-            {busy && !rated ? <CircularProgress size={16} /> : <Icon icon={useful ? "mdi:thumb-up" : "mdi:thumb-up-outline"} size={18} />}
+            {busy && !rated ? (
+              <CircularProgress size={16} />
+            ) : (
+              <Icon
+                icon={useful ? "mdi:thumb-up" : "mdi:thumb-up-outline"}
+                size={18}
+                style={useful ? { color: "#16a34a" } : undefined}
+              />
+            )}
           </IconButton>
         </span>
       </Tooltip>
@@ -1393,8 +1406,13 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
             aria-pressed={notUseful}
             disabled={disabled || busy || rated}
             onClick={() => onRate(false)}
+            sx={downRatedSx}
           >
-            <Icon icon={notUseful ? "mdi:thumb-down" : "mdi:thumb-down-outline"} size={18} />
+            <Icon
+              icon={notUseful ? "mdi:thumb-down" : "mdi:thumb-down-outline"}
+              size={18}
+              style={notUseful ? { color: "#ef4444" } : undefined}
+            />
           </IconButton>
         </span>
       </Tooltip>

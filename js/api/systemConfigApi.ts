@@ -25,6 +25,10 @@ function systemApiHeaders(extra: Record<string, string> = {}): Record<string, st
     ...extra,
   };
   if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  // Defensa: ISS no debe recibir suplantoación / «ver como» (solo Bearer real).
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
   return h;
 }
 
@@ -157,7 +161,7 @@ export type InstruccionUpsertPayload = {
   author?: string;
 };
 
-/** GET /api/system/instrucciones — dbo.INSTRUCCION (reemplaza rag-lab / patyia bridge). */
+/** GET /api/system/instrucciones — dbo.INSTRUCCION (canónico). */
 export async function fetchInstruccionesSystemConfig(): Promise<InstruccionesSystemConfig> {
   const body = await jsonFetch<{
     rows?: InstruccionesSystemRow[];
@@ -219,7 +223,7 @@ export type HierarchyListResponse = {
   count: number;
 };
 
-export type PermisosFetchOpts = { search?: string; role?: string };
+export type PermisosFetchOpts = { search?: string; role?: string; /** Top N usuarios (autocomplete). */ limit?: number };
 
 /**
  * Shape insoft.permissions-me v1 — fuente de verdad de permisos del usuario.
@@ -358,8 +362,12 @@ export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<Permissio
   const qs = new URLSearchParams();
   const search = String(opts?.search ?? "").trim();
   const role = String(opts?.role ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit))
+    ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit))))
+    : undefined;
   if (search) qs.set("search", search);
   if (role) qs.set("role", role);
+  if (limit != null) qs.set("limit", String(limit));
   const q = qs.toString();
   // Fuente de verdad: /permissions/me (capabilities del JWT actual con herencias).
   // Se llama en paralelo al listado y sus flags sobrescriben los del listado.
@@ -372,12 +380,16 @@ export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<Permissio
 
 export type PermisosUserOption = { username: string; displayName: string | null };
 
-/** GET /api/system/permisos?search= — usuarios ISS (SYS_USR_PERMISSIONS), sin scrum. */
-export async function searchPermisosUsers(query = "", opts?: { role?: string }): Promise<PermisosUserOption[]> {
+/** GET /api/system/permisos?search=&limit= — usuarios ISS (SYS_USR_PERMISSIONS). Default limit 10 (autocomplete). */
+export async function searchPermisosUsers(query = "", opts?: { role?: string; limit?: number }): Promise<PermisosUserOption[]> {
   const q = String(query ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit))
+    ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit))))
+    : 10;
   const result = await fetchPermisos({
     ...(q ? { search: q } : {}),
     ...(opts?.role ? { role: opts.role } : {}),
+    limit,
   });
   return (result.users ?? []).map((e) => ({
     username: String(e.iusuario ?? "").trim().toUpperCase(),
@@ -386,7 +398,7 @@ export async function searchPermisosUsers(query = "", opts?: { role?: string }):
       const name = p?.nombre ?? p?.namedisplay;
       return name != null && String(name).trim() ? String(name).trim() : null;
     })(),
-  })).filter((u) => u.username);
+  })).filter((u) => u.username).slice(0, limit);
 }
 
 export async function putPermisoRole(name: string, permisos: Record<string, unknown>): Promise<PermissionsData> {

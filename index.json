@@ -13,7 +13,8 @@
     "imageAlt": "ISA PatyIA — asistente PatyIA staging"
   },
   "frontSharedPin": "a13fc29",
-  "frontSharedVendor": true,
+  "frontSharedVendor": false,
+  "cdnVendor": false,
   "useDist": true,
   "headIndent": "  ",
   "viewport": "width=device-width, initial-scale=1.0",
@@ -29,13 +30,7 @@
     "local:css/neon-glass-bridge.css",
     "local:css/app.css"
   ],
-  "preconnect": [
-    "https://cdn.jsdelivr.net",
-    "https://cdnjs.cloudflare.com",
-    "https://esm.sh",
-    "https://unpkg.com",
-    "https://code.iconify.design"
-  ],
+  "preconnect": [],
   "libs": [
     "iconify",
     "loader-mjs"
@@ -47,6 +42,8 @@
     "prodUnderTitle": true,
     "badges": ["cloudflare-pages", "github-pages-prod", "github-repo", "react", "mui", "typescript"],
     "mergeHistory": [
+      { "date": "2026-07-17", "url": "https://db09d2b7.isa-patyia-dev.pages.dev" },
+      { "date": "2026-07-15", "url": "https://121cc5cc.isa-patyia-dev.pages.dev" },
       { "date": "2026-07-06", "url": "https://8dc93bfd.isa-patyia-dev.pages.dev" },
       { "date": "2026-07-02", "url": "https://8ce645b1.isa-patyia-dev.pages.dev" },
       { "date": "2026-06-30", "url": "https://9555f121.isa-patyia-dev.pages.dev" },

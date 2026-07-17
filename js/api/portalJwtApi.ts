@@ -1,5 +1,10 @@
-/** JWT portal soporte-staging — persistido en BD_AUTH por usuario (system-login). Token `app`. */
-import { Config, Session } from "../core/platform.ts";
+/** JWT portal soporte-staging — persistido en BD_AUTH por usuario (system-login). Token `app`.
+ *
+ * NO usar Config.apiUrl: en isa-patyia Config.base se remapea al ISS (Staging/Prod/Local).
+ * portal-jwt vive en system-login vía main-orchestrator.
+ */
+import { Session } from "../core/platform.ts";
+import { ORCH_ONLINE } from "../core/patyia.ts";
 
 export const PATYIA_PORTAL_ID = "soporte-staging";
 
@@ -39,6 +44,10 @@ export type PortalJwtCatalogResponse = {
   error?: string;
 };
 
+function orchBase(): string {
+  return ORCH_ONLINE.replace(/\/$/, "");
+}
+
 function authHeaders(): HeadersInit {
   const h: Record<string, string> = { Accept: "application/json" };
   if (Session.isLoggedIn()) {
@@ -49,7 +58,7 @@ function authHeaders(): HeadersInit {
 
 function portalUrl(portal: string, query = "") {
   const q = `portal=${encodeURIComponent(portal)}${query ? `&${query}` : ""}`;
-  return Config.apiUrl(`/api/auth/portal-jwt?${q}`);
+  return `${orchBase()}/api/auth/portal-jwt?${q}`;
 }
 
 export async function fetchPortalJwt(portal = PATYIA_PORTAL_ID): Promise<PortalJwtResponse> {
@@ -78,7 +87,7 @@ export async function fetchPortalJwtForUser(
 /** Catálogo de JWT guardados en BD_AUTH — solo admin. */
 export async function fetchPortalJwtCatalog(portal = PATYIA_PORTAL_ID): Promise<PortalJwtCatalogResponse> {
   const res = await fetch(
-    Config.apiUrl(`/api/auth/portal-jwt/catalog?portal=${encodeURIComponent(portal)}`),
+    `${orchBase()}/api/auth/portal-jwt/catalog?portal=${encodeURIComponent(portal)}`,
     { headers: authHeaders() },
   );
   const data = (await res.json().catch(() => ({}))) as PortalJwtCatalogResponse;

@@ -6,15 +6,29 @@
   const React = window.React;
   const MUI = MaterialUI;
 
-  /** Avatar por nombre — https://ui-avatars.com (misma API que isa-patyia buildUserAvatarUrl). */
+  /** Fallback local — preferir ISAFront.buildUserAvatarUrl (isa-patyia / canónico). */
+  var AVATAR_BG_PALETTE = [
+    "1e90ff", "0ea5e9", "14b8a6", "22c55e", "84cc16",
+    "eab308", "f97316", "ef4444", "ec4899", "a855f7",
+    "6366f1", "64748b",
+  ];
+  function avatarBgFromName(name) {
+    var h = 0;
+    var s = String(name || "");
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+  }
   function buildAvatarUrl(name, size) {
-    const label = String(name || "").trim() || "Usuario";
-    const params = new URLSearchParams({
+    var shared = window.ISAFront && window.ISAFront.buildUserAvatarUrl;
+    if (typeof shared === "function") return shared(name, size || 64);
+    var label = String(name || "").trim() || "Usuario";
+    var params = new URLSearchParams({
       name: label,
       size: String(size || 64),
-      background: "1e90ff",
+      background: avatarBgFromName(label.toLowerCase()),
       color: "ffffff",
       bold: "true",
+      rounded: "true",
       format: "svg",
     });
     return "https://ui-avatars.com/api/?" + params.toString();
@@ -32,6 +46,7 @@
     const UI = bag.UI || window.ISAFront.UI || {};
     const Icon = UI.Icon;
     const TargetSwitchMenu = UI.TargetSwitchMenu;
+    const ViewAsRoleMenu = UI.ViewAsRoleMenu;
     const UnitTestModal = UI.UnitTestStreamModal;
     const ViewAsDialog = UI.ViewAsDialog || window.ISAFront?.UI?.ViewAsDialog;
     const [anchor, setAnchor] = React.useState(null);
@@ -70,6 +85,8 @@
     const viewAsUsername = props.viewAsUsername !== undefined
       ? (props.viewAsUsername || "")
       : (Session?.viewAsUsername?.() || "");
+    const viewAsRole = String(bag.AppSession?.getViewAsRole?.() || "").trim();
+    const viewingAsRole = !!viewAsRole;
     const sessionRole = String(
       props.role
       || bag.AppSession?.resolveDisplayRole?.()
@@ -208,18 +225,18 @@
                 variant: "filled",
                 className: "header-session-chip",
                 clickable: true,
-                icon: Icon
-                  ? React.createElement(Icon, { icon: "mdi:account-circle-outline", size: 18 })
-                  : React.createElement("img", {
+                /* Rol original → avatar UI Avatars; simulación → ojo */
+                avatar: (viewAsUsername || viewingAsRole)
+                  ? undefined
+                  : React.createElement(MUI.Avatar, {
                     className: "header-session-avatar",
                     src: avatarUrl,
                     alt: "",
-                    decoding: "async",
-                    loading: "lazy",
-                    width: 18,
-                    height: 18,
-                    style: { borderRadius: "50%", margin: 0 },
+                    sx: { width: 22, height: 22, fontSize: 11 },
                   }),
+                icon: (viewAsUsername || viewingAsRole) && Icon
+                  ? React.createElement(Icon, { icon: "mdi:eye-outline", size: 18 })
+                  : undefined,
                 label: headerLabel,
                 onClick: function (e) { setAnchor(e.currentTarget); },
                 sx: Object.assign({
@@ -229,7 +246,8 @@
                   py: 0.375,
                   px: 1.25,
                   "& .MuiChip-label": { px: 0.25, py: 0.25 },
-                }, chipSx, viewAsUsername ? {
+                  "& .MuiChip-avatar": { width: 22, height: 22, marginLeft: "4px", marginRight: "-2px" },
+                }, chipSx, (viewAsUsername || viewingAsRole) ? {
                   bgcolor: "rgba(245, 158, 11, 0.18)",
                   border: "1px solid rgba(245, 158, 11, 0.45)",
                 } : {}),
@@ -246,12 +264,25 @@
           anchorEl: anchor,
           open: open,
           onClose: closeMenu,
+          disableScrollLock: true,
           anchorOrigin: { vertical: "bottom", horizontal: "right" },
           transformOrigin: { vertical: "top", horizontal: "right" },
           TransitionProps: { onExited: handleMenuExited },
           slotProps: {
-            paper: { sx: { minWidth: 240, maxWidth: 280, mt: 0.5, overflow: "hidden" } },
+            paper: {
+              className: "isa-user-session-menu-paper",
+              sx: { minWidth: 240, maxWidth: 280, mt: 0.5, overflow: "hidden" },
+            },
             transition: { onExited: handleMenuExited },
+            root: { className: "isa-user-session-menu" },
+            backdrop: {
+              className: "isa-user-session-menu-backdrop",
+              sx: {
+                backgroundColor: "rgba(0, 0, 0, 0.01)",
+                backdropFilter: "none",
+                WebkitBackdropFilter: "none",
+              },
+            },
           },
         },
         React.createElement(
@@ -274,6 +305,10 @@
             : null,
         ),
         React.createElement(MUI.Divider, null),
+        // «Ver como rol» — Select embebido (UI.ViewAsRoleMenu; re-render vía caps-changed)
+        (typeof (UI.ViewAsRoleMenu || ViewAsRoleMenu) === "function"
+          ? React.createElement(UI.ViewAsRoleMenu || ViewAsRoleMenu, { onPicked: closeMenu, key: "view-as-role" })
+          : null),
         canViewAs
           ? React.createElement(
             MUI.MenuItem,
@@ -287,7 +322,10 @@
                 React.createElement(Icon, { icon: "mdi:account-switch-outline", size: 18 }),
               )
               : null,
-            React.createElement(MUI.ListItemText, { primary: "Suplantación…" }),
+            React.createElement(MUI.ListItemText, {
+              primary: "Suplantación…",
+              secondary: "Cambiar usuario (servidor)",
+            }),
           )
           : null,
         viewAsUsername && (props.onViewAsClear || Session?.clearViewAs)

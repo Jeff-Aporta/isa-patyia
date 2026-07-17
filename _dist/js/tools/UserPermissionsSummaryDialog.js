@@ -1,41 +1,163 @@
-// js/core/patyia.ts
-window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
-var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
-
-// js/core/platform.ts
-var bridge = () => window.ISAFront.createPlatformBridge("ISA");
-var UI = {
-  get Icon() {
-    return bridge().UI.Icon;
-  },
-  get TargetSwitch() {
-    return bridge().UI.TargetSwitch;
-  },
-  get ThemeSwitch() {
-    return bridge().UI.ThemeSwitch;
-  },
-  get useRealtimeStatus() {
-    return bridge().UI.useRealtimeStatus;
-  },
-  get RealtimeStatusDot() {
-    return bridge().UI.RealtimeStatusDot;
-  },
-  get Loading() {
-    return bridge().UI.Loading;
-  },
-  get ErrorBox() {
-    return bridge().UI.ErrorBox;
-  },
-  get LoginGate() {
-    return bridge().UI.LoginGate;
-  },
-  get LoginButton() {
-    return bridge().UI.LoginButton;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
   }
 };
-var getReact = () => window.ISAFront.getReact();
-var getMaterialUI = () => window.ISAFront.getMaterialUI();
+
+// js/core/patyia.ts
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
+
+// js/core/platform.ts
+var bridge, UI, getReact, getMaterialUI;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+  }
+});
+
+// js/tools/roleHierarchy.js
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+function ancestorsFromPath(jerarquia) {
+  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
+  const out = [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    out.push(parts.slice(0, i + 1).join("."));
+  }
+  return out;
+}
+var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_ROLE_JERARQUIA = {
+      visitante: "0",
+      dev: "0.0",
+      dev_lead: "0.0.0",
+      dev_iss: "0.0.1",
+      admn: "0.1",
+      auditador: "0.1.0",
+      admn_isapatyia: "0.1.0.0"
+    };
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
+
+// js/tools/roleCanonicalMeta.js
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      dev: {
+        namedisplay: "Desarrollador b\xE1sico",
+        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      },
+      admn: {
+        namedisplay: "Admn b\xE1sico",
+        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+      },
+      admn_isapatyia: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+      }
+    };
+  }
+});
+
+// js/tools/UserPermissionsSummaryDialog.jsx
+init_platform();
 
 // js/tools/permisosForm.js
 var FLAG_DEFS = [
@@ -53,55 +175,12 @@ function userRoles(permisos) {
   return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
 }
 
-// js/tools/roleHierarchy.js
-var DEFAULT_ROLE_JERARQUIA = {
-  visitante: "0",
-  dev: "0.0",
-  dev_lead: "0.0.0",
-  dev_iss: "0.0.1",
-  admn: "0.1",
-  auditador: "0.1.0",
-  admn_isapatyia: "0.1.0.0"
-};
-var DEFAULT_FOR_UNKNOWN = "999";
-function getRoleJerarquia(roleName, permisos) {
-  if (permisos && typeof permisos === "object") {
-    const j = permisos.jerarquia;
-    if (typeof j === "string" && j.trim()) return j.trim();
-  }
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
-}
-function ancestorsFromPath(jerarquia) {
-  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
-  const out = [];
-  for (let i = parts.length - 1; i >= 0; i--) {
-    out.push(parts.slice(0, i + 1).join("."));
-  }
-  return out;
-}
-
-// js/tools/roleCanonicalMeta.js
-var CANONICAL_ROLE_META = {
-  dev: {
-    namedisplay: "Desarrollador b\xE1sico",
-    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
-  },
-  admn: {
-    namedisplay: "Admn b\xE1sico",
-    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
-  },
-  admn_isapatyia: {
-    namedisplay: "Admn ISA-Paty",
-    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
-  }
-};
-function canonicalRoleMeta(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return CANONICAL_ROLE_META[key] ?? null;
-}
+// js/tools/UserPermissionsSummaryDialog.jsx
+init_roleHierarchy();
 
 // js/tools/permisosKanbanShared.js
+init_roleHierarchy();
+init_roleCanonicalMeta();
 function permEntryKey(entry) {
   return String(entry?.iusuario ?? entry?.ientity ?? "").trim();
 }
@@ -128,6 +207,7 @@ function roleTitleFromEntry(entry) {
 }
 
 // js/ui/GlassDialog.jsx
+init_platform();
 import { jsx, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -165,6 +245,7 @@ function resolveGlassDialogProps({
   onClose,
   maxWidth = "md",
   fullWidth = true,
+  fullScreen = false,
   paperMaxWidth,
   paperClassName = "",
   slotProps,
@@ -173,13 +254,28 @@ function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (fullScreen) {
+    paper.sx = {
+      ...paper.sx,
+      m: 0,
+      margin: 0,
+      maxWidth: "100%",
+      width: "100%",
+      height: "100%",
+      maxHeight: "100dvh",
+      borderRadius: 0,
+      border: "none",
+      boxShadow: "none"
+    };
+  }
   const shared = {
     open,
     onClose,
-    maxWidth,
+    maxWidth: fullScreen ? false : maxWidth,
     fullWidth,
+    fullScreen,
     scroll: "paper",
-    className: "isa-login-dialog isa-glass-dialog",
+    className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
     slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
     PaperProps: paper,
     ...rest
@@ -244,9 +340,9 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
     onClose ? /* @__PURE__ */ jsx(IconButton, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx(Icon, { icon: "mdi:close", size: 18 }) }) : null
   ] });
 }
-function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
   return /* @__PURE__ */ jsxs(Dialog, { ...props, children: [
     header,
     children

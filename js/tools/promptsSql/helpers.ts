@@ -144,15 +144,17 @@ export function unitIntervalFieldProps(value, fallback, onValue) {
     variant: "outlined",
     type: "number",
     value: value ?? fallback,
-    slotProps: {
-      htmlInput: {
-        step: "0.01",
-        min: "0",
-        max: "1",
-        style: { fontSize: "0.72rem", width: "4.5rem" },
-        onKeyDown: handleKeyDown,
-        onWheel: handleWheel,
-      },
+    inputProps: {
+      step: "0.01",
+      min: "0",
+      max: "1",
+      style: { fontSize: "0.72rem", width: "4.5rem" },
+      onKeyDown: handleKeyDown,
+      onWheel: handleWheel,
+    },
+    sx: {
+      "& .MuiInputBase-root": { minHeight: 28 },
+      "& .MuiInputBase-input": { py: "3px", px: "6px", fontSize: "0.72rem" },
     },
     onChange: handleChange,
   };

@@ -105,3 +105,8 @@ export function isBranchZero(jerarquia) {
   const j = String(jerarquia ?? "").trim();
   return j === "0" || j.startsWith("0.");
 }
+
+/** ¿El actor tiene rol Dev Lead? (único que puede crear roles en jerarquía, por ahora). */
+export function actorIsDevLead(actorRoles) {
+  return (actorRoles ?? []).some((r) => String(r ?? "").trim().toLowerCase() === "dev_lead");
+}

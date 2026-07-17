@@ -4,7 +4,7 @@ import { buildPublicScrumUrl } from "../../api/todosApi.ts";
 const { Box, Typography, Button, Stack, Alert, CircularProgress, Tooltip, IconButton } = getMaterialUI();
 const { Icon } = UI;
 
-export function TodosLoggedOutShell({ onNeedLogin }) {
+export function TodosLoggedOutShell() {
   return (
     <Box className="paty-todos-shell">
       <Box className="paty-todos-gate">
@@ -12,9 +12,8 @@ export function TodosLoggedOutShell({ onNeedLogin }) {
           <Icon icon="mdi:view-column" width="2.5em" height="2.5em" style={{ opacity: 0.7 }} />
           <Typography variant="h6" sx={{ fontWeight: 700 }}>Scrum</Typography>
           <Alert severity="info" sx={{ width: "100%" }}>
-            Inicia sesión para acceder al tablero Scrum.
+            Inicia sesión con el botón de la barra superior para acceder al tablero Scrum.
           </Alert>
-          <Button variant="contained" onClick={() => onNeedLogin?.()}>Iniciar sesión</Button>
         </Stack>
       </Box>
     </Box>

@@ -1,5 +1,5 @@
 /** Puente al runtime ISAFront (window.ISA). */
-import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, setLocalMode, ORCH_ONLINE, GATEWAY_LS_KEY, PATYIA_ISS_LOCAL } from "./patyia.ts";
+import { ensureIssLocalDefault, migrateIssLocalFromGatewayFlag, isLocalMode, isDevHost, getIssTarget, setIssTarget, patyiaIssBase, ORCH_ONLINE, GATEWAY_LS_KEY, PATYIA_ISS_LOCAL, PATYIA_ISS_PROD_URL, PATYIA_ISS_URL } from "./patyia.ts";
 
 const bridge = () => window.ISAFront.createPlatformBridge("ISA");
 
@@ -196,6 +196,8 @@ function patchIsaPatyiaAuthEvents(): void {
   };
 }
 
+/** Patches post-registro: mantiene `Config.base/apiUrl/isLocal/setLocal` reflejando el target 3-way.
+ *  Antes bloqueaba el switch; ahora respeta `getIssTarget()` y dispara el evento correcto. */
 function patchIssOnlyLocalConfig(): void {
   ensureIssLocalDefault();
   migrateIssLocalFromGatewayFlag();
@@ -203,20 +205,85 @@ function patchIssOnlyLocalConfig(): void {
   const cfg = window.ISA?.Config;
   if (!cfg) return;
   const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
-  cfg.isLocal = isLocalMode;
-  cfg.setLocal = (on: boolean) => { setLocalMode(on); };
-  cfg.base = () => online;
-  cfg.apiUrl = (path: string) => online + (path.charAt(0) === "/" ? path : `/${path}`);
-  cfg.connectionHint = () => "";
-  cfg.label = () => (isLocalMode() ? "Local" : "Producción");
-  cfg.EVENT = "patyia-apptools:lab-target";
+  const recompute = () => {
+    const t = getIssTarget();
+    cfg.isLocal = () => t === "local";
+    cfg.setLocal = (on: boolean) => { setIssTarget(on ? "local" : (isDevHost() ? "local" : "staging")); return true; };
+    const base = t === "local" ? PATYIA_ISS_LOCAL.replace(/\/$/, "") : t === "production" ? PATYIA_ISS_PROD_URL.replace(/\/$/, "") : PATYIA_ISS_URL.replace(/\/$/, "");
+    cfg.base = () => base;
+    cfg.apiUrl = (path: string) => base + (path.charAt(0) === "/" ? path : `/${path}`);
+    cfg.label = () => t === "local" ? "Local" : t === "production" ? "Producción" : "Staging";
+    cfg.connectionHint = () => "";
+  };
+  recompute();
+  cfg.EVENT = "patyia-apptools:iss-target-changed";
+  try { window.addEventListener("patyia-apptools:iss-target-changed", recompute); } catch { /* ignore */ }
 }
 
-function patyiaBridgeBaseForLogin(): string {
-  const base = isLocalMode()
-    ? PATYIA_ISS_LOCAL
-    : "https://ayudascp-ia-staging.azurewebsites.net";
-  return base.replace(/\/$/, "");
+/** Reemplaza el `TargetSwitch*` global con uno 3-way / 2-way según host. */
+function patchIsaPatyiaTargetSwitchReadOnly(): void {
+  const bag = window.ISA;
+  if (!bag?.UI) return;
+  // Lazy: el componente se importa de forma dinámica para evitar dependencia circular con App.jsx.
+  import("../components/IssTargetSwitch.jsx").then((mod) => {
+    if (mod?.IssTargetChip) bag.UI.TargetSwitch = mod.IssTargetChip;
+    // IssTargetMenuWithAdmin incluye el botón "Copiar sys_values a producción" (admin patyia + staging).
+    if (mod?.IssTargetMenuWithAdmin) bag.UI.TargetSwitchMenu = mod.IssTargetMenuWithAdmin;
+    else if (mod?.IssTargetMenu) bag.UI.TargetSwitchMenu = mod.IssTargetMenu;
+  }).catch((e) => console.warn("IssTargetSwitch load:", e));
+  // ViewAsRoleMenu lo registra App.jsx (mismo bundle que sessionApi/bootMeCaps).
+}
+
+function patyiaIssBaseForLogin(): string {
+  return patyiaIssBase();
+}
+
+/** MUI medium = 56px de alto. Forzar size=small en el Theme de AppShell.
+ *  Light: sin glow neón en containedPrimary (se ve mal sobre fondos claros). */
+function patchCompactFormThemeDefaults(): void {
+  const Theme = window.ISA?.Theme;
+  const MUI = window.MaterialUI;
+  if (!Theme?.useThemeMode || !MUI?.createTheme) return;
+
+  const lightContained = {
+    boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
+    "&:hover": { boxShadow: "0 2px 6px rgba(15,23,42,0.12)" },
+  };
+  const darkContained = {
+    boxShadow: "0 0 20px rgba(30,144,255,0.35)",
+    "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" },
+  };
+  const buttonPatch = (mode: string) => ({
+    MuiButton: {
+      styleOverrides: {
+        containedPrimary: mode === "light" ? lightContained : darkContained,
+      },
+    },
+  });
+  const formDefaults = {
+    MuiTextField: { defaultProps: { size: "small", margin: "dense" } },
+    MuiFormControl: { defaultProps: { size: "small", margin: "dense" } },
+    MuiAutocomplete: { defaultProps: { size: "small" } },
+    MuiSelect: { defaultProps: { size: "small" } },
+    MuiInputBase: { defaultProps: { size: "small" } },
+  };
+
+  const orig = Theme.useThemeMode.bind(Theme);
+  Theme.useThemeMode = () => {
+    const tm = orig();
+    const mode = String(tm?.mode ?? tm?.theme?.palette?.mode ?? "dark");
+    const theme = MUI.createTheme(tm.theme, {
+      components: { ...formDefaults, ...buttonPatch(mode) },
+    });
+    return { ...tm, theme };
+  };
+  if (typeof Theme.makeTheme === "function") {
+    const origMake = Theme.makeTheme.bind(Theme);
+    Theme.makeTheme = (mode: string) =>
+      MUI.createTheme(origMake(mode), {
+        components: { ...formDefaults, ...buttonPatch(mode) },
+      });
+  }
 }
 
 /** Registra ISA PatyIA en ISAFront — invocado desde isa-setup.ts al arranque. */
@@ -226,12 +293,13 @@ export function bootstrapIsaPatyia(): void {
     ns: "ISA",
     app: "isa-patyia",
     theme: true,
-    widgets: { targetStyle: "chip" },
+    widgets: { targetStyle: "chip", targetReadOnlyLocal: false },
     session: true,
     auth: false,
     toast: true,
     loginButton: {
-      runUnitTestUrl: () => `${patyiaBridgeBaseForLogin()}/api/run-unit-test`,
+      showTarget: false,
+      runUnitTestUrl: () => `${patyiaIssBaseForLogin()}/api/run-unit-test`,
       getAuthHeaders: () => {
         const tok = window.ISA?.Session?.current?.()?.token;
         return tok ? window.ISA!.Session.authHeader() : {};
@@ -241,7 +309,9 @@ export function bootstrapIsaPatyia(): void {
   });
 
   patchIssOnlyLocalConfig();
+  patchIsaPatyiaTargetSwitchReadOnly();
   patchIsaPatyiaAuthEvents();
+  patchCompactFormThemeDefaults();
 
   if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
     window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);

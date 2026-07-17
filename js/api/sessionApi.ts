@@ -3,12 +3,73 @@
  * Single source of truth: el endpoint del ISS. No se consulta ISAFront.Session.can() para
  * visibilidad/habilitación de tools. Solo el chat mantiene checks legacy (infra.target.switch,
  * patyia.chat.*) hasta que ISS los exponga como caps.
+ *
+ * «Ver como» (rol) y suplantoación (usuario) son SOLO front / system-login:
+ * nunca deben cambiar la autorización del ISS. Ver installViewAsFrontOnlyGuard().
  */
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../core/platform.ts";
 import { fetchPermissionsMe } from "./systemConfigApi.ts";
 import { compareHierarchy, getRoleJerarquia } from "../tools/roleHierarchy.js";
 import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
+import {
+  readViewAsRole,
+  writeViewAsRole,
+  clearViewAsRole,
+  capsForViewAsRole,
+  formatViewAsRoleLabel,
+  realRolesAllowViewAs,
+  clampViewAsCapsToReal,
+  isDevBranchRole,
+  VIEW_AS_ROLE_OPTIONS,
+  VIEW_AS_ROLE_EVENT,
+} from "../core/viewAsRole.ts";
+
+/** Quita X-View-As-* para que ISS/capFetch vean siempre al Bearer real. */
+export function stripViewAsHeaders(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...headers };
+  for (const k of Object.keys(out)) {
+    if (/^x-view-as-/i.test(k)) delete out[k];
+  }
+  return out;
+}
+
+/**
+ * authHeader del Session (CDN) metía X-View-As-User en TODAS las APIs.
+ * Lo limitamos: default sin view-as; refreshProfile de system-login sí lo conserva.
+ */
+function installViewAsFrontOnlyGuard(): void {
+  const bag = Session as unknown as {
+    authHeader?: () => Record<string, string>;
+    refreshProfile?: () => Promise<unknown>;
+    __viewAsFrontOnly?: boolean;
+  };
+  if (!bag || bag.__viewAsFrontOnly) return;
+  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
+  if (!origAuth) return;
+
+  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
+  bag.authHeader = withoutViewAs;
+
+  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
+  if (origRefresh) {
+    bag.refreshProfile = async () => {
+      bag.authHeader = origAuth;
+      try {
+        return await origRefresh();
+      } finally {
+        bag.authHeader = withoutViewAs;
+      }
+    };
+  }
+  bag.__viewAsFrontOnly = true;
+}
+
+installViewAsFrontOnlyGuard();
+try {
+  window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
+  window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
+} catch { /* ignore */ }
 
 function formatRoleTitle(roleName) {
   return String(roleName ?? "")
@@ -37,6 +98,16 @@ function pickPrimaryIssRole(roles) {
   list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
   const elevated = list.filter((r) => r !== "visitante");
   return elevated[0] ?? list[0];
+}
+
+/** Id canónico del rol ISS primario (para UI «Ver como»). */
+export function resolvePrimaryIssRoleId(): string {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toLowerCase() : "";
 }
 
 /** Cap legacy que se conserva solo para chat (auditoría + admin JWT). */
@@ -84,8 +155,17 @@ function sessionCacheKey(): string {
 function localMeCaps(): MeCapabilities {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
-  if (key !== ME_CAPS_KEY) return {};
-  return ME_CAPS;
+  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const viewAs = readViewAsRole();
+  // Solo UI: preset ∩ caps reales. El ISS sigue usando JWT/roles reales (ME_CAPS crudo).
+  if (viewAs && canViewAsRole()) {
+    const preset = capsForViewAsRole(viewAs);
+    if (preset) {
+      if (Object.keys(real).length) return clampViewAsCapsToReal(preset, real) as MeCapabilities;
+      return clampViewAsCapsToReal(preset, {}) as MeCapabilities;
+    }
+  }
+  return real;
 }
 
 const ME_CAPS_FETCH_GUARD_MS = 5_000;
@@ -126,6 +206,8 @@ async function primeMeCaps(force = false): Promise<void> {
         };
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
+        // Si el login no es rama dev, limpia simulación colgada en localStorage.
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
         window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
       }
     } catch { /* fetch falló: ME_CAPS_BOOTSTRAP_TS queda en 0 → reintento próximo */ }
@@ -174,7 +256,9 @@ export function canViewKanban(): boolean { return !!localMeCaps().canViewKanban;
 
 // ─── Capabilities de edición (ISS /api/permissions/me + hints GET system/*) ───
 export function canEditInstrucciones(): boolean {
-  return !!localMeCaps().canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+  const caps = localMeCaps();
+  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
+  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
 }
 export function canEditOpenAiConfig(): boolean { return !!localMeCaps().canEditOpenAiConfig; }
 export function canEditPromptsOperativos(): boolean { return !!localMeCaps().canEditPromptsOperativos; }
@@ -201,7 +285,8 @@ export function patyChatInteractCap(): string | null {
   return canViewChat() && (Session.can("patyia.chat.interact") || Session.can("patyia.jwt.admin")) ? "patyia.chat.interact" : null;
 }
 export function patyChatAuditCap(): string | null {
-  return canAccessOthers() || Session.can("patyia.chat.audit") ? "patyia.chat.audit" : null;
+  // Solo ME/view-as (canAccessOthers). No Session.can: Dev Lead “ver como Visitante” no debe auditar.
+  return canAccessOthers() ? "patyia.chat.audit" : null;
 }
 export function patyJwtAdminCap(): string | null {
   return Session.can("patyia.jwt.admin") ? "patyia.jwt.admin" : null;
@@ -217,6 +302,7 @@ export async function login(user: string, pass: string, opts?: Record<string, un
 export function logout() {
   Session.logout();
   clearMeCaps();
+  clearViewAsRole();
   notifyAuth();
 }
 
@@ -225,14 +311,62 @@ export async function bootMeCaps(): Promise<void> {
   return primeMeCaps(true);
 }
 
-/** Rol visible en header — ISS /api/permissions/me (no system-login). */
+function roleLooksLikeDevBranch(raw: unknown): boolean {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  // Chip «Desarrollador» / «Dev ISS» / «Dev Lead»
+  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+}
+
+/** ¿Este login real puede usar «Ver como rol»? Solo rama `dev` (0.0.x). */
+export function canViewAsRole(): boolean {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
+export function getViewAsRole(): string {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
+}
+
+/** ¿Hay simulación de rol activa (preset UI aplicado)? */
+export function isViewingAsRole(): boolean {
+  return !!(readViewAsRole() && canViewAsRole());
+}
+
+export function setViewAsRole(roleName: string): void {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
+}
+
+export function stopViewAsRole(): void {
+  clearViewAsRole();
+}
+
+export { VIEW_AS_ROLE_OPTIONS, VIEW_AS_ROLE_EVENT, formatViewAsRoleLabel };
+
+/** Rol visible en header — ISS /api/permissions/me (no system-login). Sin sufijo «→ ver como». */
 export function resolveDisplayRole(): string {
   if (!Session.isLoggedIn()) return "";
   const key = sessionCacheKey();
   if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
     return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
   }
-  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return roleLabel(ME_LOGIN_ROLE);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
   const sl = Session.current()?.role;
   return sl ? roleLabel(sl) : "";
 }
@@ -282,4 +416,10 @@ export function handleApiError(err: Error & { code?: string }, cap: string) {
   clearSession,
   getSession,
   resolveDisplayRole,
+  canViewAsRole,
+  getViewAsRole,
+  isViewingAsRole,
+  setViewAsRole,
+  stopViewAsRole,
+  resolvePrimaryIssRoleId,
 };

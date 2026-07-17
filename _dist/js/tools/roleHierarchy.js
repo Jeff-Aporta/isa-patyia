@@ -79,9 +79,13 @@ function isBranchZero(jerarquia) {
   const j = String(jerarquia ?? "").trim();
   return j === "0" || j.startsWith("0.");
 }
+function actorIsDevLead(actorRoles) {
+  return (actorRoles ?? []).some((r) => String(r ?? "").trim().toLowerCase() === "dev_lead");
+}
 export {
   DEFAULT_ROLE_JERARQUIA,
   actorCanManageTarget,
+  actorIsDevLead,
   actorJerarquiaFromRoles,
   actorJerarquiasFromRoles,
   ancestorsFromPath,

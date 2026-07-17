@@ -1,129 +1,101 @@
-// js/core/patyia.ts
-window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
-var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
-var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
-var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
-function isLocalMode() {
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
   try {
-    return localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) === "1";
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+
+// js/core/patyia.ts
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
+  try {
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
+  } catch {
+  }
+  return isDevHost() ? "local" : "staging";
+}
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
   } catch {
     return false;
   }
 }
 function ensureIssLocalDefault() {
   try {
-    if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
-    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
+    if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null) return;
+    const def = isDevHost() ? "local" : "staging";
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, def);
   } catch {
   }
 }
-function resolveIssApiBase() {
-  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
-  return base.endsWith("/api") ? base : `${base}/api`;
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
 }
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
 
 // js/core/platform.ts
-var bridge = () => window.ISAFront.createPlatformBridge("ISA");
-var UI = {
-  get Icon() {
-    return bridge().UI.Icon;
-  },
-  get TargetSwitch() {
-    return bridge().UI.TargetSwitch;
-  },
-  get ThemeSwitch() {
-    return bridge().UI.ThemeSwitch;
-  },
-  get useRealtimeStatus() {
-    return bridge().UI.useRealtimeStatus;
-  },
-  get RealtimeStatusDot() {
-    return bridge().UI.RealtimeStatusDot;
-  },
-  get Loading() {
-    return bridge().UI.Loading;
-  },
-  get ErrorBox() {
-    return bridge().UI.ErrorBox;
-  },
-  get LoginGate() {
-    return bridge().UI.LoginGate;
-  },
-  get LoginButton() {
-    return bridge().UI.LoginButton;
-  }
-};
-var Session = {
-  current: () => bridge().Session.current(),
-  isLoggedIn: () => bridge().Session.isLoggedIn(),
-  username: () => bridge().Session.username(),
-  realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-  viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-  isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
-  auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
-  authHeader: () => bridge().Session.authHeader(),
-  appHeader: () => bridge().Session.appHeader(),
-  appId: () => bridge().Session.appId(),
-  login: (u, p, opts) => bridge().Session.login(u, p, opts),
-  logout: () => bridge().Session.logout(),
-  refreshProfile: () => bridge().Session.refreshProfile(),
-  fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-  searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-  setViewAs: (u) => bridge().Session.setViewAs?.(u),
-  clearViewAs: () => bridge().Session.clearViewAs?.(),
-  capabilities: () => bridge().Session.capabilities(),
-  adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
-  capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
-  can: (cap) => bridge().Session.can(cap),
-  blockReason: (cap) => bridge().Session.blockReason(cap),
-  get EVENT() {
-    return bridge().Session.EVENT;
-  }
-};
 function frontSharedLazy() {
   const api = window.ISAFront;
   return api?.ensureCodeMirrorLoaded ? api : null;
-}
-var Assets = {
-  ensureCodeMirrorLoaded: (opts) => {
-    const api = frontSharedLazy();
-    return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
-  },
-  ensureMarked: () => {
-    const api = frontSharedLazy();
-    return api ? api.ensureMarked() : Promise.resolve();
-  },
-  ensureStylesheet: (href) => {
-    const api = frontSharedLazy();
-    return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
-  },
-  ensureChatStagingCss: () => {
-    const api = frontSharedLazy();
-    if (!api) return;
-    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
-    api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
-      console.warn("chat-staging.css:", err);
-    });
-  },
-  ensureTodosCss: () => {
-    const api = frontSharedLazy();
-    if (!api) return;
-    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
-    api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
-      console.warn("todos-staging.css:", err);
-    });
-  }
-};
-var getReact = () => window.ISAFront.getReact();
-var getReactDOM = () => window.ISAFront.getReactDOM();
-var getMaterialUI = () => window.ISAFront.getMaterialUI();
-function getIsaSplitView() {
-  const C = window.ISAFront?.Layout?.IsaSplitView;
-  if (!C) {
-    throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
-  }
-  return C;
 }
 function getGlass() {
   const g = window.ISAFront?.Glass;
@@ -132,7 +104,6 @@ function getGlass() {
   }
   return g;
 }
-var fb = () => globalThis.ISAFront?.Feedback;
 function toastError(text, timeout) {
   fb()?.toast?.error?.(text, timeout);
 }
@@ -142,182 +113,101 @@ function toastSuccess(text, timeout) {
 function toastInfo(text, timeout) {
   fb()?.toast?.info?.(text, timeout);
 }
-
-// js/ui/ImageLightboxDialog.jsx
-import { jsx } from "react/jsx-runtime";
-var { useEffect, useState } = getReact();
-
-// js/ui/GlassDialog.jsx
-import { jsx as jsx2, jsxs } from "react/jsx-runtime";
-function isaLoginSurface() {
-  const fs = globalThis.ISAFront || {};
-  return {
-    loginDialogProps: fs.loginDialogProps,
-    loginDialogBackdropSx: fs.loginDialogBackdropSx,
-    loginCardSx: fs.loginCardSx,
-    glassCardSx: fs.glassCardSx,
-    loginHeaderBandSx: fs.loginHeaderBandSx,
-    loginIconBoxSx: fs.loginIconBoxSx,
-    loginHeaderTitleSx: fs.loginHeaderTitleSx,
-    GLASS_CARD_CLASS: fs.GLASS_CARD_CLASS || "isa-glass-card"
-  };
-}
-var PAPER_MAX = { xs: 440, sm: 560, md: 920, lg: 1080 };
-function glassBackdropSx() {
-  const fn = isaLoginSurface().loginDialogBackdropSx;
-  return fn?.() ?? {
-    backdropFilter: "blur(6px)",
-    WebkitBackdropFilter: "blur(6px)",
-    backgroundColor: "rgba(11,18,32,0.55)"
-  };
-}
-function glassPaperProps(maxWidth, paperClassName = "") {
-  const { loginCardSx, glassCardSx, GLASS_CARD_CLASS } = isaLoginSurface();
-  const maxPx = PAPER_MAX[maxWidth] ?? PAPER_MAX.md;
-  return {
-    elevation: 0,
-    className: `isa-login-card ${GLASS_CARD_CLASS} isa-glass-dialog__paper ${paperClassName}`.trim(),
-    sx: loginCardSx?.({ maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }) ?? glassCardSx?.({ maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }) ?? { maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }
-  };
-}
-function resolveGlassDialogProps({
-  open,
-  onClose,
-  maxWidth = "md",
-  fullWidth = true,
-  paperMaxWidth,
-  paperClassName = "",
-  slotProps,
-  ...rest
-} = {}) {
-  const { loginDialogProps } = isaLoginSurface();
-  const paper = glassPaperProps(maxWidth, paperClassName);
-  if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
-  const shared = {
-    open,
-    onClose,
-    maxWidth,
-    fullWidth,
-    scroll: "paper",
-    className: "isa-login-dialog isa-glass-dialog",
-    slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
-    PaperProps: paper,
-    ...rest
-  };
-  if (!loginDialogProps) return shared;
-  return loginDialogProps(shared);
-}
-function glassDialogContentSx(extra = {}) {
-  return {
-    p: 0,
-    display: "flex",
-    flexDirection: "column",
-    minHeight: 0,
-    position: "relative",
-    borderTop: 0,
-    ...extra
-  };
-}
-function glassDialogActionsSx(extra = {}) {
-  return {
-    px: { xs: 2, sm: 2.5 },
-    py: 1.5,
-    borderTop: 1,
-    borderColor: (t) => t.palette.mode === "dark" ? "rgba(99,102,241,0.22)" : "divider",
-    bgcolor: (t) => t.palette.mode === "dark" ? "rgba(15,23,42,0.32)" : "rgba(248,250,252,0.85)",
-    justifyContent: "flex-end",
-    ...extra
-  };
-}
-function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
-  const { Box: Box10, Typography: Typography10, IconButton: IconButton5, Stack: Stack9 } = getMaterialUI();
-  const { Icon: Icon4 } = UI;
-  const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
-  const bandSx = loginHeaderBandSx?.(accent) ?? {
-    px: { xs: 2, sm: 2.5 },
-    py: 2,
-    borderBottom: 1,
-    borderColor: "rgba(99,102,241,0.25)",
-    background: `linear-gradient(90deg, ${accent}44, rgba(99,102,241,0.12) 45%, transparent 75%)`,
-    borderLeft: 4,
-    borderLeftColor: accent
-  };
-  const iconSx = loginIconBoxSx?.(accent) ?? {
-    width: 42,
-    height: 42,
-    borderRadius: 1.75,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
-    color: "#fff"
-  };
-  const titleSx = loginHeaderTitleSx?.() ?? { fontWeight: 700, fontSize: "1.35rem", lineHeight: 1.15 };
-  return /* @__PURE__ */ jsxs(Box10, { className: "isa-glass-dialog__header", sx: { position: "relative", flexShrink: 0 }, children: [
-    /* @__PURE__ */ jsx2(Box10, { sx: bandSx, children: /* @__PURE__ */ jsxs(Stack9, { direction: "row", spacing: 1.25, alignItems: "center", sx: { pr: onClose ? 4 : 0 }, children: [
-      /* @__PURE__ */ jsx2(Box10, { sx: iconSx, children: /* @__PURE__ */ jsx2(Icon4, { icon, size: 24 }) }),
-      /* @__PURE__ */ jsxs(Box10, { sx: { flex: 1, minWidth: 0 }, children: [
-        /* @__PURE__ */ jsx2(Typography10, { variant: "h5", component: "h2", sx: titleSx, children: title }),
-        subtitle ? /* @__PURE__ */ jsx2(Typography10, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
-      ] })
-    ] }) }),
-    onClose ? /* @__PURE__ */ jsx2(IconButton5, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon4, { icon: "mdi:close", size: 18 }) }) : null
-  ] });
-}
-function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
-  const { Dialog: Dialog2 } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
-  return /* @__PURE__ */ jsxs(Dialog2, { ...props, children: [
-    header,
-    children
-  ] });
-}
-
-// js/ui/shared.jsx
-import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
-function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
-  const shown = busy ? "mdi:loading" : icon;
-  const variantCls = variant ? `btn-iconify--${variant}` : "";
-  const colorCls = color ? `btn-iconify--${color}` : "";
-  const labeledCls = label ? "btn-iconify--labeled" : "";
-  const aria = label || title || void 0;
-  return /* @__PURE__ */ jsxs2(
-    "button",
-    {
-      type,
-      className: `btn-iconify ${variantCls} ${colorCls} ${labeledCls} ${className}`.trim(),
-      title: title || label || void 0,
-      "aria-label": aria,
-      onClick,
-      disabled: disabled || busy,
-      children: [
-        /* @__PURE__ */ jsx3("iconify-icon", { icon: shown, width: "1.15em", height: "1.15em" }),
-        label ? /* @__PURE__ */ jsx3("span", { className: "btn-iconify__lbl", children: label }) : null
-      ]
-    }
-  );
-}
-var { useState: useState2, useEffect: useEffect2, useMemo } = getReact();
-var { createTheme, Tabs, Tab, Box, Typography, DialogContent, Stack, Chip } = getMaterialUI();
-var theme = createTheme({
-  palette: {
-    mode: "dark",
-    primary: { main: "#3b82f6" },
-    secondary: { main: "#14b8a6" },
-    background: { default: "#0f172a", paper: "#1e293b" }
-  },
-  typography: { fontFamily: '"IBM Plex Sans", system-ui, sans-serif' },
-  components: {
-    MuiButton: { styleOverrides: { root: { textTransform: "none" } } },
-    MuiTab: { styleOverrides: { root: { textTransform: "none" } } },
-    MuiToggleButton: { styleOverrides: { root: { textTransform: "none" } } },
-    MuiTooltip: {
-      defaultProps: { disableInteractive: true },
-      styleOverrides: {
-        popper: { pointerEvents: "none" },
-        tooltip: { pointerEvents: "none" }
+var bridge, UI, Session, Assets, getReact, getReactDOM, getMaterialUI, fb;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
       }
-    }
+    };
+    Session = {
+      current: () => bridge().Session.current(),
+      isLoggedIn: () => bridge().Session.isLoggedIn(),
+      username: () => bridge().Session.username(),
+      realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+      auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+      authHeader: () => bridge().Session.authHeader(),
+      appHeader: () => bridge().Session.appHeader(),
+      appId: () => bridge().Session.appId(),
+      login: (u, p, opts) => bridge().Session.login(u, p, opts),
+      logout: () => bridge().Session.logout(),
+      refreshProfile: () => bridge().Session.refreshProfile(),
+      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+      setViewAs: (u) => bridge().Session.setViewAs?.(u),
+      clearViewAs: () => bridge().Session.clearViewAs?.(),
+      capabilities: () => bridge().Session.capabilities(),
+      adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+      capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+      can: (cap) => bridge().Session.can(cap),
+      blockReason: (cap) => bridge().Session.blockReason(cap),
+      get EVENT() {
+        return bridge().Session.EVENT;
+      }
+    };
+    Assets = {
+      ensureCodeMirrorLoaded: (opts) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
+      },
+      ensureMarked: () => {
+        const api = frontSharedLazy();
+        return api ? api.ensureMarked() : Promise.resolve();
+      },
+      ensureStylesheet: (href) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
+      },
+      ensureChatStagingCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
+          console.warn("chat-staging.css:", err);
+        });
+      },
+      ensureTodosCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
+          console.warn("todos-staging.css:", err);
+        });
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getReactDOM = () => window.ISAFront.getReactDOM();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+    fb = () => globalThis.ISAFront?.Feedback;
   }
 });
 
@@ -332,6 +222,9 @@ function systemApiHeaders(extra = {}) {
     ...extra
   };
   if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
   return h;
 }
 function unwrapBody(data) {
@@ -406,7 +299,6 @@ function normalizePermissionsPayload(raw) {
   const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
   return { ...raw, roles, users };
 }
-var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
 function permissionsMeSessionKey() {
   if (!Session.isLoggedIn()) return "anon";
   const tok = Session?.current?.()?.token;
@@ -481,8 +373,10 @@ async function fetchPermisos(opts) {
   const qs = new URLSearchParams();
   const search = String(opts?.search ?? "").trim();
   const role = String(opts?.role ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : void 0;
   if (search) qs.set("search", search);
   if (role) qs.set("role", role);
+  if (limit != null) qs.set("limit", String(limit));
   const q = qs.toString();
   const [raw, me] = await Promise.all([
     jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
@@ -492,9 +386,11 @@ async function fetchPermisos(opts) {
 }
 async function searchPermisosUsers(query = "", opts) {
   const q = String(query ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : 10;
   const result = await fetchPermisos({
     ...q ? { search: q } : {},
-    ...opts?.role ? { role: opts.role } : {}
+    ...opts?.role ? { role: opts.role } : {},
+    limit
   });
   return (result.users ?? []).map((e) => ({
     username: String(e.iusuario ?? "").trim().toUpperCase(),
@@ -503,7 +399,7 @@ async function searchPermisosUsers(query = "", opts) {
       const name = p?.nombre ?? p?.namedisplay;
       return name != null && String(name).trim() ? String(name).trim() : null;
     })()
-  })).filter((u) => u.username);
+  })).filter((u) => u.username).slice(0, limit);
 }
 async function putPermisoRolePath(name, permisos, bactivo) {
   const role = encodeURIComponent(String(name).trim().toLowerCase().replace(/^role:/, ""));
@@ -544,118 +440,16 @@ function requireAppSession(onNeedLogin) {
   onNeedLogin?.();
   return false;
 }
-
-// js/tools/permFixFilter.js
-var SESSION_OWNER_FIX_FILTER = {
-  itercero: "{{itercero}}",
-  icontacto: "{{icontacto}}"
-};
-var FIX_FILTER_VAR_HINT = "itercero, icontacto, iusuario, nombres";
-function formatFixFilter(fixFilter) {
-  if (!fixFilter || typeof fixFilter !== "object" || Array.isArray(fixFilter)) return "";
-  return Object.entries(fixFilter).map(([k, v]) => `${k}: ${String(v)}`).join(" \xB7 ");
-}
-function fixFilterFromRestriction(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-  const ff = value.fixFilter;
-  if (!ff || typeof ff !== "object" || Array.isArray(ff)) return void 0;
-  return { ...ff };
-}
-function withSessionOwnerFixFilter(restriction) {
-  if (restriction === true) return { fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
-  if (!restriction || typeof restriction !== "object") return restriction;
-  return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
-}
-
-// js/tools/permisosForm.js
-var PERM_META = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles"]);
-var FLAG_DEFS = [
-  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
-  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
-  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
-];
-var ACCESS_MODES = [
-  { value: "off", label: "Sin acceso" },
-  { value: "allow", label: "Permitido" },
-  { value: "filtered", label: "Filtrado (fixFilter)" }
-];
-var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
-function roleDescripcion(permisos) {
-  const d = permisos?.descripcion;
-  return d != null && String(d).trim() ? String(d).trim() : "";
-}
-function roleNamedisplay(permisos) {
-  const d = permisos?.namedisplay;
-  return d != null && String(d).trim() ? String(d).trim() : "";
-}
-function userRoles(permisos) {
-  const r = permisos?.roles;
-  return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
-}
-function restrictionToMode(value) {
-  if (value === true) return "allow";
-  if (value && typeof value === "object") {
-    const ff = value.fixFilter;
-    if (ff && typeof ff === "object" && !Array.isArray(ff) && Object.keys(ff).length) return "filtered";
-    return "allow";
+var PERMISSIONS_ME_CACHE;
+var init_systemConfigApi = __esm({
+  "js/api/systemConfigApi.ts"() {
+    init_platform();
+    init_patyia();
+    PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
   }
-  return "off";
-}
-function modeToRestriction(mode, fixFilter) {
-  if (mode === "allow") return true;
-  if (mode === "filtered") {
-    const ff = fixFilterFromRestriction({ fixFilter });
-    return ff ? { fixFilter: ff } : true;
-  }
-  return null;
-}
-function splitRolePermisos(permisos) {
-  const flags = Object.fromEntries(FLAG_DEFS.map((f) => [f.key, false]));
-  const routes = [];
-  for (const [key, value] of Object.entries(permisos ?? {})) {
-    if (PERM_META.has(key)) continue;
-    if (FLAG_KEYS.has(key)) {
-      flags[key] = value === true;
-      continue;
-    }
-    const mode = restrictionToMode(value);
-    if (mode !== "off") {
-      const fixFilter = fixFilterFromRestriction(value);
-      routes.push(fixFilter ? { key, mode, fixFilter } : { key, mode });
-    }
-  }
-  routes.sort((a, b) => a.key.localeCompare(b.key));
-  return { flags, routes };
-}
-function buildRolePermisos(desc, namedisplay, flags, routes) {
-  const out = {};
-  if (String(desc ?? "").trim()) out.descripcion = String(desc).trim();
-  if (String(namedisplay ?? "").trim()) out.namedisplay = String(namedisplay).trim();
-  for (const def of FLAG_DEFS) {
-    if (flags[def.key]) out[def.key] = true;
-  }
-  for (const row of routes) {
-    if (!row.key || row.mode === "off") continue;
-    const restr = modeToRestriction(row.mode, row.fixFilter);
-    if (restr != null) out[row.key] = restr;
-  }
-  return out;
-}
-function countActiveRoutes(routes) {
-  return (routes || []).filter((r) => r.mode && r.mode !== "off").length;
-}
+});
 
 // js/tools/roleHierarchy.js
-var DEFAULT_ROLE_JERARQUIA = {
-  visitante: "0",
-  dev: "0.0",
-  dev_lead: "0.0.0",
-  dev_iss: "0.0.1",
-  admn: "0.1",
-  auditador: "0.1.0",
-  admn_isapatyia: "0.1.0.0"
-};
-var DEFAULT_FOR_UNKNOWN = "999";
 function compareHierarchy(a, b) {
   const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
   const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
@@ -723,28 +517,686 @@ function isBranchZero(jerarquia) {
   const j = String(jerarquia ?? "").trim();
   return j === "0" || j.startsWith("0.");
 }
+function actorIsDevLead(actorRoles) {
+  return (actorRoles ?? []).some((r) => String(r ?? "").trim().toLowerCase() === "dev_lead");
+}
+var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_ROLE_JERARQUIA = {
+      visitante: "0",
+      dev: "0.0",
+      dev_lead: "0.0.0",
+      dev_iss: "0.0.1",
+      admn: "0.1",
+      auditador: "0.1.0",
+      admn_isapatyia: "0.1.0.0"
+    };
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
 
 // js/tools/roleCanonicalMeta.js
-var CANONICAL_ROLE_META = {
-  dev: {
-    namedisplay: "Desarrollador b\xE1sico",
-    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
-  },
-  admn: {
-    namedisplay: "Admn b\xE1sico",
-    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
-  },
-  admn_isapatyia: {
-    namedisplay: "Admn ISA-Paty",
-    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
-  }
-};
 function canonicalRoleMeta(roleName) {
   const key = String(roleName ?? "").trim().toLowerCase();
   return CANONICAL_ROLE_META[key] ?? null;
 }
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      dev: {
+        namedisplay: "Desarrollador b\xE1sico",
+        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      },
+      admn: {
+        namedisplay: "Admn b\xE1sico",
+        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+      },
+      admn_isapatyia: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+      }
+    };
+  }
+});
+
+// js/core/viewAsRole.ts
+function roleKey(name) {
+  return String(name ?? "").trim().toLowerCase();
+}
+function isDevBranchRole(roleName) {
+  const key = roleKey(roleName);
+  if (!key) return false;
+  if (key === "dev" || key.startsWith("dev_")) return true;
+  const j = getRoleJerarquia(key);
+  return j === "0.0" || j.startsWith("0.0.");
+}
+function readViewAsRole() {
+  try {
+    const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
+    if (!v || v === "dev_lead") return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
+    return v;
+  } catch {
+    return "";
+  }
+}
+function writeViewAsRole(roleName) {
+  const key = roleKey(roleName);
+  try {
+    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+      localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
+    } else {
+      localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
+    }
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+}
+function clearViewAsRole() {
+  writeViewAsRole("");
+}
+function realRolesAllowViewAs(roles) {
+  return (roles ?? []).some((r) => isDevBranchRole(r));
+}
+var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, NONE, ROLE_CAPS_PRESETS;
+var init_viewAsRole = __esm({
+  "js/core/viewAsRole.ts"() {
+    init_roleCanonicalMeta();
+    init_roleHierarchy();
+    VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+    VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+    NONE = Object.freeze({
+      canEditInstrucciones: false,
+      canEditOpenAiConfig: false,
+      canEditPromptsOperativos: false,
+      canEditConversacionConfig: false,
+      canEditSwagger: false,
+      canOverrideSampling: false,
+      canManagePermissions: false,
+      canImpersonate: false,
+      canAssignUserRoles: false,
+      canAccessOthers: false,
+      canViewKanban: false,
+      canEditKanbanCards: false,
+      canViewLogs: true,
+      canViewPrompts: false,
+      canViewChat: true,
+      canViewConfig: false,
+      canSendChat: true
+    });
+    ROLE_CAPS_PRESETS = Object.freeze({
+      visitante: { ...NONE },
+      dev: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true
+      },
+      dev_iss: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditInstrucciones: true,
+        canEditPromptsOperativos: true,
+        canOverrideSampling: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canAccessOthers: true
+      },
+      auditador: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canAccessOthers: true,
+        canViewKanban: true
+      },
+      admn: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      admn_isapatyia: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditOpenAiConfig: true,
+        canEditConversacionConfig: true,
+        canEditInstrucciones: true,
+        canAssignUserRoles: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      /** Referencia: Dev Lead real (no se ofrece como simulación). */
+      dev_lead: {
+        canEditInstrucciones: true,
+        canEditOpenAiConfig: true,
+        canEditPromptsOperativos: true,
+        canEditConversacionConfig: true,
+        canEditSwagger: true,
+        canOverrideSampling: true,
+        canManagePermissions: true,
+        canImpersonate: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canViewLogs: true,
+        canViewPrompts: true,
+        canViewChat: true,
+        canViewConfig: true,
+        canSendChat: true
+      }
+    });
+  }
+});
+
+// js/api/sessionApi.ts
+function stripViewAsHeaders(headers) {
+  const out = { ...headers };
+  for (const k of Object.keys(out)) {
+    if (/^x-view-as-/i.test(k)) delete out[k];
+  }
+  return out;
+}
+function installViewAsFrontOnlyGuard() {
+  const bag = Session;
+  if (!bag || bag.__viewAsFrontOnly) return;
+  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
+  if (!origAuth) return;
+  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
+  bag.authHeader = withoutViewAs;
+  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
+  if (origRefresh) {
+    bag.refreshProfile = async () => {
+      bag.authHeader = origAuth;
+      try {
+        return await origRefresh();
+      } finally {
+        bag.authHeader = withoutViewAs;
+      }
+    };
+  }
+  bag.__viewAsFrontOnly = true;
+}
+function formatRoleTitle2(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle2(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
+function resolvePrimaryIssRoleId() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toLowerCase() : "";
+}
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
+async function primeMeCaps(force = false) {
+  if (!Session.isLoggedIn()) return;
+  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
+  const now = Date.now();
+  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
+  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
+  ME_CAPS_INFLIGHT = (async () => {
+    let ok = false;
+    try {
+      const me = await fetchPermissionsMe({ force });
+      if (me?.capabilities) {
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        ME_CAPS = {
+          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
+          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
+          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
+          canEditSwagger: !!me.capabilities.canEditSwagger,
+          canOverrideSampling: !!me.capabilities.canOverrideSampling,
+          canManagePermissions: !!me.capabilities.canManagePermissions,
+          canImpersonate: !!me.capabilities.canImpersonate,
+          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
+          canAccessOthers: !!me.capabilities.canAccessOthers,
+          canViewKanban: !!me.capabilities.canViewKanban,
+          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
+          canViewLogs: !!me.capabilities.canViewLogs,
+          canViewPrompts: !!me.capabilities.canViewPrompts,
+          canViewChat: !!me.capabilities.canViewChat,
+          canViewConfig: !!me.capabilities.canViewConfig,
+          canSendChat: !!me.capabilities.canSendChat
+        };
+        ME_CAPS_BOOTSTRAP_TS = Date.now();
+        ok = true;
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
+        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+      }
+    } catch {
+    }
+    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
+      ME_CAPS_RETRY_TIMER = setTimeout(() => {
+        ME_CAPS_RETRY_TIMER = null;
+        void primeMeCaps(true);
+      }, 4e3);
+    }
+  })().finally(() => {
+    ME_CAPS_INFLIGHT = null;
+  });
+  return ME_CAPS_INFLIGHT;
+}
+function clearMeCaps() {
+  ME_CAPS = {};
+  ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
+  ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
+  if (ME_CAPS_RETRY_TIMER) {
+    clearTimeout(ME_CAPS_RETRY_TIMER);
+    ME_CAPS_RETRY_TIMER = null;
+  }
+}
+function notifyAuth() {
+  window.dispatchEvent(new Event(Session.EVENT));
+  window.dispatchEvent(new Event("patyia-apptools:auth"));
+  window.dispatchEvent(new Event("isa-patyia:auth"));
+}
+async function login(user, pass, opts) {
+  const session = await Session.login(user, pass, opts);
+  notifyAuth();
+  void primeMeCaps(true);
+  return session;
+}
+function logout() {
+  Session.logout();
+  clearMeCaps();
+  clearViewAsRole();
+  notifyAuth();
+}
+function roleLooksLikeDevBranch(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+}
+function canViewAsRole() {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  return false;
+}
+function getViewAsRole() {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
+}
+function isViewingAsRole() {
+  return !!(readViewAsRole() && canViewAsRole());
+}
+function setViewAsRole(roleName) {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
+}
+function stopViewAsRole() {
+  clearViewAsRole();
+}
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
+var ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var init_sessionApi = __esm({
+  "js/api/sessionApi.ts"() {
+    init_platform();
+    init_platform();
+    init_systemConfigApi();
+    init_roleHierarchy();
+    init_roleCanonicalMeta();
+    init_viewAsRole();
+    installViewAsFrontOnlyGuard();
+    try {
+      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
+      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
+    } catch {
+    }
+    ME_CAPS = {};
+    ME_CAPS_KEY = "";
+    ME_ISS_ROLES = [];
+    ME_LOGIN_ROLE = "";
+    ME_CAPS_BOOTSTRAP_TS = 0;
+    ME_CAPS_INFLIGHT = null;
+    ME_CAPS_RETRY_TIMER = null;
+    ME_SERVER_INSTRUCCIONES_EDIT = null;
+    ME_CAPS_FETCH_GUARD_MS = 5e3;
+    ME_CAPS_REENTRY_GUARD_MS = 1500;
+    isLoggedIn = () => Session.isLoggedIn();
+    can = (cap) => Session.can(cap);
+    blockReason = (cap) => Session.blockReason(cap);
+    clearSession = logout;
+    (window.ISA = window.ISA || {}).AppSession = {
+      current: () => Session.current(),
+      isLoggedIn,
+      username: () => Session.username(),
+      capabilities: () => Session.capabilities(),
+      can,
+      blockReason,
+      login,
+      logout,
+      refreshProfile: () => Session.refreshProfile(),
+      clearSession,
+      getSession,
+      resolveDisplayRole,
+      canViewAsRole,
+      getViewAsRole,
+      isViewingAsRole,
+      setViewAsRole,
+      stopViewAsRole,
+      resolvePrimaryIssRoleId
+    };
+  }
+});
+
+// js/tools/PermisosPanel.jsx
+init_platform();
+
+// js/ui/shared.jsx
+init_platform();
+init_platform();
+
+// js/ui/ImageLightboxDialog.jsx
+init_platform();
+init_platform();
+import { jsx } from "react/jsx-runtime";
+var { useEffect, useState } = getReact();
+
+// js/ui/GlassDialog.jsx
+init_platform();
+import { jsx as jsx2, jsxs } from "react/jsx-runtime";
+function isaLoginSurface() {
+  const fs = globalThis.ISAFront || {};
+  return {
+    loginDialogProps: fs.loginDialogProps,
+    loginDialogBackdropSx: fs.loginDialogBackdropSx,
+    loginCardSx: fs.loginCardSx,
+    glassCardSx: fs.glassCardSx,
+    loginHeaderBandSx: fs.loginHeaderBandSx,
+    loginIconBoxSx: fs.loginIconBoxSx,
+    loginHeaderTitleSx: fs.loginHeaderTitleSx,
+    GLASS_CARD_CLASS: fs.GLASS_CARD_CLASS || "isa-glass-card"
+  };
+}
+var PAPER_MAX = { xs: 440, sm: 560, md: 920, lg: 1080 };
+function glassBackdropSx() {
+  const fn = isaLoginSurface().loginDialogBackdropSx;
+  return fn?.() ?? {
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    backgroundColor: "rgba(11,18,32,0.55)"
+  };
+}
+function glassPaperProps(maxWidth, paperClassName = "") {
+  const { loginCardSx, glassCardSx, GLASS_CARD_CLASS } = isaLoginSurface();
+  const maxPx = PAPER_MAX[maxWidth] ?? PAPER_MAX.md;
+  return {
+    elevation: 0,
+    className: `isa-login-card ${GLASS_CARD_CLASS} isa-glass-dialog__paper ${paperClassName}`.trim(),
+    sx: loginCardSx?.({ maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }) ?? glassCardSx?.({ maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }) ?? { maxWidth: maxPx, m: { xs: 1, sm: 1.5 } }
+  };
+}
+function resolveGlassDialogProps({
+  open,
+  onClose,
+  maxWidth = "md",
+  fullWidth = true,
+  fullScreen = false,
+  paperMaxWidth,
+  paperClassName = "",
+  slotProps,
+  ...rest
+} = {}) {
+  const { loginDialogProps } = isaLoginSurface();
+  const paper = glassPaperProps(maxWidth, paperClassName);
+  if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (fullScreen) {
+    paper.sx = {
+      ...paper.sx,
+      m: 0,
+      margin: 0,
+      maxWidth: "100%",
+      width: "100%",
+      height: "100%",
+      maxHeight: "100dvh",
+      borderRadius: 0,
+      border: "none",
+      boxShadow: "none"
+    };
+  }
+  const shared = {
+    open,
+    onClose,
+    maxWidth: fullScreen ? false : maxWidth,
+    fullWidth,
+    fullScreen,
+    scroll: "paper",
+    className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
+    slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
+    PaperProps: paper,
+    ...rest
+  };
+  if (!loginDialogProps) return shared;
+  return loginDialogProps(shared);
+}
+function glassDialogContentSx(extra = {}) {
+  return {
+    p: 0,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    position: "relative",
+    borderTop: 0,
+    ...extra
+  };
+}
+function glassDialogActionsSx(extra = {}) {
+  return {
+    px: { xs: 2, sm: 2.5 },
+    py: 1.5,
+    borderTop: 1,
+    borderColor: (t) => t.palette.mode === "dark" ? "rgba(99,102,241,0.22)" : "divider",
+    bgcolor: (t) => t.palette.mode === "dark" ? "rgba(15,23,42,0.32)" : "rgba(248,250,252,0.85)",
+    justifyContent: "flex-end",
+    ...extra
+  };
+}
+function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
+  const { Box: Box9, Typography: Typography8, IconButton: IconButton3, Stack: Stack8 } = getMaterialUI();
+  const { Icon: Icon3 } = UI;
+  const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
+  const bandSx = loginHeaderBandSx?.(accent) ?? {
+    px: { xs: 2, sm: 2.5 },
+    py: 2,
+    borderBottom: 1,
+    borderColor: "rgba(99,102,241,0.25)",
+    background: `linear-gradient(90deg, ${accent}44, rgba(99,102,241,0.12) 45%, transparent 75%)`,
+    borderLeft: 4,
+    borderLeftColor: accent
+  };
+  const iconSx = loginIconBoxSx?.(accent) ?? {
+    width: 42,
+    height: 42,
+    borderRadius: 1.75,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
+    color: "#fff"
+  };
+  const titleSx = loginHeaderTitleSx?.() ?? { fontWeight: 700, fontSize: "1.35rem", lineHeight: 1.15 };
+  return /* @__PURE__ */ jsxs(Box9, { className: "isa-glass-dialog__header", sx: { position: "relative", flexShrink: 0 }, children: [
+    /* @__PURE__ */ jsx2(Box9, { sx: bandSx, children: /* @__PURE__ */ jsxs(Stack8, { direction: "row", spacing: 1.25, alignItems: "center", sx: { pr: onClose ? 4 : 0 }, children: [
+      /* @__PURE__ */ jsx2(Box9, { sx: iconSx, children: /* @__PURE__ */ jsx2(Icon3, { icon, size: 24 }) }),
+      /* @__PURE__ */ jsxs(Box9, { sx: { flex: 1, minWidth: 0 }, children: [
+        /* @__PURE__ */ jsx2(Typography8, { variant: "h5", component: "h2", sx: titleSx, children: title }),
+        subtitle ? /* @__PURE__ */ jsx2(Typography8, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
+      ] })
+    ] }) }),
+    onClose ? /* @__PURE__ */ jsx2(IconButton3, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon3, { icon: "mdi:close", size: 18 }) }) : null
+  ] });
+}
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+  const { Dialog: Dialog2 } = getMaterialUI();
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  return /* @__PURE__ */ jsxs(Dialog2, { ...props, children: [
+    header,
+    children
+  ] });
+}
+
+// js/ui/shared.jsx
+import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
+function ButtonIconify({ icon, title = "", label = "", onClick, disabled = false, busy = false, color = "", variant = "", className = "", type = "button" }) {
+  const shown = busy ? "mdi:loading" : icon;
+  const variantCls = variant ? `btn-iconify--${variant}` : "";
+  const colorCls = color ? `btn-iconify--${color}` : "";
+  const labeledCls = label ? "btn-iconify--labeled" : "";
+  const aria = label || title || void 0;
+  return /* @__PURE__ */ jsxs2(
+    "button",
+    {
+      type,
+      className: `btn-iconify ${variantCls} ${colorCls} ${labeledCls} ${className}`.trim(),
+      title: title || label || void 0,
+      "aria-label": aria,
+      onClick,
+      disabled: disabled || busy,
+      children: [
+        /* @__PURE__ */ jsx3("iconify-icon", { icon: shown, width: "1.15em", height: "1.15em" }),
+        label ? /* @__PURE__ */ jsx3("span", { className: "btn-iconify__lbl", children: label }) : null
+      ]
+    }
+  );
+}
+var { useState: useState2, useEffect: useEffect2, useMemo } = getReact();
+var { createTheme, Tabs, Tab, Box, Typography, DialogContent, Stack, Chip } = getMaterialUI();
+var theme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: { main: "#3b82f6" },
+    secondary: { main: "#14b8a6" },
+    background: { default: "#0f172a", paper: "#1e293b" }
+  },
+  typography: { fontFamily: '"IBM Plex Sans", system-ui, sans-serif' },
+  components: {
+    MuiButton: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiTab: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiToggleButton: { styleOverrides: { root: { textTransform: "none" } } },
+    MuiTooltip: {
+      defaultProps: { disableInteractive: true },
+      styleOverrides: {
+        popper: { pointerEvents: "none" },
+        tooltip: { pointerEvents: "none" }
+      }
+    }
+  }
+});
+
+// js/tools/PermisosPanel.jsx
+init_systemConfigApi();
+
+// js/tools/permFixFilter.js
+var SESSION_OWNER_FIX_FILTER = {
+  itercero: "{{itercero}}",
+  icontacto: "{{icontacto}}"
+};
+
+// js/tools/permisosForm.js
+var FLAG_DEFS = [
+  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
+  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
+];
+var ACCESS_MODES = [
+  { value: "off", label: "Sin acceso" },
+  { value: "allow", label: "Permitido" },
+  { value: "filtered", label: "Filtrado (fixFilter)" }
+];
+var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
+function roleDescripcion(permisos) {
+  const d = permisos?.descripcion;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function roleNamedisplay(permisos) {
+  const d = permisos?.namedisplay;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function userRoles(permisos) {
+  const r = permisos?.roles;
+  return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+}
 
 // js/tools/permisosKanbanShared.js
+init_roleHierarchy();
+init_roleCanonicalMeta();
 var VISITANTE = "visitante";
 var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
@@ -920,7 +1372,17 @@ function pointInRef(ref, clientX, clientY) {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
+// js/tools/PermisosPanel.jsx
+init_roleHierarchy();
+
+// js/tools/PermisosKanban.jsx
+init_platform();
+
+// js/tools/permisosRoleConfig.jsx
+init_platform();
+
 // js/editors/jsonEditor.jsx
+init_platform();
 import { jsx as jsx4 } from "react/jsx-runtime";
 
 // js/tools/permisosRouteCatalog.js
@@ -975,62 +1437,9 @@ var ROUTE_GROUPS = [
   }
 ];
 var CATALOG_KEYS = new Set(ROUTE_GROUPS.flatMap((g) => g.routes.map((r) => r.key)));
-function isWildcardRole(permisos) {
-  return permisos?.["*"] === true;
-}
-function routesForRoleEditor(permisos, { includeInactive = false } = {}) {
-  const wildcard = isWildcardRole(permisos);
-  const modeByKey = /* @__PURE__ */ new Map();
-  const fixByKey = /* @__PURE__ */ new Map();
-  for (const [key, value] of Object.entries(permisos ?? {})) {
-    if (key === "*" || key === "descripcion" || key === "namedisplay" || key === "roles" || key === "impersonate" || key === "manage_permissions") continue;
-    const hasFix = !!(value && typeof value === "object" && value.fixFilter && typeof value.fixFilter === "object" && !Array.isArray(value.fixFilter) && Object.keys(value.fixFilter).length);
-    const mode = value === true ? "allow" : hasFix ? "filtered" : value && typeof value === "object" ? "allow" : "off";
-    if (mode !== "off") modeByKey.set(key, mode);
-    const ff = fixFilterFromRestriction(value);
-    if (ff) fixByKey.set(key, ff);
-  }
-  const groups = ROUTE_GROUPS.map((g) => ({
-    id: g.id,
-    title: g.title,
-    routes: g.routes.map((def) => {
-      let mode = "off";
-      if (wildcard) mode = def.scoped ? "filtered" : "allow";
-      else if (modeByKey.has(def.key)) mode = modeByKey.get(def.key);
-      return { ...def, mode, fixFilter: fixByKey.get(def.key), active: mode !== "off" };
-    }).filter((r) => includeInactive || r.active)
-  })).filter((g) => g.routes.length > 0);
-  const extras = [...modeByKey.entries()].filter(([key]) => !CATALOG_KEYS.has(key)).map(([key, mode]) => ({
-    key,
-    label: key,
-    mode,
-    fixFilter: fixByKey.get(key),
-    active: true,
-    scoped: mode === "filtered"
-  })).sort((a, b) => a.key.localeCompare(b.key));
-  return { groups, extras, wildcard, activeCount: [...modeByKey.keys()].length + (wildcard ? 1 : 0) };
-}
-function routesArrayFromPermisos(permisos, includeInactive) {
-  const { groups, extras } = routesForRoleEditor(permisos, { includeInactive });
-  const rows = [];
-  for (const g of groups) {
-    for (const r of g.routes) rows.push({ key: r.key, mode: r.mode, ...r.fixFilter ? { fixFilter: r.fixFilter } : {} });
-  }
-  for (const r of extras) rows.push({ key: r.key, mode: r.mode, ...r.fixFilter ? { fixFilter: r.fixFilter } : {} });
-  return rows;
-}
-function groupsFromRouteRows(routes, flags, { includeInactive = false } = {}) {
-  const permisos = {};
-  if (flags?.["*"]) permisos["*"] = true;
-  for (const r of routes ?? []) {
-    if (!r?.key || r.mode === "off") continue;
-    if (r.mode === "allow") permisos[r.key] = true;
-    else if (r.mode === "filtered") permisos[r.key] = r.fixFilter ? { fixFilter: r.fixFilter } : true;
-  }
-  return routesForRoleEditor(permisos, { includeInactive });
-}
 
 // js/tools/permisosRoleTransfer.js
+init_roleHierarchy();
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -1116,11 +1525,14 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
 }
 
 // js/tools/PermisosUserAutocomplete.jsx
+init_platform();
+init_systemConfigApi();
 import { jsx as jsx5 } from "react/jsx-runtime";
 import { createElement } from "react";
 var { useState: useState3, useEffect: useEffect3, useRef, useCallback } = getReact();
 var { Autocomplete, TextField, Typography: Typography2, Box: Box2 } = getMaterialUI();
 var DEBOUNCE_MS = 300;
+var DEFAULT_LIMIT = 10;
 function optionLabel(row) {
   if (!row) return "";
   return row.displayName ? `${row.displayName} (${row.username})` : row.username;
@@ -1132,7 +1544,20 @@ function usernameFromInput(text) {
   if (paren) return normalizePermisosUsername(paren[1]);
   return normalizePermisosUsername(raw.split(/\s+/)[0]);
 }
-function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "Usuario", roleFilter = null, allowNew = true }) {
+function PermisosUserAutocomplete({
+  value,
+  onChange,
+  disabled = false,
+  label = "Usuario",
+  roleFilter = null,
+  allowNew = true,
+  limit = DEFAULT_LIMIT,
+  variant = "dialog",
+  placeholder,
+  className,
+  sx
+}) {
+  const toolbar = variant === "toolbar";
   const username = value ? normalizePermisosUsername(value) : null;
   const [inputValue, setInputValue] = useState3("");
   const [options, setOptions] = useState3([]);
@@ -1144,7 +1569,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     const id = ++requestIdRef.current;
     setLoading(true);
     try {
-      const users = await searchPermisosUsers(query, roleFilter ? { role: roleFilter } : void 0);
+      const users = await searchPermisosUsers(query, {
+        ...roleFilter ? { role: roleFilter } : {},
+        limit
+      });
       if (id !== requestIdRef.current) return users;
       setOptions(users);
       return users;
@@ -1154,7 +1582,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     } finally {
       if (id === requestIdRef.current) setLoading(false);
     }
-  }, [roleFilter]);
+  }, [roleFilter, limit]);
   const scheduleSearch = useCallback((query) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -1181,12 +1609,25 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     runSearch("");
   }, [disabled, runSearch]);
   if (disabled) {
-    return /* @__PURE__ */ jsx5(TextField, { label, fullWidth: true, size: "small", value: username || "", disabled: true, placeholder: "Sin usuario" });
+    return /* @__PURE__ */ jsx5(
+      TextField,
+      {
+        label,
+        fullWidth: !toolbar,
+        size: "small",
+        value: username || "",
+        disabled: true,
+        placeholder: "Sin usuario",
+        className,
+        sx
+      }
+    );
   }
+  const ph = placeholder ?? (toolbar ? "Buscar usuario\u2026" : "Buscar login ISS\u2026");
   return /* @__PURE__ */ jsx5(
     Autocomplete,
     {
-      fullWidth: true,
+      fullWidth: !toolbar,
       size: "small",
       openOnFocus: true,
       autoHighlight: true,
@@ -1201,8 +1642,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
       filterOptions: (x) => x,
       getOptionLabel: optionLabel,
       isOptionEqualToValue: (a, b) => String(a?.username) === String(b?.username),
-      noOptionsText: loading ? "Buscando\u2026" : "Sin coincidencias \u2014 escriba login",
+      noOptionsText: loading ? "Buscando\u2026" : toolbar ? "Sin coincidencias" : "Sin coincidencias \u2014 escriba login",
       loadingText: "Buscando\u2026",
+      className,
+      sx,
       onOpen: () => {
         if (!options.length) runSearch(inputValue);
       },
@@ -1212,7 +1655,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         scheduleSearch(text);
         if (allowNew) {
           const u = usernameFromInput(text);
-          if (u && !text.includes("(")) onChange(u);
+          onChange(u);
         }
       },
       onChange: (_e, row) => {
@@ -1230,9 +1673,16 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         TextField,
         {
           ...params,
-          label,
-          placeholder: "Buscar login ISS\u2026",
-          helperText: allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS"
+          label: toolbar ? "" : label,
+          placeholder: ph,
+          InputLabelProps: { ...params.InputLabelProps, shrink: toolbar ? false : true },
+          helperText: toolbar ? void 0 : allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS",
+          sx: toolbar ? {
+            "& .MuiOutlinedInput-root": { height: 28, minHeight: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 }
+          } : void 0
         }
       )
     }
@@ -1240,7 +1690,6 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
 }
 
 // js/tools/permisosVisitante.js
-var VISITANTE_ROLE = "visitante";
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
   descripcion: "Visitante \u2014 solo sus propias conversaciones; logs abiertos; resto lectura",
@@ -1251,49 +1700,6 @@ var VISITANTE_DEFAULT_PERMISOS = {
   "POST:/api/mensaje": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
   "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } }
 };
-var VISITANTE_LOCKED_OWN_KEYS = /* @__PURE__ */ new Set([
-  "GET:/api/conversaciones",
-  "GET:/api/conversacion/*",
-  "POST:/api/conversacion",
-  "POST:/api/mensaje",
-  "DELETE:/api/conversacion/*"
-]);
-var VISITANTE_REQUIRED_OWN_KEYS = /* @__PURE__ */ new Set([
-  "GET:/api/conversaciones",
-  "GET:/api/conversacion/*"
-]);
-function isVisitanteRole(roleName) {
-  return String(roleName ?? "").trim().toLowerCase() === VISITANTE_ROLE;
-}
-function enforceVisitantePermisos(permisos) {
-  const out = { ...permisos ?? {} };
-  delete out["*"];
-  delete out.impersonate;
-  delete out.manage_permissions;
-  for (const key of VISITANTE_REQUIRED_OWN_KEYS) {
-    out[key] = withSessionOwnerFixFilter({ fixFilter: { ...SESSION_OWNER_FIX_FILTER } });
-  }
-  for (const key of VISITANTE_LOCKED_OWN_KEYS) {
-    const v = out[key];
-    if (v == null || v === false) continue;
-    if (v === true) out[key] = withSessionOwnerFixFilter(v);
-    else if (typeof v === "object") out[key] = withSessionOwnerFixFilter(v);
-  }
-  return out;
-}
-function visitanteRouteLocked(key) {
-  return VISITANTE_LOCKED_OWN_KEYS.has(key);
-}
-function getVisitanteRoleEntry(data) {
-  const hit = (data?.roles ?? []).find((r) => roleNameFromEntry(r) === VISITANTE_ROLE);
-  if (hit) return hit;
-  return {
-    iusuario: VISITANTE_ROLE,
-    itipo: "role",
-    permisos: { ...VISITANTE_DEFAULT_PERMISOS },
-    bactivo: true
-  };
-}
 
 // js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment2, jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
@@ -1329,241 +1735,6 @@ function renderImpactLine(text) {
   return parts.map((part, i) => i % 2 === 1 ? /* @__PURE__ */ jsx6("strong", { children: part }, i) : part);
 }
 var MODE_LABEL = Object.fromEntries(ACCESS_MODES.map((m) => [m.value, m.label]));
-function AccessModeSelect({ value, onChange, disabled, scoped }) {
-  const modes = scoped ? ACCESS_MODES : ACCESS_MODES.filter((m) => m.value === "off" || m.value === "allow");
-  return /* @__PURE__ */ jsxs3(FormControl, { size: "small", fullWidth: true, disabled, children: [
-    /* @__PURE__ */ jsx6(InputLabel, { id: "perm-route-access-label", shrink: true, children: "Acceso" }),
-    /* @__PURE__ */ jsx6(Select, { labelId: "perm-route-access-label", label: "Acceso", value: value || "off", onChange: (e) => onChange(e.target.value), children: modes.map((m) => /* @__PURE__ */ jsx6(MenuItem, { value: m.value, children: m.label }, m.value)) })
-  ] });
-}
-function ModeChip({ mode }) {
-  const color = mode === "off" ? "default" : mode === "filtered" ? "info" : "success";
-  return /* @__PURE__ */ jsx6(Chip2, { size: "small", variant: mode === "off" ? "outlined" : "filled", color, label: MODE_LABEL[mode] || mode });
-}
-function RouteGroupSection({ title, routes, canEdit, wildcard, onRouteMode, isVisitante }) {
-  if (!routes.length) return null;
-  return /* @__PURE__ */ jsxs3(Box3, { className: "permisos-route-group", children: [
-    /* @__PURE__ */ jsx6(Typography3, { variant: "subtitle2", fontWeight: 700, className: "permisos-route-group__title", children: title }),
-    /* @__PURE__ */ jsxs3(Table, { size: "small", className: "permisos-route-table__grid permisos-route-group__table", children: [
-      /* @__PURE__ */ jsx6(TableHead, { children: /* @__PURE__ */ jsxs3(TableRow, { children: [
-        /* @__PURE__ */ jsx6(TableCell, { children: "Ruta" }),
-        /* @__PURE__ */ jsx6(TableCell, { sx: { width: "38%" }, children: "Clave" }),
-        /* @__PURE__ */ jsx6(TableCell, { sx: { minWidth: 140 }, children: /* @__PURE__ */ jsx6(Tooltip, { title: `fixFilter \u2014 filtra por el usuario de la sesi\xF3n (${FIX_FILTER_VAR_HINT})`, children: /* @__PURE__ */ jsx6("span", { children: "Filtro de sesi\xF3n" }) }) }),
-        /* @__PURE__ */ jsx6(TableCell, { sx: { width: 168 }, children: "Acceso" })
-      ] }) }),
-      /* @__PURE__ */ jsx6(TableBody, { children: routes.map((row) => {
-        const active = row.mode !== "off";
-        return /* @__PURE__ */ jsxs3(TableRow, { className: active ? "permisos-route-row--active" : "permisos-route-row--inactive", children: [
-          /* @__PURE__ */ jsx6(TableCell, { children: /* @__PURE__ */ jsx6(Typography3, { variant: "body2", fontWeight: active ? 600 : 400, children: row.label }) }),
-          /* @__PURE__ */ jsx6(TableCell, { children: /* @__PURE__ */ jsx6(Typography3, { component: "code", variant: "caption", sx: { wordBreak: "break-all" }, children: row.key }) }),
-          /* @__PURE__ */ jsx6(TableCell, { children: row.fixFilter ? /* @__PURE__ */ jsx6(Tooltip, { title: `Plantillas {{var}} \u2014 ${FIX_FILTER_VAR_HINT}`, children: /* @__PURE__ */ jsx6(Typography3, { variant: "caption", color: "text.secondary", sx: { wordBreak: "break-all" }, children: formatFixFilter(row.fixFilter) }) }) : /* @__PURE__ */ jsx6(Typography3, { variant: "caption", color: "text.disabled", children: "\u2014" }) }),
-          /* @__PURE__ */ jsx6(TableCell, { children: canEdit && !isVisitante && !visitanteRouteLocked(row.key) ? /* @__PURE__ */ jsx6(
-            AccessModeSelect,
-            {
-              value: row.mode,
-              scoped: !!row.scoped,
-              disabled: wildcard,
-              onChange: (mode) => onRouteMode(row.key, mode)
-            }
-          ) : isVisitante && visitanteRouteLocked(row.key) ? /* @__PURE__ */ jsx6(
-            Chip2,
-            {
-              size: "small",
-              color: "info",
-              variant: "outlined",
-              icon: /* @__PURE__ */ jsx6(Icon, { icon: "mdi:lock", size: 14 }),
-              label: "Alcance: propio (fijo)"
-            }
-          ) : /* @__PURE__ */ jsx6(ModeChip, { mode: row.mode }) })
-        ] }, row.key);
-      }) })
-    ] })
-  ] });
-}
-function RoutePermCatalog({ routes, flags, permisos, canEdit, onRoutesChange, isVisitante }) {
-  const [newKey, setNewKey] = useState4("");
-  const wildcard = flags?.["*"] || isWildcardRole(permisos);
-  const view = useMemo2(() => {
-    if (canEdit) return groupsFromRouteRows(routes, flags, { includeInactive: true });
-    return routesForRoleEditor(permisos, { includeInactive: false });
-  }, [canEdit, routes, flags, permisos]);
-  const activeCount = canEdit ? countActiveRoutes(routes) : view.groups.reduce((n, g) => n + g.routes.length, 0) + view.extras.length;
-  function onRouteMode(key, mode) {
-    if (!canEdit || visitanteRouteLocked(key)) return;
-    const hit = routes.find((r) => r.key === key);
-    const next = hit ? routes.map((r) => {
-      if (r.key !== key) return r;
-      const row = { ...r, mode };
-      if (mode === "allow" || mode === "off") delete row.fixFilter;
-      return row;
-    }) : [...routes, { key, mode }].sort((a, b) => a.key.localeCompare(b.key));
-    onRoutesChange?.(next);
-  }
-  function addRow() {
-    const key = String(newKey ?? "").trim();
-    if (!key || routes.some((r) => r.key === key)) return;
-    onRoutesChange?.([...routes, { key, mode: "allow" }].sort((a, b) => a.key.localeCompare(b.key)));
-    setNewKey("");
-  }
-  return /* @__PURE__ */ jsxs3(Box3, { className: "permisos-route-catalog", children: [
-    /* @__PURE__ */ jsxs3(Stack2, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [
-      /* @__PURE__ */ jsx6(Typography3, { variant: "subtitle2", fontWeight: 700, children: "Rutas API" }),
-      /* @__PURE__ */ jsx6(Chip2, { size: "small", variant: "outlined", label: `${activeCount} activas` })
-    ] }),
-    isVisitante ? /* @__PURE__ */ jsxs3(Alert, { severity: "info", sx: { mb: 1.5 }, icon: /* @__PURE__ */ jsx6(Icon, { icon: "mdi:account-lock-outline", size: 18 }), children: [
-      "Alcance fijo por ",
-      /* @__PURE__ */ jsx6("code", { children: "fixFilter" }),
-      " de sesi\xF3n (",
-      /* @__PURE__ */ jsx6("code", { children: "itercero" }),
-      ", ",
-      /* @__PURE__ */ jsx6("code", { children: "icontacto" }),
-      "). El ISS fusiona ese filtro con la petici\xF3n y siempre gana sobre query o ",
-      /* @__PURE__ */ jsx6("code", { children: "f.eq" }),
-      "."
-    ] }) : null,
-    wildcard ? /* @__PURE__ */ jsxs3(Alert, { severity: "info", sx: { mb: 1.5 }, icon: /* @__PURE__ */ jsx6(Icon, { icon: "mdi:asterisk", size: 18 }), children: [
-      "Acceso total (",
-      /* @__PURE__ */ jsx6("code", { children: "*" }),
-      ") \u2014 todas las rutas quedan cubiertas por el wildcard."
-    ] }) : null,
-    !view.groups.length && !view.extras.length ? /* @__PURE__ */ jsx6(Typography3, { variant: "body2", color: "text.secondary", children: "Sin rutas activas para este rol." }) : /* @__PURE__ */ jsxs3(Stack2, { spacing: 2, className: "permisos-route-catalog__groups", children: [
-      view.groups.map((g) => /* @__PURE__ */ jsx6(RouteGroupSection, { title: g.title, routes: g.routes, canEdit, wildcard, onRouteMode, isVisitante }, g.id)),
-      view.extras.length ? /* @__PURE__ */ jsx6(RouteGroupSection, { title: "Otras claves", routes: view.extras, canEdit, wildcard, onRouteMode, isVisitante }) : null
-    ] }),
-    canEdit && !wildcard && !isVisitante ? /* @__PURE__ */ jsxs3(Stack2, { direction: { xs: "column", sm: "row" }, spacing: 1, sx: { mt: 1.5 }, children: [
-      /* @__PURE__ */ jsx6(
-        TextField2,
-        {
-          size: "small",
-          fullWidth: true,
-          label: "Clave adicional",
-          placeholder: "GET:/api/conversaciones",
-          value: newKey,
-          onChange: (e) => setNewKey(e.target.value),
-          onKeyDown: (e) => e.key === "Enter" && addRow()
-        }
-      ),
-      /* @__PURE__ */ jsx6(ButtonIconify, { icon: "mdi:plus", title: "Agregar", label: "Agregar", onClick: addRow, disabled: !newKey.trim() })
-    ] }) : null
-  ] });
-}
-function RoleConfigEditor({ entry, roleName, canManage, canEditRoleDescriptions, onChange }) {
-  const canEditPermisos = !!canManage;
-  const canEditMeta = canManage || canEditRoleDescriptions;
-  const resolvedRole = roleName ?? String(entry?.iusuario ?? "").trim().toLowerCase().replace(/^role:/i, "");
-  const isVisitante = isVisitanteRole(resolvedRole);
-  const [namedisplay, setNamedisplay] = useState4(roleNamedisplay(entry?.permisos));
-  const [desc, setDesc] = useState4(roleDescripcion(entry?.permisos));
-  const [flags, setFlags] = useState4(() => splitRolePermisos(entry?.permisos).flags);
-  const [routes, setRoutes] = useState4(() => routesArrayFromPermisos(entry?.permisos, canEditPermisos));
-  const entryDesc = roleDescripcion(entry?.permisos);
-  const entryNamedisplay = roleNamedisplay(entry?.permisos);
-  useEffect4(() => {
-    setNamedisplay(roleNamedisplay(entry?.permisos));
-    setDesc(roleDescripcion(entry?.permisos));
-    const split = splitRolePermisos(entry?.permisos);
-    setFlags(split.flags);
-    setRoutes(routesArrayFromPermisos(entry?.permisos, canEditPermisos));
-  }, [entry?.permisos, entry?.iusuario, canEditPermisos]);
-  function emit(nextNamedisplay = namedisplay, nextDesc = desc, nextFlags = flags, nextRoutes = routes) {
-    if (!onChange) return;
-    if (canManage) {
-      let permisos = buildRolePermisos(
-        canEditMeta ? nextDesc : entryDesc,
-        canEditMeta ? nextNamedisplay : entryNamedisplay,
-        nextFlags,
-        nextRoutes
-      );
-      if (isVisitante) permisos = enforceVisitantePermisos(permisos);
-      onChange(permisos);
-    } else if (canEditRoleDescriptions) {
-      onChange({
-        ...entry?.permisos ?? {},
-        descripcion: String(nextDesc).trim() || void 0,
-        namedisplay: String(nextNamedisplay).trim() || void 0
-      });
-    }
-  }
-  return /* @__PURE__ */ jsxs3(Stack2, { spacing: 3, className: "permisos-role-config-editor", children: [
-    canEditMeta ? /* @__PURE__ */ jsxs3(Box3, { component: "section", className: "permisos-role-config-editor__meta", children: [
-      /* @__PURE__ */ jsx6(Typography3, { variant: "subtitle2", fontWeight: 700, sx: { mb: 1.25 }, children: "Metadatos del rol" }),
-      /* @__PURE__ */ jsxs3(Stack2, { spacing: 1.5, children: [
-        /* @__PURE__ */ jsx6(
-          TextField2,
-          {
-            label: "Nombre a mostrar",
-            size: "small",
-            fullWidth: true,
-            value: namedisplay,
-            disabled: !canEditMeta,
-            onChange: (e) => {
-              const v = e.target.value;
-              setNamedisplay(v);
-              emit(v, desc, flags, routes);
-            }
-          }
-        ),
-        /* @__PURE__ */ jsx6(
-          TextField2,
-          {
-            label: "Descripci\xF3n",
-            size: "small",
-            fullWidth: true,
-            value: desc,
-            disabled: !canEditMeta,
-            onChange: (e) => {
-              const v = e.target.value;
-              setDesc(v);
-              emit(namedisplay, v, flags, routes);
-            }
-          }
-        )
-      ] })
-    ] }) : /* @__PURE__ */ jsxs3(Box3, { component: "section", className: "permisos-role-config-editor__meta permisos-role-config-editor__meta--readonly", children: [
-      /* @__PURE__ */ jsx6(Typography3, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: roleNamedisplay(entry?.permisos) || roleTitleFromEntry(entry) }),
-      roleDescripcion(entry?.permisos) ? /* @__PURE__ */ jsx6(Typography3, { variant: "body2", color: "text.secondary", children: roleDescripcion(entry?.permisos) }) : null
-    ] }),
-    /* @__PURE__ */ jsx6(Divider, { className: "permisos-role-config-divider" }),
-    /* @__PURE__ */ jsxs3(Box3, { component: "section", className: "permisos-role-config-editor__flags", children: [
-      /* @__PURE__ */ jsx6(Typography3, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "Privilegios globales" }),
-      isVisitante ? /* @__PURE__ */ jsx6(Typography3, { variant: "body2", color: "text.secondary", children: "El rol visitante no usa privilegios globales ni acceso total." }) : /* @__PURE__ */ jsx6(Stack2, { spacing: 0.25, children: FLAG_DEFS.map((f) => /* @__PURE__ */ jsx6(Tooltip, { title: f.hint, placement: "right", children: /* @__PURE__ */ jsx6(
-        FormControlLabel,
-        {
-          control: /* @__PURE__ */ jsx6(
-            Checkbox,
-            {
-              size: "small",
-              checked: !!flags[f.key],
-              disabled: !canEditPermisos,
-              onChange: (e) => {
-                if (!canEditPermisos) return;
-                const nf = { ...flags, [f.key]: e.target.checked };
-                setFlags(nf);
-                emit(namedisplay, desc, nf, routes);
-              }
-            }
-          ),
-          label: /* @__PURE__ */ jsx6(Typography3, { variant: "body2", fontWeight: flags[f.key] ? 600 : 400, children: f.label })
-        }
-      ) }, f.key)) })
-    ] }),
-    /* @__PURE__ */ jsx6(Divider, { className: "permisos-role-config-divider" }),
-    /* @__PURE__ */ jsx6(Box3, { component: "section", className: "permisos-role-config-editor__routes", children: /* @__PURE__ */ jsx6(
-      RoutePermCatalog,
-      {
-        routes,
-        flags,
-        permisos: entry?.permisos,
-        canEdit: canEditPermisos,
-        isVisitante,
-        onRoutesChange: (nr) => {
-          setRoutes(nr);
-          emit(namedisplay, desc, flags, nr);
-        }
-      }
-    ) })
-  ] });
-}
 function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   const [moveStep, setMoveStep] = useState4(false);
   useEffect4(() => {
@@ -1691,7 +1862,7 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
   }, [open]);
   if (!pending) return null;
   const { roleTitle, role, existingUsernames, toJerarquia, columns } = pending;
-  const roleLabel = roleTitle || role;
+  const roleLabel2 = roleTitle || role;
   const alreadyInRole = username && existingUsernames?.has(String(username).trim().toUpperCase());
   const userJerarquias = username ? userJerarquiasFromBoard(username, columns) : [];
   const addCheck = username && !alreadyInRole ? canAddUserToRole({ toJerarquia, userJerarquiasOnBoard: userJerarquias }) : { ok: true };
@@ -1703,12 +1874,12 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
       onClose: busy ? void 0 : onClose,
       maxWidth: "sm",
       fullWidth: true,
-      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel, accent: "#10b981", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel2, accent: "#10b981", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsxs3(Typography3, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
             "Busque un usuario en permisos ISS o escriba un login nuevo para asignarlo al rol ",
-            /* @__PURE__ */ jsx6("strong", { children: roleLabel }),
+            /* @__PURE__ */ jsx6("strong", { children: roleLabel2 }),
             "."
           ] }),
           /* @__PURE__ */ jsx6(PermisosUserAutocomplete, { value: username, onChange: setUsername, disabled: busy, label: "Usuario" }),
@@ -1736,10 +1907,10 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
 function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   if (!pending) return null;
   const { username, roleTitle, role, fromJerarquia } = pending;
-  const roleLabel = roleTitle || role;
+  const roleLabel2 = roleTitle || role;
   const isSelf = isSamePermisosUser(username, sessionUsername);
   const isDevLead = isTopDevLeadRole(role, fromJerarquia);
-  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel, isSelf, isDevLead });
+  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel2, isSelf, isDevLead });
   return /* @__PURE__ */ jsxs3(
     GlassDialog,
     {
@@ -1748,7 +1919,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
       maxWidth: "sm",
       fullWidth: true,
       disableEscapeKeyDown: busy,
-      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel2}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mb: 2 }, children: isSelf && isDevLead ? "Te quitar\xE1s dev_lead (m\xE1ximo privilegio). Otro dev_lead o un ajuste en BD ser\xE1 necesario para recuperarlo." : "Esta acci\xF3n revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar." }),
@@ -1756,7 +1927,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
             "\xBFQuitar a ",
             /* @__PURE__ */ jsx6("strong", { children: username }),
             " del rol ",
-            /* @__PURE__ */ jsx6("strong", { children: roleLabel }),
+            /* @__PURE__ */ jsx6("strong", { children: roleLabel2 }),
             "?"
           ] }),
           /* @__PURE__ */ jsx6(Box3, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: bullets.map((line) => /* @__PURE__ */ jsx6("li", { children: renderImpactLine(line) }, line)) })
@@ -2332,6 +2503,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
 }
 
 // js/tools/PermisosRoleFilterAutocomplete.jsx
+init_platform();
 import { jsx as jsx8 } from "react/jsx-runtime";
 var { Autocomplete: Autocomplete2, TextField: TextField3, Chip: Chip4 } = getMaterialUI();
 function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = false }) {
@@ -2354,779 +2526,499 @@ function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = f
         const { key, ...chipProps } = getTagProps({ index });
         return /* @__PURE__ */ jsx8(Chip4, { ...chipProps, label: option.label, size: "small", className: "isa-neon-glass-chip" }, key);
       }),
-      renderInput: (params) => /* @__PURE__ */ jsx8(TextField3, { ...params, label: "Roles", placeholder: selected.length ? "" : "Todos" })
-    }
-  );
-}
-
-// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
-import * as React2 from "react";
-
-// js/ui/treeView/TreeRowItem.tsx
-import * as React from "react";
-
-// js/ui/treeView/treeDrag.ts
-function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
-  if (isGrouper) {
-    const y = clientY - rectTop;
-    const topBand = rectHeight * 0.25;
-    const bottomBand = rectHeight * 0.75;
-    if (y < topBand) return "before";
-    if (y > bottomBand) return "after";
-    return "into";
-  }
-  const midY = rectTop + rectHeight / 2;
-  return clientY < midY ? "before" : "after";
-}
-function summaryDragClass(dragOver, forbidden) {
-  if (!dragOver) return "";
-  if (forbidden) {
-    if (dragOver === "before") return "trvwr-itm-sum--drg-forbidden-bf";
-    if (dragOver === "after") return "trvwr-itm-sum--drg-forbidden-aftr";
-    return "trvwr-itm-sum--drg-forbidden-into";
-  }
-  if (dragOver === "before") return "trvwr-itm-sum--drg-bf";
-  if (dragOver === "after") return "trvwr-itm-sum--drg-aftr";
-  return "trvwr-itm-sum--drg-into";
-}
-
-// js/ui/treeView/TreeRowItem.tsx
-import { Fragment as Fragment4, jsx as jsx9, jsxs as jsxs5 } from "react/jsx-runtime";
-var { IconButton: IconButton2, Tooltip: Tooltip3 } = getMaterialUI();
-function TreeRow({ node, ...ctx }) {
-  const {
-    items,
-    manifest,
-    customs,
-    collapsed,
-    selectedPath,
-    highlightedPath,
-    canMutate,
-    drag,
-    onToggleCollapse,
-    onSelect,
-    onDragStart,
-    onDragOver,
-    onDragLeave,
-    onDragEnd,
-    onDrop
-  } = ctx;
-  const features = manifest.features ?? {};
-  const icons = manifest.icons ?? {};
-  const path = node.flatPath;
-  const isOpen = !collapsed.has(path);
-  const isGrouper = customs.isGrouper ? customs.isGrouper(node) : node.hasChildren;
-  const isSelected = selectedPath === path;
-  const isHighlighted = highlightedPath === path;
-  const isDragging = drag.sourcePath === path;
-  const isDragTarget = drag.overPath === path;
-  const dragZone = isDragTarget ? drag.overZone : null;
-  const dragForbidden = isDragTarget && drag.forbidden;
-  const childCount = node.childrens.length;
-  const rowCtx = { node, isOpen, isSelected, isGrouper, childCount };
-  const iconCtx = { ...rowCtx, isExpanded: isOpen };
-  const label = customs.getLabel?.(node) ?? path;
-  const helper = features.showHelper !== false ? customs.getHelper?.(node) ?? null : null;
-  const pathLabel = features.showPathLabel !== false ? customs.getPathLabel?.(node) ?? path : null;
-  const grouperIcons = customs.getGrouperIcons?.(iconCtx) ?? {
-    open: icons.grouperOpen ?? "mdi:folder-open",
-    closed: icons.grouperClosed ?? "mdi:folder",
-    color: icons.grouperColor ?? "#FFA000"
-  };
-  const leafIcon = customs.getLeafIcon?.(iconCtx) ?? icons.leaf ?? "mdi:circle-small";
-  const rowActions = features.rowActions !== false && canMutate ? customs.rowActions?.(node) ?? [] : [];
-  const detailsRef = React.useRef(null);
-  const dragEnterCount = React.useRef(0);
-  const cachedRect = React.useRef(null);
-  const summaryClass = [
-    "trvwr-itm-sum",
-    isHighlighted ? "trvwr-itm-sum--focused" : "",
-    summaryDragClass(dragZone, dragForbidden),
-    !canMutate ? "trvwr-itm-sum--disabled" : ""
-  ].filter(Boolean).join(" ");
-  const detailsClass = [
-    "trvwr-itm",
-    isHighlighted ? "highlight" : "",
-    isDragging ? "trvwr-itm--dragging" : "",
-    isSelected && isGrouper ? "trvwr-itm--folder-selected" : "",
-    isSelected ? "trvwr-itm--active" : ""
-  ].filter(Boolean).join(" ");
-  const handleToggle = (e) => {
-    if (!canMutate || features.collapse === false) {
-      e.preventDefault();
-      if (detailsRef.current) detailsRef.current.open = isOpen;
-      return;
-    }
-    const open = e.currentTarget.open;
-    if (open !== isOpen) {
-      onToggleCollapse(path, open);
-      customs.onExpand?.(node, open);
-    }
-  };
-  const handleSummaryClick = (e) => {
-    const target = e.target;
-    if (target.closest(".trvwr-drag-handle")) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    if (!canMutate || features.collapse === false) {
-      e.preventDefault();
-      if (detailsRef.current) detailsRef.current.open = isOpen;
-    } else {
-      const clickedSymbol = target.closest(".trvwr-itm-symb");
-      if (isGrouper && clickedSymbol) {
-        e.preventDefault();
-        onToggleCollapse(path, !isOpen);
-        customs.onExpand?.(node, !isOpen);
-      }
-    }
-    onSelect(path);
-    customs.onSelect?.(node);
-  };
-  const dragEnabled = canMutate && features.drag !== false;
-  const handleDragStart = (e) => {
-    if (!dragEnabled) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", path);
-    const summary = e.currentTarget.closest("summary") ?? e.currentTarget;
-    const h = Math.max(24, Math.round(summary.getBoundingClientRect().height));
-    e.dataTransfer.setData("application/x-trvwr-row-height", String(h));
-    onDragStart(path, h);
-  };
-  const handleDragOver = (e) => {
-    if (!dragEnabled || !drag.sourcePath) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (drag.sourcePath === path) return;
-    if (!cachedRect.current) {
-      const r = e.currentTarget.getBoundingClientRect();
-      cachedRect.current = { top: r.top, height: r.height };
-    }
-    const rect = cachedRect.current;
-    const zone = resolveDragZone(e.clientY, rect.top, rect.height, isGrouper);
-    const canDropFn = customs.canDrop ?? (() => true);
-    const forbidden = !canDropFn(drag.sourcePath, path, zone, items);
-    onDragOver(path, zone, forbidden);
-  };
-  const handleDragEnter = () => {
-    dragEnterCount.current++;
-    cachedRect.current = null;
-  };
-  const handleDragLeave = () => {
-    dragEnterCount.current--;
-    if (dragEnterCount.current <= 0) {
-      dragEnterCount.current = 0;
-      cachedRect.current = null;
-      onDragLeave(path);
-    }
-  };
-  const handleDrop = (e) => {
-    e.preventDefault();
-    dragEnterCount.current = 0;
-    cachedRect.current = null;
-    const sourcePath = e.dataTransfer.getData("text/plain") || drag.sourcePath;
-    const zone = drag.overPath === path ? drag.overZone : null;
-    if (!sourcePath || !zone || drag.forbidden || sourcePath === path) {
-      onDragEnd();
-      return;
-    }
-    onDrop(sourcePath, path, zone);
-  };
-  const handleDragEnd = () => {
-    dragEnterCount.current = 0;
-    cachedRect.current = null;
-    onDragEnd();
-  };
-  return /* @__PURE__ */ jsx9("div", { className: "trvwr-row-host", "data-flatpath": path, children: /* @__PURE__ */ jsxs5("details", { ref: detailsRef, className: detailsClass, open: isOpen, onToggle: handleToggle, "aria-disabled": !canMutate || void 0, children: [
-    /* @__PURE__ */ jsx9(
-      "summary",
-      {
-        className: summaryClass,
-        role: "treeitem",
-        "aria-selected": isSelected,
-        "aria-expanded": isGrouper ? isOpen : void 0,
-        draggable: dragEnabled,
-        onClick: handleSummaryClick,
-        onDragStart: handleDragStart,
-        onDragEnd: handleDragEnd,
-        onDragEnter: handleDragEnter,
-        onDragOver: handleDragOver,
-        onDragLeave: handleDragLeave,
-        onDrop: handleDrop,
-        children: /* @__PURE__ */ jsxs5("div", { className: "trvwr-sum-row", children: [
-          dragEnabled ? /* @__PURE__ */ jsx9("span", { className: "trvwr-drag-handle", title: "Arrastrar para reordenar", draggable: true, onDragStart: handleDragStart, onDragEnd: handleDragEnd, children: /* @__PURE__ */ jsx9("iconify-icon", { icon: icons.dragHandle ?? "mdi:dots-grid", style: { fontSize: "1rem", opacity: 0.45 } }) }) : null,
-          isGrouper ? /* @__PURE__ */ jsxs5("span", { className: "trvwr-itm-symb", children: [
-            /* @__PURE__ */ jsx9("span", { className: `trvwr-chevron${isOpen ? "" : " trvwr-chevron--closed"}`, children: /* @__PURE__ */ jsx9("iconify-icon", { icon: icons.chevron ?? "mdi:chevron-down", style: { fontSize: "1rem" } }) }),
-            /* @__PURE__ */ jsx9("iconify-icon", { icon: isOpen ? grouperIcons.open : grouperIcons.closed, style: { fontSize: "1rem", color: grouperIcons.color } })
-          ] }) : /* @__PURE__ */ jsx9("span", { className: "trvwr-itm-symb", children: /* @__PURE__ */ jsx9("iconify-icon", { icon: leafIcon, style: { fontSize: "1rem", opacity: 0.75 } }) }),
-          /* @__PURE__ */ jsxs5("div", { className: "trvwr-itm-content", children: [
-            /* @__PURE__ */ jsxs5("span", { className: "trvwr-itm-label", title: label, children: [
-              label,
-              pathLabel ? /* @__PURE__ */ jsx9("span", { className: "trvwr-itm-path", children: pathLabel }) : null
-            ] }),
-            helper ? /* @__PURE__ */ jsx9("span", { className: "trvwr-itm-helper", children: /* @__PURE__ */ jsx9("small", { children: helper }) }) : null
-          ] }),
-          rowActions.length ? /* @__PURE__ */ jsx9("div", { className: "trvwr-float-card", role: "presentation", onClick: (e) => e.stopPropagation(), children: rowActions.map((act) => /* @__PURE__ */ jsx9(Tooltip3, { title: act.title, children: /* @__PURE__ */ jsx9(IconButton2, { size: "small", "aria-label": act.title, disabled: act.disabled, onClick: act.onClick, children: /* @__PURE__ */ jsx9("iconify-icon", { icon: act.icon, width: "16", height: "16" }) }) }, act.id)) }) : null,
-          customs.renderRowExtra?.(node)
-        ] })
-      }
-    ),
-    isGrouper && isOpen ? /* @__PURE__ */ jsx9("div", { className: "trvwr-itm-childrens-wrap", children: /* @__PURE__ */ jsx9("div", { className: "trvwr-itm-childrens", role: "group", children: /* @__PURE__ */ jsx9(TreeRowItem, { nodes: node.childrens, ...ctx }) }) }) : null
-  ] }) });
-}
-function TreeRowItem(props) {
-  const { nodes, ...ctx } = props;
-  if (!nodes?.length) return null;
-  return /* @__PURE__ */ jsx9(Fragment4, { children: nodes.map((node) => /* @__PURE__ */ jsx9(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
-}
-
-// js/ui/treeView/treeData.ts
-function dedupeItems(items, keyFn) {
-  const seen = /* @__PURE__ */ new Map();
-  for (const item of items) {
-    const key = keyFn(item);
-    if (key && !seen.has(key)) seen.set(key, item);
-  }
-  return Array.from(seen.values());
-}
-function defaultSort(a, b) {
-  return a.flatPath.localeCompare(b.flatPath, void 0, { numeric: true });
-}
-function buildTreeFromFlatList(items, config) {
-  const keyFn = config.dedupeKey ?? config.getFlatPath;
-  const unique = dedupeItems(items, keyFn);
-  const byPath = /* @__PURE__ */ new Map();
-  for (const item of unique) {
-    const flatPath = String(config.getFlatPath(item) ?? "").trim();
-    if (!flatPath) continue;
-    byPath.set(flatPath, {
-      flatPath,
-      pathInit: flatPath,
-      hasChildren: false,
-      depth: 0,
-      childrens: [],
-      data: item
-    });
-  }
-  const childrenOf = /* @__PURE__ */ new Map();
-  for (const [flatPath, node] of byPath) {
-    const parentPath = config.getParentPath(flatPath, node.data);
-    if (!parentPath || !byPath.has(parentPath)) continue;
-    if (!childrenOf.has(parentPath)) childrenOf.set(parentPath, []);
-    if (!childrenOf.get(parentPath).includes(flatPath)) childrenOf.get(parentPath).push(flatPath);
-  }
-  const visited = /* @__PURE__ */ new Set();
-  const computeDepth = (path, depth) => {
-    if (visited.has(path)) return;
-    visited.add(path);
-    const node = byPath.get(path);
-    if (!node) return;
-    node.depth = depth;
-    const kids = childrenOf.get(path) ?? [];
-    node.hasChildren = kids.length > 0;
-    for (const kid of kids) computeDepth(kid, depth + 1);
-  };
-  for (const item of unique) {
-    const fp = String(config.getFlatPath(item) ?? "").trim();
-    if (fp && !visited.has(fp)) computeDepth(fp, 0);
-  }
-  const hasKnownParent = (path) => {
-    const node = byPath.get(path);
-    if (!node) return false;
-    const parent = config.getParentPath(path, node.data);
-    return !!parent && byPath.has(parent);
-  };
-  const roots = [];
-  for (const node of byPath.values()) {
-    const parentPath = config.getParentPath(node.flatPath, node.data);
-    const parent = parentPath ? byPath.get(parentPath) : void 0;
-    if (parent) {
-      parent.childrens.push(node);
-      parent.hasChildren = true;
-    } else if (!hasKnownParent(node.flatPath)) {
-      roots.push(node);
-    }
-  }
-  const sortRec = (list) => {
-    const cmp = config.sortSiblings ?? defaultSort;
-    list.sort(cmp);
-    for (const n of list) sortRec(n.childrens);
-  };
-  sortRec(roots);
-  return roots;
-}
-function findTreeNodeByPath(roots, path) {
-  const walk = (nodes) => {
-    for (const n of nodes) {
-      if (n.flatPath === path) return n;
-      const hit = walk(n.childrens);
-      if (hit) return hit;
-    }
-    return void 0;
-  };
-  return walk(roots);
-}
-function collectPathsWithChildren(roots) {
-  const out = [];
-  const walk = (nodes) => {
-    for (const n of nodes) {
-      if (n.hasChildren) out.push(n.flatPath);
-      walk(n.childrens);
-    }
-  };
-  walk(roots);
-  return out;
-}
-
-// js/ui/treeView/TreeView.tsx
-import { Fragment as Fragment5, jsx as jsx10, jsxs as jsxs6 } from "react/jsx-runtime";
-var { useState: useState6, useMemo: useMemo4, useCallback: useCallback2 } = getReact();
-var { Box: Box5, Stack: Stack4, Typography: Typography5, Chip: Chip5, IconButton: IconButton3, Tooltip: Tooltip4, Button: Button2, CircularProgress: CircularProgress3 } = getMaterialUI();
-var EMPTY_DRAG = { sourcePath: null, overPath: null, overZone: null, forbidden: false };
-function TreeView(props) {
-  const {
-    items,
-    manifest,
-    customs,
-    readonly = false,
-    busy = false,
-    selectedPath: selectedPathProp,
-    onSelectedPathChange,
-    className = "",
-    toolbarTitle,
-    toolbarExtra,
-    showToolbar = true
-  } = props;
-  const features = manifest.features ?? {};
-  const [collapsed, setCollapsed] = useState6(/* @__PURE__ */ new Set());
-  const [selectedPathInternal, setSelectedPathInternal] = useState6(null);
-  const [drag, setDrag] = useState6(EMPTY_DRAG);
-  const selectedPath = selectedPathProp !== void 0 ? selectedPathProp : selectedPathInternal;
-  const setSelectedPath = useCallback2((path) => {
-    if (onSelectedPathChange) onSelectedPathChange(path);
-    else setSelectedPathInternal(path);
-  }, [onSelectedPathChange]);
-  const rootNodes = useMemo4(() => buildTreeFromFlatList(items, customs.build), [items, customs.build]);
-  const canMutate = !readonly && !busy;
-  const runtime = useMemo4(() => ({
-    rootNodes,
-    items,
-    selectedPath,
-    collapsed,
-    readonly,
-    busy,
-    collapseAll: () => setCollapsed(new Set(collectPathsWithChildren(rootNodes))),
-    expandAll: () => setCollapsed(/* @__PURE__ */ new Set()),
-    select: setSelectedPath,
-    findByPath: (path) => findTreeNodeByPath(rootNodes, path)
-  }), [rootNodes, items, selectedPath, collapsed, readonly, busy, setSelectedPath]);
-  const setCollapsedFor = useCallback2((path, open) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (open) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
-  const handleDragStart = useCallback2((path) => {
-    setDrag({ sourcePath: path, overPath: null, overZone: null, forbidden: false });
-  }, []);
-  const handleDragOver = useCallback2((path, zone, forbidden) => {
-    setDrag((prev) => {
-      if (prev.overPath === path && prev.overZone === zone && prev.forbidden === forbidden) return prev;
-      return { ...prev, overPath: path, overZone: zone, forbidden };
-    });
-  }, []);
-  const handleDragLeave = useCallback2((path) => {
-    setDrag((prev) => prev.overPath === path ? { ...prev, overPath: null, overZone: null, forbidden: false } : prev);
-  }, []);
-  const handleDragEnd = useCallback2(() => setDrag(EMPTY_DRAG), []);
-  const handleDrop = useCallback2(async (sourcePath, targetPath, zone) => {
-    setDrag(EMPTY_DRAG);
-    await customs.onDrop?.(sourcePath, targetPath, zone, items);
-  }, [customs, items]);
-  const toolbarActions = useMemo4(
-    () => (customs.toolbarActions?.(runtime) ?? []).filter((a) => !a.hidden),
-    [customs, runtime]
-  );
-  const countLabel = manifest.countLabel ?? `${items.length} ${manifest.entrie ?? "elemento"}${items.length !== 1 ? "s" : ""}`;
-  const ariaLabel = manifest.ariaLabel ?? manifest.entries ?? `\xC1rbol de ${manifest.entrie ?? "elementos"}`;
-  return /* @__PURE__ */ jsxs6(Box5, { className: `isp-tree-host isp-tree ${className}`.trim(), sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
-    showToolbar ? /* @__PURE__ */ jsxs6(Stack4, { direction: "row", alignItems: "center", spacing: 1, className: "isp-tree-toolbar", sx: { p: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }, children: [
-      toolbarTitle ? /* @__PURE__ */ jsx10(Typography5, { variant: "subtitle1", sx: { flex: 1 }, children: toolbarTitle }) : /* @__PURE__ */ jsx10(Box5, { sx: { flex: 1 } }),
-      /* @__PURE__ */ jsx10(Chip5, { size: "small", label: countLabel }),
-      features.toolbarExpandCollapse !== false ? /* @__PURE__ */ jsxs6(Fragment5, { children: [
-        /* @__PURE__ */ jsx10(Tooltip4, { title: "Expandir todo", children: /* @__PURE__ */ jsx10(IconButton3, { size: "small", onClick: runtime.expandAll, disabled: busy, children: /* @__PURE__ */ jsx10("iconify-icon", { icon: "mdi:unfold-more-horizontal", width: "18", height: "18" }) }) }),
-        /* @__PURE__ */ jsx10(Tooltip4, { title: "Colapsar todo", children: /* @__PURE__ */ jsx10(IconButton3, { size: "small", onClick: runtime.collapseAll, disabled: busy, children: /* @__PURE__ */ jsx10("iconify-icon", { icon: "mdi:unfold-less-horizontal", width: "18", height: "18" }) }) })
-      ] }) : null,
-      toolbarActions.map((act) => act.variant === "button" ? /* @__PURE__ */ jsx10(
-        Button2,
+      renderInput: (params) => /* @__PURE__ */ jsx8(
+        TextField3,
         {
+          ...params,
           size: "small",
-          variant: "contained",
-          disabled: act.disabled || busy,
-          startIcon: /* @__PURE__ */ jsx10("iconify-icon", { icon: act.icon, width: "16", height: "16" }),
-          onClick: act.onClick,
-          children: act.label ?? act.title
-        },
-        act.id
-      ) : /* @__PURE__ */ jsx10(Tooltip4, { title: act.title, children: /* @__PURE__ */ jsx10("span", { children: /* @__PURE__ */ jsx10(IconButton3, { size: "small", disabled: act.disabled || busy, onClick: act.onClick, "aria-label": act.title, children: /* @__PURE__ */ jsx10("iconify-icon", { icon: act.icon, width: "18", height: "18" }) }) }) }, act.id)),
-      toolbarExtra
-    ] }) : null,
-    busy ? /* @__PURE__ */ jsx10(Box5, { sx: { display: "flex", alignItems: "center", justifyContent: "center", p: 2, flex: 1, minHeight: 0 }, children: /* @__PURE__ */ jsx10(CircularProgress3, { size: 20 }) }) : /* @__PURE__ */ jsx10(Box5, { className: "isp-tree isp-tree-body custom-scrollbar", role: "tree", "aria-label": ariaLabel, sx: { flex: 1, minHeight: 0, overflow: "auto" }, children: rootNodes.length === 0 ? /* @__PURE__ */ jsx10(Typography5, { variant: "body2", color: "text.secondary", sx: { p: 2 }, children: manifest.emptyMessage ?? "Sin elementos." }) : /* @__PURE__ */ jsx10(
-      TreeRowItem,
-      {
-        nodes: rootNodes,
-        items,
-        manifest,
-        customs,
-        collapsed,
-        selectedPath,
-        highlightedPath: selectedPath,
-        canMutate,
-        drag,
-        onToggleCollapse: setCollapsedFor,
-        onSelect: setSelectedPath,
-        onDragStart: handleDragStart,
-        onDragOver: handleDragOver,
-        onDragLeave: handleDragLeave,
-        onDragEnd: handleDragEnd,
-        onDrop: handleDrop
-      }
-    ) })
-  ] });
-}
-
-// js/tools/roleHierarchyTree/treeLogic.ts
-function immediateParentJer(jer) {
-  const ancestors = ancestorsFromPath(jer);
-  return ancestors.length > 1 ? ancestors[1] : null;
-}
-function isDescendant(targetJer, ancestorJer) {
-  if (targetJer === ancestorJer) return true;
-  return ancestorsFromPath(targetJer).includes(ancestorJer);
-}
-function canDrop(sourceJer, targetJer, position, _nodes) {
-  if (!position || !sourceJer || !targetJer || sourceJer === targetJer) return false;
-  if (isDescendant(targetJer, sourceJer)) return false;
-  return true;
-}
-function nextChildJer(parentJer, existing) {
-  const prefix = `${parentJer}.`;
-  let max = -1;
-  for (const j of existing) {
-    if (!j.startsWith(prefix)) continue;
-    const seg = j.slice(prefix.length).split(".")[0];
-    const n = Number(seg);
-    if (!Number.isNaN(n)) max = Math.max(max, n);
-  }
-  return `${parentJer}.${max + 1}`;
-}
-function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
-  if (!canDrop(sourceJer, targetJer, position, nodes)) return null;
-  const existing = new Set(nodes.map((n) => n.jerarquia).filter((j) => j !== sourceJer));
-  if (position === "into") return nextChildJer(targetJer, existing);
-  const targetParent = immediateParentJer(targetJer);
-  const siblings = nodes.filter((n) => n.jerarquia !== sourceJer).filter((n) => immediateParentJer(n.jerarquia) === targetParent).map((n) => n.jerarquia).sort((a, b) => compareHierarchy(a, b));
-  const tgtIdx = siblings.indexOf(targetJer);
-  if (tgtIdx === -1) return null;
-  const insertIdx = position === "before" ? tgtIdx : tgtIdx + 1;
-  const parentPrefix = targetParent ? `${targetParent}.` : "";
-  const reindexed = [...siblings];
-  reindexed.splice(insertIdx, 0, "__moving__");
-  const myIdx = reindexed.indexOf("__moving__");
-  const seg = myIdx;
-  if (targetParent) return `${targetParent}.${seg}`;
-  return String(seg);
-}
-
-// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
-var ROLE_HIERARCHY_MANIFEST = {
-  ariaLabel: "\xC1rbol de roles",
-  entrie: "rol",
-  entries: "roles",
-  emptyMessage: "Sin roles.",
-  countLabel: void 0,
-  icons: {
-    grouperOpen: "mdi:folder-account",
-    grouperClosed: "mdi:folder-account-outline",
-    grouperColor: "#1976d2",
-    leaf: "mdi:account",
-    chevron: "mdi:chevron-down",
-    dragHandle: "mdi:dots-grid"
-  },
-  features: {
-    drag: true,
-    collapse: true,
-    toolbarExpandCollapse: true,
-    rowActions: true,
-    showPathLabel: true,
-    showHelper: true
-  }
-};
-function immediateParentJer2(jer) {
-  const ancestors = ancestorsFromPath(jer);
-  return ancestors.length > 1 ? ancestors[1] : null;
-}
-function createRoleHierarchyCustoms(handlers) {
-  const { items, canMutate, onSave, onDelete, onEdit, onCreateClick } = handlers;
-  return {
-    build: {
-      getFlatPath: (item) => String(item.jerarquia ?? "").trim(),
-      getParentPath: (flatPath) => immediateParentJer2(flatPath),
-      dedupeKey: (item) => String(item.jerarquia ?? "").trim(),
-      sortSiblings: (a, b) => compareHierarchy(a.flatPath, b.flatPath)
-    },
-    getLabel: (node) => node.data.namedisplay?.trim() || node.data.iusuario,
-    getHelper: (node) => node.data.descripcion?.trim() || null,
-    getPathLabel: (node) => formatJerarquiaLabel(node.flatPath),
-    canDrop: (sourcePath, targetPath, zone) => canDrop(sourcePath, targetPath, zone, items),
-    onDrop: async (sourcePath, targetPath, zone) => {
-      const source = items.find((n) => n.jerarquia === sourcePath);
-      if (!source) return;
-      const newJer = computeDropJerarquia(sourcePath, targetPath, zone, items);
-      if (!newJer) {
-        toastInfo?.("No se puede mover: operaci\xF3n no permitida");
-        return;
-      }
-      try {
-        await onSave(source.iusuario, newJer);
-      } catch (err) {
-        toastError?.(`Error al reparentar: ${err?.message ?? err}`);
-      }
-    },
-    rowActions: (node) => {
-      if (!canMutate) return [];
-      const data = node.data;
-      return [
-        {
-          id: "edit",
-          icon: "mdi:pencil",
-          title: "Editar jerarqu\xEDa",
-          onClick: () => onEdit(data)
-        },
-        {
-          id: "delete",
-          icon: "mdi:delete",
-          title: "Eliminar rol",
-          onClick: () => {
-            if (confirm(`\xBFEliminar rol "${data.iusuario}"?`)) {
-              onDelete(data.iusuario).catch((e) => toastError?.(String(e)));
-            }
+          label: "",
+          placeholder: selected.length ? "" : "Filtrar por roles\u2026",
+          InputLabelProps: { ...params.InputLabelProps, shrink: false },
+          sx: {
+            "& .MuiOutlinedInput-root": { minHeight: 28, height: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 }
           }
         }
-      ];
-    },
-    toolbarActions: (runtime) => {
-      if (!canMutate) return [];
-      return [
-        {
-          id: "new-role",
-          icon: "mdi:plus",
-          title: "Nuevo rol",
-          label: "Nuevo rol",
-          variant: "button",
-          onClick: onCreateClick
-        }
-      ];
+      )
     }
+  );
+}
+
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+init_platform();
+import * as React from "react";
+
+// js/tools/roleHierarchyTree/HierarchyOrgChart.jsx
+init_platform();
+init_roleHierarchy();
+import { jsx as jsx9, jsxs as jsxs5 } from "react/jsx-runtime";
+var { useEffect: useEffect6, useMemo: useMemo4, useRef: useRef3, useCallback: useCallback2, useState: useState6 } = getReact();
+var { Box: Box5, Stack: Stack4, Typography: Typography5, Chip: Chip5, IconButton: IconButton2, Tooltip: Tooltip3, CircularProgress: CircularProgress3 } = getMaterialUI();
+var ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.esm.min.js";
+var NODE_W = 140;
+var NODE_H = 40;
+var NODE_GAP_Y = 18;
+var LAYER_GAP_X = 56;
+var echartsPromise = null;
+function loadEcharts() {
+  if (!echartsPromise) echartsPromise = import(
+    /* @vite-ignore */
+    ECHARTS_CDN
+  );
+  return echartsPromise;
+}
+function immediateParentJer(jer) {
+  const parts = String(jer ?? "").split(".").filter(Boolean);
+  if (parts.length <= 1) return null;
+  return parts.slice(0, -1).join(".");
+}
+function nextChildJerarquia(parentJer, nodes) {
+  const parent = String(parentJer ?? "").trim();
+  if (!parent) return "0";
+  const prefix = `${parent}.`;
+  let max = -1;
+  for (const n of nodes ?? []) {
+    const j = String(n.jerarquia ?? "").trim();
+    if (!j.startsWith(prefix)) continue;
+    const rest = j.slice(prefix.length);
+    if (!rest || rest.includes(".")) continue;
+    const idx = Number(rest);
+    if (Number.isFinite(idx) && idx > max) max = idx;
+  }
+  return `${parent}.${max + 1}`;
+}
+function isDarkScheme() {
+  return document.documentElement.getAttribute("data-mui-color-scheme") !== "light";
+}
+function treeBreadth(node) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return 1;
+  return kids.reduce((sum, c) => sum + treeBreadth(c), 0);
+}
+function treeDepth(node, d = 1) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return d;
+  return Math.max(...kids.map((c) => treeDepth(c, d + 1)));
+}
+function applySelection(node, selectedJer, dark) {
+  const sel = !!selectedJer && node.jerarquia === selectedJer;
+  return {
+    ...node,
+    itemStyle: {
+      color: sel ? dark ? "rgba(8,47,73,0.95)" : "rgba(224,242,254,0.98)" : dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)",
+      borderColor: sel ? "#22d3ee" : dark ? "rgba(56,189,248,0.55)" : "rgba(30,144,255,0.45)",
+      borderWidth: sel ? 2.5 : 1.5,
+      borderRadius: 0,
+      shadowBlur: dark ? 8 : 2,
+      shadowColor: dark ? "rgba(56,189,248,0.25)" : "rgba(15,23,42,0.08)"
+    },
+    children: (node.children || []).map((c) => applySelection(c, selectedJer, dark))
+  };
+}
+function buildOrgTreeData(nodes) {
+  const byJer = /* @__PURE__ */ new Map();
+  for (const n of nodes ?? []) {
+    const jer = String(n.jerarquia ?? "").trim();
+    if (!jer) continue;
+    byJer.set(jer, {
+      name: n.namedisplay?.trim() || n.iusuario,
+      value: jer,
+      jerarquia: jer,
+      iusuario: n.iusuario,
+      namedisplay: n.namedisplay,
+      descripcion: n.descripcion,
+      children: []
+    });
+  }
+  const roots = [];
+  for (const [jer, node] of byJer) {
+    const parent = immediateParentJer(jer);
+    if (parent && byJer.has(parent)) byJer.get(parent).children.push(node);
+    else roots.push(node);
+  }
+  const sortRec = (list) => {
+    list.sort((a, b) => String(a.jerarquia).localeCompare(String(b.jerarquia), void 0, { numeric: true }));
+    for (const n of list) sortRec(n.children);
+  };
+  sortRec(roots);
+  if (roots.length === 1) return roots[0];
+  if (!roots.length) return { name: "Sin roles", value: "", children: [] };
+  return { name: "Roles", value: "", children: roots };
+}
+function nodePixelCenter(chart, data) {
+  if (!chart || !data) return null;
+  try {
+    const px = chart.convertToPixel({ seriesIndex: 0 }, data);
+    if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+      return { x: px[0], y: px[1] };
+    }
+  } catch {
+  }
+  if (Number.isFinite(data.x) && Number.isFinite(data.y)) {
+    try {
+      const px = chart.convertToPixel({ seriesIndex: 0 }, [data.x, data.y]);
+      if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+        return { x: px[0], y: px[1] };
+      }
+    } catch {
+    }
+  }
+  return null;
+}
+function HierarchyOrgChart({
+  nodes,
+  selectedJer,
+  onSelect,
+  canMutate = false,
+  canCreateRoles = false,
+  busy = false,
+  onEditClick,
+  onDeleteClick,
+  onAddChildClick
+}) {
+  const treeData = useMemo4(() => buildOrgTreeData(nodes), [nodes]);
+  const hostRef = useRef3(null);
+  const wrapRef = useRef3(null);
+  const chartRef = useRef3(null);
+  const onSelectRef = useRef3(onSelect);
+  onSelectRef.current = onSelect;
+  const onEditRef = useRef3(onEditClick);
+  onEditRef.current = onEditClick;
+  const treeDataRef = useRef3(treeData);
+  treeDataRef.current = treeData;
+  const selectedJerRef = useRef3(selectedJer);
+  selectedJerRef.current = selectedJer;
+  const nodesRef = useRef3(nodes);
+  nodesRef.current = nodes;
+  const canMutateRef = useRef3(canMutate);
+  canMutateRef.current = canMutate;
+  const canCreateRef = useRef3(canCreateRoles);
+  canCreateRef.current = canCreateRoles;
+  const [hover, setHover] = useState6(null);
+  const hoverHideTimer = useRef3(null);
+  const countLabel = `${nodes?.length ?? 0} rol${(nodes?.length ?? 0) !== 1 ? "es" : ""}`;
+  const showNodeActions = canMutate || canCreateRoles;
+  const layoutSize = useMemo4(() => {
+    const breadth = Math.max(1, treeBreadth(treeData));
+    const depth = Math.max(1, treeDepth(treeData));
+    const h = Math.max(420, breadth * (NODE_H + NODE_GAP_Y) + 80);
+    const w = Math.max(640, depth * (NODE_W + LAYER_GAP_X) + 120);
+    return { w, h, breadth, depth };
+  }, [treeData]);
+  const clearHoverSoon = useCallback2(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+    hoverHideTimer.current = setTimeout(() => setHover(null), 180);
+  }, []);
+  const keepHover = useCallback2(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+  }, []);
+  const showHoverFor = useCallback2((chart, data) => {
+    if (!canMutateRef.current && !canCreateRef.current || !data?.jerarquia) {
+      setHover(null);
+      return;
+    }
+    const pt = nodePixelCenter(chart, data);
+    if (!pt) return;
+    keepHover();
+    setHover({
+      jerarquia: data.jerarquia,
+      iusuario: data.iusuario,
+      x: pt.x,
+      y: pt.y
+    });
+  }, [keepHover]);
+  const applyChartOption = useCallback2((chart, data, sel) => {
+    if (!chart) return;
+    chart.setOption(buildOption(data, sel, isDarkScheme(), layoutSize), { notMerge: true });
+    chart.resize();
+  }, [layoutSize]);
+  useEffect6(() => {
+    let disposed = false;
+    let chart;
+    let onResize;
+    let ro;
+    (async () => {
+      const echarts = await loadEcharts();
+      if (disposed || !hostRef.current) return;
+      chart = echarts.init(hostRef.current, null, { renderer: "canvas" });
+      chartRef.current = chart;
+      chart.on("click", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (jer) onSelectRef.current?.(jer);
+      });
+      chart.on("dblclick", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (!jer || !canMutateRef.current) return;
+        const node = (nodesRef.current ?? []).find((n) => n.jerarquia === jer);
+        if (node) onEditRef.current?.(node);
+      });
+      chart.on("mouseover", (params) => {
+        if (params?.dataType && params.dataType !== "node") return;
+        showHoverFor(chart, params?.data);
+      });
+      chart.on("mouseout", () => clearHoverSoon());
+      chart.on("globalout", () => clearHoverSoon());
+      onResize = () => {
+        chart?.resize();
+        setHover(null);
+      };
+      window.addEventListener("resize", onResize);
+      if (typeof ResizeObserver !== "undefined" && hostRef.current) {
+        ro = new ResizeObserver(() => {
+          chart?.resize();
+          setHover(null);
+        });
+        ro.observe(hostRef.current);
+      }
+      applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    })();
+    return () => {
+      disposed = true;
+      if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+      if (onResize) window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+      chart?.dispose();
+      chartRef.current = null;
+    };
+  }, [applyChartOption, clearHoverSoon, showHoverFor]);
+  useEffect6(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeData, selectedJer);
+    setHover(null);
+  }, [treeData, selectedJer, applyChartOption]);
+  const zoomBy = useCallback2((factor) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const opt = chart.getOption();
+    const series = Array.isArray(opt?.series) ? opt.series[0] : null;
+    const cur = Number(series?.zoom) || 1;
+    const next = Math.max(0.35, Math.min(3.5, cur * factor));
+    chart.setOption({ series: [{ zoom: next }] });
+    setHover(null);
+  }, []);
+  const resetView = useCallback2(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    setHover(null);
+  }, [applyChartOption]);
+  const hoverNode = hover ? (nodes ?? []).find((n) => n.jerarquia === hover.jerarquia) : null;
+  return /* @__PURE__ */ jsxs5(Box5, { className: "role-hierarchy-orgchart", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxs5(Stack4, { direction: "row", alignItems: "center", spacing: 0.5, sx: { px: 1, py: 0.4, borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 36 }, children: [
+      /* @__PURE__ */ jsx9(Chip5, { size: "small", label: countLabel, sx: { height: 22, "& .MuiChip-label": { px: 0.75, fontSize: "0.72rem" } } }),
+      /* @__PURE__ */ jsx9(Box5, { sx: { flex: 1, minWidth: 8 } }),
+      /* @__PURE__ */ jsx9(Tooltip3, { title: "Acercar", children: /* @__PURE__ */ jsx9(IconButton2, { size: "small", onClick: () => zoomBy(1.2), "aria-label": "Zoom in", children: /* @__PURE__ */ jsx9("iconify-icon", { icon: "mdi:magnify-plus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx9(Tooltip3, { title: "Alejar", children: /* @__PURE__ */ jsx9(IconButton2, { size: "small", onClick: () => zoomBy(1 / 1.2), "aria-label": "Zoom out", children: /* @__PURE__ */ jsx9("iconify-icon", { icon: "mdi:magnify-minus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx9(Tooltip3, { title: "Restablecer vista", children: /* @__PURE__ */ jsx9(IconButton2, { size: "small", onClick: resetView, "aria-label": "Reset view", children: /* @__PURE__ */ jsx9("iconify-icon", { icon: "mdi:fit-to-screen-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx9(Typography5, { variant: "caption", color: "text.secondary", sx: { display: { xs: "none", md: "block" }, mr: 0.5 }, children: "Doble clic edita \xB7 hover \xB1" }),
+      busy ? /* @__PURE__ */ jsx9(CircularProgress3, { size: 14 }) : null
+    ] }),
+    /* @__PURE__ */ jsxs5(
+      Box5,
+      {
+        ref: wrapRef,
+        sx: {
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          overflow: "auto",
+          position: "relative"
+        },
+        children: [
+          /* @__PURE__ */ jsx9(
+            Box5,
+            {
+              ref: hostRef,
+              sx: {
+                width: "100%",
+                minWidth: layoutSize.w,
+                minHeight: layoutSize.h,
+                height: "100%"
+              }
+            }
+          ),
+          showNodeActions && hover && hoverNode ? /* @__PURE__ */ jsxs5(
+            Stack4,
+            {
+              direction: "row",
+              spacing: 0.25,
+              className: "role-hierarchy-node-actions",
+              onMouseEnter: keepHover,
+              onMouseLeave: clearHoverSoon,
+              sx: {
+                position: "absolute",
+                left: hover.x,
+                top: hover.y - NODE_H / 2 - 14,
+                transform: "translateX(-50%)",
+                zIndex: 5,
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 0.75,
+                boxShadow: 2,
+                p: 0.15
+              },
+              children: [
+                canCreateRoles ? /* @__PURE__ */ jsx9(Tooltip3, { title: "Agregar hijo", children: /* @__PURE__ */ jsx9(
+                  IconButton2,
+                  {
+                    size: "small",
+                    color: "primary",
+                    disabled: busy,
+                    "aria-label": "Agregar hijo",
+                    onClick: () => onAddChildClick?.(hoverNode),
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx9("iconify-icon", { icon: "mdi:plus", width: "16", height: "16" })
+                  }
+                ) }) : null,
+                canMutate ? /* @__PURE__ */ jsx9(Tooltip3, { title: "Eliminar rol", children: /* @__PURE__ */ jsx9(
+                  IconButton2,
+                  {
+                    size: "small",
+                    color: "error",
+                    disabled: busy,
+                    "aria-label": "Eliminar",
+                    onClick: () => {
+                      if (confirm(`\xBFEliminar rol "${hoverNode.iusuario}"?`)) onDeleteClick?.(hoverNode);
+                    },
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx9("iconify-icon", { icon: "mdi:delete-outline", width: "16", height: "16" })
+                  }
+                ) }) : null
+              ]
+            }
+          ) : null
+        ]
+      }
+    )
+  ] });
+}
+function buildOption(treeData, selectedJer, dark, layoutSize) {
+  const data = applySelection(JSON.parse(JSON.stringify(treeData)), selectedJer, dark);
+  const breadth = layoutSize?.breadth ?? 1;
+  const topPct = breadth > 8 ? "2%" : "4%";
+  const bottomPct = breadth > 8 ? "2%" : "4%";
+  return {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => {
+        const d = p?.data;
+        if (!d?.jerarquia) return d?.name ?? "";
+        const desc = d.descripcion ? `<br/><span style="opacity:.75">${d.descripcion}</span>` : "";
+        return `<b>${d.name}</b><br/>${d.iusuario} ${formatJerarquiaLabel(d.jerarquia)}${desc}`;
+      }
+    },
+    series: [{
+      type: "tree",
+      data: [data],
+      top: topPct,
+      left: "3%",
+      bottom: bottomPct,
+      right: "8%",
+      symbol: "rect",
+      symbolSize: [NODE_W, NODE_H],
+      orient: "LR",
+      layout: "orthogonal",
+      edgeShape: "polyline",
+      edgeForkPosition: "63%",
+      expandAndCollapse: false,
+      initialTreeDepth: -1,
+      roam: true,
+      scaleLimit: { min: 0.35, max: 3.5 },
+      animationDuration: 280,
+      animationDurationUpdate: 200,
+      label: {
+        position: "inside",
+        verticalAlign: "middle",
+        align: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 14,
+        color: dark ? "#e2e8f0" : "#0f172a",
+        formatter: (p) => {
+          const d = p.data;
+          if (!d?.jerarquia) return d?.name ?? "";
+          return `${d.name}
+${formatJerarquiaLabel(d.jerarquia)}`;
+        }
+      },
+      leaves: { label: { position: "inside", align: "center" } },
+      lineStyle: {
+        color: dark ? "rgba(56,189,248,0.45)" : "rgba(30,144,255,0.4)",
+        width: 1.5,
+        curveness: 0
+      },
+      emphasis: { focus: "descendant" }
+    }]
   };
 }
 
 // js/tools/roleHierarchyTree/RoleHierarchyView.tsx
-import { jsx as jsx11, jsxs as jsxs7 } from "react/jsx-runtime";
-var { useState: useState7, useMemo: useMemo5, useCallback: useCallback3, useEffect: useEffect7 } = getReact();
-var { Box: Box6, Typography: Typography6, Button: Button3, Dialog, DialogTitle, DialogContent: DialogContent3, DialogActions: DialogActions2, TextField: TextField4, Alert: Alert2, CircularProgress: CircularProgress4, Stack: Stack5, Chip: Chip6 } = getMaterialUI();
-var EMPTY_PERMISOS = Object.freeze({});
+import { jsx as jsx10, jsxs as jsxs6 } from "react/jsx-runtime";
+var { useState: useState7, useCallback: useCallback3, useEffect: useEffect8 } = getReact();
+var {
+  Box: Box6,
+  Button: Button2,
+  Dialog,
+  DialogTitle,
+  DialogContent: DialogContent3,
+  DialogActions: DialogActions2,
+  TextField: TextField4,
+  Alert: Alert2,
+  CircularProgress: CircularProgress4,
+  Stack: Stack5
+} = getMaterialUI();
 function RoleHierarchyView(props) {
-  const { nodes, roleEntries, canManagePermisos, canEditRoleDescriptions, initialSelectedRole, onSaveRolePermisos, canMutate, busy, onSave, onSaveLocalPerm, onPromote, onCreate, onDelete } = props;
+  const {
+    nodes,
+    initialSelectedRole,
+    canMutate,
+    canCreateRoles = false,
+    busy,
+    onSave,
+    onCreate,
+    onDelete
+  } = props;
   const [selectedJer, setSelectedJer] = useState7(null);
   const [editTarget, setEditTarget] = useState7(null);
-  const [visitanteDraft, setVisitanteDraft] = useState7(null);
-  const [visitanteSaving, setVisitanteSaving] = useState7(false);
-  const [roleDraft, setRoleDraft] = useState7(null);
-  const [roleSaving, setRoleSaving] = useState7(false);
-  const currentEditNode = useMemo5(
-    () => selectedJer ? nodes.find((n) => n.jerarquia === selectedJer) ?? null : null,
-    [selectedJer, nodes]
-  );
-  const visitanteEntry = useMemo5(() => getVisitanteRoleEntry({ roles: roleEntries ?? [] }), [roleEntries]);
-  const currentRoleEntry = useMemo5(() => {
-    if (!currentEditNode) return null;
-    const key = String(currentEditNode.iusuario ?? "").trim().toLowerCase();
-    return (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key) ?? { iusuario: key, permisos: EMPTY_PERMISOS, bactivo: true };
-  }, [currentEditNode, roleEntries]);
-  const visitantePermisosSig = useMemo5(
-    () => JSON.stringify(visitanteEntry.permisos ?? EMPTY_PERMISOS),
-    [visitanteEntry.permisos]
-  );
-  const rolePermisosSig = useMemo5(
-    () => currentRoleEntry ? JSON.stringify(currentRoleEntry.permisos ?? EMPTY_PERMISOS) : "",
-    [currentRoleEntry?.iusuario, currentRoleEntry?.permisos]
-  );
-  const roleEditorEntry = useMemo5(() => {
-    if (!currentRoleEntry) return null;
-    const permisos = roleDraft ?? currentRoleEntry.permisos ?? EMPTY_PERMISOS;
-    return { ...currentRoleEntry, permisos };
-  }, [currentRoleEntry, roleDraft]);
-  useEffect7(() => {
+  useEffect8(() => {
     if (!initialSelectedRole || !nodes.length) return;
     const key = String(initialSelectedRole).trim().toLowerCase();
     const node = nodes.find((n) => String(n.iusuario ?? "").trim().toLowerCase() === key);
     if (node?.jerarquia) setSelectedJer((prev) => prev === node.jerarquia ? prev : node.jerarquia);
   }, [initialSelectedRole, nodes]);
-  useEffect7(() => {
-    if (!selectedJer) {
-      setVisitanteDraft(null);
-      setRoleDraft(null);
-      return;
-    }
-    const node = nodes.find((n) => n.jerarquia === selectedJer);
-    if (!node) return;
-    if (isVisitanteRole(node.iusuario)) {
-      setRoleDraft(null);
-      const next2 = enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS);
-      setVisitanteDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next2) ? prev : next2);
-      return;
-    }
-    setVisitanteDraft(null);
-    const key = String(node.iusuario ?? "").trim().toLowerCase();
-    const entry = (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key);
-    const next = { ...entry?.permisos ?? EMPTY_PERMISOS };
-    setRoleDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
-  }, [selectedJer, visitantePermisosSig, rolePermisosSig, nodes, roleEntries, visitanteEntry]);
-  const openCreateDialog = useCallback3(() => {
+  const openAddChild = useCallback3((parent) => {
+    const jer = nextChildJerarquia(parent.jerarquia, nodes);
+    setSelectedJer(parent.jerarquia);
     setEditTarget({
       isNew: true,
-      node: { iusuario: "", jerarquia: "", namedisplay: null, descripcion: null }
+      node: { iusuario: "", jerarquia: jer, namedisplay: null, descripcion: null }
     });
-  }, []);
-  const customs = useMemo5(
-    () => createRoleHierarchyCustoms({
-      items: nodes,
-      canMutate,
-      onSave,
-      onDelete,
-      onEdit: (node) => setEditTarget({ node, isNew: false }),
-      onCreateClick: openCreateDialog
-    }),
-    [nodes, canMutate, onSave, onDelete, openCreateDialog]
-  );
-  const typedNodes = nodes;
-  const countLabel = `${nodes.length} rol${nodes.length !== 1 ? "es" : ""}`;
-  const manifest = useMemo5(() => ({ ...ROLE_HIERARCHY_MANIFEST, countLabel }), [countLabel]);
-  const IsaSplitView = getIsaSplitView();
-  const treePanel = /* @__PURE__ */ jsx11(
-    TreeView,
-    {
-      items: typedNodes,
-      manifest,
-      customs,
-      readonly: !canMutate,
-      busy,
-      selectedPath: selectedJer,
-      onSelectedPathChange: setSelectedJer,
-      toolbarTitle: "Jerarqu\xEDa de roles",
-      className: "role-hierarchy-tree-panel",
-      showToolbar: true
-    }
-  );
-  const editorPanel = currentEditNode ? isVisitanteRole(currentEditNode.iusuario) ? /* @__PURE__ */ jsxs7(Box6, { className: "role-hierarchy-visitante-editor", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }, children: [
-    /* @__PURE__ */ jsxs7(Stack5, { direction: "row", alignItems: "center", spacing: 1, sx: { px: 2, pt: 2, pb: 1, flexShrink: 0 }, children: [
-      /* @__PURE__ */ jsx11(Typography6, { variant: "h6", sx: { flex: 1 }, children: currentEditNode.namedisplay ?? "Visitante" }),
-      /* @__PURE__ */ jsx11(Chip6, { size: "small", label: currentEditNode.jerarquia })
-    ] }),
-    /* @__PURE__ */ jsx11(Box6, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx11(
-      RoleConfigEditor,
+  }, [nodes]);
+  return /* @__PURE__ */ jsxs6(Box6, { className: "role-hierarchy-tree", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsx10(
+      HierarchyOrgChart,
       {
-        entry: visitanteDraft ? { ...visitanteEntry, permisos: visitanteDraft } : visitanteEntry,
-        roleName: "visitante",
-        canManage: !!canManagePermisos,
-        canEditRoleDescriptions: !!canEditRoleDescriptions,
-        onChange: (permisos) => setVisitanteDraft(enforceVisitantePermisos(permisos))
-      },
-      `visitante-${visitantePermisosSig}`
-    ) }),
-    (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx11(Stack5, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx11(
-      Button3,
-      {
-        variant: "contained",
-        disabled: busy || visitanteSaving || !visitanteDraft,
-        onClick: async () => {
-          if (!visitanteDraft) return;
-          setVisitanteSaving(true);
-          try {
-            await onSaveRolePermisos("visitante", visitanteDraft, visitanteEntry.bactivo !== false);
-          } finally {
-            setVisitanteSaving(false);
-          }
-        },
-        sx: { textTransform: "none", fontWeight: 600 },
-        children: visitanteSaving ? /* @__PURE__ */ jsx11(CircularProgress4, { size: 18, color: "inherit" }) : "Guardar visitante"
-      }
-    ) }) : null
-  ] }) : /* @__PURE__ */ jsxs7(Box6, { className: "role-hierarchy-role-editor", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }, children: [
-    /* @__PURE__ */ jsxs7(Stack5, { direction: "row", alignItems: "center", spacing: 1, sx: { px: 2, pt: 2, pb: 1, flexShrink: 0 }, children: [
-      /* @__PURE__ */ jsx11(Typography6, { variant: "h6", sx: { flex: 1 }, children: currentEditNode.namedisplay ?? currentEditNode.iusuario }),
-      /* @__PURE__ */ jsx11(Chip6, { size: "small", label: currentEditNode.jerarquia })
-    ] }),
-    /* @__PURE__ */ jsx11(Box6, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx11(
-      RoleConfigEditor,
-      {
-        entry: roleEditorEntry ?? { iusuario: currentEditNode.iusuario, permisos: EMPTY_PERMISOS, bactivo: true },
-        roleName: currentEditNode.iusuario,
-        canManage: !!canManagePermisos,
-        canEditRoleDescriptions: !!canEditRoleDescriptions,
-        onChange: (permisos) => setRoleDraft(permisos)
-      },
-      `${currentEditNode.iusuario}-${rolePermisosSig}`
-    ) }),
-    (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx11(Stack5, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx11(
-      Button3,
-      {
-        variant: "contained",
-        disabled: busy || roleSaving || !roleDraft,
-        onClick: async () => {
-          if (!roleDraft) return;
-          setRoleSaving(true);
-          try {
-            await onSaveRolePermisos(currentEditNode.iusuario, roleDraft, currentRoleEntry?.bactivo !== false);
-          } finally {
-            setRoleSaving(false);
-          }
-        },
-        sx: { textTransform: "none", fontWeight: 600 },
-        children: roleSaving ? /* @__PURE__ */ jsx11(CircularProgress4, { size: 18, color: "inherit" }) : "Guardar rol"
-      }
-    ) }) : null
-  ] }) : /* @__PURE__ */ jsxs7(Box6, { sx: { p: 4, textAlign: "center", color: "text.secondary", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }, children: [
-    /* @__PURE__ */ jsx11("iconify-icon", { icon: "mdi:family-tree", width: "48", height: "48" }),
-    /* @__PURE__ */ jsx11(Typography6, { variant: "body1", sx: { mt: 2 }, children: "Selecciona un rol del \xE1rbol \u2014 visitante incluye editor de permisos completo." }),
-    !canMutate ? /* @__PURE__ */ jsx11(Typography6, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 1 }, children: "(Solo roles de branch 0 pueden editar la jerarqu\xEDa.)" }) : null
-  ] });
-  return /* @__PURE__ */ jsxs7(Box6, { className: "role-hierarchy-tree isp-tree-host", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
-    /* @__PURE__ */ jsx11(
-      IsaSplitView,
-      {
-        className: "role-hierarchy-split",
-        sx: { flex: 1, minHeight: 0 },
-        panelClassName: "role-hierarchy-tree-panel",
-        storageKey: "isa-patyia:role-hierarchy-tree-w",
-        defaultWidth: 360,
-        minWidth: 260,
-        maxWidth: 560,
-        panelTitle: "Jerarqu\xEDa de roles",
-        panelIcon: "mdi:family-tree",
-        UI,
-        panel: treePanel,
-        children: /* @__PURE__ */ jsx11(Box6, { className: "role-hierarchy-editor-panel", sx: { flex: 1, minWidth: 0, minHeight: 0, overflow: "auto", height: "100%" }, children: editorPanel })
+        nodes,
+        selectedJer,
+        onSelect: setSelectedJer,
+        canMutate,
+        canCreateRoles,
+        busy,
+        onAddChildClick: openAddChild,
+        onEditClick: (node) => setEditTarget({ node, isNew: false }),
+        onDeleteClick: (node) => {
+          void onDelete(node.iusuario);
+        }
       }
     ),
-    /* @__PURE__ */ jsx11(
+    /* @__PURE__ */ jsx10(
       HierarchyEditDialog,
       {
         target: editTarget,
@@ -3144,13 +3036,13 @@ function RoleHierarchyView(props) {
 function HierarchyEditDialog({ target, busy, onClose, onSave }) {
   const isNew = target?.isNew ?? false;
   const [name, setName] = useState7(target?.node.iusuario ?? "");
-  const [jerarquia, setJerarquia] = useState7(isNew ? "" : target?.node.jerarquia ?? "");
+  const [jerarquia, setJerarquia] = useState7(target?.node.jerarquia ?? "");
   const [err, setErr] = useState7("");
-  React2.useEffect(() => {
+  React.useEffect(() => {
     setName(target?.node.iusuario ?? "");
-    setJerarquia(isNew ? "" : target?.node.jerarquia ?? "");
+    setJerarquia(target?.node.jerarquia ?? "");
     setErr("");
-  }, [target, isNew]);
+  }, [target]);
   if (!target) return null;
   const handleSubmit = async () => {
     setErr("");
@@ -3174,28 +3066,22 @@ function HierarchyEditDialog({ target, busy, onClose, onSave }) {
       setErr(e?.message ?? String(e));
     }
   };
-  return /* @__PURE__ */ jsxs7(Dialog, { open: true, onClose, maxWidth: "sm", fullWidth: true, children: [
-    /* @__PURE__ */ jsx11(DialogTitle, { children: isNew ? "Nuevo rol" : `Mover ${target.node.iusuario}` }),
-    /* @__PURE__ */ jsx11(DialogContent3, { dividers: true, children: /* @__PURE__ */ jsxs7(Stack5, { spacing: 2, children: [
-      err ? /* @__PURE__ */ jsx11(Alert2, { severity: "error", children: err }) : null,
-      /* @__PURE__ */ jsx11(TextField4, { label: "Nombre", value: name, onChange: (e) => setName(e.target.value), disabled: !isNew, helperText: "min\xFAsculas, sin espacios (ej. dev_lead)" }),
-      /* @__PURE__ */ jsx11(TextField4, { label: "Nueva jerarqu\xEDa", value: jerarquia, onChange: (e) => setJerarquia(e.target.value), helperText: "dot-notation: 0, 0.0, 0.1.1, ..." }),
-      /* @__PURE__ */ jsx11(Alert2, { severity: "info", children: "Los ancestros se derivan del path. Arrastra un rol sobre otro (antes / dentro / despu\xE9s) para reubicarlo." })
+  return /* @__PURE__ */ jsxs6(Dialog, { open: true, onClose, maxWidth: "sm", fullWidth: true, children: [
+    /* @__PURE__ */ jsx10(DialogTitle, { children: isNew ? "Nuevo rol hijo" : `Editar ${target.node.iusuario}` }),
+    /* @__PURE__ */ jsx10(DialogContent3, { dividers: true, children: /* @__PURE__ */ jsxs6(Stack5, { spacing: 2, children: [
+      err ? /* @__PURE__ */ jsx10(Alert2, { severity: "error", children: err }) : null,
+      /* @__PURE__ */ jsx10(TextField4, { label: "Nombre", value: name, onChange: (e) => setName(e.target.value), disabled: !isNew, helperText: "min\xFAsculas, sin espacios (ej. dev_lead)" }),
+      /* @__PURE__ */ jsx10(TextField4, { label: "Jerarqu\xEDa", value: jerarquia, onChange: (e) => setJerarquia(e.target.value), helperText: "dot-notation: 0, 0.0, 0.1.1, ..." })
     ] }) }),
-    /* @__PURE__ */ jsxs7(DialogActions2, { children: [
-      /* @__PURE__ */ jsx11(Button3, { onClick: onClose, disabled: busy, children: "Cancelar" }),
-      /* @__PURE__ */ jsx11(Button3, { variant: "contained", onClick: handleSubmit, disabled: busy, children: busy ? /* @__PURE__ */ jsx11(CircularProgress4, { size: 16 }) : "Guardar" })
+    /* @__PURE__ */ jsxs6(DialogActions2, { children: [
+      /* @__PURE__ */ jsx10(Button2, { onClick: onClose, disabled: busy, children: "Cancelar" }),
+      /* @__PURE__ */ jsx10(Button2, { variant: "contained", onClick: handleSubmit, disabled: busy, children: busy ? /* @__PURE__ */ jsx10(CircularProgress4, { size: 16 }) : "Guardar" })
     ] })
   ] });
 }
 
-// js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
-import { Fragment as Fragment6, jsx as jsx12, jsxs as jsxs8 } from "react/jsx-runtime";
-var { useState: useState8, useMemo: useMemo6, useCallback: useCallback4, useEffect: useEffect8 } = getReact();
-var { Box: Box7, Stack: Stack6, Typography: Typography7, Breadcrumbs, Link, Chip: Chip7, IconButton: IconButton4, Tooltip: Tooltip5, Button: Button4, TextField: TextField5, Alert: Alert3, CircularProgress: CircularProgress5 } = getMaterialUI();
-var { Icon: Icon3 } = UI;
-
 // js/tools/roleHierarchyTree/hierarchyFromRoles.ts
+init_roleHierarchy();
 function hierarchyNodesFromRoleEntries(roleEntries) {
   const out = [];
   for (const e of roleEntries ?? []) {
@@ -3216,9 +3102,11 @@ function hierarchyNodesFromRoleEntries(roleEntries) {
 }
 
 // js/tools/UserPermissionsSummaryDialog.jsx
-import { Fragment as Fragment7, jsx as jsx13, jsxs as jsxs9 } from "react/jsx-runtime";
-var { Typography: Typography8, Stack: Stack7, Box: Box8, Chip: Chip8, Divider: Divider2, CircularProgress: CircularProgress6 } = getMaterialUI();
-var { useMemo: useMemo7 } = getReact();
+init_platform();
+init_roleHierarchy();
+import { Fragment as Fragment4, jsx as jsx11, jsxs as jsxs7 } from "react/jsx-runtime";
+var { Typography: Typography6, Stack: Stack6, Box: Box7, Chip: Chip6, Divider: Divider2, CircularProgress: CircularProgress5 } = getMaterialUI();
+var { useMemo: useMemo5 } = getReact();
 var ROLE_KEYS_OMIT = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles", "jerarquia", "accent", "color", "icon"]);
 function getRoleEntry(roles, roleName) {
   const key = String(roleName ?? "").trim().toLowerCase();
@@ -3266,13 +3154,13 @@ function summarizePerms(perms) {
   return { allows, fixFilters, others };
 }
 function ChipChain({ chain, roles }) {
-  return /* @__PURE__ */ jsxs9(Stack7, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
-    chain.ancestors.map((anc) => /* @__PURE__ */ jsxs9(Box8, { sx: { display: "inline-flex", alignItems: "center" }, children: [
-      /* @__PURE__ */ jsx13(Chip8, { size: "small", variant: "outlined", label: roleTitleFromEntry(anc.entry) || anc.entry.iusuario, sx: { fontFamily: "monospace", fontSize: 11 }, title: `Jerarqu\xEDa ${anc.jerarquia}` }),
-      /* @__PURE__ */ jsx13(Box8, { component: "span", sx: { mx: 0.5, opacity: 0.6 }, children: "\u203A" })
+  return /* @__PURE__ */ jsxs7(Stack6, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
+    chain.ancestors.map((anc) => /* @__PURE__ */ jsxs7(Box7, { sx: { display: "inline-flex", alignItems: "center" }, children: [
+      /* @__PURE__ */ jsx11(Chip6, { size: "small", variant: "outlined", label: roleTitleFromEntry(anc.entry) || anc.entry.iusuario, sx: { fontFamily: "monospace", fontSize: 11 }, title: `Jerarqu\xEDa ${anc.jerarquia}` }),
+      /* @__PURE__ */ jsx11(Box7, { component: "span", sx: { mx: 0.5, opacity: 0.6 }, children: "\u203A" })
     ] }, anc.jerarquia)),
-    /* @__PURE__ */ jsx13(
-      Chip8,
+    /* @__PURE__ */ jsx11(
+      Chip6,
       {
         size: "small",
         color: "primary",
@@ -3284,29 +3172,29 @@ function ChipChain({ chain, roles }) {
   ] });
 }
 function RoleCard({ chain, roles }) {
-  return /* @__PURE__ */ jsx13(Box8, { className: "isa-glass-card paty-permisos-summary__role", sx: { p: 1.25, borderRadius: 1.5 }, children: /* @__PURE__ */ jsxs9(Stack7, { spacing: 0.75, children: [
-    /* @__PURE__ */ jsxs9(Stack7, { direction: "row", alignItems: "center", spacing: 0.75, children: [
-      /* @__PURE__ */ jsx13(Typography8, { variant: "subtitle2", fontWeight: 700, title: `${chain.name} \xB7 jerarqu\xEDa ${chain.jerarquia}`, children: chain.name }),
-      /* @__PURE__ */ jsx13(Typography8, { variant: "caption", color: "text.secondary", sx: { fontFamily: "monospace" }, children: chain.jerarquia })
+  return /* @__PURE__ */ jsx11(Box7, { className: "isa-glass-card paty-permisos-summary__role", sx: { p: 1.25, borderRadius: 1.5 }, children: /* @__PURE__ */ jsxs7(Stack6, { spacing: 0.75, children: [
+    /* @__PURE__ */ jsxs7(Stack6, { direction: "row", alignItems: "center", spacing: 0.75, children: [
+      /* @__PURE__ */ jsx11(Typography6, { variant: "subtitle2", fontWeight: 700, title: `${chain.name} \xB7 jerarqu\xEDa ${chain.jerarquia}`, children: chain.name }),
+      /* @__PURE__ */ jsx11(Typography6, { variant: "caption", color: "text.secondary", sx: { fontFamily: "monospace" }, children: chain.jerarquia })
     ] }),
-    /* @__PURE__ */ jsx13(ChipChain, { chain, roles })
+    /* @__PURE__ */ jsx11(ChipChain, { chain, roles })
   ] }) });
 }
 function PermList({ title, items, kind }) {
   if (!items.length) return null;
-  return /* @__PURE__ */ jsxs9(Box8, { sx: { mt: 1 }, children: [
-    /* @__PURE__ */ jsxs9(Typography8, { variant: "overline", color: "text.secondary", sx: { letterSpacing: 1 }, children: [
+  return /* @__PURE__ */ jsxs7(Box7, { sx: { mt: 1 }, children: [
+    /* @__PURE__ */ jsxs7(Typography6, { variant: "overline", color: "text.secondary", sx: { letterSpacing: 1 }, children: [
       title,
       " (",
       items.length,
       ")"
     ] }),
-    /* @__PURE__ */ jsxs9(Box8, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }, children: [
+    /* @__PURE__ */ jsxs7(Box7, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }, children: [
       items.slice(0, kind === "fixFilter" ? 50 : 100).map((it, i) => {
         if (kind === "fixFilter") {
           const ffSummary = Object.entries(it.filter ?? {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
-          return /* @__PURE__ */ jsx13(
-            Chip8,
+          return /* @__PURE__ */ jsx11(
+            Chip6,
             {
               size: "small",
               variant: "outlined",
@@ -3319,8 +3207,8 @@ function PermList({ title, items, kind }) {
           );
         }
         if (kind === "allow") {
-          return /* @__PURE__ */ jsx13(
-            Chip8,
+          return /* @__PURE__ */ jsx11(
+            Chip6,
             {
               size: "small",
               color: "success",
@@ -3332,8 +3220,8 @@ function PermList({ title, items, kind }) {
             it
           );
         }
-        return /* @__PURE__ */ jsx13(
-          Chip8,
+        return /* @__PURE__ */ jsx11(
+          Chip6,
           {
             size: "small",
             variant: "outlined",
@@ -3344,12 +3232,12 @@ function PermList({ title, items, kind }) {
           `${it.key}-${i}`
         );
       }),
-      items.length > (kind === "fixFilter" ? 50 : 100) ? /* @__PURE__ */ jsx13(Chip8, { size: "small", label: `+${items.length - (kind === "fixFilter" ? 50 : 100)} m\xE1s`, sx: { fontFamily: "monospace", fontSize: 11 } }) : null
+      items.length > (kind === "fixFilter" ? 50 : 100) ? /* @__PURE__ */ jsx11(Chip6, { size: "small", label: `+${items.length - (kind === "fixFilter" ? 50 : 100)} m\xE1s`, sx: { fontFamily: "monospace", fontSize: 11 } }) : null
     ] })
   ] });
 }
 function UserPermissionsSummaryDialog({ open, onClose, username, users, roles }) {
-  const data = useMemo7(() => {
+  const data = useMemo5(() => {
     if (!open || !username) return null;
     const targetUser = (users ?? []).find((u) => String(u?.iusuario ?? "").trim().toUpperCase() === username.toUpperCase());
     if (!targetUser) return null;
@@ -3359,7 +3247,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
     const { allows, fixFilters, others } = summarizePerms(targetUser.permisos);
     return { targetUser, chains, activeRoles: active, allows, fixFilters, others };
   }, [open, username, users, roles]);
-  return /* @__PURE__ */ jsxs9(
+  return /* @__PURE__ */ jsxs7(
     GlassDialog,
     {
       open,
@@ -3367,7 +3255,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
       maxWidth: "md",
       fullWidth: true,
       paperClassName: "permisos-user-summary-dialog",
-      header: /* @__PURE__ */ jsx13(
+      header: /* @__PURE__ */ jsx11(
         GlassDialogHeader,
         {
           icon: "mdi:shield-account-outline",
@@ -3378,33 +3266,33 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
         }
       ),
       children: [
-        /* @__PURE__ */ jsx13(Box8, { sx: { ...glassDialogContentSx(), minHeight: 360 }, children: !username ? /* @__PURE__ */ jsx13(Typography8, { color: "text.secondary", children: "Sin usuario seleccionado." }) : !data ? /* @__PURE__ */ jsxs9(Stack7, { direction: "row", spacing: 1.5, alignItems: "center", children: [
-          /* @__PURE__ */ jsx13(CircularProgress6, { size: 20 }),
-          /* @__PURE__ */ jsx13(Typography8, { color: "text.secondary", children: "Usuario no encontrado en los datos cargados." })
-        ] }) : /* @__PURE__ */ jsxs9(Fragment7, { children: [
-          /* @__PURE__ */ jsxs9(Box8, { children: [
-            /* @__PURE__ */ jsx13(Typography8, { variant: "overline", color: "text.secondary", children: "Usuario" }),
-            /* @__PURE__ */ jsx13(Typography8, { variant: "h6", fontWeight: 700, children: data.targetUser.iusuario }),
-            data.targetUser.permisos?.nombre || data.targetUser.permisos?.namedisplay ? /* @__PURE__ */ jsx13(Typography8, { variant: "body2", color: "text.secondary", children: data.targetUser.permisos.nombre || data.targetUser.permisos.namedisplay }) : null
+        /* @__PURE__ */ jsx11(Box7, { sx: { ...glassDialogContentSx(), minHeight: 360 }, children: !username ? /* @__PURE__ */ jsx11(Typography6, { color: "text.secondary", children: "Sin usuario seleccionado." }) : !data ? /* @__PURE__ */ jsxs7(Stack6, { direction: "row", spacing: 1.5, alignItems: "center", children: [
+          /* @__PURE__ */ jsx11(CircularProgress5, { size: 20 }),
+          /* @__PURE__ */ jsx11(Typography6, { color: "text.secondary", children: "Usuario no encontrado en los datos cargados." })
+        ] }) : /* @__PURE__ */ jsxs7(Fragment4, { children: [
+          /* @__PURE__ */ jsxs7(Box7, { children: [
+            /* @__PURE__ */ jsx11(Typography6, { variant: "overline", color: "text.secondary", children: "Usuario" }),
+            /* @__PURE__ */ jsx11(Typography6, { variant: "h6", fontWeight: 700, children: data.targetUser.iusuario }),
+            data.targetUser.permisos?.nombre || data.targetUser.permisos?.namedisplay ? /* @__PURE__ */ jsx11(Typography6, { variant: "body2", color: "text.secondary", children: data.targetUser.permisos.nombre || data.targetUser.permisos.namedisplay }) : null
           ] }),
-          /* @__PURE__ */ jsx13(Divider2, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsxs9(Typography8, { variant: "overline", color: "text.secondary", children: [
+          /* @__PURE__ */ jsx11(Divider2, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsxs7(Typography6, { variant: "overline", color: "text.secondary", children: [
             "Cadena de roles ",
             data.chains.length ? `(${data.chains.length})` : ""
           ] }),
-          data.chains.length === 0 ? /* @__PURE__ */ jsx13(Typography8, { variant: "body2", color: "text.secondary", sx: { mt: 0.5 }, children: "El usuario no tiene roles asignados. Permisos efectivos = visitante por defecto." }) : /* @__PURE__ */ jsx13(Stack7, { spacing: 1, sx: { mt: 1 }, children: data.chains.map((c) => /* @__PURE__ */ jsx13(RoleCard, { chain: c, roles: data.activeRoles }, c.name)) }),
-          /* @__PURE__ */ jsx13(Divider2, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsx13(Typography8, { variant: "overline", color: "text.secondary", children: "Permisos efectivos del usuario" }),
-          /* @__PURE__ */ jsx13(Typography8, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 0.25 }, children: "Calculados a partir de sus roles directos m\xE1s la herencia por path jer\xE1rquico, replicando el merge del backend." }),
-          data.allows.length === 0 && data.fixFilters.length === 0 && data.others.length === 0 ? /* @__PURE__ */ jsx13(Typography8, { variant: "body2", color: "text.secondary", sx: { mt: 1 }, children: "Sin permisos materializados m\xE1s all\xE1 del visitante por defecto." }) : /* @__PURE__ */ jsxs9(Fragment7, { children: [
-            /* @__PURE__ */ jsx13(PermList, { title: "Permitidos", items: data.allows, kind: "allow" }),
-            /* @__PURE__ */ jsx13(PermList, { title: "Con filtro fijo", items: data.fixFilters, kind: "fixFilter" }),
-            /* @__PURE__ */ jsx13(PermList, { title: "Otros", items: data.others, kind: "other" })
+          data.chains.length === 0 ? /* @__PURE__ */ jsx11(Typography6, { variant: "body2", color: "text.secondary", sx: { mt: 0.5 }, children: "El usuario no tiene roles asignados. Permisos efectivos = visitante por defecto." }) : /* @__PURE__ */ jsx11(Stack6, { spacing: 1, sx: { mt: 1 }, children: data.chains.map((c) => /* @__PURE__ */ jsx11(RoleCard, { chain: c, roles: data.activeRoles }, c.name)) }),
+          /* @__PURE__ */ jsx11(Divider2, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsx11(Typography6, { variant: "overline", color: "text.secondary", children: "Permisos efectivos del usuario" }),
+          /* @__PURE__ */ jsx11(Typography6, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 0.25 }, children: "Calculados a partir de sus roles directos m\xE1s la herencia por path jer\xE1rquico, replicando el merge del backend." }),
+          data.allows.length === 0 && data.fixFilters.length === 0 && data.others.length === 0 ? /* @__PURE__ */ jsx11(Typography6, { variant: "body2", color: "text.secondary", sx: { mt: 1 }, children: "Sin permisos materializados m\xE1s all\xE1 del visitante por defecto." }) : /* @__PURE__ */ jsxs7(Fragment4, { children: [
+            /* @__PURE__ */ jsx11(PermList, { title: "Permitidos", items: data.allows, kind: "allow" }),
+            /* @__PURE__ */ jsx11(PermList, { title: "Con filtro fijo", items: data.fixFilters, kind: "fixFilter" }),
+            /* @__PURE__ */ jsx11(PermList, { title: "Otros", items: data.others, kind: "other" })
           ] }),
-          /* @__PURE__ */ jsx13(Divider2, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsx13(Typography8, { variant: "caption", color: "text.secondary", children: "Los detalles completos por rol se obtienen al abrir cada columna en la jerarqu\xEDa. Este resumen es de solo lectura y se actualiza al recargar el panel." })
+          /* @__PURE__ */ jsx11(Divider2, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsx11(Typography6, { variant: "caption", color: "text.secondary", children: "Los detalles completos por rol se obtienen al abrir cada columna en la jerarqu\xEDa. Este resumen es de solo lectura y se actualiza al recargar el panel." })
         ] }) }),
-        /* @__PURE__ */ jsx13(Box8, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx13(
+        /* @__PURE__ */ jsx11(Box7, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx11(
           "button",
           {
             type: "button",
@@ -3419,6 +3307,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
 }
 
 // js/core/urlState.ts
+init_patyia();
 var STATE_VERSION = 1;
 function normalizeLog(raw) {
   if (!raw || typeof raw !== "object") return {};
@@ -3429,16 +3318,34 @@ function normalizeLog(raw) {
   return o;
 }
 function initial() {
-  return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {}, config: {} };
+  return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } };
+}
+function normalizeChatPane(raw) {
+  return raw === "logs" ? "logs" : "conv";
+}
+function normalizeConfigPane(raw) {
+  if (raw === "permisos") return "permisos";
+  if (raw === "prompts") return "prompts";
+  return "sistema";
+}
+function legacyConfigPaneFromLs() {
+  try {
+    const v = localStorage.getItem("isa-patyia:config-tab");
+    if (v === "permisos" || v === "prompts") return v;
+    return "sistema";
+  } catch {
+    return "sistema";
+  }
 }
 function normalizeTool(raw) {
-  if (raw === "prompts") return "prompts";
+  if (raw === "log") return "chat";
+  if (raw === "prompts") return "config";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "log";
+  return "chat";
 }
-function normalizeChatBag(chat) {
+function normalizeChatBag(chat, legacyTool) {
   const bag = chat && typeof chat === "object" ? { ...chat } : {};
   if ((bag.mode == null || String(bag.mode).trim() === "") && bag.jailbreak != null) {
     bag.mode = bag.jailbreak === true ? "libre" : "patyia";
@@ -3446,14 +3353,31 @@ function normalizeChatBag(chat) {
   } else if (bag.jailbreak != null) {
     delete bag.jailbreak;
   }
+  if (legacyTool === "log") {
+    bag.pane = "logs";
+  } else {
+    bag.pane = normalizeChatPane(bag.pane);
+  }
+  return bag;
+}
+function normalizeConfigBag(config, legacyTool) {
+  const bag = config && typeof config === "object" ? { ...config } : {};
+  if (legacyTool === "prompts") {
+    bag.pane = "prompts";
+  } else if (bag.pane !== "sistema" && bag.pane !== "permisos" && bag.pane !== "prompts") {
+    bag.pane = legacyConfigPaneFromLs();
+  } else {
+    bag.pane = normalizeConfigPane(bag.pane);
+  }
   return bag;
 }
 function normalize(raw, _prev) {
   if (!raw || typeof raw !== "object") return initial();
-  const tool = normalizeTool(raw.tool);
-  const chat = normalizeChatBag(raw.chat);
+  const legacyTool = raw.tool;
+  const tool = normalizeTool(legacyTool);
+  const chat = normalizeChatBag(raw.chat, legacyTool);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
-  const config = raw.config && typeof raw.config === "object" ? raw.config : {};
+  const config = normalizeConfigBag(raw.config, legacyTool);
   return {
     v: raw.v ?? STATE_VERSION,
     tool,
@@ -3615,42 +3539,44 @@ function configPermisosBag(snap) {
   const permisos = cfg?.permisos;
   return permisos && typeof permisos === "object" ? permisos : void 0;
 }
-function readPermisosHideEmptyFromUrl() {
-  return configPermisosBag()?.hideEmpty === true;
+function readPermisosHideEmptyFromUrl(snap) {
+  return configPermisosBag(snap)?.hideEmpty !== false;
 }
 function persistPermisosHideEmpty(hide) {
-  const prev = configPermisosBag()?.hideEmpty === true;
+  const prev = readPermisosHideEmptyFromUrl();
   if (prev === hide) return getSnapshot();
   return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }
 
 // js/tools/PermisosPanel.jsx
-import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
-var { useState: useState9, useEffect: useEffect9, useCallback: useCallback5, useMemo: useMemo8, useRef: useRef4 } = getReact();
-var { Typography: Typography9, TextField: TextField6, Stack: Stack8, Alert: Alert4, CircularProgress: CircularProgress7, Box: Box9, Chip: Chip9, DialogContent: DialogContent4, DialogActions: DialogActions3, Button: Button5, FormControlLabel: FormControlLabel2, Switch } = getMaterialUI();
+init_sessionApi();
+import { jsx as jsx12, jsxs as jsxs8 } from "react/jsx-runtime";
+var { useState: useState8, useEffect: useEffect9, useCallback: useCallback4, useMemo: useMemo6, useRef: useRef4 } = getReact();
+var { Typography: Typography7, Stack: Stack7, Alert: Alert3, CircularProgress: CircularProgress6, Box: Box8, Chip: Chip7, DialogContent: DialogContent4, DialogActions: DialogActions3, Button: Button3, FormControlLabel: FormControlLabel2, Switch } = getMaterialUI();
 function PermisosPanel({ onNeedLogin }) {
-  const [loading, setLoading] = useState9(true);
-  const [busy, setBusy] = useState9(false);
-  const [canManage, setCanManage] = useState9(false);
-  const [canAssignUserRoles, setCanAssignUserRoles] = useState9(false);
-  const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState9(false);
-  const [authTick, setAuthTick] = useState9(0);
-  const loggedIn = useMemo8(() => !!Session?.isLoggedIn?.(), [authTick]);
-  const sessionUsername = useMemo8(() => String(Session.username?.() ?? "").trim().toUpperCase(), [authTick]);
-  const [err, setErr] = useState9("");
-  const [data, setData] = useState9({ roles: [], users: [] });
-  const [userSearch, setUserSearch] = useState9("");
-  const [roleFilters, setRoleFilters] = useState9([]);
-  const [hideEmptyStacks, setHideEmptyStacks] = useState9(readPermisosHideEmptyFromUrl);
-  const [filterBusy, setFilterBusy] = useState9(false);
-  const [dragOverFilter, setDragOverFilter] = useState9(false);
-  const [actorJerarquia, setActorJerarquia] = useState9(null);
-  const [actorJerarquias, setActorJerarquias] = useState9([]);
-  const [hierarchyOpen, setHierarchyOpen] = useState9(false);
-  const [hierarchyFocusRole, setHierarchyFocusRole] = useState9(null);
-  const [hierarchyNodes, setHierarchyNodes] = useState9([]);
-  const [hierarchyBusy, setHierarchyBusy] = useState9(false);
-  const [summaryUsername, setSummaryUsername] = useState9(null);
+  const [loading, setLoading] = useState8(true);
+  const [busy, setBusy] = useState8(false);
+  const [canManage, setCanManage] = useState8(false);
+  const [canAssignUserRoles, setCanAssignUserRoles] = useState8(false);
+  const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState8(false);
+  const [authTick, setAuthTick] = useState8(0);
+  const loggedIn = useMemo6(() => !!Session?.isLoggedIn?.(), [authTick]);
+  const sessionUsername = useMemo6(() => String(Session.username?.() ?? "").trim().toUpperCase(), [authTick]);
+  const [err, setErr] = useState8("");
+  const [data, setData] = useState8({ roles: [], users: [] });
+  const [userSearch, setUserSearch] = useState8("");
+  const [roleFilters, setRoleFilters] = useState8([]);
+  const [hideEmptyStacks, setHideEmptyStacks] = useState8(readPermisosHideEmptyFromUrl);
+  const [filterBusy, setFilterBusy] = useState8(false);
+  const [dragOverFilter, setDragOverFilter] = useState8(false);
+  const [actorJerarquia, setActorJerarquia] = useState8(null);
+  const [actorJerarquias, setActorJerarquias] = useState8([]);
+  const [actorRoles, setActorRoles] = useState8([]);
+  const [hierarchyOpen, setHierarchyOpen] = useState8(false);
+  const [hierarchyFocusRole, setHierarchyFocusRole] = useState8(null);
+  const [hierarchyNodes, setHierarchyNodes] = useState8([]);
+  const [hierarchyBusy, setHierarchyBusy] = useState8(false);
+  const [summaryUsername, setSummaryUsername] = useState8(null);
   const filterToolbarRef = useRef4(null);
   const filterFetchSkipRef = useRef4(true);
   const filterDropFetchRef = useRef4(false);
@@ -3660,16 +3586,17 @@ function PermisosPanel({ onNeedLogin }) {
   rolesRef.current = data.roles;
   usersRef.current = data.users;
   const usersPaginated = !!data.usersTruncated;
-  const applyFlags = useCallback5((result) => {
+  const applyFlags = useCallback4((result) => {
     setCanManage(!!result.canManage);
     setCanAssignUserRoles(!!result.canAssignUserRoles);
     setCanEditRoleDescriptions(!!result.canEditRoleDescriptions);
-    const actorRoles = Array.isArray(result.actorRoles) ? result.actorRoles : Array.isArray(Session?.roles) ? Session.roles : [];
+    const actorRoles2 = Array.isArray(result.actorRoles) ? result.actorRoles : Array.isArray(Session?.roles) ? Session.roles : [];
     const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
-    setActorJerarquias(actorJerarquiasFromRoles(actorRoles, rolePermisosIdx));
-    setActorJerarquia(actorJerarquiaFromRoles(actorRoles, rolePermisosIdx));
+    setActorRoles(actorRoles2.map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean));
+    setActorJerarquias(actorJerarquiasFromRoles(actorRoles2, rolePermisosIdx));
+    setActorJerarquia(actorJerarquiaFromRoles(actorRoles2, rolePermisosIdx));
   }, []);
-  const load = useCallback5(async () => {
+  const load = useCallback4(async () => {
     setLoading(true);
     setErr("");
     try {
@@ -3687,7 +3614,7 @@ function PermisosPanel({ onNeedLogin }) {
       setLoading(false);
     }
   }, [applyFlags]);
-  const refreshPermisos = useCallback5(async () => {
+  const refreshPermisos = useCallback4(async () => {
     const result = await fetchPermisos();
     if (!Array.isArray(result.roles) || result.roles.length === 0) {
       throw new Error("ISS no devolvi\xF3 roles activos. Verifique modo Local (ISS :8802) o recargue tras iniciar func start.");
@@ -3696,7 +3623,7 @@ function PermisosPanel({ onNeedLogin }) {
     applyFlags(result);
     return result;
   }, [applyFlags]);
-  const loadHierarchy = useCallback5(async (fallbackRoles = rolesRef.current) => {
+  const loadHierarchy = useCallback4(async (fallbackRoles = rolesRef.current) => {
     if (hierarchyLoadRef.current) return hierarchyLoadRef.current;
     setHierarchyBusy(true);
     const task = (async () => {
@@ -3719,7 +3646,7 @@ function PermisosPanel({ onNeedLogin }) {
     hierarchyLoadRef.current = task;
     return task;
   }, []);
-  const openHierarchyDialog = useCallback5(() => {
+  const openHierarchyDialog = useCallback4(() => {
     hierarchyLoadRef.current = null;
     setHierarchyFocusRole(null);
     const roles = rolesRef.current;
@@ -3728,7 +3655,7 @@ function PermisosPanel({ onNeedLogin }) {
     }
     setHierarchyOpen(true);
   }, []);
-  const openHierarchyForRole = useCallback5((roleName) => {
+  const openHierarchyForRole = useCallback4((roleName) => {
     const id = String(roleName ?? "").trim().toLowerCase();
     if (!id) return;
     hierarchyLoadRef.current = null;
@@ -3746,7 +3673,7 @@ function PermisosPanel({ onNeedLogin }) {
     void loadHierarchy(roles);
     return void 0;
   }, [hierarchyOpen, data.roles, loadHierarchy]);
-  const handleHierarchySave = useCallback5(async (name, jerarquia) => {
+  const handleHierarchySave = useCallback4(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await updateHierarchyRole(name, { jerarquia });
@@ -3757,7 +3684,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, [loadHierarchy, refreshPermisos]);
-  const handleHierarchyCreate = useCallback5(async (name, jerarquia) => {
+  const handleHierarchyCreate = useCallback4(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await createHierarchyRole({ name, jerarquia });
@@ -3768,7 +3695,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, [loadHierarchy, refreshPermisos]);
-  const handleHierarchyPromote = useCallback5(async (key, value, fromJer, toJer) => {
+  const handleHierarchyPromote = useCallback4(async (key, value, fromJer, toJer) => {
     setHierarchyBusy(true);
     try {
       throw new Error(`Promover permisos entre roles a\xFAn no soportado en backend (${fromJer} \u2192 ${toJer})`);
@@ -3776,7 +3703,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, []);
-  const handleHierarchyLocalPerm = useCallback5(async (nodeJer, key, value) => {
+  const handleHierarchyLocalPerm = useCallback4(async (nodeJer, key, value) => {
     setHierarchyBusy(true);
     try {
       throw new Error(`Edici\xF3n de permisos individuales a\xFAn no soportada en backend (${nodeJer}: ${key})`);
@@ -3784,7 +3711,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, []);
-  const handleHierarchyDelete = useCallback5(async (name) => {
+  const handleHierarchyDelete = useCallback4(async (name) => {
     setHierarchyBusy(true);
     try {
       await deleteHierarchyRole(name);
@@ -3801,15 +3728,14 @@ function PermisosPanel({ onNeedLogin }) {
     loadRef.current();
   }, []);
   useEffect9(() => subscribe((snap) => {
-    const permisos = snap.config?.permisos;
-    const hide = permisos && typeof permisos === "object" && permisos.hideEmpty === true;
+    const hide = readPermisosHideEmptyFromUrl(snap);
     setHideEmptyStacks((prev) => prev === hide ? prev : hide);
   }), []);
-  const setHideEmptyStacksPersist = useCallback5((hide) => {
+  const setHideEmptyStacksPersist = useCallback4((hide) => {
     setHideEmptyStacks(hide);
     persistPermisosHideEmpty(hide);
   }, []);
-  const userDirectory = useMemo8(() => buildUserDirectoryFromPermisos(data.users), [data.users]);
+  const userDirectory = useMemo6(() => buildUserDirectoryFromPermisos(data.users), [data.users]);
   useEffect9(() => {
     Assets.ensureTodosCss();
     const onAuth = () => {
@@ -3842,7 +3768,7 @@ function PermisosPanel({ onNeedLogin }) {
       setBusy(false);
     }
   }
-  const handleRoleRemove = useCallback5(async ({ username, role, roleTitle }) => {
+  const handleRoleRemove = useCallback4(async ({ username, role, roleTitle }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -3859,7 +3785,7 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const handleRoleAdd = useCallback5(async ({ username, role, roleTitle }) => {
+  const handleRoleAdd = useCallback4(async ({ username, role, roleTitle }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -3876,7 +3802,7 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const handleRoleDrag = useCallback5(async ({ username, fromRole, toRole, mode }) => {
+  const handleRoleDrag = useCallback4(async ({ username, fromRole, toRole, mode }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -3893,11 +3819,11 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const fetchPermisosWithSearch = useCallback5(async (search) => {
+  const fetchPermisosWithSearch = useCallback4(async (search) => {
     const q = String(search ?? "").trim();
     return fetchPermisos(q ? { search: q } : void 0);
   }, []);
-  const handleUserFilterDrop = useCallback5(async (username) => {
+  const handleUserFilterDrop = useCallback4(async (username) => {
     const q = String(username ?? "").trim();
     if (!q) return;
     setUserSearch(q);
@@ -3917,12 +3843,12 @@ function PermisosPanel({ onNeedLogin }) {
       setFilterBusy(false);
     }
   }, [usersPaginated, fetchPermisosWithSearch, applyFlags]);
-  const handleRoleFilterDrop = useCallback5((roleId) => {
+  const handleRoleFilterDrop = useCallback4((roleId) => {
     const id = String(roleId ?? "").trim().toLowerCase();
     if (!id) return;
     setRoleFilters((prev) => prev.includes(id) ? prev : [...prev, id]);
   }, []);
-  const clearFilters = useCallback5(async () => {
+  const clearFilters = useCallback4(async () => {
     setUserSearch("");
     setRoleFilters([]);
     if (!usersPaginated) return;
@@ -3967,11 +3893,11 @@ function PermisosPanel({ onNeedLogin }) {
     }, 320);
     return () => window.clearTimeout(t);
   }, [userSearch, usersPaginated, fetchPermisosWithSearch]);
-  const roleOptions = useMemo8(
+  const roleOptions = useMemo6(
     () => (data.roles || []).map((r) => ({ id: roleNameFromEntry(r), label: roleTitleFromEntry(r) })).filter((r) => r.id && r.id !== VISITANTE),
     [data.roles]
   );
-  const boardData = useMemo8(
+  const boardData = useMemo6(
     () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory, hideEmptyColumns: hideEmptyStacks }),
     [data, userSearch, roleFilters, userDirectory, hideEmptyStacks]
   );
@@ -3980,7 +3906,7 @@ function PermisosPanel({ onNeedLogin }) {
   const editRoleMeta = canEditRoleDescriptions || canManage;
   const filtersActive = !!(userSearch.trim() || roleFilters.length);
   const { GlassToolbar } = getGlass();
-  const handleSaveRolePermisos = useCallback5(async (name, permisos, bactivo) => {
+  const handleSaveRolePermisos = useCallback4(async (name, permisos, bactivo) => {
     if (!editRoleMeta || !requireAppSession(onNeedLogin)) return;
     setBusy(true);
     setErr("");
@@ -4001,25 +3927,28 @@ function PermisosPanel({ onNeedLogin }) {
     }
   }, [editRoleMeta, onNeedLogin, managePermisos, applyFlags, loadHierarchy]);
   if (loading && !hierarchyOpen) {
-    return /* @__PURE__ */ jsx14(Box9, { className: "config-permisos-loading", children: /* @__PURE__ */ jsx14(CircularProgress7, { size: 26 }) });
+    return /* @__PURE__ */ jsx12(Box8, { className: "config-permisos-loading", children: /* @__PURE__ */ jsx12(CircularProgress6, { size: 26 }) });
   }
-  return /* @__PURE__ */ jsxs10(Box9, { className: "paty-permisos-shell", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
-    /* @__PURE__ */ jsx14(Box9, { ref: filterToolbarRef, className: "config-permisos-toolbar-wrap", sx: { flexShrink: 0 }, children: /* @__PURE__ */ jsxs10(GlassToolbar, { className: `config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`, sx: { borderRadius: 0, mb: 0, flexShrink: 0, gap: 1, px: { xs: 1.5, sm: 2 }, py: 1 }, children: [
-      /* @__PURE__ */ jsx14(
-        TextField6,
+  return /* @__PURE__ */ jsxs8(Box8, { className: "paty-permisos-shell", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
+    /* @__PURE__ */ jsx12(Box8, { ref: filterToolbarRef, className: "config-permisos-toolbar-wrap", sx: { flexShrink: 0 }, children: /* @__PURE__ */ jsxs8(GlassToolbar, { className: `config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`, sx: { borderRadius: 0, mb: 0, flexShrink: 0, gap: 0.75, px: { xs: 1.25, sm: 1.75 }, py: 0.5, alignItems: "center", minHeight: 40 }, children: [
+      /* @__PURE__ */ jsx12(
+        PermisosUserAutocomplete,
         {
-          size: "small",
-          label: "Buscar usuario",
-          placeholder: "Usuario",
-          value: userSearch,
-          onChange: (e) => setUserSearch(e.target.value),
+          variant: "toolbar",
+          label: "",
+          placeholder: "Buscar usuario\u2026",
+          value: userSearch || null,
+          onChange: (u) => setUserSearch(u ?? ""),
           disabled: filterBusy,
+          allowNew: true,
+          limit: 10,
+          roleFilter: roleFilters.length === 1 ? roleFilters[0] : null,
           className: "config-permisos-toolbar__field config-permisos-toolbar__field--search"
         }
       ),
-      /* @__PURE__ */ jsx14(PermisosRoleFilterAutocomplete, { options: roleOptions, value: roleFilters, onChange: setRoleFilters, disabled: filterBusy }),
-      filtersActive ? /* @__PURE__ */ jsx14(
-        Chip9,
+      /* @__PURE__ */ jsx12(PermisosRoleFilterAutocomplete, { options: roleOptions, value: roleFilters, onChange: setRoleFilters, disabled: filterBusy }),
+      filtersActive ? /* @__PURE__ */ jsx12(
+        Chip7,
         {
           size: "small",
           variant: "outlined",
@@ -4029,23 +3958,23 @@ function PermisosPanel({ onNeedLogin }) {
           disabled: filterBusy
         }
       ) : null,
-      /* @__PURE__ */ jsx14(
+      /* @__PURE__ */ jsx12(
         FormControlLabel2,
         {
           className: "config-permisos-toolbar__hide-empty",
-          control: /* @__PURE__ */ jsx14(Switch, { size: "small", checked: hideEmptyStacks, onChange: (e) => setHideEmptyStacksPersist(e.target.checked), disabled: filterBusy }),
+          control: /* @__PURE__ */ jsx12(Switch, { size: "small", checked: hideEmptyStacks, onChange: (e) => setHideEmptyStacksPersist(e.target.checked), disabled: filterBusy }),
           label: "Ocultar vac\xEDos",
-          sx: { mr: 0, ml: 0.5, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.8rem", whiteSpace: "nowrap" } }
+          sx: { mr: 0, ml: 0.25, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.75rem", whiteSpace: "nowrap" } }
         }
       ),
-      /* @__PURE__ */ jsx14(Box9, { sx: { flex: 1, minWidth: 8 } }),
-      /* @__PURE__ */ jsxs10(Stack8, { direction: "row", spacing: 0.5, alignItems: "center", className: "config-form-section__actions config-permisos-toolbar__actions", children: [
-        /* @__PURE__ */ jsx14(ButtonIconify, { icon: "mdi:family-tree", title: "Jerarqu\xEDa y rol visitante", onClick: openHierarchyDialog, disabled: busy || filterBusy }),
-        /* @__PURE__ */ jsx14(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, disabled: busy || filterBusy })
+      /* @__PURE__ */ jsx12(Box8, { sx: { flex: 1, minWidth: 8 } }),
+      /* @__PURE__ */ jsxs8(Stack7, { direction: "row", spacing: 0.5, alignItems: "center", className: "config-form-section__actions config-permisos-toolbar__actions", children: [
+        /* @__PURE__ */ jsx12(ButtonIconify, { icon: "mdi:family-tree", title: "Jerarqu\xEDa y rol visitante", onClick: openHierarchyDialog, disabled: busy || filterBusy }),
+        /* @__PURE__ */ jsx12(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, disabled: busy || filterBusy })
       ] })
     ] }) }),
-    err ? /* @__PURE__ */ jsx14(Alert4, { severity: "warning", className: "config-form-alert config-permisos-alert", children: err }) : null,
-    /* @__PURE__ */ jsx14(
+    err ? /* @__PURE__ */ jsx12(Alert3, { severity: "warning", className: "config-form-alert config-permisos-alert", children: err }) : null,
+    /* @__PURE__ */ jsx12(
       PermisosKanban,
       {
         boardData,
@@ -4071,7 +4000,7 @@ function PermisosPanel({ onNeedLogin }) {
         onRoleAdd: handleRoleAdd
       }
     ),
-    /* @__PURE__ */ jsxs10(
+    /* @__PURE__ */ jsxs8(
       GlassDialog,
       {
         open: hierarchyOpen,
@@ -4083,12 +4012,12 @@ function PermisosPanel({ onNeedLogin }) {
         fullWidth: true,
         maxWidth: false,
         paperClassName: "isa-glass-dialog--fullscreen permisos-hierarchy-dialog",
-        header: /* @__PURE__ */ jsx14(GlassDialogHeader, { icon: "mdi:family-tree", title: "Jerarqu\xEDa de roles", subtitle: "Visitante y permisos \u2014 solo branch 0 edita la jerarqu\xEDa", accent: "#10b981", onClose: () => {
+        header: /* @__PURE__ */ jsx12(GlassDialogHeader, { icon: "mdi:family-tree", title: "Jerarqu\xEDa de roles", subtitle: "Zoom/pan \xB7 hover \xB1 \xB7 doble clic edita", accent: "#10b981", onClose: () => {
           setHierarchyOpen(false);
           setHierarchyFocusRole(null);
         } }),
         children: [
-          /* @__PURE__ */ jsx14(DialogContent4, { dividers: true, sx: Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" }), children: /* @__PURE__ */ jsx14(
+          /* @__PURE__ */ jsx12(DialogContent4, { dividers: true, sx: Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" }), children: /* @__PURE__ */ jsx12(
             RoleHierarchyView,
             {
               nodes: hierarchyNodes,
@@ -4098,6 +4027,7 @@ function PermisosPanel({ onNeedLogin }) {
               canEditRoleDescriptions: editRoleMeta,
               onSaveRolePermisos: editRoleMeta ? handleSaveRolePermisos : void 0,
               canMutate: isBranchZero(actorJerarquia ?? ""),
+              canCreateRoles: isViewingAsRole() ? String(getViewAsRole() || "").toLowerCase() === "dev_lead" : actorIsDevLead(actorRoles),
               busy: hierarchyBusy,
               onSave: handleHierarchySave,
               onCreate: handleHierarchyCreate,
@@ -4106,11 +4036,11 @@ function PermisosPanel({ onNeedLogin }) {
               onPromote: handleHierarchyPromote
             }
           ) }),
-          /* @__PURE__ */ jsx14(DialogActions3, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx14(Button5, { onClick: () => setHierarchyOpen(false), sx: { textTransform: "none", fontWeight: 600 }, children: "Cerrar" }) })
+          /* @__PURE__ */ jsx12(DialogActions3, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx12(Button3, { onClick: () => setHierarchyOpen(false), sx: { textTransform: "none", fontWeight: 600 }, children: "Cerrar" }) })
         ]
       }
     ),
-    /* @__PURE__ */ jsx14(
+    /* @__PURE__ */ jsx12(
       UserPermissionsSummaryDialog,
       {
         open: !!summaryUsername,

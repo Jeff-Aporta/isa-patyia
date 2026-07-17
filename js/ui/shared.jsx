@@ -9,7 +9,7 @@ import {
 import { CodeMirrorPanel } from "../core/platform.ts";
 import { ImageLightboxDialog } from "./ImageLightboxDialog.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogTabsSx, resolveMetaDialogHeader, GlassDialogCloseActions } from "./GlassDialog.jsx";
-import { archivosCitadosFromMeta, fileSearchFromMeta, chunksFromMeta, chunkPreview, metaHasFileSearch, vectorStoresFromMeta, vectorStoreIndexLabel } from "../core/fileSearchTrace.js";
+import { archivosCitadosFromMeta, fileSearchFromMeta, chunksFromMeta, metaHasFileSearch, vectorStoresFromMeta, vectorStoreIndexLabel } from "../core/fileSearchTrace.js";
 
 export { mdToHtml };
 
@@ -316,9 +316,14 @@ function FileSearchMetaSection({ meta }) {
   const archivos = archivosCitadosFromMeta(meta);
   const chunks = useMemo(() => chunksFromMeta(meta), [meta]);
   const vectorStores = useMemo(() => vectorStoresFromMeta(meta), [meta]);
+  const [expandedKey, setExpandedKey] = useState(null);
   const [openChunk, setOpenChunk] = useState(null);
 
   if (!trace?.length && !archivos.length && !chunks.length && !vectorStores.length) return null;
+
+  function toggleChunk(key) {
+    setExpandedKey((prev) => (prev === key ? null : key));
+  }
 
   return (
     <Box className="meta-file-search" sx={{ mt: 1.5 }}>
@@ -356,7 +361,7 @@ function FileSearchMetaSection({ meta }) {
         File Search (archivos citados)
       </Typography>
       {archivos.length ? (
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: chunks.length ? 1.25 : 0 }}>
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: chunks.length ? 1 : 0 }}>
           {archivos.map((name) => (
             <Chip
               key={name}
@@ -370,22 +375,39 @@ function FileSearchMetaSection({ meta }) {
         </Stack>
       ) : null}
       {chunks.length ? (
-        <Stack spacing={0.85} className="meta-file-search__chunk-list">
+        <Stack spacing={0.5} className="meta-file-search__chunk-list">
           {chunks.map((c) => {
-            const preview = chunkPreview(c.text, 380);
+            const expanded = expandedKey === c.key;
             const vsIdx = c.vectorStoreId ? vectorStoreIndexLabel(vectorStores, c.vectorStoreId) : null;
+            const label = c.filename || c.fileId || "fragmento";
             return (
-              <Box key={c.key} className="meta-file-search__chunk">
-                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
-                  <iconify-icon icon="mdi:text-box-search-outline" width="16" height="16" />
-                  <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
-                    {c.filename || c.fileId || "fragmento"}
+              <Box
+                key={c.key}
+                className={`meta-file-search__chunk${expanded ? " meta-file-search__chunk--expanded" : ""}`}
+              >
+                <Box
+                  className="meta-file-search__chunk-summary"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expanded}
+                  title={label}
+                  onClick={() => toggleChunk(c.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleChunk(c.key);
+                    }
+                  }}
+                >
+                  <iconify-icon icon="mdi:text-box-search-outline" width="15" height="15" aria-hidden />
+                  <Typography variant="body2" fontWeight={600} noWrap className="meta-file-search__chunk-title">
+                    {label}
                   </Typography>
                   {vsIdx != null ? (
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={`VS índice ${vsIdx}`}
+                      label={`VS ${vsIdx}`}
                       title={c.vectorStoreId || undefined}
                       className="meta-file-search__vs-chip"
                     />
@@ -394,39 +416,41 @@ function FileSearchMetaSection({ meta }) {
                     <Chip
                       size="small"
                       variant="outlined"
-                      label={`score ${Number(c.score).toFixed(3)}`}
+                      label={Number(c.score).toFixed(3)}
                       className="meta-file-search__score"
                     />
                   ) : null}
-                  <Tooltip title="Ver fragmento en full-page">
+                  <Tooltip title="Ver en pantalla completa">
                     <IconButton
                       size="small"
-                      aria-label={`Ver fragmento de ${c.filename || c.fileId || "fragmento"}`}
-                      onClick={() => setOpenChunk(c)}
+                      aria-label={`Ver fragmento de ${label}`}
                       className="meta-file-search__open"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenChunk(c);
+                      }}
                     >
-                      <iconify-icon icon="mdi:fullscreen" width="16" height="16" />
+                      <iconify-icon icon="mdi:fullscreen" width="15" height="15" />
                     </IconButton>
                   </Tooltip>
-                </Stack>
-                {c.queries?.length ? (
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.35 }}>
-                    Queries: {c.queries.join(" · ")}
-                  </Typography>
+                  <iconify-icon
+                    icon="mdi:chevron-down"
+                    width="18"
+                    height="18"
+                    className={`meta-file-search__chevron${expanded ? " meta-file-search__chevron--open" : ""}`}
+                    aria-hidden
+                  />
+                </Box>
+                {expanded ? (
+                  <Box className="meta-file-search__chunk-body">
+                    {c.queries?.length ? (
+                      <Typography variant="caption" color="text.secondary" display="block" className="meta-file-search__queries">
+                        Queries: {c.queries.join(" · ")}
+                      </Typography>
+                    ) : null}
+                    <MdRenderer source={c.text || ""} className="meta-file-search__md" />
+                  </Box>
                 ) : null}
-                <Typography
-                  variant="caption"
-                  component="pre"
-                  className="meta-file-search__preview"
-                  sx={{
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    m: 0,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {preview}
-                </Typography>
               </Box>
             );
           })}
@@ -715,49 +739,56 @@ export function MdFullPageDialog({
       }}
     >
       <DialogTitle
+        className="md-full-page-dialog__head"
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 1.25,
+          gap: 1,
           borderBottom: 1,
           borderColor: "divider",
-          py: 1.25,
-          px: { xs: 2, sm: 3 },
+          py: 0.75,
+          px: { xs: 1.5, sm: 2 },
+          minHeight: 0,
         }}
       >
         <Box
           sx={{
-            width: 36,
-            height: 36,
-            borderRadius: "0.5rem",
+            width: 28,
+            height: 28,
+            borderRadius: "0.4rem",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
             color: "#fff",
             flexShrink: 0,
-            boxShadow: `0 4px 16px ${accent}55`,
+            boxShadow: `0 2px 8px ${accent}44`,
           }}
         >
-          <Icon icon={icon} size={20} />
+          <Icon icon={icon} size={16} />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h6" fontWeight={700} noWrap>{title}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+          <Typography variant="subtitle1" fontWeight={700} noWrap sx={{ lineHeight: 1.25, fontSize: "0.95rem" }}>
+            {title}
+          </Typography>
           {subtitle ? (
-            <Typography variant="caption" color="text.secondary" noWrap>{subtitle}</Typography>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", lineHeight: 1.3, mt: 0.15, fontSize: "0.72rem" }}>
+              {subtitle}
+            </Typography>
           ) : null}
         </Box>
-        <IconButton onClick={onClose} aria-label="Cerrar visor" size="small">
-          <iconify-icon icon="mdi:close" width="18" height="18" />
+        <IconButton onClick={onClose} aria-label="Cerrar visor" size="small" sx={{ p: 0.5 }}>
+          <iconify-icon icon="mdi:close" width="16" height="16" />
         </IconButton>
       </DialogTitle>
       <DialogContent
         dividers
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
-          maxWidth: 920,
-          mx: "auto",
+          px: { xs: 2, sm: 3, md: 4, lg: 5 },
+          py: { xs: 2, sm: 2.5, md: 3 },
           width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
         <div

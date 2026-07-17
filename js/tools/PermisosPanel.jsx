@@ -5,17 +5,19 @@ import {
   fetchHierarchy, createHierarchyRole, updateHierarchyRole, deleteHierarchyRole,
 } from "../api/systemConfigApi.ts";
 import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiasFromRoles, actorJerarquiaFromRoles, buildRolePermisosIndex, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
-import { isBranchZero } from "./roleHierarchy.js";
+import { isBranchZero, actorIsDevLead } from "./roleHierarchy.js";
 import { PermisosKanban } from "./PermisosKanban.jsx";
 import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete.jsx";
+import { PermisosUserAutocomplete } from "./PermisosUserAutocomplete.jsx";
 import { RoleHierarchyView } from "./roleHierarchyTree/index.ts";
 import { hierarchyNodesFromRoleEntries } from "./roleHierarchyTree/hierarchyFromRoles.ts";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
 import { UserPermissionsSummaryDialog } from "./UserPermissionsSummaryDialog.jsx";
 import { readPermisosHideEmptyFromUrl, persistPermisosHideEmpty, subscribe } from "../core/urlState.ts";
+import * as SessionApi from "../api/sessionApi.ts";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
-const { Typography, TextField, Stack, Alert, CircularProgress, Box, Chip, DialogContent, DialogActions, Button, FormControlLabel, Switch } = getMaterialUI();
+const { Typography, Stack, Alert, CircularProgress, Box, Chip, DialogContent, DialogActions, Button, FormControlLabel, Switch } = getMaterialUI();
 
 export function PermisosPanel({ onNeedLogin }) {
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,7 @@ export function PermisosPanel({ onNeedLogin }) {
 
   const [actorJerarquia, setActorJerarquia] = useState(null);
   const [actorJerarquias, setActorJerarquias] = useState([]);
+  const [actorRoles, setActorRoles] = useState([]);
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
   const [hierarchyFocusRole, setHierarchyFocusRole] = useState(null);
   const [hierarchyNodes, setHierarchyNodes] = useState([]);
@@ -59,6 +62,7 @@ export function PermisosPanel({ onNeedLogin }) {
       ? result.actorRoles
       : (Array.isArray(Session?.roles) ? Session.roles : []);
     const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
+    setActorRoles(actorRoles.map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean));
     setActorJerarquias(actorJerarquiasFromRoles(actorRoles, rolePermisosIdx));
     setActorJerarquia(actorJerarquiaFromRoles(actorRoles, rolePermisosIdx));
   }, []);
@@ -209,8 +213,7 @@ export function PermisosPanel({ onNeedLogin }) {
   useEffect(() => { loadRef.current(); }, []);
 
   useEffect(() => subscribe((snap) => {
-    const permisos = snap.config?.permisos;
-    const hide = permisos && typeof permisos === "object" && permisos.hideEmpty === true;
+    const hide = readPermisosHideEmptyFromUrl(snap);
     setHideEmptyStacks((prev) => (prev === hide ? prev : hide));
   }), []);
 
@@ -407,10 +410,19 @@ export function PermisosPanel({ onNeedLogin }) {
   return (
     <Box className="paty-permisos-shell" sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <Box ref={filterToolbarRef} className="config-permisos-toolbar-wrap" sx={{ flexShrink: 0 }}>
-      <GlassToolbar className={`config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`} sx={{ borderRadius: 0, mb: 0, flexShrink: 0, gap: 1, px: { xs: 1.5, sm: 2 }, py: 1 }}>
-        <TextField size="small" label="Buscar usuario" placeholder="Usuario" value={userSearch}
-          onChange={(e) => setUserSearch(e.target.value)} disabled={filterBusy}
-          className="config-permisos-toolbar__field config-permisos-toolbar__field--search" />
+      <GlassToolbar className={`config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`} sx={{ borderRadius: 0, mb: 0, flexShrink: 0, gap: 0.75, px: { xs: 1.25, sm: 1.75 }, py: 0.5, alignItems: "center", minHeight: 40 }}>
+        <PermisosUserAutocomplete
+          variant="toolbar"
+          label=""
+          placeholder="Buscar usuario…"
+          value={userSearch || null}
+          onChange={(u) => setUserSearch(u ?? "")}
+          disabled={filterBusy}
+          allowNew
+          limit={10}
+          roleFilter={roleFilters.length === 1 ? roleFilters[0] : null}
+          className="config-permisos-toolbar__field config-permisos-toolbar__field--search"
+        />
         <PermisosRoleFilterAutocomplete options={roleOptions} value={roleFilters} onChange={setRoleFilters} disabled={filterBusy} />
         {filtersActive ? (
           <Chip size="small" variant="outlined" className="isa-neon-glass-chip" label="Filtros"
@@ -420,7 +432,7 @@ export function PermisosPanel({ onNeedLogin }) {
           className="config-permisos-toolbar__hide-empty"
           control={<Switch size="small" checked={hideEmptyStacks} onChange={(e) => setHideEmptyStacksPersist(e.target.checked)} disabled={filterBusy} />}
           label="Ocultar vacíos"
-          sx={{ mr: 0, ml: 0.5, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.8rem", whiteSpace: "nowrap" } }}
+          sx={{ mr: 0, ml: 0.25, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.75rem", whiteSpace: "nowrap" } }}
         />
         <Box sx={{ flex: 1, minWidth: 8 }} />
         <Stack direction="row" spacing={0.5} alignItems="center" className="config-form-section__actions config-permisos-toolbar__actions">
@@ -444,7 +456,7 @@ export function PermisosPanel({ onNeedLogin }) {
 
       <GlassDialog open={hierarchyOpen} onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} fullScreen fullWidth maxWidth={false}
         paperClassName="isa-glass-dialog--fullscreen permisos-hierarchy-dialog"
-        header={<GlassDialogHeader icon="mdi:family-tree" title="Jerarquía de roles" subtitle="Visitante y permisos — solo branch 0 edita la jerarquía" accent="#10b981" onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} />}>
+        header={<GlassDialogHeader icon="mdi:family-tree" title="Jerarquía de roles" subtitle="Zoom/pan · hover ± · doble clic edita" accent="#10b981" onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} />}>
         <DialogContent dividers sx={Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" })}>
           <RoleHierarchyView
             nodes={hierarchyNodes}
@@ -454,6 +466,11 @@ export function PermisosPanel({ onNeedLogin }) {
             canEditRoleDescriptions={editRoleMeta}
             onSaveRolePermisos={editRoleMeta ? handleSaveRolePermisos : undefined}
             canMutate={isBranchZero(actorJerarquia ?? "")}
+            canCreateRoles={
+              SessionApi.isViewingAsRole()
+                ? String(SessionApi.getViewAsRole() || "").toLowerCase() === "dev_lead"
+                : actorIsDevLead(actorRoles)
+            }
             busy={hierarchyBusy}
             onSave={handleHierarchySave}
             onCreate={handleHierarchyCreate}

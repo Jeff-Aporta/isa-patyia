@@ -6,31 +6,10 @@ const { useState, useEffect, useMemo } = getReact();
 const { Box, Typography, CircularProgress, Chip } = getMaterialUI();
 const { Icon } = UI;
 
-const SESSION_MODE_CHIP_SX = {
-  live: {
-    pl: 0.35,
-    color: "#86efac",
-    bgcolor: "rgba(34, 197, 94, 0.12)",
-    border: "1px solid rgba(74, 222, 128, 0.35)",
-    "& .MuiChip-icon": { color: "#4ade80 !important", ml: 0.55 },
-    "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 },
-  },
-  readonly: {
-    pl: 0.35,
-    color: "#fde68a",
-    bgcolor: "rgba(251, 191, 36, 0.1)",
-    border: "1px solid rgba(251, 191, 36, 0.35)",
-    "& .MuiChip-icon": { color: "#facc15 !important", ml: 0.55 },
-    "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 },
-  },
-  loading: {
-    pl: 0.35,
-    color: "#94a3b8",
-    bgcolor: "rgba(148, 163, 184, 0.1)",
-    border: "1px solid rgba(148, 163, 184, 0.28)",
-    "& .MuiChip-icon": { ml: 0.55 },
-    "& .MuiChip-label": { pl: 0.55 },
-  },
+const CHIP_SX = {
+  live: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } },
+  readonly: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } },
+  loading: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } },
 };
 
 function SessionModeChip({ canSend, jwtLoading }) {
@@ -40,9 +19,9 @@ function SessionModeChip({ canSend, jwtLoading }) {
         size="small"
         variant="outlined"
         label="Interactivo"
-        icon={<Icon icon="mdi:chat-processing-outline" size={14} aria-hidden />}
+        icon={<Icon icon="mdi:chat-processing-outline" size={12} aria-hidden />}
         className="paty-chat-session__badge paty-chat-session__badge--live"
-        sx={SESSION_MODE_CHIP_SX.live}
+        sx={CHIP_SX.live}
       />
     );
   }
@@ -52,9 +31,9 @@ function SessionModeChip({ canSend, jwtLoading }) {
         size="small"
         variant="outlined"
         label="Token…"
-        icon={<CircularProgress size={10} color="inherit" />}
+        icon={<CircularProgress size={9} color="inherit" />}
         className="paty-chat-session__badge paty-chat-session__badge--loading"
-        sx={SESSION_MODE_CHIP_SX.loading}
+        sx={CHIP_SX.loading}
       />
     );
   }
@@ -63,14 +42,14 @@ function SessionModeChip({ canSend, jwtLoading }) {
       size="small"
       variant="outlined"
       label="Solo lectura"
-      icon={<Icon icon="mdi:eye-outline" size={14} aria-hidden />}
+      icon={<Icon icon="mdi:eye-outline" size={12} aria-hidden />}
       className="paty-chat-session__badge paty-chat-session__badge--readonly"
-      sx={SESSION_MODE_CHIP_SX.readonly}
+      sx={CHIP_SX.readonly}
     />
   );
 }
 
-export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerDisplayName, canSend, jwtLoading, onOpenAudit }) {
+export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerDisplayName, canSend, jwtLoading, canAudit = false, onOpenAudit }) {
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
   const codes = [tercero, contacto].filter(Boolean).join(" · ");
@@ -81,61 +60,51 @@ export function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUs
   const [avatarOk, setAvatarOk] = useState(true);
   useEffect(() => { setAvatarOk(true); }, [avatarUrl]);
 
+  const interactive = !!canAudit && typeof onOpenAudit === "function";
+
   return (
     <Box
-      className="paty-chat-session paty-chat-session--clickable"
-      role="button"
-      tabIndex={0}
-      sx={{ cursor: "pointer" }}
-      title="Filtrar conversaciones por usuario"
-      aria-label="Filtrar conversaciones por usuario"
-      onClick={() => onOpenAudit?.()}
-      onKeyDown={(e) => {
+      className={`paty-chat-session${interactive ? " paty-chat-session--clickable" : ""}`}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      title={interactive ? "Filtrar conversaciones por usuario" : undefined}
+      aria-label={interactive ? `Filtrar por ${primaryLabel}` : undefined}
+      onClick={interactive ? () => onOpenAudit?.() : undefined}
+      onKeyDown={interactive ? (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpenAudit?.();
         }
-      }}
+      } : undefined}
     >
-      <Box
-        className="paty-chat-session__action"
-        aria-hidden
-        sx={{
-          position: "absolute",
-          top: 8,
-          right: 8,
-          zIndex: 1,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <Icon icon="mdi:account-filter-outline" size={17} />
-      </Box>
       <Box className="paty-chat-session__avatar" aria-hidden>
         {avatarOk ? (
-          <img
-            className="paty-chat-session__avatar-img"
-            src={avatarUrl}
-            alt=""
-            width={36}
-            height={36}
-            loading="lazy"
-            decoding="async"
-            onError={() => setAvatarOk(false)}
-          />
+          <img className="paty-chat-session__avatar-img" src={avatarUrl} alt="" width={36} height={36} loading="lazy" decoding="async" onError={() => setAvatarOk(false)} />
         ) : (
           <Icon icon="mdi:account-circle" size={28} />
         )}
       </Box>
       <Box className="paty-chat-session__body">
-        <Typography className="paty-chat-session__name" title={primaryLabel}>
+        <Typography className="paty-chat-session__name" noWrap title={primaryLabel}>
           {primaryLabel}
         </Typography>
-        <Box className="paty-chat-session__flags" sx={{ flexWrap: "wrap", gap: 0.5 }}>
+        <Box className="paty-chat-session__meta">
           <SessionModeChip canSend={canSend} jwtLoading={jwtLoading} />
+          {codes ? (
+            <Typography
+              className="paty-chat-session__ids"
+              variant="caption"
+              component="span"
+              title={codes}
+              sx={{ fontSize: "0.58rem", lineHeight: 1.15, color: "rgba(148, 163, 184, 0.72)", fontWeight: 400 }}
+            >
+              {codes}
+            </Typography>
+          ) : null}
         </Box>
+      </Box>
+      <Box className="paty-chat-session__action" aria-hidden>
+        <Icon icon="mdi:filter-variant" size={14} />
       </Box>
     </Box>
   );

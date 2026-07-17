@@ -1,6 +1,7 @@
 import type { ChatImageEntry } from "./types.ts";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
+const BACKEND_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
 
 function mimeFromFileName(name: string): string | undefined {
   const lower = name.trim().toLowerCase();
@@ -20,29 +21,15 @@ export function isChatImageFile(file: File | null | undefined): boolean {
   return IMAGE_EXT_RE.test(file.name || "");
 }
 
-const BACKEND_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
-
-function isBackendSupportedImageDataUrl(dataUrl: string): boolean {
-  const m = String(dataUrl || "").match(/^data:([^;]+);base64,/i);
-  const mime = (m?.[1] || "").toLowerCase();
-  return BACKEND_IMAGE_MIMES.has(mime);
-}
-function normalizeImageDataUrl(dataUrl: string, file: File): string {
-  const raw = String(dataUrl || "").trim();
-  if (!raw.startsWith("data:")) return raw;
-  const mimeMatch = raw.match(/^data:([^;]+);base64,/i);
-  const mime = (mimeMatch?.[1] || "").toLowerCase();
-  if (mime.startsWith("image/") && mime !== "image/heic" && mime !== "image/heif") return raw;
-  const fallbackMime = mimeFromFileName(file.name || "") || (file.type?.startsWith("image/") ? file.type : "image/jpeg");
-  const i = raw.indexOf("base64,");
-  if (i < 0) return raw;
-  return `data:${fallbackMime};base64,${raw.slice(i + 7)}`;
-}
-
 function isHeicLikeFile(file: File): boolean {
   const name = (file.name || "").toLowerCase();
   const mime = (file.type || "").toLowerCase();
   return mime === "image/heic" || mime === "image/heif" || /\.heic$/i.test(name) || /\.heif$/i.test(name);
+}
+
+function isBackendSupportedMime(mime: string | undefined): boolean {
+  if (!mime) return false;
+  return BACKEND_IMAGE_MIMES.has(mime.toLowerCase());
 }
 
 export function readImagesFromClipboard(items: DataTransferItemList | null | undefined): File[] {
@@ -57,6 +44,8 @@ export function readImagesFromClipboard(items: DataTransferItemList | null | und
 }
 
 export function fileToDataUrl(file: File): Promise<string> {
+  // Conservado como utilidad (p.ej. preview local con ObjectURL ya es nativo);
+  // ya NO se usa en el pipeline crítico — solo helpers de debug/componentes legacy.
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result || ""));
@@ -65,16 +54,45 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+export function blobToPreviewUrl(blob: Blob): string {
+  try { return URL.createObjectURL(blob); } catch { return ""; }
+}
+
+/** Construye entradas binarias (sin base64). Cada entry incluye el File, mime y
+ *  opcionalmente width/height para preview en hilo antes de subir. */
 export async function filesToImageEntries(files: Iterable<File> | null | undefined): Promise<ChatImageEntry[]> {
   const added: ChatImageEntry[] = [];
   for (const file of files || []) {
     if (!isChatImageFile(file)) continue;
     if (isHeicLikeFile(file)) continue;
-    const dataUrl = normalizeImageDataUrl(await fileToDataUrl(file), file);
-    if (!isBackendSupportedImageDataUrl(dataUrl)) continue;
-    added.push({ name: file.name || "imagen", dataUrl });
+    const mime = (file.type || mimeFromFileName(file.name || "") || "image/png").toLowerCase();
+    if (!isBackendSupportedMime(mime)) continue;
+    const dims = await fileImageDimensions(file).catch(() => undefined);
+    added.push({
+      name: file.name || "imagen",
+      blob: file,
+      mime,
+      ...(dims?.width ? { width: dims.width } : {}),
+      ...(dims?.height ? { height: dims.height } : {}),
+    });
   }
   return added;
+}
+
+function fileImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e instanceof Error ? e : new Error("decode"));
+    };
+    img.src = url;
+  });
 }
 
 export function hasHeicLikeFiles(files: Iterable<File> | null | undefined): boolean {

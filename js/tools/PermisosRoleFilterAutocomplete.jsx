@@ -22,7 +22,14 @@ export function PermisosRoleFilterAutocomplete({ options, value, onChange, disab
         return <Chip key={key} {...chipProps} label={option.label} size="small" className="isa-neon-glass-chip" />;
       })}
       renderInput={(params) => (
-        <TextField {...params} label="Roles" placeholder={selected.length ? "" : "Todos"} />
+        <TextField {...params} size="small" label="" placeholder={selected.length ? "" : "Filtrar por roles…"}
+          InputLabelProps={{ ...params.InputLabelProps, shrink: false }}
+          sx={{
+            "& .MuiOutlinedInput-root": { minHeight: 28, height: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 },
+          }} />
       )}
     />
   );

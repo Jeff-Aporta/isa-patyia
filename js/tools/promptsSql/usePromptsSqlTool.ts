@@ -46,10 +46,13 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     };
   }, []);
 
-  const canPublish = useMemo(
-    () => instruccionesCanEdit || LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos(),
-    [authTick, instruccionesCanEdit],
-  );
+  const canPublish = useMemo(() => {
+    // Ver como rol: solo preset local — no mezclar con canEdit del GET instrucciones (sigue siendo el del Dev Lead).
+    if (LabSession.isViewingAsRole()) {
+      return LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
+    }
+    return instruccionesCanEdit || LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
+  }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);
   const canEdit = canPublish;
   const editBlockReason = useMemo(() => {

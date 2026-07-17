@@ -12,17 +12,40 @@ function normalizeLog(raw: unknown) {
   return o;
 }
 
-function initial() { return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {}, config: {} }; }
+function initial() { return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } }; }
+
+function normalizeChatPane(raw: unknown): "conv" | "logs" {
+  return raw === "logs" ? "logs" : "conv";
+}
+
+function normalizeConfigPane(raw: unknown): "sistema" | "permisos" | "prompts" {
+  if (raw === "permisos") return "permisos";
+  if (raw === "prompts") return "prompts";
+  return "sistema";
+}
+
+/** Lee tab Config legacy en LS (antes vivía fuera de ?s=). */
+function legacyConfigPaneFromLs(): "sistema" | "permisos" | "prompts" {
+  try {
+    const v = localStorage.getItem("isa-patyia:config-tab");
+    if (v === "permisos" || v === "prompts") return v;
+    return "sistema";
+  } catch {
+    return "sistema";
+  }
+}
 
 function normalizeTool(raw: unknown) {
-  if (raw === "prompts") return "prompts";
+  // Legacy: tool=log → chat + pane=logs; tool=prompts → config + pane=prompts.
+  if (raw === "log") return "chat";
+  if (raw === "prompts") return "config";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "log";
+  return "chat";
 }
 
-function normalizeChatBag(chat: unknown) {
+function normalizeChatBag(chat: unknown, legacyTool?: unknown) {
   const bag = chat && typeof chat === "object" ? { ...(chat as Record<string, unknown>) } : {};
   if ((bag.mode == null || String(bag.mode).trim() === "") && bag.jailbreak != null) {
     bag.mode = bag.jailbreak === true ? "libre" : "patyia";
@@ -30,15 +53,33 @@ function normalizeChatBag(chat: unknown) {
   } else if (bag.jailbreak != null) {
     delete bag.jailbreak;
   }
+  if (legacyTool === "log") {
+    bag.pane = "logs";
+  } else {
+    bag.pane = normalizeChatPane(bag.pane);
+  }
+  return bag;
+}
+
+function normalizeConfigBag(config: unknown, legacyTool?: unknown) {
+  const bag = config && typeof config === "object" ? { ...(config as Record<string, unknown>) } : {};
+  if (legacyTool === "prompts") {
+    bag.pane = "prompts";
+  } else if (bag.pane !== "sistema" && bag.pane !== "permisos" && bag.pane !== "prompts") {
+    bag.pane = legacyConfigPaneFromLs();
+  } else {
+    bag.pane = normalizeConfigPane(bag.pane);
+  }
   return bag;
 }
 
 function normalize(raw: Record<string, unknown> | null, _prev: unknown) {
   if (!raw || typeof raw !== "object") return initial();
-  const tool = normalizeTool(raw.tool);
-  const chat = normalizeChatBag(raw.chat);
+  const legacyTool = raw.tool;
+  const tool = normalizeTool(legacyTool);
+  const chat = normalizeChatBag(raw.chat, legacyTool);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
-  const config = raw.config && typeof raw.config === "object" ? raw.config : {};
+  const config = normalizeConfigBag(raw.config, legacyTool);
   return {
     v: raw.v ?? STATE_VERSION, tool,
     log: normalizeLog(raw.log),
@@ -257,13 +298,13 @@ function configPermisosBag(snap?: Record<string, unknown>) {
   return permisos && typeof permisos === "object" ? permisos as Record<string, unknown> : undefined;
 }
 
-/** Switch «Ocultar vacíos» en Permisos — ?s=.config.permisos.hideEmpty */
-export function readPermisosHideEmptyFromUrl() {
-  return configPermisosBag()?.hideEmpty === true;
+/** Switch «Ocultar vacíos» en Permisos — default true; solo false si ?s= lo fija. */
+export function readPermisosHideEmptyFromUrl(snap?: Record<string, unknown>) {
+  return configPermisosBag(snap)?.hideEmpty !== false;
 }
 
 export function persistPermisosHideEmpty(hide: boolean) {
-  const prev = configPermisosBag()?.hideEmpty === true;
+  const prev = readPermisosHideEmptyFromUrl();
   if (prev === hide) return getSnapshot();
   return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }

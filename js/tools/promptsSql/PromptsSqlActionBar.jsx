@@ -1,14 +1,12 @@
 import { getMaterialUI } from "../../core/platform.ts";
 import { ButtonIconify } from "../../ui/shared.jsx";
 
-const { Typography, Stack, Chip, CircularProgress } = getMaterialUI();
+const { Stack, Chip, CircularProgress } = getMaterialUI();
 
 export function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, actionBusy, hasLocalChanges, pendingTiposLength, canPublish, saveTitle, importTitle, fileInputRef, onFileInput, onImportClick, onDiscardAll, onSaveAll }) {
   return (
     <div className="panel-head prompts-tool-head">
-      <Typography variant="subtitle1" fontWeight={600}>Instrucciones · mapeo</Typography>
-
-      <Stack direction="row" spacing={0.5} alignItems="center">
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ ml: "auto" }}>
         {loadBusy && <CircularProgress size={14} />}
 
         <Chip

@@ -1,31 +1,55 @@
 // js/core/patyia.ts
 window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
 var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
-var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+var PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+var PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
 var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
 var ORCH_LOCAL = "http://localhost:8790";
 var SCRUM_LOCAL = "http://localhost:8798";
 var TREE_MSGS_LOCAL = "http://localhost:8799";
-var PATYIA_BRIDGE_DEV = "http://127.0.0.1:8800";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
+var PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+var PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+var PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+var PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
 var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
 var GATEWAY_LS_KEY = "jeff:gateway-local";
 function isPatyiaApiPath(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
   return p.startsWith("/patyia") || p.startsWith("/api/patyia");
 }
-function patyiaBridgeBase() {
-  return (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
 }
-function patyiaCapFetchBase() {
-  return (isLocalMode() ? PATYIA_ISS_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
+function patyiaIssCapFetchBase() {
+  return patyiaIssBase();
 }
-function isLocalMode() {
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
   try {
-    return localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) === "1";
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
   } catch {
-    return false;
   }
+  return isDevHost() ? "local" : "staging";
+}
+function setIssTarget(target) {
+  try {
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, target);
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } }));
+  } catch {
+  }
+}
+function setLocalMode(_on) {
+  return true;
 }
 function isDevHost() {
   try {
@@ -36,52 +60,66 @@ function isDevHost() {
 }
 function ensureIssLocalDefault() {
   try {
-    if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
-    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
+    if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null) return;
+    const def = isDevHost() ? "local" : "staging";
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, def);
   } catch {
   }
-}
-function resolveIssApiBase() {
-  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
-  return base.endsWith("/api") ? base : `${base}/api`;
-}
-function setLocalMode(on) {
-  const next = on ? "1" : "0";
-  let prev = "";
-  try {
-    prev = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) ?? "";
-  } catch {
-  }
-  if (prev === next) return on;
-  try {
-    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, next);
-  } catch {
-  }
-  window.location.reload();
-  return on;
 }
 function migrateIssLocalFromGatewayFlag() {
   try {
+    const legacy = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY);
+    const hasNew = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null;
+    if (!hasNew && legacy === "1") {
+      localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, "local");
+    }
     if (localStorage.getItem(GATEWAY_LS_KEY) === "1") {
-      if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) == null) {
-        localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "1");
+      if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) == null) {
+        localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, "local");
       }
       localStorage.setItem(GATEWAY_LS_KEY, "0");
     }
   } catch {
   }
 }
+function isLocalMode() {
+  return getIssTarget() === "local";
+}
+var AVATAR_BG_PALETTE = [
+  "1e90ff",
+  "0ea5e9",
+  "14b8a6",
+  "22c55e",
+  "84cc16",
+  "eab308",
+  "f97316",
+  "ef4444",
+  "ec4899",
+  "a855f7",
+  "6366f1",
+  "64748b"
+];
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
 function buildUserAvatarUrl(name, size = 72) {
   const label = String(name ?? "").trim() || "Usuario";
   const params = new URLSearchParams({
     name: label,
     size: String(size),
-    background: "1e90ff",
+    background: avatarBgFromName(label.toLowerCase()),
     color: "ffffff",
     bold: "true",
+    rounded: "true",
     format: "svg"
   });
   return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+try {
+  window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+} catch {
 }
 async function readPatyiaSseStream(response, onEvent) {
   if (!response.ok) {
@@ -127,22 +165,27 @@ export {
   GATEWAY_LS_KEY,
   ORCH_LOCAL,
   ORCH_ONLINE,
-  PATYIA_BRIDGE_DEV,
-  PATYIA_BRIDGE_LOCAL,
-  PATYIA_BRIDGE_URL,
   PATYIA_ISS_LOCAL,
+  PATYIA_ISS_LOCAL_API,
   PATYIA_ISS_LOCAL_LS_KEY,
+  PATYIA_ISS_PROD_API,
+  PATYIA_ISS_PROD_URL,
+  PATYIA_ISS_STAGING_API,
+  PATYIA_ISS_TARGET_LS_KEY,
+  PATYIA_ISS_URL,
   SCRUM_LOCAL,
   TREE_MSGS_LOCAL,
   buildUserAvatarUrl,
   ensureIssLocalDefault,
+  getIssTarget,
   isDevHost,
   isLocalMode,
   isPatyiaApiPath,
   migrateIssLocalFromGatewayFlag,
-  patyiaBridgeBase,
-  patyiaCapFetchBase,
+  patyiaIssBase,
+  patyiaIssCapFetchBase,
   readPatyiaSseStream,
   resolveIssApiBase,
+  setIssTarget,
   setLocalMode
 };

@@ -140,28 +140,26 @@ export function ConvSearchAutocomplete({
         </Box>
       )}
       renderInput={(params) => {
-        const inputSlot = params.slotProps?.input ?? {};
+        const inputProps = params.InputProps ?? params.slotProps?.input ?? {};
         return (
           <TextField
             {...params}
+            size="small"
             placeholder={placeholder}
-            slotProps={{
-              ...params.slotProps,
-              input: {
-                ...inputSlot,
-                endAdornment: (
-                  <>
-                    {showClear ? (
-                      <InputAdornment position="end">
-                        <IconButton size="small" aria-label="Limpiar búsqueda" className="paty-chat-conv-search__clear" onMouseDown={(e) => e.preventDefault()} onClick={clearSearch}>
-                          <Icon icon="mdi:close" size={16} />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : null}
-                    {inputSlot.endAdornment}
-                  </>
-                ),
-              },
+            InputProps={{
+              ...inputProps,
+              endAdornment: (
+                <>
+                  {showClear ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" aria-label="Limpiar búsqueda" className="paty-chat-conv-search__clear" onMouseDown={(e) => e.preventDefault()} onClick={clearSearch}>
+                        <Icon icon="mdi:close" size={16} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null}
+                  {inputProps.endAdornment}
+                </>
+              ),
             }}
           />
         );

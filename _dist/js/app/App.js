@@ -13,6 +13,331 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// js/core/patyia.ts
+function isPatyiaApiPath(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/patyia") || p.startsWith("/api/patyia");
+}
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function patyiaIssCapFetchBase() {
+  return patyiaIssBase();
+}
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
+  try {
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
+  } catch {
+  }
+  return isDevHost() ? "local" : "staging";
+}
+function setIssTarget(target) {
+  try {
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, target);
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } }));
+  } catch {
+  }
+}
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+function ensureIssLocalDefault() {
+  try {
+    if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null) return;
+    const def = isDevHost() ? "local" : "staging";
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, def);
+  } catch {
+  }
+}
+function isLocalMode() {
+  return getIssTarget() === "local";
+}
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+async function readPatyiaSseStream(response, onEvent) {
+  if (!response.ok) {
+    let msg = response.statusText;
+    try {
+      const j = await response.json();
+      msg = String(j?.error || j?.message || msg);
+    } catch {
+    }
+    throw new Error(msg || `HTTP ${response.status}`);
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Stream no disponible");
+  const dec = new TextDecoder();
+  let buf = "";
+  let lastPayload = {};
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const blocks = buf.split("\n\n");
+    buf = blocks.pop() || "";
+    for (const block of blocks) {
+      const lines = block.split("\n");
+      let event = "message";
+      let dataLine = "";
+      for (const line of lines) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataLine += line.slice(5).trim();
+      }
+      if (!dataLine) continue;
+      try {
+        const data = JSON.parse(dataLine);
+        lastPayload = data;
+        onEvent({ event, data });
+      } catch {
+      }
+    }
+  }
+  return lastPayload;
+}
+var ORCH_ONLINE, PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, ORCH_LOCAL, SCRUM_LOCAL, TREE_MSGS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    ORCH_LOCAL = "http://localhost:8790";
+    SCRUM_LOCAL = "http://localhost:8798";
+    TREE_MSGS_LOCAL = "http://localhost:8799";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
+
+// js/core/platform.ts
+function frontSharedLazy() {
+  const api = window.ISAFront;
+  return api?.ensureCodeMirrorLoaded ? api : null;
+}
+function mdToHtml(src) {
+  const api = frontSharedLazy();
+  if (api?.mdToHtml) return api.mdToHtml(src);
+  return String(src ?? "");
+}
+function getIsaSplitView() {
+  const C = window.ISAFront?.Layout?.IsaSplitView;
+  if (!C) {
+    throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return C;
+}
+function getGlass() {
+  const g = window.ISAFront?.Glass;
+  if (!g?.GlassCard) {
+    throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return g;
+}
+function lightboxApi() {
+  const api = window.ISAComponents?.LightboxZoom;
+  if (!api?.LightboxZoomDialog) {
+    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return api;
+}
+function CodeMirrorPanel(props) {
+  const Panel = window.ISAFront?.CodeMirrorPanel;
+  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  return Panel(props);
+}
+function toastError(text, timeout) {
+  fb()?.toast?.error?.(text, timeout);
+}
+function toastSuccess(text, timeout) {
+  fb()?.toast?.success?.(text, timeout);
+}
+function toastInfo(text, timeout) {
+  fb()?.toast?.info?.(text, timeout);
+}
+function toastWarning(text, timeout) {
+  fb()?.toast?.warning?.(text, timeout);
+}
+function requestConfirm(opts) {
+  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
+}
+var bridge, UI, Session, Config, Assets, Tokens, getReact, getReactDOM, getMaterialUI, Lightbox, fb;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
+      }
+    };
+    Session = {
+      current: () => bridge().Session.current(),
+      isLoggedIn: () => bridge().Session.isLoggedIn(),
+      username: () => bridge().Session.username(),
+      realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+      auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+      authHeader: () => bridge().Session.authHeader(),
+      appHeader: () => bridge().Session.appHeader(),
+      appId: () => bridge().Session.appId(),
+      login: (u, p, opts) => bridge().Session.login(u, p, opts),
+      logout: () => bridge().Session.logout(),
+      refreshProfile: () => bridge().Session.refreshProfile(),
+      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+      setViewAs: (u) => bridge().Session.setViewAs?.(u),
+      clearViewAs: () => bridge().Session.clearViewAs?.(),
+      capabilities: () => bridge().Session.capabilities(),
+      adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+      capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+      can: (cap) => bridge().Session.can(cap),
+      blockReason: (cap) => bridge().Session.blockReason(cap),
+      get EVENT() {
+        return bridge().Session.EVENT;
+      }
+    };
+    Config = {
+      base: () => bridge().Config.base(),
+      apiUrl: (path) => bridge().Config.apiUrl(path),
+      isLocal: () => bridge().Config.isLocal(),
+      setLocal: (on) => bridge().Config.setLocal(on),
+      get EVENT() {
+        return bridge().Config.EVENT;
+      }
+    };
+    Assets = {
+      ensureCodeMirrorLoaded: (opts) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
+      },
+      ensureMarked: () => {
+        const api = frontSharedLazy();
+        return api ? api.ensureMarked() : Promise.resolve();
+      },
+      ensureStylesheet: (href) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
+      },
+      ensureChatStagingCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
+          console.warn("chat-staging.css:", err);
+        });
+      },
+      ensureTodosCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
+          console.warn("todos-staging.css:", err);
+        });
+      }
+    };
+    Tokens = {
+      estimatePrompt: (text) => {
+        const fn = window.ISAFront?.estimatePromptTokens;
+        if (typeof fn === "function") return fn(text);
+        const s = String(text ?? "");
+        return s.trim() ? Math.ceil(s.length / 4) : 0;
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getReactDOM = () => window.ISAFront.getReactDOM();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+    Lightbox = {
+      get ImageLightboxDialog() {
+        return lightboxApi().LightboxZoomDialog;
+      },
+      get LightboxImage() {
+        return lightboxApi().LightboxZoomImage;
+      },
+      get useImageLightboxZoom() {
+        return lightboxApi().useLightboxZoom;
+      }
+    };
+    fb = () => globalThis.ISAFront?.Feedback;
+  }
+});
+
 // js/boot/cdn.mjs
 var cdn_exports = {};
 __export(cdn_exports, {
@@ -32,8 +357,14 @@ function useLocalMonorepoCdn() {
   try {
     const q = new URLSearchParams(location.search);
     if (q.get("isa_cdn") === "remote") return false;
-    if (q.get("isa_cdn") === "local") return true;
-    return localStorage.getItem("isa-patyia:local-cdn") === "1";
+    if (q.get("isa_cdn") === "local" || q.get("isa_cdn") === "monorepo") return true;
+    try {
+      if (localStorage.getItem("isa-patyia:local-cdn") === "1") {
+        localStorage.removeItem("isa-patyia:local-cdn");
+      }
+    } catch {
+    }
+    return false;
   } catch {
     return false;
   }
@@ -49,7 +380,15 @@ function vendorCdnBase() {
 function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
   if (isDevHost2) {
-    return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") {
+      return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
+    }
+    if (q.get("isa_cdn") === "monorepo" || q.get("isa_cdn") === "local") {
+      return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    }
+    const sameOrigin = new URL("vendor/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    return sameOrigin;
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
 }
@@ -95,6 +434,13 @@ async function ensureLightboxZoom(base = lightboxZoomBase()) {
 function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
   if (isDevHost2) {
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") {
+      return `${location.origin}/api/swagger/cdn/`;
+    }
+    if (q.get("isa_cdn") === "monorepo" || q.get("isa_cdn") === "local") {
+      return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
+    }
     return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `${location.origin}/api/swagger/cdn/`;
@@ -132,280 +478,1764 @@ var init_cdn = __esm({
     PIN = "a13fc29";
     isDevHost2 = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
     JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
-    CDN = isDevHost2 && useLocalMonorepoCdn() ? frontSharedCdnBase() : isDevHost2 ? JSDELIVR_CDN : vendorCdnBase();
+    CDN = !isDevHost2 ? vendorCdnBase() : useLocalMonorepoCdn() ? frontSharedCdnBase() : typeof location !== "undefined" && new URLSearchParams(location.search).get("isa_cdn") === "remote" ? JSDELIVR_CDN : vendorCdnBase();
     asset = (p) => isDevHost2 ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`;
     LIGHTBOX_ZOOM_REF = "4dd6595";
     SWAGGER_VIEWER_REF = "859035b";
   }
 });
 
-// js/core/patyia.ts
-window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
-var ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
-var PATYIA_BRIDGE_URL = "https://ayudascp-ia-staging.azurewebsites.net";
-var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
-var ORCH_LOCAL = "http://localhost:8790";
-var SCRUM_LOCAL = "http://localhost:8798";
-var TREE_MSGS_LOCAL = "http://localhost:8799";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
-var PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
-function isPatyiaApiPath(path) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return p.startsWith("/patyia") || p.startsWith("/api/patyia");
+// js/api/portalJwtApi.ts
+function orchBase() {
+  return ORCH_ONLINE.replace(/\/$/, "");
 }
-function patyiaCapFetchBase() {
-  return (isLocalMode() ? PATYIA_ISS_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
-}
-function isLocalMode() {
-  try {
-    return localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) === "1";
-  } catch {
-    return false;
+function authHeaders() {
+  const h = { Accept: "application/json" };
+  if (Session.isLoggedIn()) {
+    Object.assign(h, Session.authHeader(), Session.appHeader());
   }
+  return h;
 }
-function isDevHost() {
-  try {
-    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
-  } catch {
-    return false;
+function portalUrl(portal, query = "") {
+  const q = `portal=${encodeURIComponent(portal)}${query ? `&${query}` : ""}`;
+  return `${orchBase()}/api/auth/portal-jwt?${q}`;
+}
+async function fetchPortalJwt(portal = PATYIA_PORTAL_ID) {
+  const res = await fetch(portalUrl(portal), { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "No se pudo cargar el JWT del portal");
   }
+  return data;
 }
-function ensureIssLocalDefault() {
-  try {
-    if (localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY) != null) return;
-    localStorage.setItem(PATYIA_ISS_LOCAL_LS_KEY, "0");
-  } catch {
-  }
-}
-function resolveIssApiBase() {
-  const base = (isLocalMode() ? PATYIA_BRIDGE_LOCAL : PATYIA_BRIDGE_URL).replace(/\/$/, "");
-  return base.endsWith("/api") ? base : `${base}/api`;
-}
-function buildUserAvatarUrl(name, size = 72) {
-  const label = String(name ?? "").trim() || "Usuario";
-  const params = new URLSearchParams({
-    name: label,
-    size: String(size),
-    background: "1e90ff",
-    color: "ffffff",
-    bold: "true",
-    format: "svg"
+async function savePortalJwt(token, portal = PATYIA_PORTAL_ID) {
+  const res = await fetch(portalUrl(portal), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ portal, token })
   });
-  return `https://ui-avatars.com/api/?${params.toString()}`;
-}
-async function readPatyiaSseStream(response, onEvent) {
-  if (!response.ok) {
-    let msg = response.statusText;
-    try {
-      const j = await response.json();
-      msg = String(j?.error || j?.message || msg);
-    } catch {
-    }
-    throw new Error(msg || `HTTP ${response.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "No se pudo guardar el JWT del portal");
   }
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Stream no disponible");
-  const dec = new TextDecoder();
-  let buf = "";
-  let lastPayload = {};
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const blocks = buf.split("\n\n");
-    buf = blocks.pop() || "";
-    for (const block of blocks) {
-      const lines = block.split("\n");
-      let event = "message";
-      let dataLine = "";
-      for (const line of lines) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataLine += line.slice(5).trim();
-      }
-      if (!dataLine) continue;
+  return data;
+}
+var PATYIA_PORTAL_ID;
+var init_portalJwtApi = __esm({
+  "js/api/portalJwtApi.ts"() {
+    init_platform();
+    init_patyia();
+    PATYIA_PORTAL_ID = "soporte-staging";
+  }
+});
+
+// js/core/patyia-jwt.ts
+function parseJwtExp(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return typeof raw.exp === "number" ? raw.exp : null;
+  } catch {
+    return null;
+  }
+}
+function isPatyJwtExpired(token, skewSec = 60) {
+  const exp = parseJwtExp(token);
+  if (!exp) return false;
+  return Date.now() / 1e3 >= exp - skewSec;
+}
+function parseJwtClaims(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return { itercero: raw.itercero != null ? String(raw.itercero) : void 0, icontacto: raw.icontacto != null ? String(raw.icontacto) : void 0, nombres: raw.nombres != null ? String(raw.nombres) : void 0, apellidos: raw.apellidos != null ? String(raw.apellidos) : void 0, controlkey: raw.controlkey != null ? String(raw.controlkey) : void 0, iapp: typeof raw.iapp === "number" ? raw.iapp : void 0, idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : void 0 };
+  } catch {
+    return null;
+  }
+}
+function jwtUserDisplayName(claims) {
+  if (!claims) return "";
+  return [claims.nombres, claims.apellidos].filter(Boolean).join(" ").trim();
+}
+function shortDisplayName(full) {
+  const parts = String(full ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
+  return `${parts[0]} ${parts[2]}`;
+}
+function jwtUserShortName(claims) {
+  if (!claims) return "";
+  const n = String(claims.nombres ?? "").trim().split(/\s+/).filter(Boolean)[0];
+  const a = String(claims.apellidos ?? "").trim().split(/\s+/).filter(Boolean)[0];
+  if (n && a) return `${n} ${a}`;
+  if (n) return n;
+  if (a) return a;
+  return shortDisplayName(jwtUserDisplayName(claims));
+}
+function cachePatyJwt(rec) {
+  const prevRaw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+  let prev = null;
+  try {
+    prev = prevRaw ? JSON.parse(prevRaw) : null;
+  } catch {
+    prev = null;
+  }
+  sessionStorage.setItem(PATYIA_JWT_STORAGE_KEY, JSON.stringify(rec));
+  const changed = !prev || prev.token !== rec.token || String(prev.savedBy ?? "").toUpperCase() !== String(rec.savedBy ?? "").toUpperCase();
+  if (changed) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+  return rec;
+}
+function loadPatyJwt() {
+  try {
+    const raw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || typeof parsed.token !== "string") return null;
+    if (isPatyJwtExpired(parsed.token)) {
+      sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+      return null;
+    }
+    parsed.claims = parseJwtClaims(parsed.token) || parsed.claims || {};
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function buildPatyJwtRecord(token, savedBy, expiresAt) {
+  const claims = parseJwtClaims(token);
+  if (!claims?.itercero) throw new Error("Token JWT inv\xE1lido o sin itercero");
+  const exp = parseJwtExp(token);
+  return { token: token.trim(), savedBy: String(savedBy || "").trim().toUpperCase(), savedAt: (/* @__PURE__ */ new Date()).toISOString(), expiresAt: expiresAt ?? (exp ? new Date(exp * 1e3).toISOString() : null), claims };
+}
+function savePatyJwt(token, savedBy, expiresAt) {
+  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, expiresAt));
+}
+async function savePatyJwtAsync(token, savedBy) {
+  const saved = await savePortalJwt(token.trim(), PATYIA_PORTAL_ID);
+  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, saved.expiresAt));
+}
+function clearPatyJwtLocal(options) {
+  const had = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+  sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+  if (!options?.silent && had) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+}
+async function hydratePatyJwtFromServer(username) {
+  const u = String(username || "").trim().toUpperCase();
+  if (!u) {
+    clearPatyJwtLocal({ silent: true });
+    return null;
+  }
+  const cached = loadPatyJwt();
+  if (cached && cached.savedBy?.toUpperCase() === u) {
+    if (!isFaithfulImpersonation() || !cached.actingAsUsername) return cached;
+    clearPatyJwtLocal({ silent: true });
+  }
+  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
+  try {
+    const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
+    if (!data.token || isPatyJwtExpired(data.token)) {
+      clearPatyJwtLocal({ silent: true });
+      return null;
+    }
+    return savePatyJwt(data.token, u, data.expiresAt ?? null);
+  } catch (err) {
+    console.warn("[paty-jwt] hydrate fall\xF3:", err instanceof Error ? err.message : err);
+    return loadPatyJwt();
+  }
+}
+function isFaithfulImpersonation() {
+  return Boolean(Session.isViewingAs?.());
+}
+function canInteractPatyChat(sessionUser, jwt) {
+  const u = String(sessionUser || "").trim().toUpperCase();
+  if (!u || !jwt?.token) return false;
+  if (isFaithfulImpersonation()) {
+    return jwt.savedBy?.toUpperCase() === u && !jwt.actingAsUsername;
+  }
+  if (jwt.savedBy?.toUpperCase() === u) return true;
+  if (!Session.can("patyia.chat.interact")) return false;
+  if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
+  return false;
+}
+function canAdminPortalJwt() {
+  if (isFaithfulImpersonation()) return false;
+  return Session.can("patyia.jwt.admin");
+}
+function convBelongsToJwt(conv, claims) {
+  if (!claims?.itercero) return false;
+  return String(conv.itercero ?? "") === String(claims.itercero) && String(conv.icontacto ?? "") === String(claims.icontacto ?? "");
+}
+function findAuditRowForSessionUser(rows, _sessionUser) {
+  return rows.find((r) => r.es_sesion) ?? null;
+}
+function auditRowToBrowseScope(row) {
+  return { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre ? shortDisplayName(row.nombre) : null };
+}
+async function resolveSessionBrowseScope(sessionUser) {
+  const u = String(sessionUser ?? "").trim();
+  if (!u) return null;
+  let page = 1;
+  const limit = 100;
+  while (page <= 5) {
+    const audit = await fetchTercerosAudit({ page, limit, appUser: u });
+    const match = findAuditRowForSessionUser(audit.rows, u);
+    if (match) return auditRowToBrowseScope(match);
+    if (page >= (audit.pages || 1)) break;
+    page += 1;
+  }
+  return null;
+}
+function browseScopeKey(scope) {
+  if (!scope?.itercero || !scope?.icontacto) return "";
+  return `${scope.itercero}|${scope.icontacto}`;
+}
+var PATYIA_JWT_STORAGE_KEY, PATYIA_API_BASE;
+var init_patyia_jwt = __esm({
+  "js/core/patyia-jwt.ts"() {
+    init_portalJwtApi();
+    init_apiClient();
+    init_platform();
+    PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
+    PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
+  }
+});
+
+// js/api/issListFilter.ts
+function encodeIssListFilterB64(filter) {
+  const json = JSON.stringify(filter);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+function buildConversacionesListFilter(input = {}) {
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
+  const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
+  const sort = String(input.sort || CONVERSACIONES_LIST_SORT_DEFAULT).trim() || CONVERSACIONES_LIST_SORT_DEFAULT;
+  const search = String(input.search ?? "").trim().slice(0, 200);
+  return {
+    limit,
+    offset,
+    sort,
+    ...search ? { search } : {}
+  };
+}
+function conversacionesListQueryParams(input = {}) {
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const offset = (page - 1) * limit;
+  const qs3 = new URLSearchParams();
+  qs3.set(ISS_LIST_FILTER_QUERY_PARAM, encodeIssListFilterB64(buildConversacionesListFilter({
+    search: input.search,
+    limit,
+    offset,
+    sort: input.sort
+  })));
+  const itercero = String(input.itercero ?? "").trim();
+  const icontacto = String(input.icontacto ?? "").trim();
+  if (itercero && icontacto) {
+    qs3.set("itercero", itercero);
+    qs3.set("icontacto", icontacto);
+  }
+  return qs3;
+}
+var ISS_LIST_FILTER_QUERY_PARAM, CONVERSACIONES_LIST_SORT_DEFAULT;
+var init_issListFilter = __esm({
+  "js/api/issListFilter.ts"() {
+    ISS_LIST_FILTER_QUERY_PARAM = "f";
+    CONVERSACIONES_LIST_SORT_DEFAULT = "-iconversacion";
+  }
+});
+
+// js/api/patyiaTokens.ts
+function patyAuthHeaders(jwt, extra = {}) {
+  return {
+    Authorization: `Bearer ${jwt.token}`,
+    Accept: "application/json",
+    ...extra
+  };
+}
+var init_patyiaTokens = __esm({
+  "js/api/patyiaTokens.ts"() {
+    init_platform();
+  }
+});
+
+// js/api/patyiaChatApi.ts
+function authHeaders2(jwt, extra = {}) {
+  return patyAuthHeaders(jwt, extra);
+}
+function unwrapBody(data) {
+  const d = data;
+  if (d?.respuesta && typeof d.respuesta === "object") return d.respuesta;
+  if (d?.body && typeof d.body === "object") return d.body;
+  return d;
+}
+async function jsonFetch(path, jwt, init) {
+  const base = resolveIssApiBase();
+  const res = await fetch(`${base}${path}`, {
+    ...init,
+    headers: {
+      ...authHeaders2(jwt),
+      ...init?.method && init.method !== "GET" ? { "Content-Type": "application/json" } : {},
+      ...init?.headers || {}
+    }
+  });
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok) {
+    let msg = res.statusText;
+    if (ct.includes("json")) {
       try {
-        const data = JSON.parse(dataLine);
-        lastPayload = data;
-        onEvent({ event, data });
+        const j = await res.json();
+        const enc = j.encabezado;
+        if (enc?.mensaje) msg = String(enc.mensaje);
+        else {
+          const inner = j.respuesta || j.body || j;
+          msg = String(inner?.error || inner?.mensaje || j.error || j.message || msg);
+        }
       } catch {
       }
     }
+    const err = new Error(msg || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
-  return lastPayload;
+  if (ct.includes("json")) {
+    const raw = await res.json();
+    return unwrapBody(raw);
+  }
+  return {};
 }
+function buildConversacionesListPath(input = {}) {
+  const qs3 = conversacionesListQueryParams({
+    page: input.page,
+    limit: input.limit,
+    search: input.search,
+    sort: input.sort,
+    itercero: input.itercero,
+    icontacto: input.icontacto
+  });
+  return `/conversaciones?${qs3.toString()}`;
+}
+async function listConversaciones(jwt, input = {}) {
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
+  const body = await jsonFetch(buildConversacionesListPath(input), jwt);
+  const conversaciones = Array.isArray(body.conversaciones) ? body.conversaciones : [];
+  const total = Number(body.total ?? 0) || 0;
+  const resLimit = Number(body.limit ?? limit) || limit;
+  const resPage = Number(body.page ?? page) || page;
+  const pages = Number(body.pages ?? 0) || (total > 0 ? Math.ceil(total / resLimit) : 0);
+  return { conversaciones, total, page: resPage, limit: resLimit, pages };
+}
+async function getConversacion(jwt, id) {
+  return jsonFetch(`/conversacion/${id}`, jwt);
+}
+async function getConversacionLogs(jwt, id) {
+  return jsonFetch(`/conversacion/logs/${id}`, jwt);
+}
+function convLogFromDetalle(detail, id) {
+  const raw = detail?.convLog;
+  if (!raw || !Array.isArray(raw.mensajes) || !raw.mensajes.length) return null;
+  const convId = Number(raw.iconversacion ?? detail?.iconversacion ?? id ?? 0);
+  return { ...raw, iconversacion: convId > 0 ? convId : raw.iconversacion };
+}
+async function getConversacionLogsWithRetry(jwt, id, { minMensajes = 0, attempts = 8, delayMs = 300 } = {}) {
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const detail = await getConversacionLogs(jwt, id);
+      last = detail;
+      const n = convLogFromDetalle(detail, id)?.mensajes?.length ?? 0;
+      if (!minMensajes || n >= minMensajes) return detail;
+    } catch (e) {
+      if (i === attempts - 1 && !last) throw e;
+    }
+    if (i < attempts - 1) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+  }
+  if (!last) throw new Error(`Log conv-${id} no encontrado`);
+  return last;
+}
+async function deleteConversacion(jwt, id) {
+  await jsonFetch(`/conversacion/${id}`, jwt, { method: "DELETE" });
+}
+async function postMensajeCalificado(jwt, input) {
+  return jsonFetch("/mensaje", jwt, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+function isHttpUrl(s) {
+  return /^https?:\/\//i.test(String(s || "").trim());
+}
+function isLegacyDataUrl(s) {
+  const v = String(s || "").trim();
+  return v.startsWith("data:audio/") || v.startsWith("data:image/");
+}
+function buildConversacionPostBody(input) {
+  const text = String(input.prompt || "").trim();
+  const imagenes = (input.imagenes || []).map((s) => String(s || "").trim()).filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
+  const audios = (input.audios || []).map((s) => String(s || "").trim()).filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
+  const hasMedia = imagenes.length > 0 || audios.length > 0;
+  const body = {
+    prompt: text || (imagenes.length ? "(imagen adjunta)" : audios.length ? "(nota de voz)" : "")
+  };
+  if (input.iconversacion) body.iconversacion = input.iconversacion;
+  if (imagenes.length) body.imagenes = imagenes;
+  if (audios.length) body.audios = audios;
+  if (input.mode && String(input.mode).trim().toLowerCase() !== "patyia") {
+    body.mode = String(input.mode).trim().toLowerCase();
+  }
+  if (!String(body.prompt || "").trim() && hasMedia) {
+    body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
+  }
+  return body;
+}
+function formatConversacionPostBodyPreview(body, { maxUrl = 80 } = {}) {
+  const clone = JSON.parse(JSON.stringify(body));
+  const summarize = (u, label, i) => {
+    const s = String(u ?? "");
+    if (s.length <= maxUrl + 24) return s;
+    if (s.startsWith("data:") || s.startsWith("http")) {
+      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "url";
+      return `${s.slice(0, maxUrl)}\u2026 [${mime}, ${s.length.toLocaleString("es-CO")} chars, ${label} ${i + 1}]`;
+    }
+    return `${s.slice(0, maxUrl)}\u2026`;
+  };
+  if (Array.isArray(clone.imagenes)) clone.imagenes = clone.imagenes.map((img, i) => summarize(img, "img", i));
+  if (Array.isArray(clone.audios)) clone.audios = clone.audios.map((a, i) => summarize(a, "audio", i));
+  return JSON.stringify(clone, null, 2);
+}
+async function sendConversacionStream(jwt, input, onDelta) {
+  const body = buildConversacionPostBody(input);
+  const base = resolveIssApiBase();
+  const res = await fetch(`${base}/conversacion`, {
+    method: "POST",
+    headers: authHeaders2(jwt, {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream"
+    }),
+    body: JSON.stringify(body)
+  });
+  let streamingText = "";
+  const finalPayload = await readPatyiaSseStream(res, (ev) => {
+    if (ev.event === "begin") {
+      onDelta("", ev.data);
+      return;
+    }
+    if ((ev.event === "message" || ev.event === "end") && typeof ev.data.respuesta === "string") {
+      streamingText = ev.data.respuesta;
+      onDelta(streamingText, ev.data);
+    }
+    if (ev.event === "error") {
+      throw new Error(String(ev.data.respuesta || ev.data.error || "Error en stream"));
+    }
+  });
+  return {
+    ...finalPayload,
+    respuesta: streamingText || String(finalPayload.respuesta || "")
+  };
+}
+var init_patyiaChatApi = __esm({
+  "js/api/patyiaChatApi.ts"() {
+    init_issListFilter();
+    init_patyiaTokens();
+    init_patyia();
+  }
+});
 
-// js/core/platform.ts
-var bridge = () => window.ISAFront.createPlatformBridge("ISA");
-var UI = {
-  get Icon() {
-    return bridge().UI.Icon;
-  },
-  get TargetSwitch() {
-    return bridge().UI.TargetSwitch;
-  },
-  get ThemeSwitch() {
-    return bridge().UI.ThemeSwitch;
-  },
-  get useRealtimeStatus() {
-    return bridge().UI.useRealtimeStatus;
-  },
-  get RealtimeStatusDot() {
-    return bridge().UI.RealtimeStatusDot;
-  },
-  get Loading() {
-    return bridge().UI.Loading;
-  },
-  get ErrorBox() {
-    return bridge().UI.ErrorBox;
-  },
-  get LoginGate() {
-    return bridge().UI.LoginGate;
-  },
-  get LoginButton() {
-    return bridge().UI.LoginButton;
-  }
-};
-var Session = {
-  current: () => bridge().Session.current(),
-  isLoggedIn: () => bridge().Session.isLoggedIn(),
-  username: () => bridge().Session.username(),
-  realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-  viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-  isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
-  auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
-  authHeader: () => bridge().Session.authHeader(),
-  appHeader: () => bridge().Session.appHeader(),
-  appId: () => bridge().Session.appId(),
-  login: (u, p, opts) => bridge().Session.login(u, p, opts),
-  logout: () => bridge().Session.logout(),
-  refreshProfile: () => bridge().Session.refreshProfile(),
-  fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-  searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-  setViewAs: (u) => bridge().Session.setViewAs?.(u),
-  clearViewAs: () => bridge().Session.clearViewAs?.(),
-  capabilities: () => bridge().Session.capabilities(),
-  adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
-  capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
-  can: (cap) => bridge().Session.can(cap),
-  blockReason: (cap) => bridge().Session.blockReason(cap),
-  get EVENT() {
-    return bridge().Session.EVENT;
-  }
-};
-var Config = {
-  base: () => bridge().Config.base(),
-  apiUrl: (path) => bridge().Config.apiUrl(path),
-  isLocal: () => bridge().Config.isLocal(),
-  setLocal: (on) => bridge().Config.setLocal(on),
-  get EVENT() {
-    return bridge().Config.EVENT;
-  }
-};
-function frontSharedLazy() {
-  const api = window.ISAFront;
-  return api?.ensureCodeMirrorLoaded ? api : null;
+// js/api/systemConfigApi.ts
+function systemApiBase() {
+  return resolveIssApiBase();
 }
-var Assets = {
-  ensureCodeMirrorLoaded: (opts) => {
-    const api = frontSharedLazy();
-    return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
-  },
-  ensureMarked: () => {
-    const api = frontSharedLazy();
-    return api ? api.ensureMarked() : Promise.resolve();
-  },
-  ensureStylesheet: (href) => {
-    const api = frontSharedLazy();
-    return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
-  },
-  ensureChatStagingCss: () => {
-    const api = frontSharedLazy();
-    if (!api) return;
-    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
-    api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
-      console.warn("chat-staging.css:", err);
+function systemApiHeaders(extra = {}) {
+  const h = {
+    Accept: "application/json",
+    "X-Patyia-Auth-Mode": "w",
+    ...extra
+  };
+  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
+  return h;
+}
+function unwrapBody2(data) {
+  const d = data;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
+    const e = enc;
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  let inner = d;
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    inner = d.respuesta;
+  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    inner = d.body;
+  }
+  const nested = inner;
+  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
+    inner = nested.respuesta;
+  }
+  return inner;
+}
+async function jsonFetch2(path, init) {
+  const res = await fetch(`${systemApiBase()}${path}`, init);
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok) {
+    let msg = res.statusText;
+    if (ct.includes("json")) {
+      try {
+        const j = await res.json();
+        const enc = j.encabezado;
+        if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
+        else {
+          const inner = j.respuesta || j.body || j;
+          msg = String(inner?.message || inner?.error || j.message || j.error || msg);
+        }
+      } catch {
+      }
+    }
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  if (!ct.includes("json")) {
+    throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
+  }
+  const raw = await res.json();
+  return unwrapBody2(raw);
+}
+function permEntityKey(entry) {
+  return String(entry?.ientity ?? entry?.iusuario ?? "").trim();
+}
+function normalizePermEntry(entry) {
+  const key = permEntityKey(entry);
+  return {
+    iusuario: key,
+    ientity: key || void 0,
+    itipo: entry?.itipo === "user" ? "user" : "role",
+    permisos: entry?.permisos && typeof entry.permisos === "object" ? entry.permisos : {},
+    bactivo: entry?.bactivo !== false
+  };
+}
+function normalizeHierarchyNode(node) {
+  const iusuario = permEntityKey(node).toLowerCase();
+  return {
+    iusuario,
+    jerarquia: String(node.jerarquia ?? iusuario ?? "").trim(),
+    namedisplay: node.namedisplay != null ? String(node.namedisplay) : null,
+    descripcion: node.descripcion != null ? String(node.descripcion) : null
+  };
+}
+function normalizePermissionsPayload(raw) {
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e));
+  const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
+  return { ...raw, roles, users };
+}
+async function fetchOpenAiSystemConfig() {
+  const body = await jsonFetch2("/system/openai", { method: "GET", headers: systemApiHeaders() });
+  return { ...OPENAI_DEFAULTS, ...body.config ?? {}, canEdit: !!body.canEdit };
+}
+async function putOpenAiSystemConfig(config) {
+  const { canEdit: _c, ...payload } = config;
+  const body = await jsonFetch2("/system/openai", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const saved = body.config ?? payload;
+  window.dispatchEvent(new CustomEvent("isa-patyia:openai-config", { detail: saved }));
+  return saved;
+}
+async function fetchPromptsOperativosConfig() {
+  const body = await jsonFetch2("/system/prompts-operativos", { method: "GET", headers: systemApiHeaders() });
+  return { config: body.config ?? {}, canEdit: !!body.canEdit };
+}
+async function putPromptsOperativosConfig(config) {
+  const body = await jsonFetch2("/system/prompts-operativos", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  return body.config ?? config;
+}
+async function fetchInstruccionesSystemConfig() {
+  const body = await jsonFetch2("/system/instrucciones", { method: "GET", headers: systemApiHeaders() });
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  return {
+    rows,
+    canEdit: !!body.canEdit,
+    storage: body.storage,
+    schema: body.schema,
+    rowCount: Number(body.rowCount ?? rows.length) || rows.length
+  };
+}
+async function putInstruccionUpsert(payload) {
+  return jsonFetch2("/system/instrucciones", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+async function putInstruccionesPublish(sql) {
+  return jsonFetch2("/system/instrucciones", {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sql })
+  });
+}
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
+async function fetchPermissionsMe(opts) {
+  if (!Session.isLoggedIn()) return null;
+  const sessionKey = permissionsMeSessionKey();
+  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
+    return PERMISSIONS_ME_CACHE.value;
+  }
+  const f = opts?.fetchImpl ?? fetch;
+  const res = await f(`${systemApiBase()}/permissions/me`, {
+    method: "GET",
+    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    credentials: "omit"
+  });
+  if (res.status === 401) {
+    PERMISSIONS_ME_CACHE.value = null;
+    return null;
+  }
+  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+  const data = unwrapBody2(await res.json());
+  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+  PERMISSIONS_ME_CACHE.value = data;
+  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
+  PERMISSIONS_ME_CACHE.key = sessionKey;
+  return data;
+}
+function applyPermissionsMeToKanban(data, me) {
+  if (!me) return data;
+  return {
+    ...data,
+    canManage: me.capabilities.canManagePermissions,
+    canAssignUserRoles: me.capabilities.canAssignUserRoles,
+    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
+    actorRoles: me.roles,
+    _permissionsMe: me
+  };
+}
+async function fetchHierarchy() {
+  const raw = await jsonFetch2(`/system/permisos/hierarchy`, {
+    method: "GET",
+    headers: systemApiHeaders()
+  });
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((r) => normalizeHierarchyNode(r)).filter((r) => r.iusuario && r.jerarquia);
+  return { roles, count: roles.length || Number(raw?.count ?? 0) || 0 };
+}
+async function createHierarchyRole(input) {
+  return jsonFetch2(`/system/permisos/hierarchy/roles`, {
+    method: "POST",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+}
+async function updateHierarchyRole(name, input) {
+  return jsonFetch2(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+}
+async function deleteHierarchyRole(name) {
+  await jsonFetch2(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+    headers: systemApiHeaders()
+  });
+}
+async function fetchPermisos(opts) {
+  const qs3 = new URLSearchParams();
+  const search = String(opts?.search ?? "").trim();
+  const role = String(opts?.role ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : void 0;
+  if (search) qs3.set("search", search);
+  if (role) qs3.set("role", role);
+  if (limit != null) qs3.set("limit", String(limit));
+  const q = qs3.toString();
+  const [raw, me] = await Promise.all([
+    jsonFetch2(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermissionsMe().catch(() => null)
+  ]);
+  return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
+}
+async function searchPermisosUsers(query = "", opts) {
+  const q = String(query ?? "").trim();
+  const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : 10;
+  const result = await fetchPermisos({
+    ...q ? { search: q } : {},
+    ...opts?.role ? { role: opts.role } : {},
+    limit
+  });
+  return (result.users ?? []).map((e) => ({
+    username: String(e.iusuario ?? "").trim().toUpperCase(),
+    displayName: (() => {
+      const p = e.permisos;
+      const name = p?.nombre ?? p?.namedisplay;
+      return name != null && String(name).trim() ? String(name).trim() : null;
+    })()
+  })).filter((u) => u.username).slice(0, limit);
+}
+async function putPermisoRolePath(name, permisos, bactivo) {
+  const role = encodeURIComponent(String(name).trim().toLowerCase().replace(/^role:/, ""));
+  const body = { permisos };
+  if (bactivo !== void 0) body.bactivo = bactivo;
+  return jsonFetch2(`/system/permisos/roles/${role}`, {
+    method: "PUT",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+async function patchUsuarioRoles(username, body) {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+async function addUsuarioRole(username, role) {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ toRole: String(role).trim().toLowerCase(), mode: "add" })
+  });
+}
+async function removeUsuarioRole(username, role) {
+  const u = encodeURIComponent(String(username).trim().toUpperCase());
+  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
+    method: "PATCH",
+    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ fromRole: String(role).trim().toLowerCase(), mode: "remove" })
+  });
+}
+function requireAppSession(onNeedLogin) {
+  if (Session.isLoggedIn()) return true;
+  onNeedLogin?.();
+  return false;
+}
+var OPENAI_DEFAULTS, PERMISSIONS_ME_CACHE;
+var init_systemConfigApi = __esm({
+  "js/api/systemConfigApi.ts"() {
+    init_platform();
+    init_patyia();
+    OPENAI_DEFAULTS = {
+      max_num_results: 8,
+      modeloOperativo: "gpt-4.1-nano",
+      modeloConversacion: "gpt-5-nano"
+    };
+    PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+  }
+});
+
+// js/tools/roleHierarchy.js
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+function ancestorsFromPath(jerarquia) {
+  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
+  const out = [];
+  for (let i = parts.length - 1; i >= 0; i--) {
+    out.push(parts.slice(0, i + 1).join("."));
+  }
+  return out;
+}
+function isSameInheritanceLine(a, b) {
+  const x = String(a ?? "").trim();
+  const y = String(b ?? "").trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+}
+function canManageRole(actorJerarquia, targetJerarquia) {
+  const target = String(targetJerarquia ?? "").trim();
+  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
+  return isSameInheritanceLine(actorJerarquia, target);
+}
+function actorCanManageTarget(actorJerarquias, targetJerarquia) {
+  for (const j of actorJerarquias ?? []) {
+    if (canManageRole(j, targetJerarquia)) return true;
+  }
+  return false;
+}
+function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
+  return (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter((r) => r && r !== "visitante").map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
+}
+function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
+  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
+  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
+  jerarquias.sort((a, b) => {
+    const depth = (s) => String(s).split(".").filter(Boolean).length;
+    const d = depth(b) - depth(a);
+    if (d !== 0) return d;
+    return compareHierarchy(a, b);
+  });
+  return jerarquias[0];
+}
+function formatJerarquiaLabel(jerarquia) {
+  if (jerarquia == null || jerarquia === "") return "";
+  return `(${jerarquia})`;
+}
+function isBranchZero(jerarquia) {
+  const j = String(jerarquia ?? "").trim();
+  return j === "0" || j.startsWith("0.");
+}
+function actorIsDevLead(actorRoles) {
+  return (actorRoles ?? []).some((r) => String(r ?? "").trim().toLowerCase() === "dev_lead");
+}
+var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_ROLE_JERARQUIA = {
+      visitante: "0",
+      dev: "0.0",
+      dev_lead: "0.0.0",
+      dev_iss: "0.0.1",
+      admn: "0.1",
+      auditador: "0.1.0",
+      admn_isapatyia: "0.1.0.0"
+    };
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
+
+// js/tools/roleCanonicalMeta.js
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      dev: {
+        namedisplay: "Desarrollador b\xE1sico",
+        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      },
+      admn: {
+        namedisplay: "Admn b\xE1sico",
+        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+      },
+      admn_isapatyia: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+      }
+    };
+  }
+});
+
+// js/core/viewAsRole.ts
+function roleKey2(name) {
+  return String(name ?? "").trim().toLowerCase();
+}
+function isDevBranchRole(roleName) {
+  const key = roleKey2(roleName);
+  if (!key) return false;
+  if (key === "dev" || key.startsWith("dev_")) return true;
+  const j = getRoleJerarquia(key);
+  return j === "0.0" || j.startsWith("0.0.");
+}
+function formatViewAsRoleLabel(roleName) {
+  const key = roleKey2(roleName);
+  if (!key) return "";
+  const opt = VIEW_AS_ROLE_OPTIONS.find((o) => o.id === key);
+  if (opt) return opt.label;
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return key.split("_").map((p) => p === "iss" ? "ISS" : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+function readViewAsRole() {
+  try {
+    const v = roleKey2(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
+    if (!v || v === "dev_lead") return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
+    return v;
+  } catch {
+    return "";
+  }
+}
+function writeViewAsRole(roleName) {
+  const key = roleKey2(roleName);
+  try {
+    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+      localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
+    } else {
+      localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
+    }
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+}
+function clearViewAsRole() {
+  writeViewAsRole("");
+}
+function capsForViewAsRole(roleName) {
+  const key = roleKey2(roleName);
+  return ROLE_CAPS_PRESETS[key] ? { ...ROLE_CAPS_PRESETS[key] } : null;
+}
+function realRolesAllowViewAs(roles) {
+  return (roles ?? []).some((r) => isDevBranchRole(r));
+}
+function clampViewAsCapsToReal(preset, realCaps) {
+  const out = {};
+  const real = realCaps && typeof realCaps === "object" ? realCaps : {};
+  for (const [k, v] of Object.entries(preset ?? {})) {
+    if (typeof v !== "boolean") continue;
+    out[k] = v === true && real[k] === true;
+  }
+  return out;
+}
+var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, VIEW_AS_ROLE_OPTIONS, NONE, ROLE_CAPS_PRESETS;
+var init_viewAsRole = __esm({
+  "js/core/viewAsRole.ts"() {
+    init_roleCanonicalMeta();
+    init_roleHierarchy();
+    VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+    VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+    VIEW_AS_ROLE_OPTIONS = [
+      { id: "visitante", label: "Visitante" },
+      { id: "dev", label: "Desarrollador" },
+      { id: "dev_iss", label: "Dev ISS" },
+      { id: "auditador", label: "Auditor" },
+      { id: "admn", label: "Admn b\xE1sico" },
+      { id: "admn_isapatyia", label: "Admn ISA-Paty" }
+    ];
+    NONE = Object.freeze({
+      canEditInstrucciones: false,
+      canEditOpenAiConfig: false,
+      canEditPromptsOperativos: false,
+      canEditConversacionConfig: false,
+      canEditSwagger: false,
+      canOverrideSampling: false,
+      canManagePermissions: false,
+      canImpersonate: false,
+      canAssignUserRoles: false,
+      canAccessOthers: false,
+      canViewKanban: false,
+      canEditKanbanCards: false,
+      canViewLogs: true,
+      canViewPrompts: false,
+      canViewChat: true,
+      canViewConfig: false,
+      canSendChat: true
     });
-  },
-  ensureTodosCss: () => {
-    const api = frontSharedLazy();
-    if (!api) return;
-    const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
-    api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
-      console.warn("todos-staging.css:", err);
+    ROLE_CAPS_PRESETS = Object.freeze({
+      visitante: { ...NONE },
+      dev: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true
+      },
+      dev_iss: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditInstrucciones: true,
+        canEditPromptsOperativos: true,
+        canOverrideSampling: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canAccessOthers: true
+      },
+      auditador: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canAccessOthers: true,
+        canViewKanban: true
+      },
+      admn: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      admn_isapatyia: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditOpenAiConfig: true,
+        canEditConversacionConfig: true,
+        canEditInstrucciones: true,
+        canAssignUserRoles: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      /** Referencia: Dev Lead real (no se ofrece como simulación). */
+      dev_lead: {
+        canEditInstrucciones: true,
+        canEditOpenAiConfig: true,
+        canEditPromptsOperativos: true,
+        canEditConversacionConfig: true,
+        canEditSwagger: true,
+        canOverrideSampling: true,
+        canManagePermissions: true,
+        canImpersonate: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canViewLogs: true,
+        canViewPrompts: true,
+        canViewChat: true,
+        canViewConfig: true,
+        canSendChat: true
+      }
     });
   }
-};
-function mdToHtml(src) {
-  const api = frontSharedLazy();
-  if (api?.mdToHtml) return api.mdToHtml(src);
-  return String(src ?? "");
-}
-var Tokens = {
-  estimatePrompt: (text) => {
-    const fn = window.ISAFront?.estimatePromptTokens;
-    if (typeof fn === "function") return fn(text);
-    const s = String(text ?? "");
-    return s.trim() ? Math.ceil(s.length / 4) : 0;
+});
+
+// js/api/sessionApi.ts
+function stripViewAsHeaders(headers) {
+  const out = { ...headers };
+  for (const k of Object.keys(out)) {
+    if (/^x-view-as-/i.test(k)) delete out[k];
   }
-};
-var getReact = () => window.ISAFront.getReact();
-var getReactDOM = () => window.ISAFront.getReactDOM();
-var getMaterialUI = () => window.ISAFront.getMaterialUI();
-function getIsaSplitView() {
-  const C = window.ISAFront?.Layout?.IsaSplitView;
-  if (!C) {
-    throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  return out;
+}
+function installViewAsFrontOnlyGuard() {
+  const bag = Session;
+  if (!bag || bag.__viewAsFrontOnly) return;
+  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
+  if (!origAuth) return;
+  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
+  bag.authHeader = withoutViewAs;
+  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
+  if (origRefresh) {
+    bag.refreshProfile = async () => {
+      bag.authHeader = origAuth;
+      try {
+        return await origRefresh();
+      } finally {
+        bag.authHeader = withoutViewAs;
+      }
+    };
   }
-  return C;
+  bag.__viewAsFrontOnly = true;
 }
-function getGlass() {
-  const g = window.ISAFront?.Glass;
-  if (!g?.GlassCard) {
-    throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
+function resolvePrimaryIssRoleId() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toLowerCase() : "";
+}
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
+function localMeCaps() {
+  if (!Session.isLoggedIn()) return {};
+  const key = sessionCacheKey();
+  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const viewAs = readViewAsRole();
+  if (viewAs && canViewAsRole()) {
+    const preset = capsForViewAsRole(viewAs);
+    if (preset) {
+      if (Object.keys(real).length) return clampViewAsCapsToReal(preset, real);
+      return clampViewAsCapsToReal(preset, {});
+    }
   }
-  return g;
+  return real;
 }
-function lightboxApi() {
-  const api = window.ISAComponents?.LightboxZoom;
-  if (!api?.LightboxZoomDialog) {
-    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+async function primeMeCaps(force = false) {
+  if (!Session.isLoggedIn()) return;
+  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
+  const now = Date.now();
+  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
+  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
+  ME_CAPS_INFLIGHT = (async () => {
+    let ok = false;
+    try {
+      const me = await fetchPermissionsMe({ force });
+      if (me?.capabilities) {
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        ME_CAPS = {
+          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
+          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
+          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
+          canEditSwagger: !!me.capabilities.canEditSwagger,
+          canOverrideSampling: !!me.capabilities.canOverrideSampling,
+          canManagePermissions: !!me.capabilities.canManagePermissions,
+          canImpersonate: !!me.capabilities.canImpersonate,
+          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
+          canAccessOthers: !!me.capabilities.canAccessOthers,
+          canViewKanban: !!me.capabilities.canViewKanban,
+          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
+          canViewLogs: !!me.capabilities.canViewLogs,
+          canViewPrompts: !!me.capabilities.canViewPrompts,
+          canViewChat: !!me.capabilities.canViewChat,
+          canViewConfig: !!me.capabilities.canViewConfig,
+          canSendChat: !!me.capabilities.canSendChat
+        };
+        ME_CAPS_BOOTSTRAP_TS = Date.now();
+        ok = true;
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
+        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+      }
+    } catch {
+    }
+    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
+      ME_CAPS_RETRY_TIMER = setTimeout(() => {
+        ME_CAPS_RETRY_TIMER = null;
+        void primeMeCaps(true);
+      }, 4e3);
+    }
+  })().finally(() => {
+    ME_CAPS_INFLIGHT = null;
+  });
+  return ME_CAPS_INFLIGHT;
+}
+function clearMeCaps() {
+  ME_CAPS = {};
+  ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
+  ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
+  if (ME_CAPS_RETRY_TIMER) {
+    clearTimeout(ME_CAPS_RETRY_TIMER);
+    ME_CAPS_RETRY_TIMER = null;
   }
-  return api;
 }
-var Lightbox = {
-  get ImageLightboxDialog() {
-    return lightboxApi().LightboxZoomDialog;
-  },
-  get LightboxImage() {
-    return lightboxApi().LightboxZoomImage;
-  },
-  get useImageLightboxZoom() {
-    return lightboxApi().useLightboxZoom;
+function setServerInstruccionesCanEdit(v) {
+  ME_SERVER_INSTRUCCIONES_EDIT = v;
+  window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+}
+function notifyAuth() {
+  window.dispatchEvent(new Event(Session.EVENT));
+  window.dispatchEvent(new Event("patyia-apptools:auth"));
+  window.dispatchEvent(new Event("isa-patyia:auth"));
+}
+function canEditInstrucciones() {
+  const caps = localMeCaps();
+  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
+  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+}
+function canEditOpenAiConfig() {
+  return !!localMeCaps().canEditOpenAiConfig;
+}
+function canEditPromptsOperativos() {
+  return !!localMeCaps().canEditPromptsOperativos;
+}
+function canAccessOthers() {
+  return !!localMeCaps().canAccessOthers;
+}
+function instruccionesPublishCap() {
+  return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
+}
+async function login(user, pass, opts) {
+  const session = await Session.login(user, pass, opts);
+  notifyAuth();
+  void primeMeCaps(true);
+  return session;
+}
+function logout() {
+  Session.logout();
+  clearMeCaps();
+  clearViewAsRole();
+  notifyAuth();
+}
+async function bootMeCaps() {
+  return primeMeCaps(true);
+}
+function roleLooksLikeDevBranch(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+}
+function canViewAsRole() {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
   }
-};
-function CodeMirrorPanel(props) {
-  const Panel = window.ISAFront?.CodeMirrorPanel;
-  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
-  return Panel(props);
+  return false;
 }
-var fb = () => globalThis.ISAFront?.Feedback;
-function toastError(text, timeout) {
-  fb()?.toast?.error?.(text, timeout);
+function getViewAsRole() {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
 }
-function toastSuccess(text, timeout) {
-  fb()?.toast?.success?.(text, timeout);
+function isViewingAsRole() {
+  return !!(readViewAsRole() && canViewAsRole());
 }
-function toastInfo(text, timeout) {
-  fb()?.toast?.info?.(text, timeout);
+function setViewAsRole(roleName) {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
 }
-function toastWarning(text, timeout) {
-  fb()?.toast?.warning?.(text, timeout);
+function stopViewAsRole() {
+  clearViewAsRole();
 }
-function requestConfirm(opts) {
-  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
 }
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
+function auditAuthor() {
+  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
+  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
+  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
+  return real || viewAs || "";
+}
+function humanPermissionError(err, cap) {
+  return window.ISAFront.humanPermissionError(err, cap, blockReason);
+}
+function handleApiError(err, cap) {
+  window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
+}
+var INSTRUCCIONES_WRITE_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var init_sessionApi = __esm({
+  "js/api/sessionApi.ts"() {
+    init_platform();
+    init_platform();
+    init_systemConfigApi();
+    init_roleHierarchy();
+    init_roleCanonicalMeta();
+    init_viewAsRole();
+    installViewAsFrontOnlyGuard();
+    try {
+      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
+      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
+    } catch {
+    }
+    INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
+    ME_CAPS = {};
+    ME_CAPS_KEY = "";
+    ME_ISS_ROLES = [];
+    ME_LOGIN_ROLE = "";
+    ME_CAPS_BOOTSTRAP_TS = 0;
+    ME_CAPS_INFLIGHT = null;
+    ME_CAPS_RETRY_TIMER = null;
+    ME_SERVER_INSTRUCCIONES_EDIT = null;
+    ME_CAPS_FETCH_GUARD_MS = 5e3;
+    ME_CAPS_REENTRY_GUARD_MS = 1500;
+    isLoggedIn = () => Session.isLoggedIn();
+    can = (cap) => Session.can(cap);
+    blockReason = (cap) => Session.blockReason(cap);
+    clearSession = logout;
+    (window.ISA = window.ISA || {}).AppSession = {
+      current: () => Session.current(),
+      isLoggedIn,
+      username: () => Session.username(),
+      capabilities: () => Session.capabilities(),
+      can,
+      blockReason,
+      login,
+      logout,
+      refreshProfile: () => Session.refreshProfile(),
+      clearSession,
+      getSession,
+      resolveDisplayRole,
+      canViewAsRole,
+      getViewAsRole,
+      isViewingAsRole,
+      setViewAsRole,
+      stopViewAsRole,
+      resolvePrimaryIssRoleId
+    };
+  }
+});
+
+// js/api/apiClient.ts
+function unwrapIssEnvelope(raw) {
+  const d = raw;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
+    const e = enc;
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    return d.respuesta;
+  }
+  if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    return d.body;
+  }
+  return d;
+}
+function patyiaIssPath(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p;
+}
+async function fetchInstruccionesPaty() {
+  const data = await fetchInstruccionesSystemConfig();
+  setServerInstruccionesCanEdit(!!data.canEdit);
+  return { rows: data.rows, canEdit: !!data.canEdit };
+}
+function publishInstruccionesPaty(sql) {
+  if (!canEditInstrucciones()) {
+    throw new Error(
+      blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
+    );
+  }
+  return putInstruccionesPublish(sql);
+}
+async function upsertInstruccionPaty(payload) {
+  if (!canEditInstrucciones()) {
+    throw new Error(
+      blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
+    );
+  }
+  return putInstruccionUpsert(payload);
+}
+function isConvNotFound(err) {
+  const status = err && typeof err === "object" ? Number(err.status) : 0;
+  if (status === 404) return true;
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /not found|no encontrad|\b404\b/i.test(msg);
+}
+function isConvForbidden(err) {
+  const status = err && typeof err === "object" ? Number(err.status) : 0;
+  if (status === 401 || status === 403) return true;
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /sin permiso|no tienes permiso|no autorizad|forbidden|\b403\b|\b401\b/i.test(msg);
+}
+async function fetchConvLogForQa(id) {
+  const convId = Number(id);
+  if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inv\xE1lido");
+  const jwt = loadPatyJwt();
+  if (jwt?.token && !isPatyJwtExpired(jwt.token)) {
+    try {
+      const detail = await getConversacionLogs(jwt, convId);
+      const log = convLogFromDetalle(detail, convId);
+      if (log?.mensajes?.length) return log;
+      throw new Error(`Log conv-${convId} sin mensajes`);
+    } catch (e) {
+      if (isConvForbidden(e) || !isConvNotFound(e)) throw e;
+    }
+  }
+  return fetchConvLogById(convId);
+}
+async function fetchConvLogById(id) {
+  const convId = Number(id);
+  if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inv\xE1lido");
+  const paths = [
+    patyiaIssPath(`/conversacion/${convId}/log`),
+    patyiaIssPath(`/conversacion/logs/${convId}`)
+  ];
+  let routeMiss = null;
+  for (const path of paths) {
+    try {
+      const data = await capFetch(path, { method: "GET" });
+      const log = data.convLog ?? data.log ?? data.body?.convLog ?? data.body?.log;
+      if (!log || !Array.isArray(log.mensajes)) {
+        throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
+      }
+      log.iconversacion = log.iconversacion || convId;
+      return log;
+    } catch (e) {
+      const err = e;
+      const detail = err.data?.error?.trim();
+      if (detail) throw new Error(detail);
+      if (err.status === 404 && !detail) {
+        routeMiss = err;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw routeMiss ?? new Error(`Log conv-${convId} no encontrado`);
+}
+async function fetchConvLogByIdWithRetry(id, { minMensajes = 0, attempts = 8, delayMs = 300, qa = false } = {}) {
+  const load = qa ? fetchConvLogForQa : fetchConvLogById;
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const log = await load(id);
+      last = log;
+      const n = Array.isArray(log.mensajes) ? log.mensajes.length : 0;
+      if (!minMensajes || n >= minMensajes) return log;
+    } catch (e) {
+      if (i === attempts - 1 && !last) throw e;
+    }
+    if (i < attempts - 1) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
+  }
+  return last;
+}
+function formatIssClientError(err, fallback = "Error del servidor") {
+  const data = err && typeof err === "object" ? err.data : void 0;
+  const enc = data && typeof data === "object" && !Array.isArray(data) ? data.encabezado : void 0;
+  const envelopeMsg = enc && typeof enc === "object" ? String(enc.mensaje ?? enc.imensaje ?? "").trim() : "";
+  const raw = envelopeMsg || (err instanceof Error ? err.message : String(err ?? ""));
+  const msg = raw.trim();
+  if (!msg) return fallback;
+  if (/failed to fetch|networkerror|load failed|econnrefused|network request failed/i.test(msg)) {
+    return "Sin conexi\xF3n con el ISS. Si usas Local, arranca el servidor en :8802.";
+  }
+  if (/invalid signature|jwt malformed|jwt expired|token.*expir/i.test(msg)) {
+    return `Auth ISS: ${msg}. En Local el front usa system-login (modo w); revisa PATYIA_AUTH_MODE=w o vuelve a iniciar sesi\xF3n.`;
+  }
+  if (/^internal server error$/i.test(msg) || /\b500\b/.test(msg) && /internal server error/i.test(msg)) {
+    return "Error interno del ISS (HTTP 500). Revisa logs del Functions host o el detalle del envelope.";
+  }
+  if (/^unauthorized$/i.test(msg) || /\b401\b/.test(msg)) {
+    return "Sesi\xF3n no autorizada (401). Vuelve a iniciar sesi\xF3n.";
+  }
+  if (/^forbidden$/i.test(msg) || /\b403\b/.test(msg)) {
+    return "Sin permiso para auditar terceros (403).";
+  }
+  if (/^not found$/i.test(msg) || /\b404\b/.test(msg)) {
+    return "Endpoint no encontrado (404). \xBFISS desactualizado o ruta incorrecta?";
+  }
+  return msg;
+}
+async function fetchTercerosAudit(input = {}) {
+  const params = new URLSearchParams();
+  params.set("page", String(input.page ?? 1));
+  params.set("limit", String(input.limit ?? 20));
+  if (input.q?.trim()) params.set("q", input.q.trim());
+  if (input.jwtTercero?.trim()) params.set("jwtTercero", input.jwtTercero.trim());
+  if (input.jwtContacto?.trim()) params.set("jwtContacto", input.jwtContacto.trim());
+  if (input.jwtNombre?.trim()) params.set("jwtNombre", input.jwtNombre.trim());
+  if (input.appUser?.trim()) params.set("appUser", input.appUser.trim());
+  let raw;
+  try {
+    raw = await capFetch(`${patyiaIssPath("/auditoria/terceros")}?${params.toString()}`, { method: "GET" });
+  } catch (err) {
+    if (isLocalMode() && input.jwtToken) {
+      try {
+        return await fetchTercerosAuditFromLocalConversaciones(input);
+      } catch (fallbackErr) {
+        throw new Error(formatIssClientError(fallbackErr, formatIssClientError(err)));
+      }
+    }
+    throw new Error(formatIssClientError(err));
+  }
+  try {
+    const data = unwrapIssEnvelope(raw);
+    if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar terceros"));
+    return {
+      ok: true,
+      rows: Array.isArray(data.rows) ? data.rows : [],
+      total: Number(data.total ?? 0) || 0,
+      page: Number(data.page ?? input.page ?? 1) || 1,
+      limit: Number(data.limit ?? input.limit ?? 20) || 20,
+      pages: Number(data.pages ?? 0) || 0
+    };
+  } catch (err) {
+    throw new Error(formatIssClientError(err));
+  }
+}
+async function fetchTercerosAuditFromLocalConversaciones(input) {
+  const limit = input.limit ?? 20;
+  const groups = /* @__PURE__ */ new Map();
+  for (let page2 = 1; page2 <= 5; page2 += 1) {
+    const params = conversacionesListQueryParams({ page: page2, limit: 100, sort: "-iconversacion" });
+    const res = await fetch(`${PATYIA_ISS_LOCAL_API.replace(/\/$/, "")}/conversaciones?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${input.jwtToken}` }
+    });
+    if (!res.ok) throw new Error(`No se pudo cargar auditor\xEDa local (${res.status})`);
+    const raw = await res.json();
+    const body = raw?.respuesta ?? raw?.body ?? raw;
+    const conversaciones = Array.isArray(body?.conversaciones) ? body.conversaciones : [];
+    for (const conv of conversaciones) {
+      const itercero = String(conv.itercero ?? "").trim();
+      const icontacto = String(conv.icontacto ?? "").trim();
+      if (!itercero || !icontacto) continue;
+      const key = `${itercero}|${icontacto}`;
+      const prev = groups.get(key);
+      const fh = String(conv.fhultact ?? conv.fhcre ?? "");
+      const nombre = String(conv.nick_propietario ?? "").trim() || null;
+      if (!prev) {
+        groups.set(key, {
+          itercero,
+          icontacto,
+          nombre,
+          total_conversaciones: 1,
+          total_mensajes: Number(conv.qmensajes ?? 0) || 0,
+          ultima_actividad: fh || null,
+          es_jwt: itercero === String(input.jwtTercero ?? "") && icontacto === String(input.jwtContacto ?? ""),
+          es_sesion: false
+        });
+      } else {
+        prev.total_conversaciones += 1;
+        prev.total_mensajes += Number(conv.qmensajes ?? 0) || 0;
+        if (fh && (!prev.ultima_actividad || new Date(fh) > new Date(prev.ultima_actividad))) prev.ultima_actividad = fh;
+        if (!prev.nombre && nombre) prev.nombre = nombre;
+      }
+    }
+    if (conversaciones.length < 100) break;
+  }
+  const q = String(input.q ?? "").trim().toLowerCase();
+  const rows = [...groups.values()].filter((r) => !q || [r.nombre, r.itercero, r.icontacto].some((v) => String(v ?? "").toLowerCase().includes(q))).sort((a, b) => String(b.ultima_actividad ?? "").localeCompare(String(a.ultima_actividad ?? "")));
+  const page = Math.max(1, Number(input.page ?? 1) || 1);
+  const offset = (page - 1) * limit;
+  return { ok: true, rows: rows.slice(offset, offset + limit), total: rows.length, page, limit, pages: Math.max(1, Math.ceil(rows.length / limit)) };
+}
+var bridgeHttp, capFetch, apiUrl, rowVal;
+var init_apiClient = __esm({
+  "js/api/apiClient.ts"() {
+    init_platform();
+    init_patyia();
+    init_patyia_jwt();
+    init_patyiaChatApi();
+    init_issListFilter();
+    init_sessionApi();
+    init_systemConfigApi();
+    bridgeHttp = window.ISAFront.createCapFetch({
+      Session,
+      Config,
+      getApiBase: patyiaIssCapFetchBase,
+      localDirect: [
+        { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") }
+      ],
+      orchOnline: PATYIA_ISS_URL,
+      orchOnlineInLocal: true,
+      isLocal: isLocalMode
+    });
+    capFetch = bridgeHttp.capFetch;
+    apiUrl = bridgeHttp.apiUrl;
+    rowVal = bridgeHttp.rowVal;
+  }
+});
+
+// js/api/sysValuesCopy.ts
+var init_sysValuesCopy = __esm({
+  "js/api/sysValuesCopy.ts"() {
+    init_apiClient();
+    init_platform();
+    init_patyia();
+  }
+});
+
+// js/components/CopySysValuesModal.jsx
+var MUI, React2, Icon23;
+var init_CopySysValuesModal = __esm({
+  "js/components/CopySysValuesModal.jsx"() {
+    MUI = window.MaterialUI;
+    React2 = window.React;
+    Icon23 = window.ISA?.UI?.Icon;
+  }
+});
+
+// js/components/IssTargetSwitch.jsx
+function issUrlForTarget(id) {
+  if (id === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (id === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function availableTargets() {
+  return isDevHost() ? TARGETS_DEV : TARGETS_WEB;
+}
+function headerClearBackdropTop() {
+  const bar = document.querySelector("header.MuiAppBar-root");
+  return bar ? Math.ceil(bar.getBoundingClientRect().bottom) : 56;
+}
+function TargetMenuItem({ t, selected, onClick, value }) {
+  const url = issUrlForTarget(t.id);
+  const item = React3.createElement(
+    MUI2.MenuItem,
+    {
+      value,
+      selected,
+      onClick,
+      title: url
+    },
+    Icon24 ? React3.createElement(MUI2.ListItemIcon, { sx: { minWidth: 32 } }, React3.createElement(Icon24, { icon: t.icon, size: 18 })) : null,
+    React3.createElement(MUI2.ListItemText, {
+      primary: t.label,
+      secondary: url,
+      secondaryTypographyProps: {
+        variant: "caption",
+        noWrap: true,
+        sx: { maxWidth: 240, opacity: 0.72, fontFamily: "ui-monospace, Consolas, monospace", fontSize: "0.65rem" }
+      }
+    })
+  );
+  return React3.createElement(
+    MUI2.Tooltip,
+    { title: url, placement: "left", enterDelay: 200, arrow: true },
+    // span: Tooltip necesita un hijo que acepte ref; MenuItem dentro de Select a veces no.
+    React3.createElement("span", { style: { display: "block" } }, item)
+  );
+}
+function IssTargetChip() {
+  const [anchor, setAnchor] = React3.useState(null);
+  const [target, setTarget] = React3.useState(
+    /** @type {IssTarget} */
+    getIssTarget()
+  );
+  const open = !!anchor;
+  const meta = availableTargets().find((x) => x.id === target) ?? availableTargets()[0];
+  const currentUrl = issUrlForTarget(target);
+  const onPick = (id) => {
+    setAnchor(null);
+    if (id === target) return;
+    setIssTarget(id);
+    setTarget(id);
+    setTimeout(() => window.location.reload(), 50);
+  };
+  return React3.createElement(
+    React3.Fragment,
+    null,
+    React3.createElement(
+      MUI2.Tooltip,
+      { title: `${meta.label}: ${currentUrl}`, arrow: true },
+      React3.createElement(
+        MUI2.Chip,
+        {
+          size: "small",
+          color: meta.color,
+          variant: "outlined",
+          icon: Icon24 ? React3.createElement(Icon24, { icon: meta.icon, size: 16 }) : void 0,
+          label: meta.label,
+          onClick: (e) => setAnchor(e.currentTarget),
+          "aria-haspopup": "true",
+          "aria-expanded": open ? "true" : "false",
+          sx: { height: 28, cursor: "pointer", "& .MuiChip-label": { px: 0.75 } }
+        }
+      )
+    ),
+    React3.createElement(
+      MUI2.Menu,
+      {
+        anchorEl: anchor,
+        open,
+        onClose: () => setAnchor(null),
+        slotProps: {
+          backdrop: {
+            sx: { top: open ? headerClearBackdropTop() : 0 }
+          }
+        }
+      },
+      availableTargets().map(
+        (t) => React3.createElement(TargetMenuItem, {
+          key: t.id,
+          t,
+          selected: t.id === target,
+          onClick: () => onPick(t.id)
+        })
+      )
+    )
+  );
+}
+var MUI2, React3, Icon24, TARGETS_DEV, TARGETS_WEB;
+var init_IssTargetSwitch = __esm({
+  "js/components/IssTargetSwitch.jsx"() {
+    init_patyia();
+    init_sysValuesCopy();
+    init_CopySysValuesModal();
+    MUI2 = window.MaterialUI;
+    React3 = window.React;
+    Icon24 = window.ISA?.UI?.Icon;
+    TARGETS_DEV = [
+      { id: "production", label: "Producci\xF3n", icon: "mdi:server", color: "success" },
+      { id: "staging", label: "Staging", icon: "mdi:test-tube", color: "primary" },
+      { id: "local", label: "Local", icon: "mdi:laptop", color: "warning" }
+    ];
+    TARGETS_WEB = [
+      { id: "production", label: "Producci\xF3n", icon: "mdi:server", color: "success" },
+      { id: "staging", label: "Staging", icon: "mdi:test-tube", color: "primary" }
+    ];
+  }
+});
+
+// js/app/App.jsx
+init_platform();
 
 // js/core/urlState.ts
+init_patyia();
 var STATE_VERSION = 1;
 function normalizeLog(raw) {
   if (!raw || typeof raw !== "object") return {};
@@ -416,16 +2246,34 @@ function normalizeLog(raw) {
   return o;
 }
 function initial() {
-  return { v: STATE_VERSION, tool: "log", log: {}, prompts: {}, chat: {}, todos: {}, config: {} };
+  return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } };
+}
+function normalizeChatPane(raw) {
+  return raw === "logs" ? "logs" : "conv";
+}
+function normalizeConfigPane(raw) {
+  if (raw === "permisos") return "permisos";
+  if (raw === "prompts") return "prompts";
+  return "sistema";
+}
+function legacyConfigPaneFromLs() {
+  try {
+    const v = localStorage.getItem("isa-patyia:config-tab");
+    if (v === "permisos" || v === "prompts") return v;
+    return "sistema";
+  } catch {
+    return "sistema";
+  }
 }
 function normalizeTool(raw) {
-  if (raw === "prompts") return "prompts";
+  if (raw === "log") return "chat";
+  if (raw === "prompts") return "config";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "log";
+  return "chat";
 }
-function normalizeChatBag(chat) {
+function normalizeChatBag(chat, legacyTool) {
   const bag = chat && typeof chat === "object" ? { ...chat } : {};
   if ((bag.mode == null || String(bag.mode).trim() === "") && bag.jailbreak != null) {
     bag.mode = bag.jailbreak === true ? "libre" : "patyia";
@@ -433,14 +2281,31 @@ function normalizeChatBag(chat) {
   } else if (bag.jailbreak != null) {
     delete bag.jailbreak;
   }
+  if (legacyTool === "log") {
+    bag.pane = "logs";
+  } else {
+    bag.pane = normalizeChatPane(bag.pane);
+  }
+  return bag;
+}
+function normalizeConfigBag(config, legacyTool) {
+  const bag = config && typeof config === "object" ? { ...config } : {};
+  if (legacyTool === "prompts") {
+    bag.pane = "prompts";
+  } else if (bag.pane !== "sistema" && bag.pane !== "permisos" && bag.pane !== "prompts") {
+    bag.pane = legacyConfigPaneFromLs();
+  } else {
+    bag.pane = normalizeConfigPane(bag.pane);
+  }
   return bag;
 }
 function normalize(raw, _prev) {
   if (!raw || typeof raw !== "object") return initial();
-  const tool = normalizeTool(raw.tool);
-  const chat = normalizeChatBag(raw.chat);
+  const legacyTool = raw.tool;
+  const tool = normalizeTool(legacyTool);
+  const chat = normalizeChatBag(raw.chat, legacyTool);
   const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
-  const config = raw.config && typeof raw.config === "object" ? raw.config : {};
+  const config = normalizeConfigBag(raw.config, legacyTool);
   return {
     v: raw.v ?? STATE_VERSION,
     tool,
@@ -636,14 +2501,21 @@ function configPermisosBag(snap) {
   const permisos = cfg?.permisos;
   return permisos && typeof permisos === "object" ? permisos : void 0;
 }
-function readPermisosHideEmptyFromUrl() {
-  return configPermisosBag()?.hideEmpty === true;
+function readPermisosHideEmptyFromUrl(snap) {
+  return configPermisosBag(snap)?.hideEmpty !== false;
 }
 function persistPermisosHideEmpty(hide) {
-  const prev = configPermisosBag()?.hideEmpty === true;
+  const prev = readPermisosHideEmptyFromUrl();
   if (prev === hide) return getSnapshot();
   return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
 }
+
+// js/tools/LogViewer.jsx
+init_platform();
+init_platform();
+
+// js/ui/shared.jsx
+init_platform();
 
 // js/core/msgDateFormat.ts
 function parseMsgDate(v) {
@@ -1365,6 +3237,13 @@ function convLogSurfaceSx(extra = {}) {
   return { flex: 1, minHeight: 0, overflow: "auto", bgcolor: "transparent", ...CONV_LOG_PAD, ...extra };
 }
 
+// js/ui/shared.jsx
+init_platform();
+
+// js/ui/ImageLightboxDialog.jsx
+init_platform();
+init_platform();
+
 // js/core/lightboxBoot.ts
 function isLightboxZoomReady() {
   return Boolean(globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog);
@@ -1404,8 +3283,8 @@ function ImageLightboxDialog(props) {
   }, [open, ready]);
   if (!open) return null;
   if (loadError) {
-    const { Typography: Typography32, Box: Box35 } = getMaterialUI();
-    return /* @__PURE__ */ jsx(Box35, { sx: { p: 2, textAlign: "center" }, children: /* @__PURE__ */ jsx(Typography32, { variant: "body2", color: "error", children: "No se pudo cargar el visor de im\xE1genes. Recargue sin cach\xE9 (Ctrl+Shift+R)." }) });
+    const { Typography: Typography29, Box: Box35 } = getMaterialUI();
+    return /* @__PURE__ */ jsx(Box35, { sx: { p: 2, textAlign: "center" }, children: /* @__PURE__ */ jsx(Typography29, { variant: "body2", color: "error", children: "No se pudo cargar el visor de im\xE1genes. Recargue sin cach\xE9 (Ctrl+Shift+R)." }) });
   }
   if (!ready) return null;
   const Comp = Lightbox.ImageLightboxDialog;
@@ -1413,6 +3292,7 @@ function ImageLightboxDialog(props) {
 }
 
 // js/ui/GlassDialog.jsx
+init_platform();
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -1450,6 +3330,7 @@ function resolveGlassDialogProps({
   onClose,
   maxWidth = "md",
   fullWidth = true,
+  fullScreen = false,
   paperMaxWidth,
   paperClassName = "",
   slotProps,
@@ -1458,13 +3339,28 @@ function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (fullScreen) {
+    paper.sx = {
+      ...paper.sx,
+      m: 0,
+      margin: 0,
+      maxWidth: "100%",
+      width: "100%",
+      height: "100%",
+      maxHeight: "100dvh",
+      borderRadius: 0,
+      border: "none",
+      boxShadow: "none"
+    };
+  }
   const shared = {
     open,
     onClose,
-    maxWidth,
+    maxWidth: fullScreen ? false : maxWidth,
     fullWidth,
+    fullScreen,
     scroll: "paper",
-    className: "isa-login-dialog isa-glass-dialog",
+    className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
     slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
     PaperProps: paper,
     ...rest
@@ -1513,12 +3409,12 @@ function glassDialogActionsSx(extra = {}) {
   };
 }
 function GlassDialogCloseActions({ onClose, label = "Cerrar" }) {
-  const { DialogActions: DialogActions14, Button: Button25 } = getMaterialUI();
-  return /* @__PURE__ */ jsx2(DialogActions14, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx2(Button25, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600, minWidth: 72 }, children: label }) });
+  const { DialogActions: DialogActions14, Button: Button22 } = getMaterialUI();
+  return /* @__PURE__ */ jsx2(DialogActions14, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx2(Button22, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600, minWidth: 72 }, children: label }) });
 }
 function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
-  const { Box: Box35, Typography: Typography32, IconButton: IconButton16, Stack: Stack28 } = getMaterialUI();
-  const { Icon: Icon24 } = UI;
+  const { Box: Box35, Typography: Typography29, IconButton: IconButton15, Stack: Stack28 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
   const bandSx = loginHeaderBandSx?.(accent) ?? {
     px: { xs: 2, sm: 2.5 },
@@ -1542,18 +3438,18 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
   const titleSx = loginHeaderTitleSx?.() ?? { fontWeight: 700, fontSize: "1.35rem", lineHeight: 1.15 };
   return /* @__PURE__ */ jsxs(Box35, { className: "isa-glass-dialog__header", sx: { position: "relative", flexShrink: 0 }, children: [
     /* @__PURE__ */ jsx2(Box35, { sx: bandSx, children: /* @__PURE__ */ jsxs(Stack28, { direction: "row", spacing: 1.25, alignItems: "center", sx: { pr: onClose ? 4 : 0 }, children: [
-      /* @__PURE__ */ jsx2(Box35, { sx: iconSx, children: /* @__PURE__ */ jsx2(Icon24, { icon, size: 24 }) }),
+      /* @__PURE__ */ jsx2(Box35, { sx: iconSx, children: /* @__PURE__ */ jsx2(Icon26, { icon, size: 24 }) }),
       /* @__PURE__ */ jsxs(Box35, { sx: { flex: 1, minWidth: 0 }, children: [
-        /* @__PURE__ */ jsx2(Typography32, { variant: "h5", component: "h2", sx: titleSx, children: title }),
-        subtitle ? /* @__PURE__ */ jsx2(Typography32, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
+        /* @__PURE__ */ jsx2(Typography29, { variant: "h5", component: "h2", sx: titleSx, children: title }),
+        subtitle ? /* @__PURE__ */ jsx2(Typography29, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
       ] })
     ] }) }),
-    onClose ? /* @__PURE__ */ jsx2(IconButton16, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon24, { icon: "mdi:close", size: 18 }) }) : null
+    onClose ? /* @__PURE__ */ jsx2(IconButton15, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon26, { icon: "mdi:close", size: 18 }) }) : null
   ] });
 }
-function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog: Dialog10 } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
   return /* @__PURE__ */ jsxs(Dialog10, { ...props, children: [
     header,
     children
@@ -1985,18 +3881,22 @@ function metaWorthDialog(meta, isUser) {
   return false;
 }
 function FileSearchMetaSection({ meta }) {
-  const { Typography: Typography32, Box: Box35, Stack: Stack28, Chip: Chip23, IconButton: IconButton16, Tooltip: Tooltip18 } = getMaterialUI();
+  const { Typography: Typography29, Box: Box35, Stack: Stack28, Chip: Chip20, IconButton: IconButton15, Tooltip: Tooltip16 } = getMaterialUI();
   const { useState: useState36, useMemo: useMemo22 } = getReact();
   const trace = fileSearchFromMeta(meta);
   const archivos = archivosCitadosFromMeta(meta);
   const chunks = useMemo22(() => chunksFromMeta(meta), [meta]);
   const vectorStores = useMemo22(() => vectorStoresFromMeta(meta), [meta]);
+  const [expandedKey, setExpandedKey] = useState36(null);
   const [openChunk, setOpenChunk] = useState36(null);
   if (!trace?.length && !archivos.length && !chunks.length && !vectorStores.length) return null;
+  function toggleChunk(key) {
+    setExpandedKey((prev) => prev === key ? null : key);
+  }
   return /* @__PURE__ */ jsxs2(Box35, { className: "meta-file-search", sx: { mt: 1.5 }, children: [
     vectorStores.length ? /* @__PURE__ */ jsxs2(Box35, { className: "meta-file-search__vector-stores", sx: { mb: 1.5 }, children: [
-      /* @__PURE__ */ jsx3(Typography32, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "Vector stores consultados" }),
-      /* @__PURE__ */ jsxs2(Typography32, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.75 }, children: [
+      /* @__PURE__ */ jsx3(Typography29, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "Vector stores consultados" }),
+      /* @__PURE__ */ jsxs2(Typography29, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.75 }, children: [
         "\xCDndice = posici\xF3n en ",
         /* @__PURE__ */ jsx3("code", { children: "vector_store_ids" }),
         " enviado al modelo (0 = primero). Usa el ID completo para verificar en OpenAI/BD."
@@ -2013,16 +3913,16 @@ function FileSearchMetaSection({ meta }) {
             fontSize: "0.82rem"
           },
           children: [
-            /* @__PURE__ */ jsx3(Chip23, { size: "small", variant: "outlined", label: `\xEDndice ${vs.index}`, className: "meta-file-search__vs-index" }),
-            /* @__PURE__ */ jsx3(Typography32, { component: "code", variant: "body2", sx: { wordBreak: "break-all", fontFamily: "monospace" }, children: vs.id })
+            /* @__PURE__ */ jsx3(Chip20, { size: "small", variant: "outlined", label: `\xEDndice ${vs.index}`, className: "meta-file-search__vs-index" }),
+            /* @__PURE__ */ jsx3(Typography29, { component: "code", variant: "body2", sx: { wordBreak: "break-all", fontFamily: "monospace" }, children: vs.id })
           ]
         },
         vs.id
       )) })
     ] }) : null,
-    /* @__PURE__ */ jsx3(Typography32, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "File Search (archivos citados)" }),
-    archivos.length ? /* @__PURE__ */ jsx3(Stack28, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, sx: { mb: chunks.length ? 1.25 : 0 }, children: archivos.map((name) => /* @__PURE__ */ jsx3(
-      Chip23,
+    /* @__PURE__ */ jsx3(Typography29, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "File Search (archivos citados)" }),
+    archivos.length ? /* @__PURE__ */ jsx3(Stack28, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, sx: { mb: chunks.length ? 1 : 0 }, children: archivos.map((name) => /* @__PURE__ */ jsx3(
+      Chip20,
       {
         size: "small",
         variant: "outlined",
@@ -2032,63 +3932,89 @@ function FileSearchMetaSection({ meta }) {
       },
       name
     )) }) : null,
-    chunks.length ? /* @__PURE__ */ jsx3(Stack28, { spacing: 0.85, className: "meta-file-search__chunk-list", children: chunks.map((c) => {
-      const preview = chunkPreview(c.text, 380);
+    chunks.length ? /* @__PURE__ */ jsx3(Stack28, { spacing: 0.5, className: "meta-file-search__chunk-list", children: chunks.map((c) => {
+      const expanded = expandedKey === c.key;
       const vsIdx = c.vectorStoreId ? vectorStoreIndexLabel(vectorStores, c.vectorStoreId) : null;
-      return /* @__PURE__ */ jsxs2(Box35, { className: "meta-file-search__chunk", children: [
-        /* @__PURE__ */ jsxs2(Stack28, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.5 }, children: [
-          /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
-          /* @__PURE__ */ jsx3(Typography32, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
-          vsIdx != null ? /* @__PURE__ */ jsx3(
-            Chip23,
-            {
-              size: "small",
-              variant: "outlined",
-              label: `VS \xEDndice ${vsIdx}`,
-              title: c.vectorStoreId || void 0,
-              className: "meta-file-search__vs-chip"
-            }
-          ) : null,
-          c.score != null ? /* @__PURE__ */ jsx3(
-            Chip23,
-            {
-              size: "small",
-              variant: "outlined",
-              label: `score ${Number(c.score).toFixed(3)}`,
-              className: "meta-file-search__score"
-            }
-          ) : null,
-          /* @__PURE__ */ jsx3(Tooltip18, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx3(
-            IconButton16,
-            {
-              size: "small",
-              "aria-label": `Ver fragmento de ${c.filename || c.fileId || "fragmento"}`,
-              onClick: () => setOpenChunk(c),
-              className: "meta-file-search__open",
-              children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" })
-            }
-          ) })
-        ] }),
-        c.queries?.length ? /* @__PURE__ */ jsxs2(Typography32, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.35 }, children: [
-          "Queries: ",
-          c.queries.join(" \xB7 ")
-        ] }) : null,
-        /* @__PURE__ */ jsx3(
-          Typography32,
-          {
-            variant: "caption",
-            component: "pre",
-            className: "meta-file-search__preview",
-            sx: {
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              m: 0,
-              fontFamily: "inherit"
-            },
-            children: preview
-          }
-        )
-      ] }, c.key);
+      const label = c.filename || c.fileId || "fragmento";
+      return /* @__PURE__ */ jsxs2(
+        Box35,
+        {
+          className: `meta-file-search__chunk${expanded ? " meta-file-search__chunk--expanded" : ""}`,
+          children: [
+            /* @__PURE__ */ jsxs2(
+              Box35,
+              {
+                className: "meta-file-search__chunk-summary",
+                role: "button",
+                tabIndex: 0,
+                "aria-expanded": expanded,
+                title: label,
+                onClick: () => toggleChunk(c.key),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleChunk(c.key);
+                  }
+                },
+                children: [
+                  /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:text-box-search-outline", width: "15", height: "15", "aria-hidden": true }),
+                  /* @__PURE__ */ jsx3(Typography29, { variant: "body2", fontWeight: 600, noWrap: true, className: "meta-file-search__chunk-title", children: label }),
+                  vsIdx != null ? /* @__PURE__ */ jsx3(
+                    Chip20,
+                    {
+                      size: "small",
+                      variant: "outlined",
+                      label: `VS ${vsIdx}`,
+                      title: c.vectorStoreId || void 0,
+                      className: "meta-file-search__vs-chip"
+                    }
+                  ) : null,
+                  c.score != null ? /* @__PURE__ */ jsx3(
+                    Chip20,
+                    {
+                      size: "small",
+                      variant: "outlined",
+                      label: Number(c.score).toFixed(3),
+                      className: "meta-file-search__score"
+                    }
+                  ) : null,
+                  /* @__PURE__ */ jsx3(Tooltip16, { title: "Ver en pantalla completa", children: /* @__PURE__ */ jsx3(
+                    IconButton15,
+                    {
+                      size: "small",
+                      "aria-label": `Ver fragmento de ${label}`,
+                      className: "meta-file-search__open",
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        setOpenChunk(c);
+                      },
+                      children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:fullscreen", width: "15", height: "15" })
+                    }
+                  ) }),
+                  /* @__PURE__ */ jsx3(
+                    "iconify-icon",
+                    {
+                      icon: "mdi:chevron-down",
+                      width: "18",
+                      height: "18",
+                      className: `meta-file-search__chevron${expanded ? " meta-file-search__chevron--open" : ""}`,
+                      "aria-hidden": true
+                    }
+                  )
+                ]
+              }
+            ),
+            expanded ? /* @__PURE__ */ jsxs2(Box35, { className: "meta-file-search__chunk-body", children: [
+              c.queries?.length ? /* @__PURE__ */ jsxs2(Typography29, { variant: "caption", color: "text.secondary", display: "block", className: "meta-file-search__queries", children: [
+                "Queries: ",
+                c.queries.join(" \xB7 ")
+              ] }) : null,
+              /* @__PURE__ */ jsx3(MdRenderer, { source: c.text || "", className: "meta-file-search__md" })
+            ] }) : null
+          ]
+        },
+        c.key
+      );
     }) }) : null,
     /* @__PURE__ */ jsx3(
       MdFullPageDialog,
@@ -2331,8 +4257,8 @@ function MdFullPageDialog({
   accent = "#1e90ff",
   icon = "mdi:file-document-outline"
 }) {
-  const { Dialog: Dialog10, DialogTitle: DialogTitle10, DialogContent: DialogContent16, IconButton: IconButton16, Typography: Typography32, Box: Box35 } = getMaterialUI();
-  const { Icon: Icon24 } = UI;
+  const { Dialog: Dialog10, DialogTitle: DialogTitle10, DialogContent: DialogContent16, IconButton: IconButton15, Typography: Typography29, Box: Box35 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const html = mdToHtml(String(source ?? ""));
   return /* @__PURE__ */ jsxs2(
     Dialog10,
@@ -2351,39 +4277,41 @@ function MdFullPageDialog({
         /* @__PURE__ */ jsxs2(
           DialogTitle10,
           {
+            className: "md-full-page-dialog__head",
             sx: {
               display: "flex",
               alignItems: "center",
-              gap: 1.25,
+              gap: 1,
               borderBottom: 1,
               borderColor: "divider",
-              py: 1.25,
-              px: { xs: 2, sm: 3 }
+              py: 0.75,
+              px: { xs: 1.5, sm: 2 },
+              minHeight: 0
             },
             children: [
               /* @__PURE__ */ jsx3(
                 Box35,
                 {
                   sx: {
-                    width: 36,
-                    height: 36,
-                    borderRadius: "0.5rem",
+                    width: 28,
+                    height: 28,
+                    borderRadius: "0.4rem",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
                     background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
                     color: "#fff",
                     flexShrink: 0,
-                    boxShadow: `0 4px 16px ${accent}55`
+                    boxShadow: `0 2px 8px ${accent}44`
                   },
-                  children: /* @__PURE__ */ jsx3(Icon24, { icon, size: 20 })
+                  children: /* @__PURE__ */ jsx3(Icon26, { icon, size: 16 })
                 }
               ),
-              /* @__PURE__ */ jsxs2(Box35, { sx: { flex: 1, minWidth: 0 }, children: [
-                /* @__PURE__ */ jsx3(Typography32, { variant: "h6", fontWeight: 700, noWrap: true, children: title }),
-                subtitle ? /* @__PURE__ */ jsx3(Typography32, { variant: "caption", color: "text.secondary", noWrap: true, children: subtitle }) : null
+              /* @__PURE__ */ jsxs2(Box35, { sx: { flex: 1, minWidth: 0, lineHeight: 1.2 }, children: [
+                /* @__PURE__ */ jsx3(Typography29, { variant: "subtitle1", fontWeight: 700, noWrap: true, sx: { lineHeight: 1.25, fontSize: "0.95rem" }, children: title }),
+                subtitle ? /* @__PURE__ */ jsx3(Typography29, { variant: "caption", color: "text.secondary", noWrap: true, sx: { display: "block", lineHeight: 1.3, mt: 0.15, fontSize: "0.72rem" }, children: subtitle }) : null
               ] }),
-              /* @__PURE__ */ jsx3(IconButton16, { onClick: onClose, "aria-label": "Cerrar visor", size: "small", children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:close", width: "18", height: "18" }) })
+              /* @__PURE__ */ jsx3(IconButton15, { onClick: onClose, "aria-label": "Cerrar visor", size: "small", sx: { p: 0.5 }, children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:close", width: "16", height: "16" }) })
             ]
           }
         ),
@@ -2392,10 +4320,11 @@ function MdFullPageDialog({
           {
             dividers: true,
             sx: {
-              p: { xs: 2, sm: 3, md: 4 },
-              maxWidth: 920,
-              mx: "auto",
-              width: "100%"
+              px: { xs: 2, sm: 3, md: 4, lg: 5 },
+              py: { xs: 2, sm: 2.5, md: 3 },
+              width: "100%",
+              maxWidth: "100%",
+              boxSizing: "border-box"
             },
             children: /* @__PURE__ */ jsx3(
               "div",
@@ -2412,6 +4341,7 @@ function MdFullPageDialog({
 }
 
 // js/editors/jsonEditor.jsx
+init_platform();
 import { jsx as jsx4 } from "react/jsx-runtime";
 function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra = null, readOnly = false }) {
   return /* @__PURE__ */ jsx4(
@@ -2431,7 +4361,13 @@ function JsonCodeEditor({ value = "", onChange, placeholder = "", toolbarExtra =
   );
 }
 
+// js/ui/ConvLogThread.jsx
+init_platform();
+
 // js/ui/ConvLogWebView.jsx
+init_platform();
+init_platform();
+init_platform();
 import { Fragment as Fragment2, jsx as jsx5, jsxs as jsxs3 } from "react/jsx-runtime";
 var { useMemo: useMemo2, useState: useState3, useRef, useEffect: useEffect3, memo } = getReact();
 function useOperativaEnterIds(mensajes, threadKey, { enabled = true } = {}) {
@@ -2512,14 +4448,14 @@ function roleUserCaption(msg, chatUserNick) {
   return fromMsg && !/\s/.test(fromMsg) ? fromMsg : "";
 }
 function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, metaChips, align = "left", muted = false, operativa = false, fecha, fechaIso, streaming = false, footerExtra = null, compact = false }) {
-  const { Paper: Paper5, Stack: Stack28, Typography: Typography32, Box: Box35, IconButton: IconButton16, Tooltip: Tooltip18 } = getMaterialUI();
-  const { Icon: Icon24 } = UI;
+  const { Paper: Paper6, Stack: Stack28, Typography: Typography29, Box: Box35, IconButton: IconButton15, Tooltip: Tooltip16 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const color = accent || "#1e90ff";
   const isRight = align === "right";
   const softMuted = muted && !operativa;
   const fullNeon = !compact;
   return /* @__PURE__ */ jsxs3(
-    Paper5,
+    Paper6,
     {
       id,
       className: [
@@ -2655,7 +4591,7 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                                   mt: 0.1
                                 };
                               },
-                              children: /* @__PURE__ */ jsx5(Icon24, { icon, size: 18 })
+                              children: /* @__PURE__ */ jsx5(Icon26, { icon, size: 18 })
                             }
                           ),
                           /* @__PURE__ */ jsxs3(
@@ -2669,7 +4605,7 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                               },
                               children: [
                                 /* @__PURE__ */ jsx5(
-                                  Typography32,
+                                  Typography29,
                                   {
                                     variant: compact ? "body2" : "subtitle1",
                                     sx: {
@@ -2685,7 +4621,7 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                                   }
                                 ),
                                 titleCaption ? /* @__PURE__ */ jsx5(
-                                  Typography32,
+                                  Typography29,
                                   {
                                     variant: "caption",
                                     color: "text.secondary",
@@ -2708,7 +4644,7 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                         ]
                       }
                     ),
-                    onMeta && /* @__PURE__ */ jsx5(Tooltip18, { title: "Trazabilidad del mensaje", arrow: true, children: /* @__PURE__ */ jsx5(IconButton16, { size: "small", onClick: onMeta, "aria-label": "Ver trazabilidad", sx: { alignSelf: "flex-start", mt: -0.25 }, children: /* @__PURE__ */ jsx5(Icon24, { icon: "mdi:information-outline", size: 20 }) }) })
+                    onMeta && /* @__PURE__ */ jsx5(Tooltip16, { title: "Trazabilidad del mensaje", arrow: true, children: /* @__PURE__ */ jsx5(IconButton15, { size: "small", onClick: onMeta, "aria-label": "Ver trazabilidad", sx: { alignSelf: "flex-start", mt: -0.25 }, children: /* @__PURE__ */ jsx5(Icon26, { icon: "mdi:information-outline", size: 20 }) }) })
                   ]
                 }
               ),
@@ -2741,7 +4677,7 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                 children: [
                   footerExtra,
                   fecha ? /* @__PURE__ */ jsx5(
-                    Typography32,
+                    Typography29,
                     {
                       component: "time",
                       dateTime: fechaIso || void 0,
@@ -2967,7 +4903,7 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
   );
 }
 function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false }) {
-  const { Typography: Typography32, Box: Box35 } = getMaterialUI();
+  const { Typography: Typography29, Box: Box35 } = getMaterialUI();
   const raw = String(text || "");
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
@@ -2979,7 +4915,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
       /* @__PURE__ */ jsx5("span", {})
     ] }) : /* @__PURE__ */ jsxs3(Box35, { className: `conv-msg-body-wrap${streaming ? " conv-msg-body-wrap--streaming" : ""}`, children: [
       /* @__PURE__ */ jsx5(
-        Typography32,
+        Typography29,
         {
           component: "div",
           variant: "body1",
@@ -3022,7 +4958,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
   ] });
 }
 function ConvMsgAudios({ items, transcriptions, align = "right" }) {
-  const { Box: Box35, Typography: Typography32 } = getMaterialUI();
+  const { Box: Box35, Typography: Typography29 } = getMaterialUI();
   const renderable = (items || []).filter((src) => String(src || "").trim().startsWith("data:audio/") || /^https?:\/\//i.test(String(src || "").trim()));
   if (!renderable.length) return null;
   return /* @__PURE__ */ jsx5(
@@ -3038,7 +4974,7 @@ function ConvMsgAudios({ items, transcriptions, align = "right" }) {
       },
       children: renderable.map((src, idx) => /* @__PURE__ */ jsxs3(Box35, { className: "conv-msg-audio-item", children: [
         /* @__PURE__ */ jsx5("audio", { controls: true, preload: "metadata", src, "aria-label": `Nota de voz ${idx + 1}` }),
-        transcriptions?.[idx] ? /* @__PURE__ */ jsx5(Typography32, { variant: "caption", component: "p", className: "conv-msg-audio-transcript", sx: { mt: 0.5, opacity: 0.85 }, children: transcriptions[idx] }) : null
+        transcriptions?.[idx] ? /* @__PURE__ */ jsx5(Typography29, { variant: "caption", component: "p", className: "conv-msg-audio-transcript", sx: { mt: 0.5, opacity: 0.85 }, children: transcriptions[idx] }) : null
       ] }, `${idx}-${String(src).slice(0, 32)}`))
     }
   );
@@ -3122,7 +5058,7 @@ function UsageDialogMetaPanel({ meta }) {
   )) }) });
 }
 function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
-  const { DialogContent: DialogContent16, Typography: Typography32, Box: Box35, Chip: Chip23, Stack: Stack28, Tooltip: Tooltip18, IconButton: IconButton16 } = getMaterialUI();
+  const { DialogContent: DialogContent16, Typography: Typography29, Box: Box35, Chip: Chip20, Stack: Stack28, Tooltip: Tooltip16, IconButton: IconButton15 } = getMaterialUI();
   const { useMemo: useMemo22, useState: useState36 } = getReact();
   let glass = null;
   try {
@@ -3216,11 +5152,11 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                 headerSx: { borderRadius: "0.75rem 0.75rem 0 0" },
                 bodySx: { pt: { xs: 1.25, sm: 1.5 } },
                 children: [
-                  /* @__PURE__ */ jsx5(Typography32, { variant: "caption", color: "text.secondary", component: "div", className: "conv-usage-dialog__section-sub", sx: { mb: 1 }, children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` }),
+                  /* @__PURE__ */ jsx5(Typography29, { variant: "caption", color: "text.secondary", component: "div", className: "conv-usage-dialog__section-sub", sx: { mb: 1 }, children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` }),
                   archivos.length ? /* @__PURE__ */ jsx5(Stack28, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", sx: { mb: 1 }, children: archivos.map((name) => {
                     const clickable = chunks.some((c) => c.filename === name);
                     return /* @__PURE__ */ jsx5(
-                      Chip23,
+                      Chip20,
                       {
                         size: "small",
                         variant: "outlined",
@@ -3254,9 +5190,9 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                       children: [
                         /* @__PURE__ */ jsxs3(Stack28, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.35 }, children: [
                           /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
-                          /* @__PURE__ */ jsx5(Typography32, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
+                          /* @__PURE__ */ jsx5(Typography29, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
                           c.score != null ? /* @__PURE__ */ jsx5(
-                            Chip23,
+                            Chip20,
                             {
                               size: "small",
                               variant: "outlined",
@@ -3264,10 +5200,10 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                               className: "conv-usage-dialog__chunk-score"
                             }
                           ) : null,
-                          /* @__PURE__ */ jsx5(Tooltip18, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton16, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
+                          /* @__PURE__ */ jsx5(Tooltip16, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton15, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
                         ] }),
                         /* @__PURE__ */ jsx5(
-                          Typography32,
+                          Typography29,
                           {
                             variant: "caption",
                             component: "pre",
@@ -3284,13 +5220,13 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
               }
             ) : /* @__PURE__ */ jsxs3(Box35, { className: "conv-usage-dialog__section-card conv-usage-dialog__section-card--chunks", children: [
               /* @__PURE__ */ jsxs3("div", { className: "conv-usage-dialog__section-head", children: [
-                /* @__PURE__ */ jsx5(Typography32, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: "Fragmentos citados" }),
-                /* @__PURE__ */ jsx5(Typography32, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` })
+                /* @__PURE__ */ jsx5(Typography29, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: "Fragmentos citados" }),
+                /* @__PURE__ */ jsx5(Typography29, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` })
               ] }),
               archivos.length ? /* @__PURE__ */ jsx5(Stack28, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", children: archivos.map((name) => {
                 const clickable = chunks.some((c) => c.filename === name);
                 return /* @__PURE__ */ jsx5(
-                  Chip23,
+                  Chip20,
                   {
                     size: "small",
                     variant: "outlined",
@@ -3324,9 +5260,9 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                   children: [
                     /* @__PURE__ */ jsxs3(Stack28, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.35 }, children: [
                       /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
-                      /* @__PURE__ */ jsx5(Typography32, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
+                      /* @__PURE__ */ jsx5(Typography29, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
                       c.score != null ? /* @__PURE__ */ jsx5(
-                        Chip23,
+                        Chip20,
                         {
                           size: "small",
                           variant: "outlined",
@@ -3334,10 +5270,10 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                           className: "conv-usage-dialog__chunk-score"
                         }
                       ) : null,
-                      /* @__PURE__ */ jsx5(Tooltip18, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton16, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
+                      /* @__PURE__ */ jsx5(Tooltip16, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton15, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
                     ] }),
                     /* @__PURE__ */ jsx5(
-                      Typography32,
+                      Typography29,
                       {
                         variant: "caption",
                         component: "pre",
@@ -3374,8 +5310,8 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
   ] });
 }
 function UsageDialogSection({ section, GlassSection, GlassInner }) {
-  const { Box: Box35, Typography: Typography32, Stack: Stack28 } = getMaterialUI();
-  const { Icon: Icon24 } = UI;
+  const { Box: Box35, Typography: Typography29, Stack: Stack28 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const cost = section?.cost;
   const tokens = section?.tokens;
   const totalCost = Number(cost?.total ?? 0) || 0;
@@ -3395,9 +5331,9 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
         className: "conv-usage-dialog__headline",
         children: [
           /* @__PURE__ */ jsxs3(Box35, { className: "conv-usage-dialog__headline-main", children: [
-            /* @__PURE__ */ jsx5(Typography32, { variant: "overline", className: "conv-usage-dialog__headline-k", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Costo" }),
+            /* @__PURE__ */ jsx5(Typography29, { variant: "overline", className: "conv-usage-dialog__headline-k", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Costo" }),
             /* @__PURE__ */ jsx5(
-              Typography32,
+              Typography29,
               {
                 variant: "h4",
                 component: "span",
@@ -3409,9 +5345,9 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
           ] }),
           /* @__PURE__ */ jsxs3(Stack28, { direction: "row", spacing: 1, alignItems: "center", className: "conv-usage-dialog__headline-meta", children: [
             /* @__PURE__ */ jsxs3(Box35, { className: "conv-usage-dialog__headline-meta-item", children: [
-              /* @__PURE__ */ jsx5(Typography32, { variant: "overline", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Tokens" }),
+              /* @__PURE__ */ jsx5(Typography29, { variant: "overline", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Tokens" }),
               /* @__PURE__ */ jsx5(
-                Typography32,
+                Typography29,
                 {
                   variant: "h6",
                   component: "span",
@@ -3422,9 +5358,9 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
               )
             ] }),
             reasonLabel ? /* @__PURE__ */ jsxs3(Box35, { className: "conv-usage-dialog__headline-meta-item conv-usage-dialog__headline-meta-item--reason", children: [
-              /* @__PURE__ */ jsx5(Typography32, { variant: "overline", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Razonamiento" }),
+              /* @__PURE__ */ jsx5(Typography29, { variant: "overline", sx: { lineHeight: 1, display: "block", opacity: 0.7 }, children: "Razonamiento" }),
               /* @__PURE__ */ jsx5(
-                Typography32,
+                Typography29,
                 {
                   variant: "body1",
                   component: "span",
@@ -3449,8 +5385,8 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
   if (!GlassSection) {
     return /* @__PURE__ */ jsxs3(Box35, { className: `conv-usage-dialog__section-card conv-usage-dialog__section-card--${section.key}`, children: [
       /* @__PURE__ */ jsxs3("div", { className: "conv-usage-dialog__section-head", children: [
-        /* @__PURE__ */ jsx5(Typography32, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: section.title }),
-        /* @__PURE__ */ jsx5(Typography32, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: section.subtitle })
+        /* @__PURE__ */ jsx5(Typography29, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: section.title }),
+        /* @__PURE__ */ jsx5(Typography29, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: section.subtitle })
       ] }),
       body
     ] });
@@ -3461,8 +5397,8 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
       sectionKey: `conv-usage-${section.key}`,
       className: `conv-usage-dialog__glass-section conv-usage-dialog__glass-section--${section.key}`,
       title: /* @__PURE__ */ jsxs3(Stack28, { direction: "row", spacing: 1, alignItems: "baseline", sx: { minWidth: 0, flex: 1 }, children: [
-        /* @__PURE__ */ jsx5(Typography32, { component: "span", variant: "subtitle1", sx: { fontWeight: 700, letterSpacing: -0.2 }, children: section.title }),
-        /* @__PURE__ */ jsx5(Typography32, { component: "span", variant: "caption", color: "text.secondary", sx: { flex: 1, minWidth: 0 }, children: section.subtitle })
+        /* @__PURE__ */ jsx5(Typography29, { component: "span", variant: "subtitle1", sx: { fontWeight: 700, letterSpacing: -0.2 }, children: section.title }),
+        /* @__PURE__ */ jsx5(Typography29, { component: "span", variant: "caption", color: "text.secondary", sx: { flex: 1, minWidth: 0 }, children: section.subtitle })
       ] }),
       icon: section.icon,
       accent: section.accent,
@@ -3640,8 +5576,8 @@ function UsageStatsColumn({ stats, align = "right", msgLabel, fecha, meta, isUse
   ] });
 }
 function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, align = "right" }) {
-  const { Stack: Stack28, IconButton: IconButton16, Tooltip: Tooltip18, CircularProgress: CircularProgress22 } = getMaterialUI();
-  const { Icon: Icon24 } = UI;
+  const { Stack: Stack28, IconButton: IconButton15, Tooltip: Tooltip16, CircularProgress: CircularProgress21 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const rated = calificacion !== void 0 && calificacion !== null;
   const useful = calificacion === 1;
   const notUseful = calificacion === 0;
@@ -3660,6 +5596,8 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
     if (readOnly) return "Calificaci\xF3n no disponible (modo lectura)";
     return "Marcar como no \xFAtil";
   })();
+  const upRatedSx = useful ? { color: "#16a34a !important" } : void 0;
+  const downRatedSx = notUseful ? { color: "#ef4444 !important" } : void 0;
   return /* @__PURE__ */ jsxs3(
     Stack28,
     {
@@ -3667,12 +5605,12 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
       spacing: 0.25,
       alignItems: "center",
       justifyContent: align === "right" ? "flex-end" : "flex-start",
-      className: `conv-msg-rating conv-msg-rating--${align}`,
+      className: `conv-msg-rating conv-msg-rating--${align}${rated ? " conv-msg-rating--rated" : ""}`,
       role: "group",
       "aria-label": "Calificaci\xF3n del mensaje",
       children: [
-        /* @__PURE__ */ jsx5(Tooltip18, { title: upTooltip, arrow: true, children: /* @__PURE__ */ jsx5("span", { children: /* @__PURE__ */ jsx5(
-          IconButton16,
+        /* @__PURE__ */ jsx5(Tooltip16, { title: upTooltip, arrow: true, children: /* @__PURE__ */ jsx5("span", { children: /* @__PURE__ */ jsx5(
+          IconButton15,
           {
             size: "small",
             className: `conv-msg-rating__btn conv-msg-rating__btn--up${useful ? " conv-msg-rating__btn--active" : ""}`,
@@ -3680,11 +5618,19 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
             "aria-pressed": useful,
             disabled: disabled || busy || rated,
             onClick: () => onRate(true),
-            children: busy && !rated ? /* @__PURE__ */ jsx5(CircularProgress22, { size: 16 }) : /* @__PURE__ */ jsx5(Icon24, { icon: useful ? "mdi:thumb-up" : "mdi:thumb-up-outline", size: 18 })
+            sx: upRatedSx,
+            children: busy && !rated ? /* @__PURE__ */ jsx5(CircularProgress21, { size: 16 }) : /* @__PURE__ */ jsx5(
+              Icon26,
+              {
+                icon: useful ? "mdi:thumb-up" : "mdi:thumb-up-outline",
+                size: 18,
+                style: useful ? { color: "#16a34a" } : void 0
+              }
+            )
           }
         ) }) }),
-        /* @__PURE__ */ jsx5(Tooltip18, { title: downTooltip, arrow: true, children: /* @__PURE__ */ jsx5("span", { children: /* @__PURE__ */ jsx5(
-          IconButton16,
+        /* @__PURE__ */ jsx5(Tooltip16, { title: downTooltip, arrow: true, children: /* @__PURE__ */ jsx5("span", { children: /* @__PURE__ */ jsx5(
+          IconButton15,
           {
             size: "small",
             className: `conv-msg-rating__btn conv-msg-rating__btn--down${notUseful ? " conv-msg-rating__btn--active" : ""}`,
@@ -3692,7 +5638,15 @@ function MsgRatingRow({ calificacion, onRate, disabled = false, busy = false, al
             "aria-pressed": notUseful,
             disabled: disabled || busy || rated,
             onClick: () => onRate(false),
-            children: /* @__PURE__ */ jsx5(Icon24, { icon: notUseful ? "mdi:thumb-down" : "mdi:thumb-down-outline", size: 18 })
+            sx: downRatedSx,
+            children: /* @__PURE__ */ jsx5(
+              Icon26,
+              {
+                icon: notUseful ? "mdi:thumb-down" : "mdi:thumb-down-outline",
+                size: 18,
+                style: notUseful ? { color: "#ef4444" } : void 0
+              }
+            )
           }
         ) }) })
       ]
@@ -3704,7 +5658,7 @@ function resolveMsgImensaje(msg) {
   return imensaje > 0 ? imensaje : void 0;
 }
 var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
-  const { Alert: Alert20, Box: Box35 } = getMaterialUI();
+  const { Alert: Alert19, Box: Box35 } = getMaterialUI();
   const [fileSearchOpen, setFileSearchOpen] = useState3(false);
   const meta = roleMetaFor(msg, compactMeta);
   const title = roleTitle(msg, chatUserDisplayName, chatUserNick);
@@ -3808,7 +5762,7 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
                         }
                       ) : null,
                       children: [
-                        msg.streamFailed && msg.streamError && /* @__PURE__ */ jsx5(Alert20, { severity: "warning", sx: { mb: 1.5, py: 0.25, fontSize: "0.78rem" }, children: msg.streamError }),
+                        msg.streamFailed && msg.streamError && /* @__PURE__ */ jsx5(Alert19, { severity: "warning", sx: { mb: 1.5, py: 0.25, fontSize: "0.78rem" }, children: msg.streamError }),
                         msg.contenido?.trim() || msg.imagenes?.length || msg.audios?.length || isStreaming ? /* @__PURE__ */ jsx5(
                           MsgBody,
                           {
@@ -3870,7 +5824,7 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
   );
 }, (prev, next) => prev.msg === next.msg && prev.streamingMsgId === next.streamingMsgId && prev.compactMeta === next.compactMeta && prev.chatUserDisplayName === next.chatUserDisplayName && prev.chatUserNick === next.chatUserNick && prev.showUsageStats === next.showUsageStats && prev.ratingMsgId === next.ratingMsgId && prev.canRate === next.canRate && prev.operativaEnter === next.operativaEnter);
 function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
-  const { Box: Box35, Typography: Typography32 } = getMaterialUI();
+  const { Box: Box35, Typography: Typography29 } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState3(null);
   const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
   const mensajesConStats = useMemo2(
@@ -3881,7 +5835,7 @@ function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chat
   const onImageClick = useMemo2(() => (src) => setLightboxSrc(src), []);
   if (!mensajes?.length) {
     if (emptyHint === null) return null;
-    return /* @__PURE__ */ jsx5(Typography32, { variant: "body2", color: "text.secondary", sx: { textAlign: "center", py: 6 }, children: emptyHint || "Recupera por ID o pega un log para ver el hilo." });
+    return /* @__PURE__ */ jsx5(Typography29, { variant: "body2", color: "text.secondary", sx: { textAlign: "center", py: 6 }, children: emptyHint || "Recupera por ID o pega un log para ver el hilo." });
   }
   return /* @__PURE__ */ jsxs3(Box35, { className: threadClassName || void 0, sx: { width: "100%", maxWidth: "100%" }, children: [
     mensajesConStats.map((m) => /* @__PURE__ */ jsx5(
@@ -3990,1214 +5944,9 @@ function ConvLogThread({
   );
 }
 
-// js/api/portalJwtApi.ts
-var PATYIA_PORTAL_ID = "soporte-staging";
-function authHeaders() {
-  const h = { Accept: "application/json" };
-  if (Session.isLoggedIn()) {
-    Object.assign(h, Session.authHeader(), Session.appHeader());
-  }
-  return h;
-}
-function portalUrl(portal, query = "") {
-  const q = `portal=${encodeURIComponent(portal)}${query ? `&${query}` : ""}`;
-  return Config.apiUrl(`/api/auth/portal-jwt?${q}`);
-}
-async function fetchPortalJwt(portal = PATYIA_PORTAL_ID) {
-  const res = await fetch(portalUrl(portal), { headers: authHeaders() });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No se pudo cargar el JWT del portal");
-  }
-  return data;
-}
-async function savePortalJwt(token, portal = PATYIA_PORTAL_ID) {
-  const res = await fetch(portalUrl(portal), {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ portal, token })
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || "No se pudo guardar el JWT del portal");
-  }
-  return data;
-}
-
-// js/core/patyia-jwt.ts
-var PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
-var PATYIA_API_BASE = "https://ayudascp-ia-staging.azurewebsites.net/api";
-function parseJwtExp(token) {
-  try {
-    const part = String(token || "").trim().split(".")[1];
-    if (!part) return null;
-    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
-    const raw = JSON.parse(json);
-    return typeof raw.exp === "number" ? raw.exp : null;
-  } catch {
-    return null;
-  }
-}
-function isPatyJwtExpired(token, skewSec = 60) {
-  const exp = parseJwtExp(token);
-  if (!exp) return false;
-  return Date.now() / 1e3 >= exp - skewSec;
-}
-function parseJwtClaims(token) {
-  try {
-    const part = String(token || "").trim().split(".")[1];
-    if (!part) return null;
-    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
-    const raw = JSON.parse(json);
-    return { itercero: raw.itercero != null ? String(raw.itercero) : void 0, icontacto: raw.icontacto != null ? String(raw.icontacto) : void 0, nombres: raw.nombres != null ? String(raw.nombres) : void 0, apellidos: raw.apellidos != null ? String(raw.apellidos) : void 0, controlkey: raw.controlkey != null ? String(raw.controlkey) : void 0, iapp: typeof raw.iapp === "number" ? raw.iapp : void 0, idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : void 0 };
-  } catch {
-    return null;
-  }
-}
-function jwtUserDisplayName(claims) {
-  if (!claims) return "";
-  return [claims.nombres, claims.apellidos].filter(Boolean).join(" ").trim();
-}
-function shortDisplayName(full) {
-  const parts = String(full ?? "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "";
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
-  return `${parts[0]} ${parts[2]}`;
-}
-function jwtUserShortName(claims) {
-  if (!claims) return "";
-  const n = String(claims.nombres ?? "").trim().split(/\s+/).filter(Boolean)[0];
-  const a = String(claims.apellidos ?? "").trim().split(/\s+/).filter(Boolean)[0];
-  if (n && a) return `${n} ${a}`;
-  if (n) return n;
-  if (a) return a;
-  return shortDisplayName(jwtUserDisplayName(claims));
-}
-function cachePatyJwt(rec) {
-  const prevRaw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
-  let prev = null;
-  try {
-    prev = prevRaw ? JSON.parse(prevRaw) : null;
-  } catch {
-    prev = null;
-  }
-  sessionStorage.setItem(PATYIA_JWT_STORAGE_KEY, JSON.stringify(rec));
-  const changed = !prev || prev.token !== rec.token || String(prev.savedBy ?? "").toUpperCase() !== String(rec.savedBy ?? "").toUpperCase();
-  if (changed) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
-  return rec;
-}
-function loadPatyJwt() {
-  try {
-    const raw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.token || typeof parsed.token !== "string") return null;
-    if (isPatyJwtExpired(parsed.token)) {
-      sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
-      return null;
-    }
-    parsed.claims = parseJwtClaims(parsed.token) || parsed.claims || {};
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-function buildPatyJwtRecord(token, savedBy, expiresAt) {
-  const claims = parseJwtClaims(token);
-  if (!claims?.itercero) throw new Error("Token JWT inv\xE1lido o sin itercero");
-  const exp = parseJwtExp(token);
-  return { token: token.trim(), savedBy: String(savedBy || "").trim().toUpperCase(), savedAt: (/* @__PURE__ */ new Date()).toISOString(), expiresAt: expiresAt ?? (exp ? new Date(exp * 1e3).toISOString() : null), claims };
-}
-function savePatyJwt(token, savedBy, expiresAt) {
-  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, expiresAt));
-}
-async function savePatyJwtAsync(token, savedBy) {
-  const saved = await savePortalJwt(token.trim(), PATYIA_PORTAL_ID);
-  return cachePatyJwt(buildPatyJwtRecord(token, savedBy, saved.expiresAt));
-}
-function clearPatyJwtLocal(options) {
-  const had = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
-  sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
-  if (!options?.silent && had) window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
-}
-async function hydratePatyJwtFromServer(username) {
-  const u = String(username || "").trim().toUpperCase();
-  if (!u) {
-    clearPatyJwtLocal({ silent: true });
-    return null;
-  }
-  const cached = loadPatyJwt();
-  if (cached && cached.savedBy?.toUpperCase() === u) {
-    if (!isFaithfulImpersonation() || !cached.actingAsUsername) return cached;
-    clearPatyJwtLocal({ silent: true });
-  }
-  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
-  try {
-    const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
-    if (!data.token || isPatyJwtExpired(data.token)) {
-      clearPatyJwtLocal({ silent: true });
-      return null;
-    }
-    return savePatyJwt(data.token, u, data.expiresAt ?? null);
-  } catch {
-    return loadPatyJwt();
-  }
-}
-function isFaithfulImpersonation() {
-  return Boolean(Session.isViewingAs?.());
-}
-function canInteractPatyChat(sessionUser, jwt) {
-  const u = String(sessionUser || "").trim().toUpperCase();
-  if (!u || !jwt?.token) return false;
-  if (isFaithfulImpersonation()) {
-    return jwt.savedBy?.toUpperCase() === u && !jwt.actingAsUsername;
-  }
-  if (jwt.savedBy?.toUpperCase() === u) return true;
-  if (!Session.can("patyia.chat.interact")) return false;
-  if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
-  return false;
-}
-function canAdminPortalJwt() {
-  if (isFaithfulImpersonation()) return false;
-  return Session.can("patyia.jwt.admin");
-}
-function convBelongsToJwt(conv, claims) {
-  if (!claims?.itercero) return false;
-  return String(conv.itercero ?? "") === String(claims.itercero) && String(conv.icontacto ?? "") === String(claims.icontacto ?? "");
-}
-function findAuditRowForSessionUser(rows, _sessionUser) {
-  return rows.find((r) => r.es_sesion) ?? null;
-}
-function auditRowToBrowseScope(row) {
-  return { itercero: row.itercero, icontacto: row.icontacto, nombre: row.nombre ? shortDisplayName(row.nombre) : null };
-}
-async function resolveSessionBrowseScope(sessionUser) {
-  const u = String(sessionUser ?? "").trim();
-  if (!u) return null;
-  let page = 1;
-  const limit = 100;
-  while (page <= 5) {
-    const audit = await fetchTercerosAudit({ page, limit, appUser: u });
-    const match = findAuditRowForSessionUser(audit.rows, u);
-    if (match) return auditRowToBrowseScope(match);
-    if (page >= (audit.pages || 1)) break;
-    page += 1;
-  }
-  return null;
-}
-function browseScopeKey(scope) {
-  if (!scope?.itercero || !scope?.icontacto) return "";
-  return `${scope.itercero}|${scope.icontacto}`;
-}
-
-// js/api/issListFilter.ts
-var ISS_LIST_FILTER_QUERY_PARAM = "f";
-var CONVERSACIONES_LIST_SORT_DEFAULT = "-iconversacion";
-function encodeIssListFilterB64(filter) {
-  const json = JSON.stringify(filter);
-  return btoa(unescape(encodeURIComponent(json)));
-}
-function buildConversacionesListFilter(input = {}) {
-  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
-  const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
-  const sort = String(input.sort || CONVERSACIONES_LIST_SORT_DEFAULT).trim() || CONVERSACIONES_LIST_SORT_DEFAULT;
-  const search = String(input.search ?? "").trim().slice(0, 200);
-  return {
-    limit,
-    offset,
-    sort,
-    ...search ? { search } : {}
-  };
-}
-function conversacionesListQueryParams(input = {}) {
-  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
-  const page = Math.max(1, Math.floor(Number(input.page) || 1));
-  const offset = (page - 1) * limit;
-  const qs3 = new URLSearchParams();
-  qs3.set(ISS_LIST_FILTER_QUERY_PARAM, encodeIssListFilterB64(buildConversacionesListFilter({
-    search: input.search,
-    limit,
-    offset,
-    sort: input.sort
-  })));
-  const itercero = String(input.itercero ?? "").trim();
-  const icontacto = String(input.icontacto ?? "").trim();
-  if (itercero && icontacto) {
-    qs3.set("itercero", itercero);
-    qs3.set("icontacto", icontacto);
-  }
-  return qs3;
-}
-
-// js/api/patyiaTokens.ts
-function patyAuthHeaders(jwt, extra = {}) {
-  return {
-    Authorization: `Bearer ${jwt.token}`,
-    Accept: "application/json",
-    ...extra
-  };
-}
-
-// js/api/patyiaChatApi.ts
-function authHeaders2(jwt, extra = {}) {
-  return patyAuthHeaders(jwt, extra);
-}
-function unwrapBody(data) {
-  const d = data;
-  if (d?.respuesta && typeof d.respuesta === "object") return d.respuesta;
-  if (d?.body && typeof d.body === "object") return d.body;
-  return d;
-}
-async function jsonFetch(path, jwt, init) {
-  const base = resolveIssApiBase();
-  const res = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      ...authHeaders2(jwt),
-      ...init?.method && init.method !== "GET" ? { "Content-Type": "application/json" } : {},
-      ...init?.headers || {}
-    }
-  });
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    let msg = res.statusText;
-    if (ct.includes("json")) {
-      try {
-        const j = await res.json();
-        const inner = j.respuesta || j.body || j;
-        msg = String(inner?.error || j.error || j.message || msg);
-      } catch {
-      }
-    }
-    throw new Error(msg || `HTTP ${res.status}`);
-  }
-  if (ct.includes("json")) {
-    const raw = await res.json();
-    return unwrapBody(raw);
-  }
-  return {};
-}
-function buildConversacionesListPath(input = {}) {
-  const qs3 = conversacionesListQueryParams({
-    page: input.page,
-    limit: input.limit,
-    search: input.search,
-    sort: input.sort,
-    itercero: input.itercero,
-    icontacto: input.icontacto
-  });
-  return `/conversaciones?${qs3.toString()}`;
-}
-async function listConversaciones(jwt, input = {}) {
-  const page = Math.max(1, Math.floor(Number(input.page) || 1));
-  const limit = Math.min(100, Math.max(1, Math.floor(Number(input.limit) || 10)));
-  const body = await jsonFetch(buildConversacionesListPath(input), jwt);
-  const conversaciones = Array.isArray(body.conversaciones) ? body.conversaciones : [];
-  const total = Number(body.total ?? 0) || 0;
-  const resLimit = Number(body.limit ?? limit) || limit;
-  const resPage = Number(body.page ?? page) || page;
-  const pages = Number(body.pages ?? 0) || (total > 0 ? Math.ceil(total / resLimit) : 0);
-  return { conversaciones, total, page: resPage, limit: resLimit, pages };
-}
-async function getConversacion(jwt, id) {
-  return jsonFetch(`/conversacion/${id}`, jwt);
-}
-async function getConversacionLogs(jwt, id) {
-  return jsonFetch(`/conversacion/logs/${id}`, jwt);
-}
-function convLogFromDetalle(detail, id) {
-  const raw = detail?.convLog;
-  if (!raw || !Array.isArray(raw.mensajes) || !raw.mensajes.length) return null;
-  const convId = Number(raw.iconversacion ?? detail?.iconversacion ?? id ?? 0);
-  return { ...raw, iconversacion: convId > 0 ? convId : raw.iconversacion };
-}
-async function getConversacionLogsWithRetry(jwt, id, { minMensajes = 0, attempts = 8, delayMs = 300 } = {}) {
-  let last = null;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const detail = await getConversacionLogs(jwt, id);
-      last = detail;
-      const n = convLogFromDetalle(detail, id)?.mensajes?.length ?? 0;
-      if (!minMensajes || n >= minMensajes) return detail;
-    } catch (e) {
-      if (i === attempts - 1 && !last) throw e;
-    }
-    if (i < attempts - 1) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, delayMs);
-      });
-    }
-  }
-  if (!last) throw new Error(`Log conv-${id} no encontrado`);
-  return last;
-}
-async function deleteConversacion(jwt, id) {
-  await jsonFetch(`/conversacion/${id}`, jwt, { method: "DELETE" });
-}
-async function postMensajeCalificado(jwt, input) {
-  return jsonFetch("/mensaje", jwt, {
-    method: "POST",
-    body: JSON.stringify(input)
-  });
-}
-function ensureBase64DataUrl(src) {
-  const s = String(src || "").trim();
-  if (!s) return s;
-  if (s.startsWith("data:")) return s;
-  if (/^[A-Za-z0-9+/=\s]+$/.test(s.replace(/\s/g, ""))) {
-    return `data:image/png;base64,${s.replace(/\s/g, "")}`;
-  }
-  return s;
-}
-function buildConversacionPostBody(input) {
-  const text = String(input.prompt || "").trim();
-  const imagenes = (input.imagenes || []).map(ensureBase64DataUrl).filter(Boolean);
-  const audios = (input.audios || []).filter(Boolean);
-  const hasMedia = imagenes.length > 0 || audios.length > 0;
-  const body = {
-    prompt: text || (imagenes.length ? "(imagen adjunta)" : audios.length ? "(nota de voz)" : "")
-  };
-  if (input.iconversacion) body.iconversacion = input.iconversacion;
-  if (imagenes.length) body.imagenes = imagenes;
-  if (audios.length) body.audios = audios;
-  if (input.mode && String(input.mode).trim().toLowerCase() !== "patyia") {
-    body.mode = String(input.mode).trim().toLowerCase();
-  }
-  if (!String(body.prompt || "").trim() && hasMedia) {
-    body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
-  }
-  return body;
-}
-function formatConversacionPostBodyPreview(body, { maxB64 = 72 } = {}) {
-  const clone = JSON.parse(JSON.stringify(body));
-  if (Array.isArray(clone.imagenes)) {
-    clone.imagenes = clone.imagenes.map((img, i) => {
-      const s = String(img ?? "");
-      if (s.length <= maxB64 + 24) return s;
-      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
-      return `${s.slice(0, maxB64)}\u2026 [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, img ${i + 1}]`;
-    });
-  }
-  if (Array.isArray(clone.audios)) {
-    clone.audios = clone.audios.map((aud, i) => {
-      const s = String(aud ?? "");
-      if (s.length <= maxB64 + 24) return s;
-      const mime = s.startsWith("data:") ? s.slice(5, s.indexOf(";")) || "?" : "?";
-      return `${s.slice(0, maxB64)}\u2026 [base64 ${mime}, ${s.length.toLocaleString("es-CO")} chars, audio ${i + 1}]`;
-    });
-  }
-  return JSON.stringify(clone, null, 2);
-}
-async function sendConversacionStream(jwt, input, onDelta) {
-  const body = buildConversacionPostBody(input);
-  const base = resolveIssApiBase();
-  const res = await fetch(`${base}/conversacion`, {
-    method: "POST",
-    headers: authHeaders2(jwt, {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream"
-    }),
-    body: JSON.stringify(body)
-  });
-  let streamingText = "";
-  const finalPayload = await readPatyiaSseStream(res, (ev) => {
-    if (ev.event === "begin") {
-      onDelta("", ev.data);
-      return;
-    }
-    if ((ev.event === "message" || ev.event === "end") && typeof ev.data.respuesta === "string") {
-      streamingText = ev.data.respuesta;
-      onDelta(streamingText, ev.data);
-    }
-    if (ev.event === "error") {
-      throw new Error(String(ev.data.respuesta || ev.data.error || "Error en stream"));
-    }
-  });
-  return {
-    ...finalPayload,
-    respuesta: streamingText || String(finalPayload.respuesta || "")
-  };
-}
-
-// js/api/systemConfigApi.ts
-var OPENAI_DEFAULTS = {
-  max_num_results: 8,
-  modeloOperativo: "gpt-4.1-nano",
-  modeloConversacion: "gpt-5-nano"
-};
-function systemApiBase() {
-  return resolveIssApiBase();
-}
-function systemApiHeaders(extra = {}) {
-  const h = {
-    Accept: "application/json",
-    "X-Patyia-Auth-Mode": "w",
-    ...extra
-  };
-  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
-  return h;
-}
-function unwrapBody2(data) {
-  const d = data;
-  const enc = d?.encabezado;
-  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
-    const e = enc;
-    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
-  }
-  let inner = d;
-  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
-    inner = d.respuesta;
-  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
-    inner = d.body;
-  }
-  const nested = inner;
-  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
-    inner = nested.respuesta;
-  }
-  return inner;
-}
-async function jsonFetch2(path, init) {
-  const res = await fetch(`${systemApiBase()}${path}`, init);
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    let msg = res.statusText;
-    if (ct.includes("json")) {
-      try {
-        const j = await res.json();
-        const enc = j.encabezado;
-        if (enc?.resultado === false && enc.mensaje) msg = String(enc.mensaje);
-        else {
-          const inner = j.respuesta || j.body || j;
-          msg = String(inner?.message || inner?.error || j.message || j.error || msg);
-        }
-      } catch {
-      }
-    }
-    throw new Error(msg || `HTTP ${res.status}`);
-  }
-  if (!ct.includes("json")) {
-    throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
-  }
-  const raw = await res.json();
-  return unwrapBody2(raw);
-}
-function permEntityKey(entry) {
-  return String(entry?.ientity ?? entry?.iusuario ?? "").trim();
-}
-function normalizePermEntry(entry) {
-  const key = permEntityKey(entry);
-  return {
-    iusuario: key,
-    ientity: key || void 0,
-    itipo: entry?.itipo === "user" ? "user" : "role",
-    permisos: entry?.permisos && typeof entry.permisos === "object" ? entry.permisos : {},
-    bactivo: entry?.bactivo !== false
-  };
-}
-function normalizeHierarchyNode(node) {
-  const iusuario = permEntityKey(node).toLowerCase();
-  return {
-    iusuario,
-    jerarquia: String(node.jerarquia ?? iusuario ?? "").trim(),
-    namedisplay: node.namedisplay != null ? String(node.namedisplay) : null,
-    descripcion: node.descripcion != null ? String(node.descripcion) : null
-  };
-}
-function normalizePermissionsPayload(raw) {
-  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e));
-  const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
-  return { ...raw, roles, users };
-}
-async function fetchOpenAiSystemConfig() {
-  const body = await jsonFetch2("/system/openai", { method: "GET", headers: systemApiHeaders() });
-  return { ...OPENAI_DEFAULTS, ...body.config ?? {}, canEdit: !!body.canEdit };
-}
-async function putOpenAiSystemConfig(config) {
-  const { canEdit: _c, ...payload } = config;
-  const body = await jsonFetch2("/system/openai", {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const saved = body.config ?? payload;
-  window.dispatchEvent(new CustomEvent("isa-patyia:openai-config", { detail: saved }));
-  return saved;
-}
-async function fetchPromptsOperativosConfig() {
-  const body = await jsonFetch2("/system/prompts-operativos", { method: "GET", headers: systemApiHeaders() });
-  return { config: body.config ?? {}, canEdit: !!body.canEdit };
-}
-async function putPromptsOperativosConfig(config) {
-  const body = await jsonFetch2("/system/prompts-operativos", {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(config)
-  });
-  return body.config ?? config;
-}
-async function fetchInstruccionesSystemConfig() {
-  const body = await jsonFetch2("/system/instrucciones", { method: "GET", headers: systemApiHeaders() });
-  const rows = Array.isArray(body.rows) ? body.rows : [];
-  return {
-    rows,
-    canEdit: !!body.canEdit,
-    storage: body.storage,
-    schema: body.schema,
-    rowCount: Number(body.rowCount ?? rows.length) || rows.length
-  };
-}
-async function putInstruccionUpsert(payload) {
-  return jsonFetch2("/system/instrucciones", {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-}
-async function putInstruccionesPublish(sql) {
-  return jsonFetch2("/system/instrucciones", {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ sql })
-  });
-}
-var PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
-function permissionsMeSessionKey() {
-  if (!Session.isLoggedIn()) return "anon";
-  const tok = Session?.current?.()?.token;
-  const user = Session.username?.() || Session?.current?.()?.username;
-  return String(tok || user || "anon").trim();
-}
-async function fetchPermissionsMe(opts) {
-  if (!Session.isLoggedIn()) return null;
-  const sessionKey = permissionsMeSessionKey();
-  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
-    return PERMISSIONS_ME_CACHE.value;
-  }
-  const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...systemApiHeaders(), Accept: "application/json" },
-    credentials: "omit"
-  });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody2(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
-}
-function applyPermissionsMeToKanban(data, me) {
-  if (!me) return data;
-  return {
-    ...data,
-    canManage: me.capabilities.canManagePermissions,
-    canAssignUserRoles: me.capabilities.canAssignUserRoles,
-    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
-    actorRoles: me.roles,
-    _permissionsMe: me
-  };
-}
-async function fetchHierarchy() {
-  const raw = await jsonFetch2(`/system/permisos/hierarchy`, {
-    method: "GET",
-    headers: systemApiHeaders()
-  });
-  const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((r) => normalizeHierarchyNode(r)).filter((r) => r.iusuario && r.jerarquia);
-  return { roles, count: roles.length || Number(raw?.count ?? 0) || 0 };
-}
-async function createHierarchyRole(input) {
-  return jsonFetch2(`/system/permisos/hierarchy/roles`, {
-    method: "POST",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-}
-async function updateHierarchyRole(name, input) {
-  return jsonFetch2(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-}
-async function deleteHierarchyRole(name) {
-  await jsonFetch2(`/system/permisos/hierarchy/roles/${encodeURIComponent(name)}`, {
-    method: "DELETE",
-    headers: systemApiHeaders()
-  });
-}
-async function fetchPermisos(opts) {
-  const qs3 = new URLSearchParams();
-  const search = String(opts?.search ?? "").trim();
-  const role = String(opts?.role ?? "").trim();
-  if (search) qs3.set("search", search);
-  if (role) qs3.set("role", role);
-  const q = qs3.toString();
-  const [raw, me] = await Promise.all([
-    jsonFetch2(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
-    fetchPermissionsMe().catch(() => null)
-  ]);
-  return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
-}
-async function searchPermisosUsers(query = "", opts) {
-  const q = String(query ?? "").trim();
-  const result = await fetchPermisos({
-    ...q ? { search: q } : {},
-    ...opts?.role ? { role: opts.role } : {}
-  });
-  return (result.users ?? []).map((e) => ({
-    username: String(e.iusuario ?? "").trim().toUpperCase(),
-    displayName: (() => {
-      const p = e.permisos;
-      const name = p?.nombre ?? p?.namedisplay;
-      return name != null && String(name).trim() ? String(name).trim() : null;
-    })()
-  })).filter((u) => u.username);
-}
-async function putPermisoRolePath(name, permisos, bactivo) {
-  const role = encodeURIComponent(String(name).trim().toLowerCase().replace(/^role:/, ""));
-  const body = { permisos };
-  if (bactivo !== void 0) body.bactivo = bactivo;
-  return jsonFetch2(`/system/permisos/roles/${role}`, {
-    method: "PUT",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-}
-async function patchUsuarioRoles(username, body) {
-  const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
-    method: "PATCH",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-}
-async function addUsuarioRole(username, role) {
-  const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
-    method: "PATCH",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ toRole: String(role).trim().toLowerCase(), mode: "add" })
-  });
-}
-async function removeUsuarioRole(username, role) {
-  const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch2(`/system/permisos/usuarios/${u}/roles`, {
-    method: "PATCH",
-    headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ fromRole: String(role).trim().toLowerCase(), mode: "remove" })
-  });
-}
-function requireAppSession(onNeedLogin) {
-  if (Session.isLoggedIn()) return true;
-  onNeedLogin?.();
-  return false;
-}
-
-// js/tools/roleHierarchy.js
-var DEFAULT_ROLE_JERARQUIA = {
-  visitante: "0",
-  dev: "0.0",
-  dev_lead: "0.0.0",
-  dev_iss: "0.0.1",
-  admn: "0.1",
-  auditador: "0.1.0",
-  admn_isapatyia: "0.1.0.0"
-};
-var DEFAULT_FOR_UNKNOWN = "999";
-function compareHierarchy(a, b) {
-  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
-  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
-  const len = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < len; i++) {
-    const av = aParts[i] ?? 0;
-    const bv = bParts[i] ?? 0;
-    if (av !== bv) return av - bv;
-  }
-  return 0;
-}
-function getRoleJerarquia(roleName, permisos) {
-  if (permisos && typeof permisos === "object") {
-    const j = permisos.jerarquia;
-    if (typeof j === "string" && j.trim()) return j.trim();
-  }
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
-}
-function ancestorsFromPath(jerarquia) {
-  const parts = String(jerarquia ?? "").split(".").filter(Boolean);
-  const out = [];
-  for (let i = parts.length - 1; i >= 0; i--) {
-    out.push(parts.slice(0, i + 1).join("."));
-  }
-  return out;
-}
-function isSameInheritanceLine(a, b) {
-  const x = String(a ?? "").trim();
-  const y = String(b ?? "").trim();
-  if (!x || !y) return false;
-  if (x === y) return true;
-  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
-}
-function canManageRole(actorJerarquia, targetJerarquia) {
-  const target = String(targetJerarquia ?? "").trim();
-  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
-  return isSameInheritanceLine(actorJerarquia, target);
-}
-function actorCanManageTarget(actorJerarquias, targetJerarquia) {
-  for (const j of actorJerarquias ?? []) {
-    if (canManageRole(j, targetJerarquia)) return true;
-  }
-  return false;
-}
-function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
-  return (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter((r) => r && r !== "visitante").map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
-}
-function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
-  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
-  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
-  jerarquias.sort((a, b) => {
-    const depth = (s) => String(s).split(".").filter(Boolean).length;
-    const d = depth(b) - depth(a);
-    if (d !== 0) return d;
-    return compareHierarchy(a, b);
-  });
-  return jerarquias[0];
-}
-function formatJerarquiaLabel(jerarquia) {
-  if (jerarquia == null || jerarquia === "") return "";
-  return `(${jerarquia})`;
-}
-function isBranchZero(jerarquia) {
-  const j = String(jerarquia ?? "").trim();
-  return j === "0" || j.startsWith("0.");
-}
-
-// js/tools/roleCanonicalMeta.js
-var CANONICAL_ROLE_META = {
-  dev: {
-    namedisplay: "Desarrollador b\xE1sico",
-    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
-  },
-  admn: {
-    namedisplay: "Admn b\xE1sico",
-    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
-  },
-  admn_isapatyia: {
-    namedisplay: "Admn ISA-Paty",
-    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
-  }
-};
-function canonicalRoleMeta(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return CANONICAL_ROLE_META[key] ?? null;
-}
-
-// js/api/sessionApi.ts
-function formatRoleTitle(roleName) {
-  return String(roleName ?? "").split("_").map((part) => {
-    const p = part.toLowerCase();
-    if (p === "iss" || p === "isw") return p.toUpperCase();
-    if (!p) return "";
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  }).filter(Boolean).join(" ");
-}
-function roleLabel(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  if (!key) return "";
-  const canon = canonicalRoleMeta(key);
-  if (canon?.namedisplay) return canon.namedisplay;
-  return formatRoleTitle(key);
-}
-function pickPrimaryIssRole(roles) {
-  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
-  if (!list.length) return "";
-  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
-  const elevated = list.filter((r) => r !== "visitante");
-  return elevated[0] ?? list[0];
-}
-var INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-var ME_CAPS = {};
-var ME_CAPS_KEY = "";
-var ME_ISS_ROLES = [];
-var ME_LOGIN_ROLE = "";
-var ME_CAPS_BOOTSTRAP_TS = 0;
-var ME_CAPS_INFLIGHT = null;
-var ME_CAPS_RETRY_TIMER = null;
-var ME_SERVER_INSTRUCCIONES_EDIT = null;
-function sessionCacheKey() {
-  if (!Session.isLoggedIn()) return "";
-  const tok = Session?.current?.()?.token;
-  const user = Session.username?.() || Session?.current?.()?.username;
-  return String(tok || user || "").trim();
-}
-function localMeCaps() {
-  if (!Session.isLoggedIn()) return {};
-  const key = sessionCacheKey();
-  if (key !== ME_CAPS_KEY) return {};
-  return ME_CAPS;
-}
-var ME_CAPS_FETCH_GUARD_MS = 5e3;
-var ME_CAPS_REENTRY_GUARD_MS = 1500;
-async function primeMeCaps(force = false) {
-  if (!Session.isLoggedIn()) return;
-  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
-  const now = Date.now();
-  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
-  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
-  ME_CAPS_INFLIGHT = (async () => {
-    let ok = false;
-    try {
-      const me = await fetchPermissionsMe({ force });
-      if (me?.capabilities) {
-        ME_CAPS_KEY = sessionCacheKey();
-        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
-        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
-        ME_CAPS = {
-          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
-          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
-          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
-          canEditSwagger: !!me.capabilities.canEditSwagger,
-          canOverrideSampling: !!me.capabilities.canOverrideSampling,
-          canManagePermissions: !!me.capabilities.canManagePermissions,
-          canImpersonate: !!me.capabilities.canImpersonate,
-          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
-          canAccessOthers: !!me.capabilities.canAccessOthers,
-          canViewKanban: !!me.capabilities.canViewKanban,
-          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
-          canViewLogs: !!me.capabilities.canViewLogs,
-          canViewPrompts: !!me.capabilities.canViewPrompts,
-          canViewChat: !!me.capabilities.canViewChat,
-          canViewConfig: !!me.capabilities.canViewConfig,
-          canSendChat: !!me.capabilities.canSendChat
-        };
-        ME_CAPS_BOOTSTRAP_TS = Date.now();
-        ok = true;
-        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
-      }
-    } catch {
-    }
-    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
-      ME_CAPS_RETRY_TIMER = setTimeout(() => {
-        ME_CAPS_RETRY_TIMER = null;
-        void primeMeCaps(true);
-      }, 4e3);
-    }
-  })().finally(() => {
-    ME_CAPS_INFLIGHT = null;
-  });
-  return ME_CAPS_INFLIGHT;
-}
-function clearMeCaps() {
-  ME_CAPS = {};
-  ME_CAPS_KEY = "";
-  ME_ISS_ROLES = [];
-  ME_LOGIN_ROLE = "";
-  ME_CAPS_BOOTSTRAP_TS = 0;
-  ME_SERVER_INSTRUCCIONES_EDIT = null;
-  if (ME_CAPS_RETRY_TIMER) {
-    clearTimeout(ME_CAPS_RETRY_TIMER);
-    ME_CAPS_RETRY_TIMER = null;
-  }
-}
-function setServerInstruccionesCanEdit(v) {
-  ME_SERVER_INSTRUCCIONES_EDIT = v;
-  window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
-}
-function notifyAuth() {
-  window.dispatchEvent(new Event(Session.EVENT));
-  window.dispatchEvent(new Event("patyia-apptools:auth"));
-  window.dispatchEvent(new Event("isa-patyia:auth"));
-}
-var isLoggedIn = () => Session.isLoggedIn();
-var can = (cap) => Session.can(cap);
-var blockReason = (cap) => Session.blockReason(cap);
-function canEditInstrucciones() {
-  return !!localMeCaps().canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
-}
-function canEditPromptsOperativos() {
-  return !!localMeCaps().canEditPromptsOperativos;
-}
-function canAccessOthers() {
-  return !!localMeCaps().canAccessOthers;
-}
-function instruccionesPublishCap() {
-  return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
-}
-async function login(user, pass, opts) {
-  const session = await Session.login(user, pass, opts);
-  notifyAuth();
-  void primeMeCaps(true);
-  return session;
-}
-function logout() {
-  Session.logout();
-  clearMeCaps();
-  notifyAuth();
-}
-async function bootMeCaps() {
-  return primeMeCaps(true);
-}
-function resolveDisplayRole() {
-  if (!Session.isLoggedIn()) return "";
-  const key = sessionCacheKey();
-  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
-    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
-  }
-  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return roleLabel(ME_LOGIN_ROLE);
-  const sl = Session.current()?.role;
-  return sl ? roleLabel(sl) : "";
-}
-var clearSession = logout;
-function getSession() {
-  const s = Session.current();
-  if (!s) return null;
-  return {
-    username: Session.username(),
-    realUsername: Session.realUsername(),
-    viewAsUsername: Session.viewAsUsername(),
-    role: resolveDisplayRole(),
-    expiresAt: s.expiresAt,
-    sessionToken: s.token,
-    app: Session.appId(),
-    capabilities: Session.capabilities()
-  };
-}
-function auditAuthor() {
-  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
-  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
-  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
-  return real || viewAs || "";
-}
-function humanPermissionError(err, cap) {
-  return window.ISAFront.humanPermissionError(err, cap, blockReason);
-}
-function handleApiError(err, cap) {
-  window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
-}
-(window.ISA = window.ISA || {}).AppSession = {
-  current: () => Session.current(),
-  isLoggedIn,
-  username: () => Session.username(),
-  capabilities: () => Session.capabilities(),
-  can,
-  blockReason,
-  login,
-  logout,
-  refreshProfile: () => Session.refreshProfile(),
-  clearSession,
-  getSession,
-  resolveDisplayRole
-};
-
-// js/api/apiClient.ts
-var bridgeHttp = window.ISAFront.createCapFetch({
-  Session,
-  Config,
-  getApiBase: patyiaCapFetchBase,
-  localDirect: [
-    { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") }
-  ],
-  orchOnline: PATYIA_BRIDGE_URL,
-  orchOnlineInLocal: true,
-  isLocal: isLocalMode
-});
-var capFetch = bridgeHttp.capFetch;
-var apiUrl = bridgeHttp.apiUrl;
-var rowVal = bridgeHttp.rowVal;
-function unwrapIssEnvelope(raw) {
-  const d = raw;
-  const enc = d?.encabezado;
-  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
-    const e = enc;
-    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
-  }
-  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
-    return d.respuesta;
-  }
-  if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
-    return d.body;
-  }
-  return d;
-}
-function patyiaBridgePath(path) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return p;
-}
-async function fetchInstruccionesPaty() {
-  const data = await fetchInstruccionesSystemConfig();
-  setServerInstruccionesCanEdit(!!data.canEdit);
-  return { rows: data.rows, canEdit: !!data.canEdit };
-}
-function publishInstruccionesPaty(sql) {
-  if (!canEditInstrucciones()) {
-    throw new Error(
-      blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
-    );
-  }
-  return putInstruccionesPublish(sql);
-}
-async function upsertInstruccionPaty(payload) {
-  if (!canEditInstrucciones()) {
-    throw new Error(
-      blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones"
-    );
-  }
-  return putInstruccionUpsert(payload);
-}
-function isConvNotFound(err) {
-  const status = err && typeof err === "object" ? Number(err.status) : 0;
-  if (status === 404) return true;
-  const msg = err instanceof Error ? err.message : String(err ?? "");
-  return /not found|no encontrad|\b404\b/i.test(msg);
-}
-async function fetchConvLogForQa(id) {
-  const convId = Number(id);
-  if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inv\xE1lido");
-  const jwt = loadPatyJwt();
-  if (jwt?.token && !isPatyJwtExpired(jwt.token)) {
-    try {
-      const detail = await getConversacionLogs(jwt, convId);
-      const log = convLogFromDetalle(detail, convId);
-      if (log?.mensajes?.length) return log;
-    } catch (e) {
-      if (!isConvNotFound(e)) throw e;
-    }
-  }
-  return fetchConvLogById(convId);
-}
-async function fetchConvLogById(id) {
-  const convId = Number(id);
-  if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inv\xE1lido");
-  const paths = [
-    patyiaBridgePath(`/conversacion/${convId}/log`),
-    patyiaBridgePath(`/conversacion/logs/${convId}`)
-  ];
-  let routeMiss = null;
-  for (const path of paths) {
-    try {
-      const data = await capFetch(path, { method: "GET" });
-      const log = data.convLog ?? data.log ?? data.body?.convLog ?? data.body?.log;
-      if (!log || !Array.isArray(log.mensajes)) {
-        throw new Error(String(data.error || `Log conv-${convId} no encontrado`));
-      }
-      log.iconversacion = log.iconversacion || convId;
-      return log;
-    } catch (e) {
-      const err = e;
-      const detail = err.data?.error?.trim();
-      if (detail) throw new Error(detail);
-      if (err.status === 404 && !detail) {
-        routeMiss = err;
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw routeMiss ?? new Error(`Log conv-${convId} no encontrado`);
-}
-async function fetchConvLogByIdWithRetry(id, { minMensajes = 0, attempts = 8, delayMs = 300, qa = false } = {}) {
-  const load = qa ? fetchConvLogForQa : fetchConvLogById;
-  let last = null;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const log = await load(id);
-      last = log;
-      const n = Array.isArray(log.mensajes) ? log.mensajes.length : 0;
-      if (!minMensajes || n >= minMensajes) return log;
-    } catch (e) {
-      if (i === attempts - 1 && !last) throw e;
-    }
-    if (i < attempts - 1) {
-      await new Promise((resolve) => {
-        setTimeout(resolve, delayMs);
-      });
-    }
-  }
-  return last;
-}
-async function fetchTercerosAudit(input = {}) {
-  const params = new URLSearchParams();
-  params.set("page", String(input.page ?? 1));
-  params.set("limit", String(input.limit ?? 20));
-  if (input.q?.trim()) params.set("q", input.q.trim());
-  if (input.jwtTercero?.trim()) params.set("jwtTercero", input.jwtTercero.trim());
-  if (input.jwtContacto?.trim()) params.set("jwtContacto", input.jwtContacto.trim());
-  if (input.jwtNombre?.trim()) params.set("jwtNombre", input.jwtNombre.trim());
-  if (input.appUser?.trim()) params.set("appUser", input.appUser.trim());
-  let raw;
-  try {
-    raw = await capFetch(`${patyiaBridgePath("/auditoria/terceros")}?${params.toString()}`, { method: "GET" });
-  } catch (err) {
-    if (isLocalMode() && input.jwtToken) return fetchTercerosAuditFromLocalConversaciones(input);
-    throw err;
-  }
-  const data = unwrapIssEnvelope(raw);
-  if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar terceros"));
-  return {
-    ok: true,
-    rows: Array.isArray(data.rows) ? data.rows : [],
-    total: Number(data.total ?? 0) || 0,
-    page: Number(data.page ?? input.page ?? 1) || 1,
-    limit: Number(data.limit ?? input.limit ?? 20) || 20,
-    pages: Number(data.pages ?? 0) || 0
-  };
-}
-async function fetchTercerosAuditFromLocalConversaciones(input) {
-  const limit = input.limit ?? 20;
-  const groups = /* @__PURE__ */ new Map();
-  for (let page2 = 1; page2 <= 5; page2 += 1) {
-    const params = conversacionesListQueryParams({ page: page2, limit: 100, sort: "-iconversacion" });
-    const res = await fetch(`${PATYIA_BRIDGE_LOCAL.replace(/\/$/, "")}/conversaciones?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${input.jwtToken}` }
-    });
-    if (!res.ok) throw new Error(`No se pudo cargar auditor\xEDa local (${res.status})`);
-    const raw = await res.json();
-    const body = raw?.respuesta ?? raw?.body ?? raw;
-    const conversaciones = Array.isArray(body?.conversaciones) ? body.conversaciones : [];
-    for (const conv of conversaciones) {
-      const itercero = String(conv.itercero ?? "").trim();
-      const icontacto = String(conv.icontacto ?? "").trim();
-      if (!itercero || !icontacto) continue;
-      const key = `${itercero}|${icontacto}`;
-      const prev = groups.get(key);
-      const fh = String(conv.fhultact ?? conv.fhcre ?? "");
-      const nombre = String(conv.nick_propietario ?? "").trim() || null;
-      if (!prev) {
-        groups.set(key, {
-          itercero,
-          icontacto,
-          nombre,
-          total_conversaciones: 1,
-          total_mensajes: Number(conv.qmensajes ?? 0) || 0,
-          ultima_actividad: fh || null,
-          es_jwt: itercero === String(input.jwtTercero ?? "") && icontacto === String(input.jwtContacto ?? ""),
-          es_sesion: false
-        });
-      } else {
-        prev.total_conversaciones += 1;
-        prev.total_mensajes += Number(conv.qmensajes ?? 0) || 0;
-        if (fh && (!prev.ultima_actividad || new Date(fh) > new Date(prev.ultima_actividad))) prev.ultima_actividad = fh;
-        if (!prev.nombre && nombre) prev.nombre = nombre;
-      }
-    }
-    if (conversaciones.length < 100) break;
-  }
-  const q = String(input.q ?? "").trim().toLowerCase();
-  const rows = [...groups.values()].filter((r) => !q || [r.nombre, r.itercero, r.icontacto].some((v) => String(v ?? "").toLowerCase().includes(q))).sort((a, b) => String(b.ultima_actividad ?? "").localeCompare(String(a.ultima_actividad ?? "")));
-  const page = Math.max(1, Number(input.page ?? 1) || 1);
-  const offset = (page - 1) * limit;
-  return { ok: true, rows: rows.slice(offset, offset + limit), total: rows.length, page, limit, pages: Math.max(1, Math.ceil(rows.length / limit)) };
-}
+// js/tools/LogViewer.jsx
+init_apiClient();
+init_platform();
 
 // js/ui/mobileDrawer.ts
 var MOBILE_DRAWER_PAPER_SX = {
@@ -5249,7 +5998,7 @@ var {
   useMediaQuery
 } = getMaterialUI();
 function MsgNavList({ items, selectedId, onSelect }) {
-  const { Icon: Icon24 } = UI;
+  const { Icon: Icon26 } = UI;
   if (!items.length) {
     return /* @__PURE__ */ jsx7(Typography2, { variant: "caption", color: "text.secondary", sx: { py: 1, display: "block" }, children: "Sin mensajes en el hilo." });
   }
@@ -5280,7 +6029,7 @@ function MsgNavList({ items, selectedId, onSelect }) {
             }
           }
         ),
-        /* @__PURE__ */ jsx7(Icon24, { icon: it.icon, size: 15, style: { opacity: 0.75, flexShrink: 0, marginRight: 6 } }),
+        /* @__PURE__ */ jsx7(Icon26, { icon: it.icon, size: 15, style: { opacity: 0.75, flexShrink: 0, marginRight: 6 } }),
         /* @__PURE__ */ jsx7(
           ListItemText,
           {
@@ -5370,11 +6119,10 @@ function LogEntradaPanel({
   onConvIdChange,
   onConvIdKeyDown,
   recuperarPorId,
-  parsearPegado,
   limpiar,
   onJsonInputChange
 }) {
-  const { Icon: Icon24 } = UI;
+  const { Icon: Icon26 } = UI;
   const { GlassPanel, NEON_COLORS } = getGlass();
   useEffect4(() => {
     if (!focusTarget) return void 0;
@@ -5415,7 +6163,7 @@ function LogEntradaPanel({
             justifyContent: "flex-end",
             className: "conv-log-sidebar-block conv-log-entrada-drawer-head",
             sx: { flexShrink: 0 },
-            children: onClose ? /* @__PURE__ */ jsx7(Tooltip, { title: "Cerrar panel", children: /* @__PURE__ */ jsx7(IconButton, { size: "small", onClick: onClose, "aria-label": "Cerrar panel", children: /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:close", size: 18 }) }) }) : null
+            children: onClose ? /* @__PURE__ */ jsx7(Tooltip, { title: "Cerrar panel", children: /* @__PURE__ */ jsx7(IconButton, { size: "small", onClick: onClose, "aria-label": "Cerrar panel", children: /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:close", size: 18 }) }) }) : null
           }
         ) : null,
         /* @__PURE__ */ jsxs5(Box3, { className: "conv-log-sidebar-block conv-log-entrada-actions", sx: { flexShrink: 0 }, children: [
@@ -5426,13 +6174,14 @@ function LogEntradaPanel({
               className: "conv-log-action-grp",
               role: "group",
               "aria-label": "Acciones de entrada de log",
-              sx: { p: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 1, width: "100%", flexWrap: "nowrap" },
+              sx: { p: 0.65, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 0.75, width: "100%", flexWrap: "nowrap" },
               children: [
                 /* @__PURE__ */ jsx7(
                   TextField,
                   {
                     className: "conv-log-action-grp__input",
                     size: "small",
+                    margin: "none",
                     type: "number",
                     hiddenLabel: true,
                     placeholder: "iconversacion",
@@ -5441,29 +6190,19 @@ function LogEntradaPanel({
                     disabled: loading,
                     onChange: onConvIdChange,
                     onKeyDown: onConvIdKeyDown,
-                    slotProps: { htmlInput: { min: 1 } }
+                    slotProps: { htmlInput: { min: 1 } },
+                    sx: { m: 0, "& .MuiOutlinedInput-root": { height: 32 } }
                   }
                 ),
                 /* @__PURE__ */ jsxs5(Box3, { className: "conv-log-action-grp__actions", children: [
                   /* @__PURE__ */ jsx7(Tooltip, { title: "Recuperar por ID (Enter)", arrow: true, children: /* @__PURE__ */ jsx7("span", { children: /* @__PURE__ */ jsx7(
                     ButtonIconify,
                     {
-                      variant: "primary",
                       icon: "mdi:cloud-download-outline",
                       title: "Recuperar por ID",
                       onClick: recuperarPorId,
                       disabled: !String(convId ?? "").trim(),
                       busy: loading
-                    }
-                  ) }) }),
-                  /* @__PURE__ */ jsx7(Tooltip, { title: "Parsear JSON", arrow: true, children: /* @__PURE__ */ jsx7("span", { children: /* @__PURE__ */ jsx7(
-                    ButtonIconify,
-                    {
-                      variant: "primary",
-                      icon: "mdi:code-json",
-                      title: "Parsear JSON",
-                      onClick: parsearPegado,
-                      disabled: !jsonInput.trim()
                     }
                   ) }) }),
                   /* @__PURE__ */ jsx7(Tooltip, { title: "Limpiar", arrow: true, children: /* @__PURE__ */ jsx7("span", { children: /* @__PURE__ */ jsx7(
@@ -5488,7 +6227,7 @@ function LogEntradaPanel({
             sx: { flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" },
             children: [
               /* @__PURE__ */ jsxs5(Box3, { className: "conv-log-json-head isa-neon-section-label", "aria-hidden": true, children: [
-                /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:code-json", size: 15 }),
+                /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:code-json", size: 15 }),
                 /* @__PURE__ */ jsx7(Typography2, { component: "span", variant: "caption", className: "conv-log-json-head__label", children: "JSON del log" })
               ] }),
               /* @__PURE__ */ jsx7(
@@ -5517,7 +6256,7 @@ function LogEntradaPanel({
 }
 function LogViewer({ bootLog = {} }) {
   const IsaSplitView = getIsaSplitView();
-  const { Icon: Icon24 } = UI;
+  const { Icon: Icon26 } = UI;
   const theme2 = useTheme();
   const isMobile = useMediaQuery(theme2.breakpoints.down("md"));
   const [entradaOpen, setEntradaOpen] = useState4(false);
@@ -5576,18 +6315,19 @@ function LogViewer({ bootLog = {} }) {
     ),
     [convId, jsonInput, logInfo, mensajes.length, error]
   );
-  const parsearPegado = useCallback(() => {
-    setError("");
-    try {
-      const log = parseLogInput(jsonInput);
-      aplicarLog(log);
-    } catch (err) {
-      setLogInfo(null);
-      setMensajes([]);
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      toastError(msg);
-    }
+  useEffect4(() => {
+    if (!jsonInput.trim()) return void 0;
+    const t = window.setTimeout(() => {
+      try {
+        aplicarLog(parseLogInput(jsonInput), { silent: true });
+      } catch (err) {
+        setLogInfo(null);
+        setMensajes([]);
+        setSelectedMsgId(null);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 2e3);
+    return () => window.clearTimeout(t);
   }, [jsonInput, aplicarLog]);
   const recuperarPorId = useCallback(async ({ silent = false } = {}) => {
     if (!String(convId ?? "").trim()) return;
@@ -5599,8 +6339,18 @@ function LogViewer({ bootLog = {} }) {
       aplicarLog(log, { silent });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const denied = {
+        error: true,
+        acceso: "denegado",
+        iconversacion: Number(convId) || null,
+        mensaje: msg
+      };
+      setJsonInput(JSON.stringify(denied, null, 2));
+      setLogInfo(null);
+      setMensajes([]);
+      setSelectedMsgId(null);
       setError(msg);
-      toastError(msg);
+      if (!silent) toastError(msg);
     } finally {
       setLoading(false);
     }
@@ -5645,7 +6395,6 @@ function LogViewer({ bootLog = {} }) {
     onConvIdChange: (e) => setConvId(e.target.value),
     onConvIdKeyDown,
     recuperarPorId,
-    parsearPegado,
     limpiar,
     onJsonInputChange: setJsonInput
   };
@@ -5665,7 +6414,7 @@ function LogViewer({ bootLog = {} }) {
           bgcolor: "background.paper"
         },
         children: [
-          /* @__PURE__ */ jsx7(Tooltip, { title: "Entrada de log", arrow: true, children: /* @__PURE__ */ jsx7(IconButton, { size: "small", onClick: () => setEntradaOpen(true), "aria-label": "Abrir entrada de log", children: /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:database-import-outline", size: 20 }) }) }),
+          /* @__PURE__ */ jsx7(Tooltip, { title: "Entrada de log", arrow: true, children: /* @__PURE__ */ jsx7(IconButton, { size: "small", onClick: () => setEntradaOpen(true), "aria-label": "Abrir entrada de log", children: /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:database-import-outline", size: 20 }) }) }),
           /* @__PURE__ */ jsx7(Typography2, { variant: "subtitle2", sx: { fontWeight: 700, flex: 1 }, noWrap: true, children: "Hilo recuperado" })
         ]
       }
@@ -5687,7 +6436,7 @@ function LogViewer({ bootLog = {} }) {
               className: "conv-log-thread-title-chip isa-neon-glass-chip",
               size: "small",
               label: /* @__PURE__ */ jsxs5(Box3, { component: "span", sx: { display: "inline-flex", alignItems: "center", gap: 0.75 }, children: [
-                /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:clipboard-text-clock-outline", size: 16 }),
+                /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:clipboard-text-clock-outline", size: 16 }),
                 "Hilo recuperado"
               ] })
             }
@@ -5703,7 +6452,7 @@ function LogViewer({ bootLog = {} }) {
             }
           ) }) }),
           /* @__PURE__ */ jsx7(Box3, { sx: { flex: 1 } }),
-          logInfo?.createdAt && /* @__PURE__ */ jsx7(Typography2, { variant: "caption", color: "text.secondary", children: String(logInfo.createdAt).slice(0, 19).replace("T", " ") })
+          logInfo?.createdAt && /* @__PURE__ */ jsx7(Typography2, { variant: "caption", color: "text.secondary", title: String(logInfo.createdAt), children: formatTs(logInfo.createdAt) })
         ]
       }
     ),
@@ -5714,7 +6463,7 @@ function LogViewer({ bootLog = {} }) {
         onMeta,
         showUsageStats: true,
         threadKey: convId || "log-paste",
-        emptyHint: "Recupera por ID o pega un log para ver el hilo."
+        emptyHint: error || "Recupera por ID o pega un log para ver el hilo."
       }
     )
   ] });
@@ -5761,7 +6510,7 @@ function LogViewer({ bootLog = {} }) {
                     setEntradaFocus("convId");
                     expand();
                   },
-                  children: /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:magnify", size: 20 })
+                  children: /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:magnify", size: 20 })
                 }
               ) }),
               /* @__PURE__ */ jsx7(Tooltip, { title: "Ver o editar JSON del log", placement: "right", children: /* @__PURE__ */ jsx7(
@@ -5774,7 +6523,7 @@ function LogViewer({ bootLog = {} }) {
                     setEntradaFocus("json");
                     expand();
                   },
-                  children: /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:code-braces", size: 20 })
+                  children: /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:code-braces", size: 20 })
                 }
               ) })
             ] }),
@@ -5796,7 +6545,7 @@ function LogViewer({ bootLog = {} }) {
               zIndex: 6,
               display: entradaOpen ? "none" : "flex"
             },
-            children: /* @__PURE__ */ jsx7(Icon24, { icon: "mdi:database-import-outline", size: 22 })
+            children: /* @__PURE__ */ jsx7(Icon26, { icon: "mdi:database-import-outline", size: 22 })
           }
         ) : null,
         /* @__PURE__ */ jsx7(
@@ -5827,6 +6576,13 @@ function LogViewer({ bootLog = {} }) {
     }
   );
 }
+
+// js/tools/PromptsSqlTool.jsx
+init_platform();
+init_platform();
+
+// js/tools/promptsSql/usePromptsSqlTool.ts
+init_platform();
 
 // js/api/promptsSql.ts
 var PATY_PROMPT_TIPOS = [
@@ -6241,7 +6997,17 @@ function emptyPromptState() {
   return out;
 }
 
+// js/api/labApi.ts
+init_apiClient();
+
+// js/tools/promptsSql/usePromptsSqlTool.ts
+init_sessionApi();
+init_platform();
+
 // js/tools/promptsSql/helpers.ts
+init_platform();
+init_platform();
+init_sessionApi();
 var { createElement, Fragment: Fragment4 } = getReact();
 function isDraftPrompt(p) {
   if (!p) return false;
@@ -6363,15 +7129,17 @@ function unitIntervalFieldProps(value, fallback, onValue) {
     variant: "outlined",
     type: "number",
     value: value ?? fallback,
-    slotProps: {
-      htmlInput: {
-        step: "0.01",
-        min: "0",
-        max: "1",
-        style: { fontSize: "0.72rem", width: "4.5rem" },
-        onKeyDown: handleKeyDown,
-        onWheel: handleWheel
-      }
+    inputProps: {
+      step: "0.01",
+      min: "0",
+      max: "1",
+      style: { fontSize: "0.72rem", width: "4.5rem" },
+      onKeyDown: handleKeyDown,
+      onWheel: handleWheel
+    },
+    sx: {
+      "& .MuiInputBase-root": { minHeight: 28 },
+      "& .MuiInputBase-input": { py: "3px", px: "6px", fontSize: "0.72rem" }
     },
     onChange: handleChange
   };
@@ -6506,6 +7274,8 @@ function mergeCloudRows(prev, rows, { onlyTipo = null, onlyTipos = null, ignoreU
 }
 
 // js/tools/promptsSql/promptActions.ts
+init_sessionApi();
+init_platform();
 async function discardAllPrompts({
   instruccionKeys,
   prompts,
@@ -6735,10 +7505,12 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       window.removeEventListener("patyia-apptools:caps-changed", onAuth);
     };
   }, []);
-  const canPublish = useMemo4(
-    () => instruccionesCanEdit || canEditInstrucciones() || canEditPromptsOperativos(),
-    [authTick, instruccionesCanEdit]
-  );
+  const canPublish = useMemo4(() => {
+    if (isViewingAsRole()) {
+      return canEditInstrucciones() || canEditPromptsOperativos();
+    }
+    return instruccionesCanEdit || canEditInstrucciones() || canEditPromptsOperativos();
+  }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo4(() => isLoggedIn(), [authTick]);
   const canEdit = canPublish;
   const editBlockReason = useMemo4(() => {
@@ -7032,66 +7804,67 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
 }
 
 // js/tools/promptsSql/PromptsSqlActionBar.jsx
+init_platform();
 import { jsx as jsx8, jsxs as jsxs6 } from "react/jsx-runtime";
-var { Typography: Typography3, Stack: Stack3, Chip: Chip3, CircularProgress } = getMaterialUI();
+var { Stack: Stack3, Chip: Chip3, CircularProgress } = getMaterialUI();
 function PromptsSqlActionBar({ filledCount, instruccionKeysLength, loadBusy, actionBusy, hasLocalChanges, pendingTiposLength, canPublish, saveTitle, importTitle, fileInputRef, onFileInput, onImportClick, onDiscardAll, onSaveAll }) {
-  return /* @__PURE__ */ jsxs6("div", { className: "panel-head prompts-tool-head", children: [
-    /* @__PURE__ */ jsx8(Typography3, { variant: "subtitle1", fontWeight: 600, children: "Instrucciones \xB7 mapeo" }),
-    /* @__PURE__ */ jsxs6(Stack3, { direction: "row", spacing: 0.5, alignItems: "center", children: [
-      loadBusy && /* @__PURE__ */ jsx8(CircularProgress, { size: 14 }),
-      /* @__PURE__ */ jsx8(
-        Chip3,
-        {
-          className: "panel-head-count-chip isa-neon-glass-chip",
-          size: "small",
-          label: `${filledCount}/${instruccionKeysLength}`,
-          color: filledCount ? "primary" : "default",
-          variant: "outlined"
-        }
-      ),
-      /* @__PURE__ */ jsx8(
-        ButtonIconify,
-        {
-          icon: "mdi:folder-open-outline",
-          title: importTitle,
-          onClick: onImportClick,
-          disabled: actionBusy || loadBusy || !canPublish
-        }
-      ),
-      /* @__PURE__ */ jsx8(
-        "input",
-        {
-          ref: fileInputRef,
-          type: "file",
-          accept: ".md,.txt,text/markdown,text/plain",
-          multiple: true,
-          hidden: true,
-          onChange: onFileInput
-        }
-      ),
-      /* @__PURE__ */ jsx8(
-        ButtonIconify,
-        {
-          icon: "mdi:delete-outline",
-          title: "Descartar borradores y restaurar desde la base",
-          onClick: onDiscardAll,
-          disabled: actionBusy || loadBusy || !hasLocalChanges
-        }
-      ),
-      /* @__PURE__ */ jsx8(
-        ButtonIconify,
-        {
-          variant: "primary",
-          icon: "mdi:content-save",
-          title: actionBusy ? "Guardando\u2026" : saveTitle,
-          onClick: onSaveAll,
-          disabled: actionBusy || loadBusy || !pendingTiposLength || !canPublish,
-          busy: actionBusy
-        }
-      )
-    ] })
-  ] });
+  return /* @__PURE__ */ jsx8("div", { className: "panel-head prompts-tool-head", children: /* @__PURE__ */ jsxs6(Stack3, { direction: "row", spacing: 0.5, alignItems: "center", sx: { ml: "auto" }, children: [
+    loadBusy && /* @__PURE__ */ jsx8(CircularProgress, { size: 14 }),
+    /* @__PURE__ */ jsx8(
+      Chip3,
+      {
+        className: "panel-head-count-chip isa-neon-glass-chip",
+        size: "small",
+        label: `${filledCount}/${instruccionKeysLength}`,
+        color: filledCount ? "primary" : "default",
+        variant: "outlined"
+      }
+    ),
+    /* @__PURE__ */ jsx8(
+      ButtonIconify,
+      {
+        icon: "mdi:folder-open-outline",
+        title: importTitle,
+        onClick: onImportClick,
+        disabled: actionBusy || loadBusy || !canPublish
+      }
+    ),
+    /* @__PURE__ */ jsx8(
+      "input",
+      {
+        ref: fileInputRef,
+        type: "file",
+        accept: ".md,.txt,text/markdown,text/plain",
+        multiple: true,
+        hidden: true,
+        onChange: onFileInput
+      }
+    ),
+    /* @__PURE__ */ jsx8(
+      ButtonIconify,
+      {
+        icon: "mdi:delete-outline",
+        title: "Descartar borradores y restaurar desde la base",
+        onClick: onDiscardAll,
+        disabled: actionBusy || loadBusy || !hasLocalChanges
+      }
+    ),
+    /* @__PURE__ */ jsx8(
+      ButtonIconify,
+      {
+        variant: "primary",
+        icon: "mdi:content-save",
+        title: actionBusy ? "Guardando\u2026" : saveTitle,
+        onClick: onSaveAll,
+        disabled: actionBusy || loadBusy || !pendingTiposLength || !canPublish,
+        busy: actionBusy
+      }
+    )
+  ] }) });
 }
+
+// js/tools/promptsSql/PromptsSqlTree.jsx
+init_platform();
 
 // js/tools/promptsSql/constants.ts
 var ICON_BY_TIPO = {
@@ -7217,7 +7990,14 @@ function PromptsSqlTree({ instruccionKeys, prompts, activeTab, onActiveTabChange
   );
 }
 
+// js/tools/promptsSql/PromptsSqlEditorPane.jsx
+init_platform();
+
+// js/ui/PromptBodyEditor.jsx
+init_platform();
+
 // js/ui/promptMdEditorHtml.ts
+init_platform();
 function escAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
@@ -7483,7 +8263,7 @@ var { useState: useState6, useEffect: useEffect6, useLayoutEffect, useRef: useRe
 var {
   Box: Box4,
   Stack: Stack4,
-  Typography: Typography4,
+  Typography: Typography3,
   Dialog: Dialog2,
   DialogTitle: DialogTitle2,
   DialogContent: DialogContent3,
@@ -7790,7 +8570,7 @@ function RenameVarDialog({ open, name, existing, onClose, onConfirm }) {
   return /* @__PURE__ */ jsxs8(Dialog2, { open, onClose, maxWidth: "xs", fullWidth: true, children: [
     /* @__PURE__ */ jsx11(DialogTitle2, { children: "Renombrar variable" }),
     /* @__PURE__ */ jsxs8(DialogContent3, { children: [
-      /* @__PURE__ */ jsxs8(Typography4, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
+      /* @__PURE__ */ jsxs8(Typography3, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
         "Se actualizar\xE1n todas las ocurrencias de ",
         /* @__PURE__ */ jsx11("code", { children: `{{${name}}}` }),
         " en el documento."
@@ -8156,7 +8936,7 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
                   disabled: !canEdit
                 }
               ),
-              label: /* @__PURE__ */ jsx11(Typography4, { variant: "body2", color: "text.secondary", component: "span", children: "Texto plano" }),
+              label: /* @__PURE__ */ jsx11(Typography3, { variant: "body2", color: "text.secondary", component: "span", children: "Texto plano" }),
               sx: { ml: 0.5, mr: 0 }
             }
           ),
@@ -8178,7 +8958,7 @@ function PromptEditorDialog({ open, onClose, title, body, canEdit, onSave, onDra
         ] }),
         /* @__PURE__ */ jsxs8(DialogContent3, { ref: dialogContentRef, dividers: true, className: "prompt-md-dialog custom-scrollbar", children: [
           variables.length > 0 && /* @__PURE__ */ jsxs8(Stack4, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, sx: { mb: 1.5, width: "100%", justifyContent: "flex-start", px: "1.5rem", pt: 1.25 }, children: [
-            /* @__PURE__ */ jsxs8(Typography4, { variant: "caption", color: "text.secondary", sx: { alignSelf: "center", mr: 0.5 }, children: [
+            /* @__PURE__ */ jsxs8(Typography3, { variant: "caption", color: "text.secondary", sx: { alignSelf: "center", mr: 0.5 }, children: [
               "Variables (escribe ",
               "{{nombre}}",
               " en el texto):"
@@ -8329,7 +9109,7 @@ function PromptBodyEditor({
             className: "prompt-md-preview msg-body",
             dangerouslySetInnerHTML: { __html: previewHtml }
           }
-        ) : /* @__PURE__ */ jsx11(Typography4, { variant: "body2", color: "text.secondary", className: "prompt-body-preview__empty", children: placeholder || "Sin contenido. Doble clic para editar\u2026" })
+        ) : /* @__PURE__ */ jsx11(Typography3, { variant: "body2", color: "text.secondary", className: "prompt-body-preview__empty", children: placeholder || "Sin contenido. Doble clic para editar\u2026" })
       }
     ),
     /* @__PURE__ */ jsx11(
@@ -8444,14 +9224,14 @@ function PromptsSqlMapeoTable({
               /* @__PURE__ */ jsx12("code", { children: tipo })
             ] }) }),
             /* @__PURE__ */ jsx12(TableCell, { className: "prompt-mapeo-metric", children: formatCharsTokens(p?.body) }),
-            /* @__PURE__ */ jsx12(TableCell, { onClick: stopRowEvent, onDoubleClick: stopRowEvent, children: /* @__PURE__ */ jsx12(FormControl, { size: "small", sx: { minWidth: 148 }, onClick: stopRowEvent, disabled: !canEdit, children: /* @__PURE__ */ jsx12(
+            /* @__PURE__ */ jsx12(TableCell, { onClick: stopRowEvent, onDoubleClick: stopRowEvent, children: /* @__PURE__ */ jsx12(FormControl, { size: "small", sx: { minWidth: 132 }, onClick: stopRowEvent, disabled: !canEdit, children: /* @__PURE__ */ jsx12(
               Select,
               {
                 value: modelValue,
                 onChange: (e) => onUpdateConfig(tipo, { model: e.target.value }),
                 disabled: !canEdit,
                 MenuProps: { disableScrollLock: true },
-                sx: { fontSize: "0.72rem", "& .MuiSelect-select": { py: 0.35, px: 0.6 } },
+                sx: { fontSize: "0.72rem", "& .MuiSelect-select": { py: "3px", px: 0.6, minHeight: "0 !important" } },
                 children: modelSelectOptions2.map((id) => /* @__PURE__ */ jsx12(MenuItem, { value: id, sx: { fontSize: "0.72rem" }, children: id }, id))
               }
             ) }) }),
@@ -8505,6 +9285,7 @@ function PromptsSqlMapeoTable({
 }
 
 // js/tools/promptsSql/FileImportMapDialog.jsx
+init_platform();
 import { jsx as jsx13, jsxs as jsxs10 } from "react/jsx-runtime";
 var {
   Dialog: Dialog3,
@@ -8512,7 +9293,7 @@ var {
   DialogContent: DialogContent4,
   DialogActions: DialogActions3,
   Button: Button3,
-  Typography: Typography5,
+  Typography: Typography4,
   Stack: Stack6,
   Alert: Alert4,
   Chip: Chip5,
@@ -8527,7 +9308,7 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
       "Confirmar importaci\xF3n"
     ] }),
     /* @__PURE__ */ jsxs10(DialogContent4, { dividers: true, className: "custom-scrollbar", children: [
-      /* @__PURE__ */ jsxs10(Typography5, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
+      /* @__PURE__ */ jsxs10(Typography4, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
         "Relaciona cada archivo con la instrucci\xF3n destino. La coincidencia autom\xE1tica usa el nombre",
         " ",
         "(",
@@ -8547,7 +9328,7 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
             spacing: 1,
             sx: { mb: 2, pb: 2, borderBottom: "1px solid", borderColor: "divider" },
             children: [
-              /* @__PURE__ */ jsx13(Typography5, { variant: "subtitle2", component: "div", children: /* @__PURE__ */ jsx13("code", { children: row.fileName }) }),
+              /* @__PURE__ */ jsx13(Typography4, { variant: "subtitle2", component: "div", children: /* @__PURE__ */ jsx13("code", { children: row.fileName }) }),
               row.suggested && !ambiguous && /* @__PURE__ */ jsx13(
                 Chip5,
                 {
@@ -8593,9 +9374,10 @@ function FileImportMapDialog({ open, onClose, rows, instructionKeys, onChangeRow
 }
 
 // js/tools/promptsSql/JconfigDetailDialog.jsx
+init_platform();
 import { jsx as jsx14, jsxs as jsxs11 } from "react/jsx-runtime";
 var { useMemo: useMemo6 } = getReact();
-var { Dialog: Dialog4, DialogTitle: DialogTitle4, DialogContent: DialogContent5, Typography: Typography6, Box: Box5 } = getMaterialUI();
+var { Dialog: Dialog4, DialogTitle: DialogTitle4, DialogContent: DialogContent5, Typography: Typography5, Box: Box5 } = getMaterialUI();
 function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
   const view = useMemo6(() => jconfigView(jc, body), [jc, body]);
   const json = useMemo6(() => JSON.stringify(view, null, 2), [view]);
@@ -8644,7 +9426,7 @@ function JconfigDetailDialog({ open, onClose, tipo, jc, body }) {
           /* @__PURE__ */ jsx14("span", { className: "meta-v", children: /* @__PURE__ */ jsx14("code", { children: view.provider }) })
         ] })
       ] }),
-      /* @__PURE__ */ jsx14(Typography6, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 2, mb: 0.5 }, children: "JSON persistido en BD" }),
+      /* @__PURE__ */ jsx14(Typography5, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 2, mb: 0.5 }, children: "JSON persistido en BD" }),
       /* @__PURE__ */ jsx14(
         CodeMirrorPanel,
         {
@@ -8767,6 +9549,82 @@ function PromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   ] });
 }
 
+// js/tools/ChatTool.jsx
+init_platform();
+
+// js/tools/chat/useChatTool.ts
+init_platform();
+init_patyia_jwt();
+init_patyiaChatApi();
+
+// js/api/adjuntosApi.ts
+init_patyia();
+init_patyiaTokens();
+var DEFAULT_CONCURRENCY = 3;
+async function uploadFilesMultipart(path, jwt, input) {
+  const { files, concurrency = DEFAULT_CONCURRENCY, onProgress, signal } = input;
+  if (!files?.length) return [];
+  const base = resolveIssApiBase();
+  const headers = {};
+  if (jwt) Object.assign(headers, patyAuthHeaders(jwt));
+  const results = new Array(files.length);
+  let cursor = 0;
+  const totalBytes = files.reduce((s, f) => s + (f?.size || 0), 0);
+  let loadedBytes = 0;
+  const worker = async () => {
+    while (true) {
+      const i = cursor++;
+      if (i >= files.length) return;
+      const f = files[i];
+      const prevBytes = loadedBytes;
+      try {
+        const fd = new FormData();
+        fd.append("files", f, f.name || `adjunto-${i + 1}`);
+        const res = await fetch(`${base}${path}`, {
+          method: "POST",
+          headers,
+          body: fd,
+          signal
+        });
+        const ct = res.headers.get("content-type") || "";
+        const json = ct.includes("json") ? await res.json().catch(() => ({})) : {};
+        if (!res.ok) {
+          const err = json && typeof json === "object" && (json.error || json.message) || `HTTP ${res.status}`;
+          throw new Error(typeof err === "string" ? err : JSON.stringify(err));
+        }
+        const itemsRaw = json && typeof json === "object" && Array.isArray(json.items) ? json.items : [];
+        const uploaded = itemsRaw[i] ?? itemsRaw[0];
+        if (!uploaded?.url) {
+          throw new Error("ISS devolvi\xF3 items sin url");
+        }
+        results[i] = { ...uploaded, filename: f.name };
+        loadedBytes = prevBytes + f.size;
+        onProgress?.({ loaded: loadedBytes, total: totalBytes, fileIndex: i });
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          throw err;
+        }
+        throw new Error(`Subida fall\xF3 (${f.name || i}): ${err?.message || err}`);
+      }
+    }
+  };
+  const lanes = Array.from({ length: Math.min(concurrency, files.length) }, () => worker());
+  await Promise.all(lanes);
+  return results;
+}
+async function uploadAudios(jwt, files, onProgress, signal) {
+  return uploadFilesMultipart("/adjuntos/audios", jwt, { files, onProgress, signal });
+}
+async function uploadImagenes(jwt, files, onProgress, signal) {
+  return uploadFilesMultipart("/adjuntos/imagenes", jwt, { files, onProgress, signal });
+}
+
+// js/tools/chat/useChatTool.ts
+init_issListFilter();
+init_apiClient();
+init_sessionApi();
+init_platform();
+
 // js/tools/chat/constants.ts
 var CHAT_SIDEBAR_W = 320;
 var MAX_CHAT_IMAGES = 10;
@@ -8848,6 +9706,7 @@ function messageSourceFromUrl(chat) {
 }
 
 // js/tools/chat/threadScroll.ts
+init_platform();
 var { useEffect: useEffect7, useLayoutEffect: useLayoutEffect2, useCallback: useCallback5, useRef: useRef4, useMemo: useMemo7 } = getReact();
 var THREAD_SCROLL_NEAR_BOTTOM = 72;
 function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
@@ -8897,6 +9756,7 @@ function useThreadScrollAnchor(scrollRef, mensajes, { sending = false } = {}) {
 }
 
 // js/tools/chat/auditScope.ts
+init_patyia_jwt();
 function auditScopeKey(scope) {
   if (!scope) return "";
   return `${scope.itercero}|${scope.icontacto}`;
@@ -9300,6 +10160,7 @@ function buildOptimisticUserMsg({
 
 // js/tools/chat/images.ts
 var IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
+var BACKEND_IMAGE_MIMES = /* @__PURE__ */ new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
 function mimeFromFileName(name) {
   const lower = name.trim().toLowerCase();
   if (lower.endsWith(".png")) return "image/png";
@@ -9316,27 +10177,14 @@ function isChatImageFile(file) {
   if (file.type?.startsWith("image/")) return true;
   return IMAGE_EXT_RE.test(file.name || "");
 }
-var BACKEND_IMAGE_MIMES = /* @__PURE__ */ new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
-function isBackendSupportedImageDataUrl(dataUrl) {
-  const m = String(dataUrl || "").match(/^data:([^;]+);base64,/i);
-  const mime = (m?.[1] || "").toLowerCase();
-  return BACKEND_IMAGE_MIMES.has(mime);
-}
-function normalizeImageDataUrl(dataUrl, file) {
-  const raw = String(dataUrl || "").trim();
-  if (!raw.startsWith("data:")) return raw;
-  const mimeMatch = raw.match(/^data:([^;]+);base64,/i);
-  const mime = (mimeMatch?.[1] || "").toLowerCase();
-  if (mime.startsWith("image/") && mime !== "image/heic" && mime !== "image/heif") return raw;
-  const fallbackMime = mimeFromFileName(file.name || "") || (file.type?.startsWith("image/") ? file.type : "image/jpeg");
-  const i = raw.indexOf("base64,");
-  if (i < 0) return raw;
-  return `data:${fallbackMime};base64,${raw.slice(i + 7)}`;
-}
 function isHeicLikeFile(file) {
   const name = (file.name || "").toLowerCase();
   const mime = (file.type || "").toLowerCase();
   return mime === "image/heic" || mime === "image/heif" || /\.heic$/i.test(name) || /\.heif$/i.test(name);
+}
+function isBackendSupportedMime(mime) {
+  if (!mime) return false;
+  return BACKEND_IMAGE_MIMES.has(mime.toLowerCase());
 }
 function readImagesFromClipboard(items) {
   const out = [];
@@ -9348,24 +10196,45 @@ function readImagesFromClipboard(items) {
   }
   return out;
 }
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ""));
-    r.onerror = () => reject(new Error("No se pudo leer la imagen"));
-    r.readAsDataURL(file);
-  });
+function blobToPreviewUrl(blob) {
+  try {
+    return URL.createObjectURL(blob);
+  } catch {
+    return "";
+  }
 }
 async function filesToImageEntries(files) {
   const added = [];
   for (const file of files || []) {
     if (!isChatImageFile(file)) continue;
     if (isHeicLikeFile(file)) continue;
-    const dataUrl = normalizeImageDataUrl(await fileToDataUrl(file), file);
-    if (!isBackendSupportedImageDataUrl(dataUrl)) continue;
-    added.push({ name: file.name || "imagen", dataUrl });
+    const mime = (file.type || mimeFromFileName(file.name || "") || "image/png").toLowerCase();
+    if (!isBackendSupportedMime(mime)) continue;
+    const dims = await fileImageDimensions(file).catch(() => void 0);
+    added.push({
+      name: file.name || "imagen",
+      blob: file,
+      mime,
+      ...dims?.width ? { width: dims.width } : {},
+      ...dims?.height ? { height: dims.height } : {}
+    });
   }
   return added;
+}
+function fileImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e instanceof Error ? e : new Error("decode"));
+    };
+    img.src = url;
+  });
 }
 function hasHeicLikeFiles(files) {
   for (const file of files || []) {
@@ -9394,42 +10263,35 @@ function mimeFromFileName2(name) {
   if (lower.endsWith(".ogg")) return "audio/ogg";
   return void 0;
 }
-function isBackendSupportedAudioDataUrl(dataUrl) {
-  const m = String(dataUrl || "").match(/^data:([^;]+);base64,/i);
-  const mime = (m?.[1] || "").toLowerCase();
-  return BACKEND_AUDIO_MIMES.has(mime);
+function isBackendSupportedAudioMime(mime) {
+  const m = String(mime || "").toLowerCase();
+  if (m && BACKEND_AUDIO_MIMES.has(m)) return true;
+  if (m.startsWith("audio/webm")) return true;
+  if (m.startsWith("audio/mp4") || m.startsWith("audio/m4a")) return true;
+  if (m.startsWith("audio/mpeg")) return true;
+  return false;
 }
 function isChatAudioFile(file) {
   if (!file) return false;
   if (file.type?.startsWith("audio/")) return true;
   return AUDIO_EXT_RE.test(file.name || "");
 }
-function fileToDataUrl2(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ""));
-    r.onerror = () => reject(new Error("No se pudo leer el audio"));
-    r.readAsDataURL(file);
-  });
-}
-function normalizeAudioDataUrl(dataUrl, file) {
-  const raw = String(dataUrl || "").trim();
-  if (!raw.startsWith("data:")) return raw;
-  if (isBackendSupportedAudioDataUrl(raw)) return raw;
-  const fallbackMime = mimeFromFileName2(file.name || "") || (file.type?.startsWith("audio/") ? file.type : "audio/webm");
-  const i = raw.indexOf("base64,");
-  if (i < 0) return raw;
-  return `data:${fallbackMime};base64,${raw.slice(i + 7)}`;
-}
 async function filesToAudioEntries(files) {
   const added = [];
   for (const file of files || []) {
     if (!isChatAudioFile(file)) continue;
-    const dataUrl = normalizeAudioDataUrl(await fileToDataUrl2(file), file);
-    if (!isBackendSupportedAudioDataUrl(dataUrl)) continue;
-    added.push({ name: file.name || "audio", dataUrl });
+    const mime = (file.type || mimeFromFileName2(file.name || "") || "audio/webm").toLowerCase().split(";")[0];
+    if (!isBackendSupportedAudioMime(mime)) continue;
+    added.push({ name: file.name || "audio", blob: file, mime });
   }
   return added;
+}
+function blobToPreviewUrl2(blob) {
+  try {
+    return URL.createObjectURL(blob);
+  } catch {
+    return "";
+  }
 }
 function createVoiceRecorder() {
   let mediaRecorder = null;
@@ -9438,6 +10300,14 @@ function createVoiceRecorder() {
   const stopStream = () => {
     stream?.getTracks().forEach((t) => t.stop());
     stream = null;
+  };
+  const chooseExt = (recMime) => {
+    if (recMime.includes("webm")) return "webm";
+    if (recMime.includes("mp4") || recMime.includes("m4a")) return "m4a";
+    if (recMime.includes("mpeg") || recMime.includes("mp3")) return "mp3";
+    if (recMime.includes("wav")) return "wav";
+    if (recMime.includes("ogg")) return "ogg";
+    return "webm";
   };
   return {
     async start() {
@@ -9468,11 +10338,10 @@ function createVoiceRecorder() {
             resolve(null);
             return;
           }
-          const dataUrl = await fileToDataUrl2(blob);
-          resolve({
-            name: `nota-voz-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.webm`,
-            dataUrl
-          });
+          const mime = (recorder.mimeType || "audio/webm").toLowerCase().split(";")[0];
+          const fileName = `nota-voz-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.${chooseExt(mime)}`;
+          const file = new File([blob], fileName, { type: mime });
+          resolve({ name: fileName, blob: file, mime });
         };
         recorder.stop();
       });
@@ -9588,11 +10457,15 @@ function useChatTool({ bootChat }) {
   const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
   const canAuditChat = useMemo8(
-    () => canAccessOthers() || Session.can("patyia.chat.audit"),
+    () => canAccessOthers(),
     [authTick]
   );
   const canInteract = canInteractPatyChat(sessionUser, jwt);
-  const listScope = auditScope ?? activeConvOwnerScope(null, jwt?.claims) ?? sessionBrowseScope;
+  const listScope = useMemo8(() => {
+    const own = activeConvOwnerScope(null, jwt?.claims) ?? sessionBrowseScope;
+    if (!canAuditChat) return own;
+    return auditScope ?? own;
+  }, [canAuditChat, auditScope, jwt?.claims, sessionBrowseScope]);
   const selectedConvRow = selectedId ? rows.find((r) => convIdsEqual(r.iconversacion, selectedId)) : null;
   const selectedConvOwned = convBelongsToJwtResolved(
     detail,
@@ -9626,6 +10499,21 @@ function useChatTool({ bootChat }) {
       window.removeEventListener("patyia-apptools:caps-changed", onSessionAuth);
     };
   }, []);
+  useEffect8(() => {
+    if (canAuditChat) return;
+    if (auditScope) {
+      setAuditScope(null);
+      setConvListPage(1);
+      setConvListSearch("");
+      setSelectedId(null);
+      setDetail(null);
+      setLogMensajes([]);
+      setStreamText("");
+      setLogError("");
+      persistChatConvId(null);
+    }
+    if (auditDialogOpen) setAuditDialogOpen(false);
+  }, [canAuditChat, auditScope, auditDialogOpen]);
   const prevSessionUserRef = useRef5(null);
   useEffect8(() => {
     const prev = prevSessionUserRef.current;
@@ -9704,7 +10592,7 @@ function useChatTool({ bootChat }) {
       const search = convListSearch.trim() || void 0;
       const listSort = CONVERSACIONES_LIST_SORT_DEFAULT;
       const auditOther = Boolean(
-        auditScope?.itercero && auditScope?.icontacto && !auditScopeIsOwnJwt(auditScope, jwt?.claims)
+        canAuditChat && auditScope?.itercero && auditScope?.icontacto && !auditScopeIsOwnJwt(auditScope, jwt?.claims)
       );
       const listInput = {
         page,
@@ -9730,7 +10618,7 @@ function useChatTool({ bootChat }) {
     } finally {
       setLoadingList(false);
     }
-  }, [loggedIn, jwtLoading, sessionScopeLoading, jwt?.token, jwt?.claims, auditScope?.itercero, auditScope?.icontacto, convListPage, convListPageSize, convListSearch]);
+  }, [loggedIn, jwtLoading, sessionScopeLoading, jwt?.token, jwt?.claims, canAuditChat, auditScope?.itercero, auditScope?.icontacto, convListPage, convListPageSize, convListSearch]);
   const handleConvListSearchChange = useCallback6((text) => {
     setConvListSearch((prev) => {
       if (prev === text) return prev;
@@ -9739,6 +10627,12 @@ function useChatTool({ bootChat }) {
     });
   }, []);
   const handleSelectAuditScope = useCallback6((row) => {
+    if (!canAccessOthers()) {
+      setAuditDialogOpen(false);
+      toastInfo("Tu rol solo puede ver tus propias conversaciones");
+      setAuditScope(null);
+      return;
+    }
     if (row.esJwt) {
       if (!jwt?.claims?.itercero) {
         setAuditDialogOpen(false);
@@ -9923,6 +10817,13 @@ function useChatTool({ bootChat }) {
   }, [loggedIn, jwt, viewingAuditOther, listScope, messageSource, applyThreadFromDetail, rows, sessionUser]);
   const openConv = useCallback6(async (id, { silent = false, keepStream = false, freshLog = false, minLogMensajes = 0, sourceOverride } = {}) => {
     if (!loggedIn || !id) return;
+    if (!canAuditChat && jwt?.claims?.itercero) {
+      const row = rows.find((r) => convIdsEqual(r.iconversacion, id));
+      if (row && !convBelongsToJwt(row, jwt.claims)) {
+        toastError("Tu rol solo puede abrir tus propias conversaciones");
+        return;
+      }
+    }
     if (freshLog || sourceOverride !== void 0) lastOpenedConvRef.current = null;
     skipThreadReloadRef.current = id;
     setSelectedId(id);
@@ -9939,15 +10840,28 @@ function useChatTool({ bootChat }) {
     const prodMode = activeSource === "prod" && Boolean(jwt?.token);
     const logsApiMode = activeSource === "logs" && Boolean(jwt?.token);
     const minMensajes = freshLog ? Math.max(minLogMensajes, lastLogApiCountRef.current + 2) : 0;
+    const assertOwnDetail = (d) => {
+      if (!canAuditChat && d && jwt?.claims?.itercero && !convBelongsToJwt(d, jwt.claims)) {
+        toastError("Tu rol solo puede abrir tus propias conversaciones");
+        setSelectedId(null);
+        setDetail(null);
+        setLogMensajes([]);
+        persistChatConvId(null);
+        return false;
+      }
+      return true;
+    };
     try {
       if (prodMode) {
         const d = await getConversacion(jwt, id);
+        if (!assertOwnDetail(d)) return;
         setDetail(d);
         applyThreadFromDetail(d, null, ownerLabel, { openAiDirect: true, stripMeta: true });
         return;
       }
       if (logsApiMode) {
         const { d, log, openAiDirect } = await fetchLogsModeDetail(jwt, id, { freshLog, minMensajes });
+        if (d && !assertOwnDetail(d)) return;
         if (d) {
           const row = rows.find((r) => convIdsEqual(r.iconversacion, id));
           setDetail({
@@ -9966,6 +10880,7 @@ function useChatTool({ bootChat }) {
       if (useLogBridge) {
         const logResult = freshLog ? await fetchConvLogByIdWithRetry(id, { minMensajes }).catch(() => null) : await fetchConvLogById(id).catch(() => null);
         const row = rows.find((r) => r.iconversacion === id);
+        if (row && !assertOwnDetail(row)) return;
         setDetail(row || { iconversacion: id, titulo: `Conv #${id}` });
         applyThreadFromDetail(null, logResult, ownerLabel);
         return;
@@ -9978,7 +10893,7 @@ function useChatTool({ bootChat }) {
       if (!silent) setLoadingThread(false);
       lastOpenedConvRef.current = id;
     }
-  }, [loggedIn, jwt, sessionUser, viewingAuditOther, listScope, rows, messageSource, applyThreadFromDetail]);
+  }, [loggedIn, jwt, sessionUser, canAuditChat, viewingAuditOther, listScope, rows, messageSource, applyThreadFromDetail]);
   openConvRef.current = openConv;
   const onMessageSourceChange = useCallback6((next) => {
     if (next === messageSource) return;
@@ -10111,8 +11026,10 @@ function useChatTool({ bootChat }) {
     }
     setSending(true);
     setStreamText("");
-    const imagenes = images.map((i) => i.dataUrl);
-    const audioUrls = audios.map((a) => a.dataUrl);
+    const imageEntries = [...images];
+    const audioEntries = [...audios];
+    const imagenesPlaceholder = imageEntries.map((_, i) => `__img_pending_${i}__`);
+    const audioUrlsPlaceholder = audioEntries.map((_, i) => `__aud_pending_${i}__`);
     const convIdBefore = selectedId;
     const userName = convOwnerDisplayLabel(displayScope, jwt, sessionUser);
     const logCountBefore = lastLogApiCountRef.current;
@@ -10121,13 +11038,31 @@ function useChatTool({ bootChat }) {
     setAudios([]);
     if (attachInputRef.current) attachInputRef.current.value = "";
     setLogMensajes((prev) => enrichLogVista(
-      [...prev, buildOptimisticUserMsg({ text, imagenes, audios: audioUrls, userName })],
+      [...prev, buildOptimisticUserMsg({ text, imagenes: imagenesPlaceholder, audios: audioUrlsPlaceholder, userName })],
       userName
     ));
+    let uploadedImages = [];
+    let uploadedAudios = [];
     try {
+      if (imageEntries.length) {
+        uploadedImages = await uploadImagenes(
+          jwt,
+          imageEntries.map((i) => i.blob),
+          void 0
+        );
+      }
+      if (audioEntries.length) {
+        uploadedAudios = await uploadAudios(
+          jwt,
+          audioEntries.map((a) => a.blob),
+          void 0
+        );
+      }
+      const imagenesUrls = uploadedImages.map((u) => u.url);
+      const audiosUrls = uploadedAudios.map((u) => u.url);
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || void 0, imagenes, audios: audioUrls, mode: chatMode },
+        { prompt: text, iconversacion: selectedId || void 0, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode },
         (partial) => setStreamText(partial)
       );
       const finalText = String(result.respuesta || "").trim();
@@ -10179,11 +11114,11 @@ function useChatTool({ bootChat }) {
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
       if (text) setDraft(text);
-      if (imagenes.length) {
-        setImages(imagenes.map((dataUrl, i) => ({ name: `imagen-${i + 1}`, dataUrl })));
+      if (imageEntries.length) {
+        setImages(imageEntries);
       }
-      if (audioUrls.length) {
-        setAudios(audioUrls.map((dataUrl, i) => ({ name: `audio-${i + 1}`, dataUrl })));
+      if (audioEntries.length) {
+        setAudios(audioEntries);
       }
       setLogMensajes((prev) => {
         const copy = [...prev];
@@ -10358,8 +11293,9 @@ function useChatTool({ bootChat }) {
     () => buildConversacionPostBody({
       prompt: draft,
       iconversacion: selectedId || void 0,
-      imagenes: images.map((i) => i.dataUrl),
-      audios: audios.map((a) => a.dataUrl),
+      // preview sin URLs (se generan tras subir); muestra placeholders.
+      imagenes: images.map((i) => i.uploadedUrl ?? `[local image: ${i.name} \xB7 ${i.mime} \xB7 ${i.blob.size}B]`),
+      audios: audios.map((a) => a.uploadedUrl ?? `[local audio: ${a.name} \xB7 ${a.mime} \xB7 ${a.blob.size}B]`),
       mode: chatMode
     }),
     [draft, selectedId, images, audios, chatMode]
@@ -10385,8 +11321,6 @@ function useChatTool({ bootChat }) {
     () => resolveConvListHeader(listScope, jwt, sessionUser),
     [listScope, jwt, sessionUser]
   );
-  const sessionHasJwtAccess = Session.can("patyia.chat.interact") || canAdminJwt;
-  const showJwtBadge = Boolean(jwt?.token) && sessionHasJwtAccess;
   return {
     loggedIn,
     jwt,
@@ -10394,6 +11328,7 @@ function useChatTool({ bootChat }) {
     jwtLoading,
     sessionUser,
     canAdminJwt,
+    canAuditChat,
     canInteract,
     canSend,
     viewOnly,
@@ -10428,7 +11363,6 @@ function useChatTool({ bootChat }) {
     chatUserNick,
     convListOwnerLabel,
     convListHeader,
-    showJwtBadge,
     displayMensajes,
     showThread,
     ratingMsgId,
@@ -10467,17 +11401,16 @@ function useChatTool({ bootChat }) {
 }
 
 // js/tools/chat/ChatLoggedOutShell.jsx
+init_platform();
 import { jsx as jsx16, jsxs as jsxs13 } from "react/jsx-runtime";
 var {
   Box: Box6,
-  Typography: Typography7,
-  Button: Button4,
+  Typography: Typography6,
   Stack: Stack7,
-  Divider: Divider3,
   Alert: Alert6
 } = getMaterialUI();
 var { Icon } = UI;
-function ChatLoggedOutShell({ onNeedLogin }) {
+function ChatLoggedOutShell() {
   return /* @__PURE__ */ jsxs13(
     Box6,
     {
@@ -10511,10 +11444,8 @@ function ChatLoggedOutShell({ onNeedLogin }) {
                   /* @__PURE__ */ jsx16("span", { className: "paty-chat-skeleton-line paty-chat-skeleton-line--sm" })
                 ] })
               ] }) }),
-              /* @__PURE__ */ jsx16(Box6, { className: "conv-log-sidebar-block", sx: { pt: 1 }, children: /* @__PURE__ */ jsx16(Button4, { fullWidth: true, variant: "contained", size: "small", disabled: true, startIcon: /* @__PURE__ */ jsx16(Icon, { icon: "mdi:plus", size: 16 }), children: "Nueva conversaci\xF3n" }) }),
-              /* @__PURE__ */ jsx16(Divider3, { sx: { my: 1 } }),
               /* @__PURE__ */ jsxs13(Box6, { className: "conv-log-sidebar-block", sx: { flex: 1, pb: 1.5 }, children: [
-                /* @__PURE__ */ jsx16(Typography7, { variant: "caption", color: "text.secondary", sx: { mb: 1, display: "block" }, children: "Conversaciones" }),
+                /* @__PURE__ */ jsx16(Typography6, { variant: "caption", color: "text.secondary", sx: { mb: 1, display: "block" }, children: "Conversaciones" }),
                 [1, 2, 3, 4].map((i) => /* @__PURE__ */ jsxs13(Box6, { className: "paty-chat-skeleton-conv", children: [
                   /* @__PURE__ */ jsx16("span", { className: "paty-chat-skeleton-line paty-chat-skeleton-line--xs" }),
                   /* @__PURE__ */ jsx16("span", { className: "paty-chat-skeleton-line paty-chat-skeleton-line--lg" })
@@ -10524,7 +11455,7 @@ function ChatLoggedOutShell({ onNeedLogin }) {
           }
         ),
         /* @__PURE__ */ jsxs13(Box6, { sx: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }, children: [
-          /* @__PURE__ */ jsx16(Box6, { sx: convLogSurfaceSx({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, opacity: 0.45, pointerEvents: "none" }), "aria-hidden": "true", children: /* @__PURE__ */ jsx16(Box6, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx16(Typography7, { variant: "body2", color: "text.secondary", children: "\xC1rea de conversaci\xF3n" }) }) }),
+          /* @__PURE__ */ jsx16(Box6, { sx: convLogSurfaceSx({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, opacity: 0.45, pointerEvents: "none" }), "aria-hidden": "true", children: /* @__PURE__ */ jsx16(Box6, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx16(Typography6, { variant: "body2", color: "text.secondary", children: "\xC1rea de conversaci\xF3n" }) }) }),
           /* @__PURE__ */ jsx16(Box6, { className: "paty-chat-gate paty-chat-gate--overlay", children: /* @__PURE__ */ jsxs13(
             Box6,
             {
@@ -10533,10 +11464,9 @@ function ChatLoggedOutShell({ onNeedLogin }) {
               children: [
                 /* @__PURE__ */ jsxs13(Stack7, { direction: "row", spacing: 1, alignItems: "center", justifyContent: "center", children: [
                   /* @__PURE__ */ jsx16(Icon, { icon: "mdi:login", width: "1.35em", height: "1.35em", style: { opacity: 0.85, flexShrink: 0 } }),
-                  /* @__PURE__ */ jsx16(Typography7, { variant: "h6", sx: { fontWeight: 700 }, children: "Chat" })
+                  /* @__PURE__ */ jsx16(Typography6, { variant: "h6", sx: { fontWeight: 700 }, children: "Chat" })
                 ] }),
-                /* @__PURE__ */ jsx16(Alert6, { severity: "info", sx: { textAlign: "left", py: 0.75, px: 1.25 }, children: "Inicia sesi\xF3n para ver conversaciones." }),
-                /* @__PURE__ */ jsx16(Button4, { variant: "contained", sx: { alignSelf: "center", px: 3, py: 1.15, minHeight: 44 }, onClick: () => onNeedLogin?.(), children: "Iniciar sesi\xF3n" })
+                /* @__PURE__ */ jsx16(Alert6, { severity: "info", sx: { textAlign: "left", py: 0.75, px: 1.25 }, children: "Inicia sesi\xF3n con el bot\xF3n de la barra superior para ver conversaciones." })
               ]
             }
           ) })
@@ -10546,36 +11476,22 @@ function ChatLoggedOutShell({ onNeedLogin }) {
   );
 }
 
+// js/tools/chat/ChatThreadSidebar.jsx
+init_platform();
+init_patyia_jwt();
+
 // js/tools/chat/ChatSessionPanel.jsx
+init_platform();
+init_patyia();
+init_patyia_jwt();
 import { jsx as jsx17, jsxs as jsxs14 } from "react/jsx-runtime";
 var { useState: useState9, useEffect: useEffect9, useMemo: useMemo9 } = getReact();
-var { Box: Box7, Typography: Typography8, CircularProgress: CircularProgress3, Chip: Chip6 } = getMaterialUI();
+var { Box: Box7, Typography: Typography7, CircularProgress: CircularProgress3, Chip: Chip6 } = getMaterialUI();
 var { Icon: Icon2 } = UI;
-var SESSION_MODE_CHIP_SX = {
-  live: {
-    pl: 0.35,
-    color: "#86efac",
-    bgcolor: "rgba(34, 197, 94, 0.12)",
-    border: "1px solid rgba(74, 222, 128, 0.35)",
-    "& .MuiChip-icon": { color: "#4ade80 !important", ml: 0.55 },
-    "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 }
-  },
-  readonly: {
-    pl: 0.35,
-    color: "#fde68a",
-    bgcolor: "rgba(251, 191, 36, 0.1)",
-    border: "1px solid rgba(251, 191, 36, 0.35)",
-    "& .MuiChip-icon": { color: "#facc15 !important", ml: 0.55 },
-    "& .MuiChip-label": { fontWeight: 700, letterSpacing: "0.03em", pl: 0.55 }
-  },
-  loading: {
-    pl: 0.35,
-    color: "#94a3b8",
-    bgcolor: "rgba(148, 163, 184, 0.1)",
-    border: "1px solid rgba(148, 163, 184, 0.28)",
-    "& .MuiChip-icon": { ml: 0.55 },
-    "& .MuiChip-label": { pl: 0.55 }
-  }
+var CHIP_SX = {
+  live: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } },
+  readonly: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } },
+  loading: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.6rem", fontWeight: 600 } }
 };
 function SessionModeChip({ canSend, jwtLoading }) {
   if (canSend) {
@@ -10585,9 +11501,9 @@ function SessionModeChip({ canSend, jwtLoading }) {
         size: "small",
         variant: "outlined",
         label: "Interactivo",
-        icon: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:chat-processing-outline", size: 14, "aria-hidden": true }),
+        icon: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:chat-processing-outline", size: 12, "aria-hidden": true }),
         className: "paty-chat-session__badge paty-chat-session__badge--live",
-        sx: SESSION_MODE_CHIP_SX.live
+        sx: CHIP_SX.live
       }
     );
   }
@@ -10598,9 +11514,9 @@ function SessionModeChip({ canSend, jwtLoading }) {
         size: "small",
         variant: "outlined",
         label: "Token\u2026",
-        icon: /* @__PURE__ */ jsx17(CircularProgress3, { size: 10, color: "inherit" }),
+        icon: /* @__PURE__ */ jsx17(CircularProgress3, { size: 9, color: "inherit" }),
         className: "paty-chat-session__badge paty-chat-session__badge--loading",
-        sx: SESSION_MODE_CHIP_SX.loading
+        sx: CHIP_SX.loading
       }
     );
   }
@@ -10610,13 +11526,13 @@ function SessionModeChip({ canSend, jwtLoading }) {
       size: "small",
       variant: "outlined",
       label: "Solo lectura",
-      icon: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:eye-outline", size: 14, "aria-hidden": true }),
+      icon: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:eye-outline", size: 12, "aria-hidden": true }),
       className: "paty-chat-session__badge paty-chat-session__badge--readonly",
-      sx: SESSION_MODE_CHIP_SX.readonly
+      sx: CHIP_SX.readonly
     }
   );
 }
-function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerDisplayName, canSend, jwtLoading, onOpenAudit }) {
+function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, ownerDisplayName, canSend, jwtLoading, canAudit = false, onOpenAudit }) {
   const tercero = claims?.itercero ?? displayScope?.itercero;
   const contacto = claims?.icontacto ?? displayScope?.icontacto;
   const codes = [tercero, contacto].filter(Boolean).join(" \xB7 ");
@@ -10628,68 +11544,53 @@ function ChatSessionPanel({ claims, displayScope, sessionUser: _sessionUser, own
   useEffect9(() => {
     setAvatarOk(true);
   }, [avatarUrl]);
+  const interactive = !!canAudit && typeof onOpenAudit === "function";
   return /* @__PURE__ */ jsxs14(
     Box7,
     {
-      className: "paty-chat-session paty-chat-session--clickable",
-      role: "button",
-      tabIndex: 0,
-      sx: { cursor: "pointer" },
-      title: "Filtrar conversaciones por usuario",
-      "aria-label": "Filtrar conversaciones por usuario",
-      onClick: () => onOpenAudit?.(),
-      onKeyDown: (e) => {
+      className: `paty-chat-session${interactive ? " paty-chat-session--clickable" : ""}`,
+      role: interactive ? "button" : void 0,
+      tabIndex: interactive ? 0 : void 0,
+      title: interactive ? "Filtrar conversaciones por usuario" : void 0,
+      "aria-label": interactive ? `Filtrar por ${primaryLabel}` : void 0,
+      onClick: interactive ? () => onOpenAudit?.() : void 0,
+      onKeyDown: interactive ? (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpenAudit?.();
         }
-      },
+      } : void 0,
       children: [
-        /* @__PURE__ */ jsx17(
-          Box7,
-          {
-            className: "paty-chat-session__action",
-            "aria-hidden": true,
-            sx: {
-              position: "absolute",
-              top: 8,
-              right: 8,
-              zIndex: 1,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "none"
-            },
-            children: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:account-filter-outline", size: 17 })
-          }
-        ),
-        /* @__PURE__ */ jsx17(Box7, { className: "paty-chat-session__avatar", "aria-hidden": true, children: avatarOk ? /* @__PURE__ */ jsx17(
-          "img",
-          {
-            className: "paty-chat-session__avatar-img",
-            src: avatarUrl,
-            alt: "",
-            width: 36,
-            height: 36,
-            loading: "lazy",
-            decoding: "async",
-            onError: () => setAvatarOk(false)
-          }
-        ) : /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:account-circle", size: 28 }) }),
+        /* @__PURE__ */ jsx17(Box7, { className: "paty-chat-session__avatar", "aria-hidden": true, children: avatarOk ? /* @__PURE__ */ jsx17("img", { className: "paty-chat-session__avatar-img", src: avatarUrl, alt: "", width: 36, height: 36, loading: "lazy", decoding: "async", onError: () => setAvatarOk(false) }) : /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:account-circle", size: 28 }) }),
         /* @__PURE__ */ jsxs14(Box7, { className: "paty-chat-session__body", children: [
-          /* @__PURE__ */ jsx17(Typography8, { className: "paty-chat-session__name", title: primaryLabel, children: primaryLabel }),
-          /* @__PURE__ */ jsx17(Box7, { className: "paty-chat-session__flags", sx: { flexWrap: "wrap", gap: 0.5 }, children: /* @__PURE__ */ jsx17(SessionModeChip, { canSend, jwtLoading }) })
-        ] })
+          /* @__PURE__ */ jsx17(Typography7, { className: "paty-chat-session__name", noWrap: true, title: primaryLabel, children: primaryLabel }),
+          /* @__PURE__ */ jsxs14(Box7, { className: "paty-chat-session__meta", children: [
+            /* @__PURE__ */ jsx17(SessionModeChip, { canSend, jwtLoading }),
+            codes ? /* @__PURE__ */ jsx17(
+              Typography7,
+              {
+                className: "paty-chat-session__ids",
+                variant: "caption",
+                component: "span",
+                title: codes,
+                sx: { fontSize: "0.58rem", lineHeight: 1.15, color: "rgba(148, 163, 184, 0.72)", fontWeight: 400 },
+                children: codes
+              }
+            ) : null
+          ] })
+        ] }),
+        /* @__PURE__ */ jsx17(Box7, { className: "paty-chat-session__action", "aria-hidden": true, children: /* @__PURE__ */ jsx17(Icon2, { icon: "mdi:filter-variant", size: 14 }) })
       ]
     }
   );
 }
 
 // js/tools/chat/ConvSearchAutocomplete.jsx
+init_platform();
 import { Fragment as Fragment6, jsx as jsx18, jsxs as jsxs15 } from "react/jsx-runtime";
 import { createElement as createElement2 } from "react";
 var { useState: useState10, useEffect: useEffect10, useRef: useRef6, useCallback: useCallback7, useMemo: useMemo10 } = getReact();
-var { Autocomplete, TextField: TextField4, Typography: Typography9, Box: Box8, IconButton: IconButton2, InputAdornment } = getMaterialUI();
+var { Autocomplete, TextField: TextField4, Typography: Typography8, Box: Box8, IconButton: IconButton2, InputAdornment } = getMaterialUI();
 var { Icon: Icon3 } = UI;
 var DEBOUNCE_MS = 300;
 function convSearchFilter(text) {
@@ -10805,27 +11706,25 @@ function ConvSearchAutocomplete({
           className: "paty-chat-conv-search__option",
           sx: { display: "flex", alignItems: "center", justifyContent: "flex-start", py: 0.75 }
         },
-        /* @__PURE__ */ jsxs15(Typography9, { variant: "body2", className: "paty-chat-conv-search__option-label", sx: { fontWeight: 600 }, noWrap: true, children: [
+        /* @__PURE__ */ jsxs15(Typography8, { variant: "body2", className: "paty-chat-conv-search__option-label", sx: { fontWeight: 600 }, noWrap: true, children: [
           /* @__PURE__ */ jsx18(Box8, { component: "span", className: "paty-chat-conv-search__option-id", children: row.iconversacion }),
           /* @__PURE__ */ jsx18(Box8, { component: "span", className: "paty-chat-conv-search__option-title", children: String(row.titulo ?? "").trim() || "Sin t\xEDtulo" })
         ] })
       ),
       renderInput: (params) => {
-        const inputSlot = params.slotProps?.input ?? {};
+        const inputProps = params.InputProps ?? params.slotProps?.input ?? {};
         return /* @__PURE__ */ jsx18(
           TextField4,
           {
             ...params,
+            size: "small",
             placeholder,
-            slotProps: {
-              ...params.slotProps,
-              input: {
-                ...inputSlot,
-                endAdornment: /* @__PURE__ */ jsxs15(Fragment6, { children: [
-                  showClear ? /* @__PURE__ */ jsx18(InputAdornment, { position: "end", children: /* @__PURE__ */ jsx18(IconButton2, { size: "small", "aria-label": "Limpiar b\xFAsqueda", className: "paty-chat-conv-search__clear", onMouseDown: (e) => e.preventDefault(), onClick: clearSearch, children: /* @__PURE__ */ jsx18(Icon3, { icon: "mdi:close", size: 16 }) }) }) : null,
-                  inputSlot.endAdornment
-                ] })
-              }
+            InputProps: {
+              ...inputProps,
+              endAdornment: /* @__PURE__ */ jsxs15(Fragment6, { children: [
+                showClear ? /* @__PURE__ */ jsx18(InputAdornment, { position: "end", children: /* @__PURE__ */ jsx18(IconButton2, { size: "small", "aria-label": "Limpiar b\xFAsqueda", className: "paty-chat-conv-search__clear", onMouseDown: (e) => e.preventDefault(), onClick: clearSearch, children: /* @__PURE__ */ jsx18(Icon3, { icon: "mdi:close", size: 16 }) }) }) : null,
+                inputProps.endAdornment
+              ] })
             }
           }
         );
@@ -10838,8 +11737,8 @@ function ConvSearchAutocomplete({
 import { Fragment as Fragment7, jsx as jsx19, jsxs as jsxs16 } from "react/jsx-runtime";
 var {
   Box: Box9,
-  Typography: Typography10,
-  Button: Button5,
+  Typography: Typography9,
+  Button: Button4,
   IconButton: IconButton3,
   List: List2,
   ListItemButton: ListItemButton2,
@@ -10847,8 +11746,7 @@ var {
   CircularProgress: CircularProgress4,
   Tooltip: Tooltip2,
   Stack: Stack8,
-  Divider: Divider4,
-  Chip: Chip7,
+  Divider: Divider3,
   Select: Select3,
   MenuItem: MenuItem3,
   FormControl: FormControl3
@@ -10907,13 +11805,14 @@ function ChatNewConversationButton({ canSend, onNewChat, onClose, compact = fals
     onNewChat?.();
     onClose?.();
   };
-  return /* @__PURE__ */ jsx19(Tooltip2, { title: "Nueva conversaci\xF3n", children: /* @__PURE__ */ jsx19("span", { children: compact ? /* @__PURE__ */ jsx19(IconButton3, { size: "small", color: "primary", disabled: !canSend, onClick: handleClick, "aria-label": "Nueva conversaci\xF3n", children: /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:plus", size: 20 }) }) : /* @__PURE__ */ jsx19(Button5, { variant: "contained", size: "small", disabled: !canSend, startIcon: /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:plus", size: 16 }), onClick: handleClick, children: "Nueva" }) }) });
+  return /* @__PURE__ */ jsx19(Tooltip2, { title: "Nueva conversaci\xF3n", children: /* @__PURE__ */ jsx19("span", { children: compact ? /* @__PURE__ */ jsx19(IconButton3, { size: "small", color: "primary", disabled: !canSend, onClick: handleClick, "aria-label": "Nueva conversaci\xF3n", children: /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:plus", size: 20 }) }) : /* @__PURE__ */ jsx19(Button4, { variant: "contained", size: "small", disabled: !canSend, startIcon: /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:plus", size: 16 }), onClick: handleClick, children: "Nueva" }) }) });
 }
 function ChatSidebarBody({
   jwt,
   displayScope,
   sessionUser,
   canSend,
+  canAuditChat = false,
   jwtLoading,
   needsJwt,
   listScope,
@@ -10921,7 +11820,6 @@ function ChatSidebarBody({
   viewingAuditOther,
   convListOwnerLabel,
   convListHeader,
-  showJwtBadge,
   loadingList,
   rows,
   selectedId,
@@ -10952,44 +11850,19 @@ function ChatSidebarBody({
         ownerDisplayName: resolveOwnerDisplayName(jwt, displayScope),
         canSend,
         jwtLoading,
+        canAudit: canAuditChat,
         onOpenAudit
       }
     ) }),
-    /* @__PURE__ */ jsx19(Divider4, { sx: { my: 1 } }),
+    /* @__PURE__ */ jsx19(Divider3, { sx: { my: 1 } }),
     /* @__PURE__ */ jsxs16(Box9, { className: "conv-log-sidebar-block paty-chat-sidebar-list-head", sx: { flexShrink: 0, pb: 0.5 }, children: [
-      /* @__PURE__ */ jsxs16(Typography10, { variant: "caption", color: "text.secondary", sx: { display: "block", fontWeight: 600, mb: 0.5 }, children: [
-        "Conversaciones",
-        (jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? /* @__PURE__ */ jsxs16(
-          Stack8,
-          {
-            direction: "row",
-            spacing: 0.5,
-            alignItems: "center",
-            useFlexGap: true,
-            flexWrap: "wrap",
-            sx: { mt: 0.25 },
-            children: [
-              /* @__PURE__ */ jsx19(Typography10, { variant: "caption", sx: { fontWeight: 500, color: "text.primary" }, children: convListHeader || convListOwnerLabel }),
-              showJwtBadge ? /* @__PURE__ */ jsx19(
-                Chip7,
-                {
-                  size: "small",
-                  label: "JWT",
-                  sx: {
-                    height: 18,
-                    fontSize: "0.62rem",
-                    fontWeight: 700,
-                    bgcolor: "rgba(124,58,237,0.14)",
-                    color: "#6d28d9",
-                    border: "1px solid rgba(124,58,237,0.35)",
-                    "& .MuiChip-label": { px: 0.6, py: 0 }
-                  }
-                }
-              ) : null
-            ]
-          }
-        ) : null,
-        needsJwt ? /* @__PURE__ */ jsx19(Typography10, { component: "span", variant: "caption", sx: { display: "block", color: "info.main", mt: 0.25 }, children: listScope?.nombre ? `${listScope.nombre} \xB7 modo lectura` : sessionScopeLoading ? "Buscando tus conversaciones\u2026" : "Sin contacto identificado \xB7 filtra por usuario" }) : null
+      /* @__PURE__ */ jsxs16(Stack8, { direction: "row", alignItems: "flex-start", spacing: 0.75, sx: { mb: 0.5, minWidth: 0 }, children: [
+        /* @__PURE__ */ jsxs16(Typography9, { variant: "caption", color: "text.secondary", sx: { flex: 1, minWidth: 0, fontWeight: 600 }, children: [
+          "Conversaciones",
+          (jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? /* @__PURE__ */ jsx19(Stack8, { direction: "row", spacing: 0.5, alignItems: "center", useFlexGap: true, flexWrap: "wrap", sx: { mt: 0.25 }, children: /* @__PURE__ */ jsx19(Typography9, { variant: "caption", sx: { fontWeight: 500, color: "text.primary" }, children: convListHeader || convListOwnerLabel }) }) : null,
+          needsJwt ? /* @__PURE__ */ jsx19(Typography9, { component: "span", variant: "caption", sx: { display: "block", color: "info.main", mt: 0.25 }, children: listScope?.nombre ? `${listScope.nombre} \xB7 modo lectura` : sessionScopeLoading ? "Buscando tus conversaciones\u2026" : "Sin contacto identificado \xB7 filtra por usuario" }) : null
+        ] }),
+        /* @__PURE__ */ jsx19(Box9, { sx: { flexShrink: 0, pt: 0.1 }, children: /* @__PURE__ */ jsx19(ChatNewConversationButton, { canSend, onNewChat, onClose }) })
       ] }),
       /* @__PURE__ */ jsx19(
         ConvSearchAutocomplete,
@@ -11039,10 +11912,10 @@ function ChatSidebarBody({
                         sx: { flex: 1, minWidth: 0, m: 0 },
                         primary: /* @__PURE__ */ jsxs16(Stack8, { direction: "row", spacing: 0.5, alignItems: "center", className: "paty-chat-conv-item__title", sx: { minWidth: 0, pointerEvents: "none" }, children: [
                           /* @__PURE__ */ jsx19("span", { className: "paty-chat-conv-id-badge", children: r.iconversacion }),
-                          /* @__PURE__ */ jsx19(Typography10, { component: "span", variant: "body2", noWrap: true, sx: { fontWeight: 600, minWidth: 0, flex: 1 }, children: convTitle })
+                          /* @__PURE__ */ jsx19(Typography9, { component: "span", variant: "body2", noWrap: true, sx: { fontWeight: 600, minWidth: 0, flex: 1 }, children: convTitle })
                         ] }),
                         secondary: /* @__PURE__ */ jsx19(
-                          Typography10,
+                          Typography9,
                           {
                             component: "span",
                             variant: "caption",
@@ -11071,7 +11944,7 @@ function ChatSidebarBody({
           ] }) }),
           convListMeta ? /* @__PURE__ */ jsx19(Box9, { className: "conv-log-sidebar-block paty-chat-sidebar-list-foot paty-chat-sidebar-list-foot--sticky", sx: { flexShrink: 0, pt: 0.5, pb: 0.5, px: 0 }, children: /* @__PURE__ */ jsxs16(Box9, { className: "paty-chat-conv-pager", role: "navigation", "aria-label": "Paginaci\xF3n de conversaciones", children: [
             /* @__PURE__ */ jsxs16(
-              Typography10,
+              Typography9,
               {
                 component: "span",
                 variant: "caption",
@@ -11144,6 +12017,7 @@ function ChatThreadSidebar({
   viewOnly,
   jwtLoading,
   canSend,
+  canAuditChat = false,
   needsJwt,
   listScope,
   sessionScopeLoading,
@@ -11151,7 +12025,6 @@ function ChatThreadSidebar({
   auditScope,
   convListOwnerLabel,
   convListHeader,
-  showJwtBadge,
   loadingList,
   rows,
   selectedId,
@@ -11180,6 +12053,7 @@ function ChatThreadSidebar({
     displayScope,
     sessionUser,
     canSend,
+    canAuditChat,
     jwtLoading,
     needsJwt,
     listScope,
@@ -11187,7 +12061,6 @@ function ChatThreadSidebar({
     viewingAuditOther,
     convListOwnerLabel,
     convListHeader,
-    showJwtBadge,
     loadingList,
     rows,
     selectedId,
@@ -11235,43 +12108,48 @@ function ChatThreadSidebar({
         boxSizing: "border-box"
       },
       children: [
-        /* @__PURE__ */ jsxs16(
+        onClose || onMessageSourceChange || onChatModeChange ? /* @__PURE__ */ jsx19(
           Stack8,
           {
             direction: "row",
             spacing: 1,
             alignItems: "center",
+            justifyContent: "flex-end",
             className: "conv-log-sidebar-block",
-            sx: { py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 },
-            children: [
-              /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:chat-outline", size: 20 }),
-              /* @__PURE__ */ jsx19(Box9, { sx: { flex: 1 } }),
-              /* @__PURE__ */ jsx19(ChatNewConversationButton, { canSend, onNewChat, onClose }),
-              /* @__PURE__ */ jsx19(
-                ChatSidebarHeaderActions,
-                {
-                  onClose,
-                  messageSource,
-                  mode,
-                  onMessageSourceChange,
-                  onChatModeChange
-                }
-              )
-            ]
+            sx: { py: 0.5, borderBottom: 1, borderColor: "divider", flexShrink: 0 },
+            children: /* @__PURE__ */ jsx19(
+              ChatSidebarHeaderActions,
+              {
+                onClose,
+                messageSource,
+                mode,
+                onMessageSourceChange,
+                onChatModeChange
+              }
+            )
           }
-        ),
+        ) : null,
         /* @__PURE__ */ jsx19(ChatSidebarBody, { ...bodyProps })
       ]
     }
   );
 }
 
+// js/tools/chat/ChatMainPanel.jsx
+init_platform();
+
+// js/tools/chat/ChatComposer.jsx
+init_platform();
+init_patyia_jwt();
+
 // js/tools/chat/ChatPayloadPreview.jsx
+init_platform();
+init_patyiaChatApi();
 import { jsx as jsx20, jsxs as jsxs17 } from "react/jsx-runtime";
 var { useMemo: useMemo11 } = getReact();
 var { Icon: Icon5 } = UI;
 function ChatPayloadPreview({ open, body, endpoint, onClose }) {
-  const { Box: Box35, Typography: Typography32, Paper: Paper5, IconButton: IconButton16, Tooltip: Tooltip18 } = getMaterialUI();
+  const { Box: Box35, Typography: Typography29, Paper: Paper6, IconButton: IconButton15, Tooltip: Tooltip16 } = getMaterialUI();
   const previewJson = useMemo11(
     () => formatConversacionPostBodyPreview(body),
     [body]
@@ -11280,7 +12158,7 @@ function ChatPayloadPreview({ open, body, endpoint, onClose }) {
   const audioCount = Array.isArray(body.audios) ? body.audios.length : 0;
   if (!open) return null;
   return /* @__PURE__ */ jsxs17(
-    Paper5,
+    Paper6,
     {
       className: "paty-chat-payload-preview",
       elevation: 8,
@@ -11289,23 +12167,23 @@ function ChatPayloadPreview({ open, body, endpoint, onClose }) {
       children: [
         /* @__PURE__ */ jsxs17(Box35, { className: "paty-chat-payload-preview__head", children: [
           /* @__PURE__ */ jsxs17(Box35, { className: "paty-chat-payload-preview__head-main", children: [
-            /* @__PURE__ */ jsx20(Typography32, { variant: "caption", className: "paty-chat-payload-preview__method", children: "POST" }),
-            /* @__PURE__ */ jsx20(Typography32, { variant: "caption", component: "code", className: "paty-chat-payload-preview__path", children: endpoint }),
-            imageCount > 0 ? /* @__PURE__ */ jsxs17(Typography32, { variant: "caption", className: "paty-chat-payload-preview__meta", children: [
+            /* @__PURE__ */ jsx20(Typography29, { variant: "caption", className: "paty-chat-payload-preview__method", children: "POST" }),
+            /* @__PURE__ */ jsx20(Typography29, { variant: "caption", component: "code", className: "paty-chat-payload-preview__path", children: endpoint }),
+            imageCount > 0 ? /* @__PURE__ */ jsxs17(Typography29, { variant: "caption", className: "paty-chat-payload-preview__meta", children: [
               imageCount,
               " imagen",
               imageCount !== 1 ? "es" : "",
               " \xB7 base64"
             ] }) : null,
-            audioCount > 0 ? /* @__PURE__ */ jsxs17(Typography32, { variant: "caption", className: "paty-chat-payload-preview__meta", children: [
+            audioCount > 0 ? /* @__PURE__ */ jsxs17(Typography29, { variant: "caption", className: "paty-chat-payload-preview__meta", children: [
               audioCount,
               " audio",
               audioCount !== 1 ? "s" : "",
               " \xB7 base64"
             ] }) : null
           ] }),
-          /* @__PURE__ */ jsx20(Tooltip18, { title: "Cerrar vista previa", children: /* @__PURE__ */ jsx20(
-            IconButton16,
+          /* @__PURE__ */ jsx20(Tooltip16, { title: "Cerrar vista previa", children: /* @__PURE__ */ jsx20(
+            IconButton15,
             {
               size: "small",
               className: "paty-chat-payload-preview__close",
@@ -11330,7 +12208,7 @@ function ChatPayloadPreview({ open, body, endpoint, onClose }) {
             className: "paty-chat-payload-preview__cm"
           }
         ) }),
-        /* @__PURE__ */ jsxs17(Typography32, { variant: "caption", className: "paty-chat-payload-preview__foot", children: [
+        /* @__PURE__ */ jsxs17(Typography29, { variant: "caption", className: "paty-chat-payload-preview__foot", children: [
           "Vista previa en vivo \u2014 el env\xEDo incluye base64 completo en ",
           /* @__PURE__ */ jsx20("code", { children: "imagenes[]" }),
           " y ",
@@ -11350,10 +12228,10 @@ function ChatPayloadPreview({ open, body, endpoint, onClose }) {
 
 // js/tools/chat/ChatComposer.jsx
 import { jsx as jsx21, jsxs as jsxs18 } from "react/jsx-runtime";
-var { useState: useState11 } = getReact();
+var { useState: useState11, useMemo: useMemo12, useEffect: useEffect11 } = getReact();
 var {
   Box: Box10,
-  Button: Button6,
+  Button: Button5,
   IconButton: IconButton4,
   TextField: TextField5,
   CircularProgress: CircularProgress5,
@@ -11384,6 +12262,19 @@ function ChatComposer({
   const [lightboxSrc, setLightboxSrc] = useState11(null);
   const canRecord = isVoiceRecordingSupported();
   const hasContent = Boolean(draft.trim() || images.length || audios.length);
+  const imagePreviewUrls = useMemo12(
+    () => images.map((img) => blobToPreviewUrl(img.blob)),
+    [images]
+  );
+  const audioPreviewUrls = useMemo12(
+    () => audios.map((aud) => blobToPreviewUrl2(aud.blob)),
+    [audios]
+  );
+  useEffect11(() => () => {
+    [...imagePreviewUrls, ...audioPreviewUrls].forEach((u) => {
+      if (u) URL.revokeObjectURL(u);
+    });
+  }, [imagePreviewUrls, audioPreviewUrls]);
   if (!canSend) return null;
   return /* @__PURE__ */ jsxs18(Box10, { className: "paty-chat-compose", children: [
     /* @__PURE__ */ jsx21(
@@ -11395,34 +12286,40 @@ function ChatComposer({
         onClose: onTogglePayloadPreview
       }
     ),
-    images.length > 0 && /* @__PURE__ */ jsx21(Box10, { className: "paty-chat-image-previews", children: images.map((img, idx) => /* @__PURE__ */ jsxs18("figure", { children: [
-      /* @__PURE__ */ jsx21(
-        "button",
-        {
-          type: "button",
-          className: "paty-chat-image-previews__thumb-btn",
-          "aria-label": `Ver ${img.name || "adjunto"} en tama\xF1o completo`,
-          onClick: () => setLightboxSrc(img.dataUrl),
-          children: /* @__PURE__ */ jsx21(
-            "img",
-            {
-              src: img.dataUrl,
-              alt: img.name || "adjunto",
-              onError: (e) => {
-                e.currentTarget.classList.add("paty-chat-image-previews__img--broken");
-                e.currentTarget.removeAttribute("src");
+    images.length > 0 && /* @__PURE__ */ jsx21(Box10, { className: "paty-chat-image-previews", children: images.map((img, idx) => {
+      const previewSrc = img.uploadedUrl || imagePreviewUrls[idx] || "";
+      return /* @__PURE__ */ jsxs18("figure", { children: [
+        /* @__PURE__ */ jsx21(
+          "button",
+          {
+            type: "button",
+            className: "paty-chat-image-previews__thumb-btn",
+            "aria-label": `Ver ${img.name || "adjunto"} en tama\xF1o completo`,
+            onClick: () => previewSrc && setLightboxSrc(previewSrc),
+            children: /* @__PURE__ */ jsx21(
+              "img",
+              {
+                src: previewSrc,
+                alt: img.name || "adjunto",
+                onError: (e) => {
+                  e.currentTarget.classList.add("paty-chat-image-previews__img--broken");
+                  e.currentTarget.removeAttribute("src");
+                }
               }
-            }
-          )
-        }
-      ),
-      /* @__PURE__ */ jsx21("button", { type: "button", className: "paty-chat-image-previews__remove", "aria-label": "Quitar", onClick: () => onRemoveImage(idx), children: "\xD7" })
-    ] }, idx)) }),
-    audios.length > 0 && /* @__PURE__ */ jsx21(Box10, { className: "paty-chat-audio-previews", children: audios.map((aud, idx) => /* @__PURE__ */ jsxs18("figure", { children: [
-      /* @__PURE__ */ jsx21("audio", { controls: true, preload: "metadata", src: aud.dataUrl, "aria-label": aud.name || `Nota de voz ${idx + 1}` }),
-      /* @__PURE__ */ jsx21("figcaption", { children: aud.name || `Nota ${idx + 1}` }),
-      /* @__PURE__ */ jsx21("button", { type: "button", className: "paty-chat-audio-previews__remove", "aria-label": "Quitar audio", onClick: () => onRemoveAudio(idx), children: "\xD7" })
-    ] }, idx)) }),
+            )
+          }
+        ),
+        /* @__PURE__ */ jsx21("button", { type: "button", className: "paty-chat-image-previews__remove", "aria-label": "Quitar", onClick: () => onRemoveImage(idx), children: "\xD7" })
+      ] }, idx);
+    }) }),
+    audios.length > 0 && /* @__PURE__ */ jsx21(Box10, { className: "paty-chat-audio-previews", children: audios.map((aud, idx) => {
+      const previewSrc = aud.uploadedUrl || audioPreviewUrls[idx] || "";
+      return /* @__PURE__ */ jsxs18("figure", { children: [
+        /* @__PURE__ */ jsx21("audio", { controls: true, preload: "metadata", src: previewSrc, "aria-label": aud.name || `Nota de voz ${idx + 1}` }),
+        /* @__PURE__ */ jsx21("figcaption", { children: aud.name || `Nota ${idx + 1}` }),
+        /* @__PURE__ */ jsx21("button", { type: "button", className: "paty-chat-audio-previews__remove", "aria-label": "Quitar audio", onClick: () => onRemoveAudio(idx), children: "\xD7" })
+      ] }, idx);
+    }) }),
     /* @__PURE__ */ jsxs18(Box10, { className: "paty-chat-input-wrap", children: [
       /* @__PURE__ */ jsx21(
         "input",
@@ -11484,7 +12381,7 @@ function ChatComposer({
           disabled: sending || isRecording
         }
       ),
-      /* @__PURE__ */ jsx21(Button6, { variant: "contained", disabled: sending || isRecording || !hasContent, onClick: onSend, children: sending ? /* @__PURE__ */ jsx21(CircularProgress5, { size: 20, color: "inherit" }) : "Enviar" })
+      /* @__PURE__ */ jsx21(Button5, { variant: "contained", disabled: sending || isRecording || !hasContent, onClick: onSend, children: sending ? /* @__PURE__ */ jsx21(CircularProgress5, { size: 20, color: "inherit" }) : "Enviar" })
     ] }),
     /* @__PURE__ */ jsx21(ImageLightboxDialog, { open: Boolean(lightboxSrc), src: lightboxSrc, onClose: () => setLightboxSrc(null) })
   ] });
@@ -11494,8 +12391,8 @@ function ChatComposer({
 import { jsx as jsx22, jsxs as jsxs19 } from "react/jsx-runtime";
 var {
   Box: Box11,
-  Typography: Typography11,
-  Button: Button7,
+  Typography: Typography10,
+  Button: Button6,
   IconButton: IconButton5,
   Tooltip: Tooltip4,
   Alert: Alert7,
@@ -11515,7 +12412,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         sx: { px: 1, py: 0.5, minHeight: 40, flexShrink: 0 },
         children: [
           /* @__PURE__ */ jsx22(Tooltip4, { title: "Conversaciones", arrow: true, children: /* @__PURE__ */ jsx22(IconButton5, { size: "small", onClick: onOpenSidebar, "aria-label": "Abrir conversaciones", children: /* @__PURE__ */ jsx22(Icon7, { icon: "mdi:menu-open", size: 20 }) }) }),
-          /* @__PURE__ */ jsx22(Typography11, { variant: "subtitle2", sx: { fontWeight: 700, flex: 1, minWidth: 0 }, noWrap: true, children: "Conversaciones" }),
+          /* @__PURE__ */ jsx22(Typography10, { variant: "subtitle2", sx: { fontWeight: 700, flex: 1, minWidth: 0 }, noWrap: true, children: "Conversaciones" }),
           /* @__PURE__ */ jsx22(
             ChatSidebarHeaderActions,
             {
@@ -11574,11 +12471,11 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
       {
         severity: "info",
         sx: { mx: 2, mt: 1, flexShrink: 0 },
-        action: /* @__PURE__ */ jsx22(Button7, { color: "inherit", size: "small", onClick: onOpenJwt, children: "Configurar JWT" }),
+        action: /* @__PURE__ */ jsx22(Button6, { color: "inherit", size: "small", onClick: onOpenJwt, children: "Configurar JWT" }),
         children: [
           "Modo lectura \u2014 puedes explorar conversaciones. Configura el JWT de",
           " ",
-          /* @__PURE__ */ jsx22(Typography11, { component: "a", href: "https://www.contapyme.com/soporte-staging/", target: "_blank", rel: "noreferrer", variant: "inherit", children: "soporte-staging" }),
+          /* @__PURE__ */ jsx22(Typography10, { component: "a", href: "https://www.contapyme.com/soporte-staging/", target: "_blank", rel: "noreferrer", variant: "inherit", children: "soporte-staging" }),
           " ",
           "para enviar mensajes."
         ]
@@ -11599,7 +12496,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
       {
         className: "paty-chat-thread-surface",
         sx: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...convLogSurfaceSx({ flex: 1 }) },
-        children: /* @__PURE__ */ jsx22(Box11, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx22(Typography11, { variant: "body1", children: canSend ? "Escribe un mensaje abajo para iniciar una conversaci\xF3n." : needsJwt ? "Selecciona una conversaci\xF3n del listado o configura JWT para chatear." : "Selecciona una conversaci\xF3n o crea una nueva." }) })
+        children: /* @__PURE__ */ jsx22(Box11, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx22(Typography10, { variant: "body1", children: canSend ? "Escribe un mensaje abajo para iniciar una conversaci\xF3n." : needsJwt ? "Selecciona una conversaci\xF3n del listado o configura JWT para chatear." : "Selecciona una conversaci\xF3n o crea una nueva." }) })
       }
     ) : /* @__PURE__ */ jsx22(
       ConvLogThread,
@@ -11652,13 +12549,16 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
 }
 
 // js/tools/chat/JwtModal.jsx
+init_platform();
+init_patyia_jwt();
+init_platform();
 import { jsx as jsx23, jsxs as jsxs20 } from "react/jsx-runtime";
-var { useState: useState12, useEffect: useEffect11 } = getReact();
-var { Button: Button8, TextField: TextField6, DialogContent: DialogContent6, DialogActions: DialogActions4, CircularProgress: CircularProgress6 } = getMaterialUI();
+var { useState: useState12, useEffect: useEffect12 } = getReact();
+var { Button: Button7, TextField: TextField6, DialogContent: DialogContent6, DialogActions: DialogActions4, CircularProgress: CircularProgress6 } = getMaterialUI();
 function JwtModal({ open, onClose, initialToken, onSave }) {
   const [value, setValue] = useState12(initialToken || "");
   const [saving, setSaving] = useState12(false);
-  useEffect11(() => {
+  useEffect12(() => {
     if (open) setValue(initialToken || "");
   }, [open, initialToken]);
   async function submit() {
@@ -11708,8 +12608,8 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
           }
         ) }),
         /* @__PURE__ */ jsxs20(DialogActions4, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx23(Button8, { onClick: onClose, disabled: saving, children: "Cancelar" }),
-          /* @__PURE__ */ jsx23(Button8, { variant: "contained", onClick: submit, disabled: saving, children: saving ? /* @__PURE__ */ jsx23(CircularProgress6, { size: 20, color: "inherit" }) : "Guardar" })
+          /* @__PURE__ */ jsx23(Button7, { onClick: onClose, disabled: saving, children: "Cancelar" }),
+          /* @__PURE__ */ jsx23(Button7, { variant: "contained", onClick: submit, disabled: saving, children: saving ? /* @__PURE__ */ jsx23(CircularProgress6, { size: 20, color: "inherit" }) : "Guardar" })
         ] })
       ]
     }
@@ -11717,12 +12617,15 @@ function JwtModal({ open, onClose, initialToken, onSave }) {
 }
 
 // js/tools/chat/TercerosAuditDialog.jsx
+init_platform();
+init_patyia_jwt();
+init_apiClient();
 import { jsx as jsx24, jsxs as jsxs21 } from "react/jsx-runtime";
-var { useState: useState13, useEffect: useEffect12 } = getReact();
+var { useState: useState13, useEffect: useEffect13, useMemo: useMemo13 } = getReact();
 var {
   Box: Box12,
-  Typography: Typography12,
-  Button: Button9,
+  Typography: Typography11,
+  Button: Button8,
   TextField: TextField7,
   Dialog: Dialog5,
   DialogTitle: DialogTitle5,
@@ -11737,27 +12640,59 @@ var {
   TableContainer: TableContainer2,
   TableHead: TableHead2,
   TableRow: TableRow2,
-  Chip: Chip8
+  Chip: Chip7
 } = getMaterialUI();
 var { Icon: Icon8 } = UI;
-function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, currentScope }) {
+var CELL_SX = { py: 0.5, px: 1, fontSize: "0.75rem", lineHeight: 1.25 };
+var HEAD_SX = { ...CELL_SX, fontWeight: 650, whiteSpace: "nowrap" };
+function rowsWithActiveFirst(rows, currentKey, currentScope) {
+  const list = Array.isArray(rows) ? [...rows] : [];
+  list.sort((a, b) => (Number(b.total_conversaciones) || 0) - (Number(a.total_conversaciones) || 0));
+  if (!currentKey) return list;
+  const idx = list.findIndex((r) => `${r.itercero}|${r.icontacto}` === currentKey);
+  if (idx === 0) return list;
+  if (idx > 0) {
+    const [active] = list.splice(idx, 1);
+    list.unshift(active);
+    return list;
+  }
+  if (!currentScope?.itercero) return list;
+  list.unshift({
+    itercero: String(currentScope.itercero),
+    icontacto: String(currentScope.icontacto ?? ""),
+    nombre: currentScope.nombre ?? null,
+    total_conversaciones: Number(currentScope.total_conversaciones ?? 0) || 0,
+    total_mensajes: Number(currentScope.total_mensajes ?? 0) || 0,
+    ultima_actividad: currentScope.ultima_actividad ?? null,
+    es_jwt: !!currentScope.esJwt,
+    es_sesion: !!currentScope.esSesion
+  });
+  return list;
+}
+function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, currentScope, canAudit = true }) {
   const [q, setQ] = useState13("");
   const [qDebounced, setQDebounced] = useState13("");
   const [page, setPage] = useState13(1);
   const [loading, setLoading] = useState13(false);
   const [error, setError] = useState13("");
   const [data, setData] = useState13(null);
-  useEffect12(() => {
+  useEffect13(() => {
     if (!open) return void 0;
     const t = setTimeout(() => setQDebounced(q.trim()), 350);
     return () => clearTimeout(t);
   }, [q, open]);
-  useEffect12(() => {
+  useEffect13(() => {
     if (!open) return;
     setPage(1);
   }, [qDebounced, open]);
-  useEffect12(() => {
+  useEffect13(() => {
     if (!open) return void 0;
+    if (!canAudit) {
+      setData(null);
+      setError("");
+      setLoading(false);
+      return void 0;
+    }
     const claims = jwt?.token ? jwt.claims?.itercero ? jwt.claims : parseJwtClaims(jwt.token) || {} : {};
     let cancelled = false;
     setLoading(true);
@@ -11772,7 +12707,13 @@ function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, curren
       jwtNombre: jwt?.token ? jwtUserDisplayName(claims) : void 0,
       appUser: sessionUser || void 0
     }).then((res) => {
-      if (!cancelled) setData(res);
+      if (cancelled) return;
+      const claimsOwn = jwt?.token ? jwt.claims?.itercero ? jwt.claims : parseJwtClaims(jwt.token) || {} : {};
+      const ownT = String(claimsOwn.itercero ?? currentScope?.itercero ?? "").trim();
+      const ownC = String(claimsOwn.icontacto ?? currentScope?.icontacto ?? "").trim();
+      const rows2 = Array.isArray(res?.rows) ? res.rows : [];
+      const scoped = canAudit ? rows2 : rows2.filter((r) => String(r.itercero) === ownT && String(r.icontacto) === ownC);
+      setData({ ...res, rows: scoped, total: canAudit ? res.total : scoped.length });
     }).catch((err) => {
       if (!cancelled) {
         setData(null);
@@ -11784,13 +12725,28 @@ function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, curren
     return () => {
       cancelled = true;
     };
-  }, [open, page, qDebounced, jwt?.token, jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser]);
+  }, [open, page, qDebounced, jwt?.token, jwt?.claims?.itercero, jwt?.claims?.icontacto, sessionUser, canAudit, currentScope?.itercero, currentScope?.icontacto]);
   const currentKey = auditScopeKey(currentScope);
-  const rows = data?.rows ?? [];
+  const rows = useMemo13(() => {
+    if (!canAudit) {
+      const own = currentScope?.itercero ? [{
+        itercero: String(currentScope.itercero),
+        icontacto: String(currentScope.icontacto ?? ""),
+        nombre: currentScope.nombre ?? null,
+        total_conversaciones: Number(currentScope.total_conversaciones ?? 0) || 0,
+        total_mensajes: Number(currentScope.total_mensajes ?? 0) || 0,
+        ultima_actividad: currentScope.ultima_actividad ?? null,
+        es_jwt: !!currentScope.esJwt,
+        es_sesion: true
+      }] : data?.rows ?? [];
+      return own;
+    }
+    return rowsWithActiveFirst(data?.rows, currentKey, currentScope);
+  }, [canAudit, data?.rows, currentKey, currentScope]);
   return /* @__PURE__ */ jsxs21(Dialog5, { open, onClose, maxWidth: "md", fullWidth: true, scroll: "paper", className: "paty-chat-terceros-dialog", children: [
-    /* @__PURE__ */ jsx24(DialogTitle5, { sx: { pb: 1.25 }, children: "Filtrar por usuario" }),
-    /* @__PURE__ */ jsxs21(DialogContent7, { dividers: true, sx: { pt: 1.5 }, children: [
-      /* @__PURE__ */ jsx24(
+    /* @__PURE__ */ jsx24(DialogTitle5, { sx: { py: 1.25, px: 2, fontSize: "1rem" }, children: canAudit ? "Filtrar por usuario" : "Tu usuario" }),
+    /* @__PURE__ */ jsxs21(DialogContent7, { dividers: true, sx: { pt: 1.25, px: 2, pb: 1 }, children: [
+      canAudit ? /* @__PURE__ */ jsx24(
         TextField7,
         {
           size: "small",
@@ -11798,88 +12754,77 @@ function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, curren
           placeholder: "Buscar tercero o contacto\u2026",
           value: q,
           onChange: (e) => setQ(e.target.value),
-          sx: { mb: 1.5 },
+          className: "paty-chat-terceros-search",
+          sx: { mb: 1 },
           InputProps: {
-            startAdornment: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:magnify", size: 18, style: { marginRight: 6, opacity: 0.6 } })
+            startAdornment: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:magnify", size: 16, style: { marginRight: 6, opacity: 0.6 } })
           }
         }
-      ),
-      error ? /* @__PURE__ */ jsx24(Alert8, { severity: "error", sx: { mb: 1.5 }, children: error }) : null,
-      loading ? /* @__PURE__ */ jsx24(Box12, { sx: { py: 4, textAlign: "center" }, children: /* @__PURE__ */ jsx24(CircularProgress7, { size: 28 }) }) : /* @__PURE__ */ jsx24(TableContainer2, { className: "paty-chat-terceros-table", children: /* @__PURE__ */ jsxs21(Table2, { size: "small", stickyHeader: true, children: [
+      ) : /* @__PURE__ */ jsx24(Alert8, { severity: "info", sx: { mb: 1, py: 0.5 }, children: "Tu rol solo puede ver tus propias conversaciones." }),
+      error ? /* @__PURE__ */ jsx24(Alert8, { severity: "error", sx: { mb: 1, py: 0.5 }, children: error }) : null,
+      loading ? /* @__PURE__ */ jsx24(Box12, { sx: { py: 3, textAlign: "center" }, children: /* @__PURE__ */ jsx24(CircularProgress7, { size: 24 }) }) : /* @__PURE__ */ jsx24(TableContainer2, { className: "paty-chat-terceros-table", children: /* @__PURE__ */ jsxs21(Table2, { size: "small", stickyHeader: true, children: [
         /* @__PURE__ */ jsx24(TableHead2, { children: /* @__PURE__ */ jsxs21(TableRow2, { children: [
-          /* @__PURE__ */ jsx24(TableCell2, { children: "Nombre / tercero" }),
-          /* @__PURE__ */ jsx24(TableCell2, { children: "Contacto" }),
-          /* @__PURE__ */ jsx24(TableCell2, { align: "right", children: "Convs" }),
-          /* @__PURE__ */ jsx24(TableCell2, { align: "right", children: "Msgs" }),
-          /* @__PURE__ */ jsx24(TableCell2, { children: "\xDAltima act." }),
-          /* @__PURE__ */ jsx24(TableCell2, { align: "center", children: "Ver" })
+          /* @__PURE__ */ jsx24(TableCell2, { sx: HEAD_SX, children: "Nombre (Tercero / Contacto)" }),
+          /* @__PURE__ */ jsx24(TableCell2, { align: "right", sx: HEAD_SX, children: "Convs" }),
+          /* @__PURE__ */ jsx24(TableCell2, { align: "right", sx: HEAD_SX, children: "Msgs" }),
+          /* @__PURE__ */ jsx24(TableCell2, { sx: HEAD_SX, children: "\xDAltima act." }),
+          /* @__PURE__ */ jsx24(TableCell2, { align: "center", sx: HEAD_SX, children: "Ver" })
         ] }) }),
         /* @__PURE__ */ jsxs21(TableBody2, { children: [
           rows.map((row) => {
             const key = `${row.itercero}|${row.icontacto}`;
             const selected = currentKey === key;
-            return /* @__PURE__ */ jsxs21(
-              TableRow2,
-              {
-                hover: true,
-                selected,
-                className: row.es_jwt ? "paty-chat-terceros-row--jwt" : void 0,
-                children: [
-                  /* @__PURE__ */ jsx24(TableCell2, { children: /* @__PURE__ */ jsxs21(Stack10, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
-                    /* @__PURE__ */ jsx24(Box12, { sx: { minWidth: 0 }, children: row.nombre ? /* @__PURE__ */ jsxs21(Typography12, { variant: "body2", sx: { fontWeight: 600, lineHeight: 1.35 }, children: [
-                      shortDisplayName(row.nombre),
-                      " ",
-                      /* @__PURE__ */ jsx24(
-                        Typography12,
-                        {
-                          component: "span",
-                          variant: "caption",
-                          color: "text.secondary",
-                          sx: {
-                            fontWeight: 400,
-                            fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
-                            letterSpacing: "0.02em"
-                          },
-                          children: row.itercero
-                        }
-                      )
-                    ] }) : /* @__PURE__ */ jsx24(
-                      Typography12,
-                      {
-                        variant: "body2",
-                        component: "span",
-                        sx: { fontFamily: '"IBM Plex Mono", ui-monospace, monospace', letterSpacing: "0.02em" },
-                        children: row.itercero
-                      }
-                    ) }),
-                    row.es_jwt ? /* @__PURE__ */ jsx24(Chip8, { size: "small", label: "JWT", color: "primary", sx: { height: 20 } }) : null,
-                    row.es_sesion ? /* @__PURE__ */ jsx24(Chip8, { size: "small", label: "Sesi\xF3n", color: "success", sx: { height: 20 } }) : null
-                  ] }) }),
-                  /* @__PURE__ */ jsx24(TableCell2, { children: row.icontacto }),
-                  /* @__PURE__ */ jsx24(TableCell2, { align: "right", children: row.total_conversaciones.toLocaleString("es-CO") }),
-                  /* @__PURE__ */ jsx24(TableCell2, { align: "right", children: row.total_mensajes.toLocaleString("es-CO") }),
-                  /* @__PURE__ */ jsx24(TableCell2, { children: formatAuditTs(row.ultima_actividad) }),
-                  /* @__PURE__ */ jsx24(TableCell2, { align: "center", children: /* @__PURE__ */ jsx24(
-                    Button9,
+            const codes = [row.itercero, row.icontacto].filter(Boolean).join(" \xB7 ");
+            return /* @__PURE__ */ jsxs21(TableRow2, { hover: true, selected, children: [
+              /* @__PURE__ */ jsx24(TableCell2, { sx: CELL_SX, children: /* @__PURE__ */ jsxs21(Stack10, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
+                /* @__PURE__ */ jsxs21(Box12, { sx: { minWidth: 0 }, children: [
+                  row.nombre ? /* @__PURE__ */ jsx24(Typography11, { variant: "body2", sx: { fontWeight: 600, lineHeight: 1.2, fontSize: "0.78rem" }, children: shortDisplayName(row.nombre) }) : null,
+                  /* @__PURE__ */ jsx24(
+                    Typography11,
                     {
-                      size: "small",
-                      variant: selected ? "contained" : "outlined",
-                      onClick: () => onSelect({
-                        itercero: row.itercero,
-                        icontacto: row.icontacto,
-                        esJwt: row.es_jwt,
-                        esSesion: row.es_sesion,
-                        nombre: row.nombre ? shortDisplayName(row.nombre) : null
-                      }),
-                      children: selected ? "Activo" : row.es_sesion ? "Mis convs" : "Ver"
+                      component: "span",
+                      variant: "caption",
+                      color: "text.secondary",
+                      sx: {
+                        display: "block",
+                        fontWeight: 400,
+                        fontSize: "0.65rem",
+                        lineHeight: 1.2,
+                        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+                        letterSpacing: "0.02em"
+                      },
+                      children: codes
                     }
-                  ) })
-                ]
-              },
-              key
-            );
+                  )
+                ] }),
+                row.es_sesion ? /* @__PURE__ */ jsx24(Chip7, { size: "small", label: "Sesi\xF3n", color: "success", sx: { height: 18, "& .MuiChip-label": { px: 0.5, fontSize: "0.65rem" } } }) : null
+              ] }) }),
+              /* @__PURE__ */ jsx24(TableCell2, { align: "right", sx: CELL_SX, children: Number(row.total_conversaciones || 0).toLocaleString("es-CO") }),
+              /* @__PURE__ */ jsx24(TableCell2, { align: "right", sx: CELL_SX, children: Number(row.total_mensajes || 0).toLocaleString("es-CO") }),
+              /* @__PURE__ */ jsx24(TableCell2, { sx: CELL_SX, children: formatAuditTs(row.ultima_actividad) }),
+              /* @__PURE__ */ jsx24(TableCell2, { align: "center", sx: CELL_SX, children: /* @__PURE__ */ jsx24(
+                Button8,
+                {
+                  size: "small",
+                  variant: selected ? "contained" : "outlined",
+                  disabled: !canAudit && !row.es_sesion && !row.es_jwt,
+                  sx: { minWidth: 0, px: 1, py: 0.15, fontSize: "0.7rem", lineHeight: 1.2 },
+                  onClick: () => {
+                    if (!canAudit && !row.es_sesion && !row.es_jwt) return;
+                    onSelect({
+                      itercero: row.itercero,
+                      icontacto: row.icontacto,
+                      esJwt: row.es_jwt,
+                      esSesion: row.es_sesion,
+                      nombre: row.nombre ? shortDisplayName(row.nombre) : null
+                    });
+                  },
+                  children: selected ? "Activo" : row.es_sesion ? "Mis convs" : "Ver"
+                }
+              ) })
+            ] }, key);
           }),
-          !loading && !rows.length ? /* @__PURE__ */ jsx24(TableRow2, { children: /* @__PURE__ */ jsxs21(TableCell2, { colSpan: 6, align: "center", sx: { py: 3, color: "text.secondary" }, children: [
+          !loading && !error && !rows.length ? /* @__PURE__ */ jsx24(TableRow2, { children: /* @__PURE__ */ jsxs21(TableCell2, { colSpan: 5, align: "center", sx: { py: 2.5, color: "text.secondary", fontSize: "0.8rem" }, children: [
             "Sin resultados",
             qDebounced ? ` para \u201C${qDebounced}\u201D` : "",
             "."
@@ -11887,30 +12832,30 @@ function TercerosAuditDialog({ open, onClose, jwt, sessionUser, onSelect, curren
         ] })
       ] }) })
     ] }),
-    /* @__PURE__ */ jsxs21(DialogActions5, { sx: { justifyContent: "space-between", px: 2, py: 1.25 }, children: [
-      /* @__PURE__ */ jsx24(Typography12, { variant: "caption", color: "text.secondary", children: data ? `${data.total.toLocaleString("es-CO")} contactos \xB7 p\xE1g. ${data.page}/${Math.max(data.pages, 1)}` : "\u2014" }),
+    /* @__PURE__ */ jsxs21(DialogActions5, { sx: { justifyContent: "space-between", px: 2, py: 1 }, children: [
+      /* @__PURE__ */ jsx24(Typography11, { variant: "caption", color: "text.secondary", children: data ? `${data.total.toLocaleString("es-CO")} contactos \xB7 p\xE1g. ${data.page}/${Math.max(data.pages, 1)}` : "\u2014" }),
       /* @__PURE__ */ jsxs21(Stack10, { direction: "row", spacing: 1, alignItems: "center", children: [
         /* @__PURE__ */ jsx24(
-          Button9,
+          Button8,
           {
             size: "small",
-            disabled: loading || !data || page <= 1,
+            disabled: !canAudit || loading || !data || page <= 1,
             onClick: () => setPage((p) => Math.max(1, p - 1)),
-            startIcon: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:chevron-left", size: 18 }),
+            startIcon: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:chevron-left", size: 16 }),
             children: "Anterior"
           }
         ),
         /* @__PURE__ */ jsx24(
-          Button9,
+          Button8,
           {
             size: "small",
-            disabled: loading || !data || page >= (data.pages || 1),
+            disabled: !canAudit || loading || !data || page >= (data.pages || 1),
             onClick: () => setPage((p) => p + 1),
-            endIcon: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:chevron-right", size: 18 }),
+            endIcon: /* @__PURE__ */ jsx24(Icon8, { icon: "mdi:chevron-right", size: 16 }),
             children: "Siguiente"
           }
         ),
-        /* @__PURE__ */ jsx24(Button9, { onClick: onClose, children: "Cerrar" })
+        /* @__PURE__ */ jsx24(Button8, { size: "small", onClick: onClose, children: "Cerrar" })
       ] })
     ] })
   ] });
@@ -11928,7 +12873,7 @@ function ChatTool({ bootChat, onNeedLogin }) {
   const [sidebarOpen, setSidebarOpen] = useState14(false);
   const [refreshingThread, setRefreshingThread] = useState14(false);
   if (!chat.loggedIn) {
-    return /* @__PURE__ */ jsx25(ChatLoggedOutShell, { onNeedLogin });
+    return /* @__PURE__ */ jsx25(ChatLoggedOutShell, {});
   }
   const IsaSplitView = getIsaSplitView();
   const sidebarProps = {
@@ -11940,8 +12885,8 @@ function ChatTool({ bootChat, onNeedLogin }) {
     jwtLoading: chat.jwtLoading,
     convListOwnerLabel: chat.convListOwnerLabel,
     convListHeader: chat.convListHeader,
-    showJwtBadge: chat.showJwtBadge,
     canSend: chat.canSend,
+    canAuditChat: chat.canAuditChat,
     needsJwt: chat.needsJwt,
     listScope: chat.listScope,
     sessionScopeLoading: chat.sessionScopeLoading,
@@ -11960,7 +12905,13 @@ function ChatTool({ bootChat, onNeedLogin }) {
     mode: chat.chatMode,
     onChatModeChange: chat.onChatModeChange,
     onOpenJwt: () => chat.setJwtOpen(true),
-    onOpenAudit: () => chat.setAuditDialogOpen(true),
+    onOpenAudit: () => {
+      if (!chat.canAuditChat) {
+        toastInfo("Tu rol solo puede ver tus propias conversaciones");
+        return;
+      }
+      chat.setAuditDialogOpen(true);
+    },
     onNewChat: chat.onNewChat,
     onOpenConv: chat.openConv,
     onDelete: chat.onDelete,
@@ -12062,7 +13013,6 @@ function ChatTool({ bootChat, onNeedLogin }) {
             panelTitle: "Conversaciones",
             panelIcon: "mdi:chat-outline",
             UI,
-            panelHeaderEnd: /* @__PURE__ */ jsx25(ChatNewConversationButton, { canSend: chat.canSend, onNewChat: chat.onNewChat }),
             collapsedRail: ({ expand }) => /* @__PURE__ */ jsxs22(Box13, { className: "conv-log-collapsed-rail paty-chat-collapsed-rail", children: [
               /* @__PURE__ */ jsx25(Tooltip5, { title: "Nueva conversaci\xF3n", placement: "right", children: /* @__PURE__ */ jsx25(
                 IconButton6,
@@ -12143,6 +13093,7 @@ function ChatTool({ bootChat, onNeedLogin }) {
             jwt: chat.jwt,
             sessionUser: chat.sessionUser,
             currentScope: chat.auditCurrentScope,
+            canAudit: chat.canAuditChat,
             onSelect: chat.handleSelectAuditScope
           }
         )
@@ -12151,7 +13102,17 @@ function ChatTool({ bootChat, onNeedLogin }) {
   );
 }
 
+// js/tools/TodosTool.jsx
+init_platform();
+
+// js/tools/todos/useTodosTool.ts
+init_platform();
+init_platform();
+
 // js/api/todosApi.ts
+init_platform();
+init_patyia();
+init_sessionApi();
 var scrumHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
@@ -12486,7 +13447,7 @@ function assigneeTheme(assignedTo) {
 }
 
 // js/tools/todos/useTodosTool.ts
-var { useState: useState15, useEffect: useEffect13, useCallback: useCallback8, useRef: useRef7 } = getReact();
+var { useState: useState15, useEffect: useEffect14, useCallback: useCallback8, useRef: useRef7 } = getReact();
 function useTodosTool({ bootTodos }) {
   const [loggedIn, setLoggedIn] = useState15(Session.isLoggedIn());
   const [boards, setBoards] = useState15([]);
@@ -12503,17 +13464,17 @@ function useTodosTool({ bootTodos }) {
   const dragTaskId = useRef7(null);
   const previewDragRef = useRef7(null);
   const boardDataRef = useRef7(null);
-  useEffect13(() => {
+  useEffect14(() => {
     boardDataRef.current = boardData;
   }, [boardData]);
-  useEffect13(() => {
+  useEffect14(() => {
     function onAuth() {
       setLoggedIn(Session.isLoggedIn());
     }
     window.addEventListener(Session.EVENT, onAuth);
     return () => window.removeEventListener(Session.EVENT, onAuth);
   }, []);
-  useEffect13(() => subscribe((snap) => {
+  useEffect14(() => subscribe((snap) => {
     const urlBoardId = String(snap.todos?.boardId ?? "").trim();
     setBoardId((prev) => prev === urlBoardId ? prev : urlBoardId);
     if (!urlBoardId) {
@@ -12576,11 +13537,11 @@ function useTodosTool({ bootTodos }) {
       if (!opts?.silent) setLoadingBoard(false);
     }
   }, []);
-  useEffect13(() => {
+  useEffect14(() => {
     if (!loggedIn) return;
     loadBoards();
   }, [loggedIn, loadBoards]);
-  useEffect13(() => {
+  useEffect14(() => {
     if (!loggedIn || !boardId) return;
     loadBoard(boardId);
   }, [loggedIn, boardId, loadBoard]);
@@ -12926,14 +13887,18 @@ function useTodosTool({ bootTodos }) {
   };
 }
 
+// js/tools/todos/TodosKanban.jsx
+init_platform();
+
 // js/tools/todos/TaskAssigneeLabel.jsx
+init_platform();
 import { jsx as jsx26 } from "react/jsx-runtime";
-var { Typography: Typography13 } = getMaterialUI();
+var { Typography: Typography12 } = getMaterialUI();
 function TaskAssigneeLabel({ assignedTo }) {
   const theme2 = assigneeTheme(assignedTo);
   const empty = !String(assignedTo ?? "").trim();
   return /* @__PURE__ */ jsx26(
-    Typography13,
+    Typography12,
     {
       className: `paty-todos-card__assignee${empty ? " paty-todos-card__assignee--empty" : ""}`,
       component: "div",
@@ -12949,8 +13914,8 @@ function TaskAssigneeLabel({ assignedTo }) {
 
 // js/tools/todos/TodosKanban.jsx
 import { Fragment as Fragment9, jsx as jsx27, jsxs as jsxs23 } from "react/jsx-runtime";
-var { useState: useState16, useMemo: useMemo12, useRef: useRef8, useEffect: useEffect14, memo: memo2 } = getReact();
-var { Box: Box14, Paper: Paper2, Typography: Typography14, TextField: TextField8, Button: Button10, Stack: Stack11, Chip: Chip9 } = getMaterialUI();
+var { useState: useState16, useMemo: useMemo14, useRef: useRef8, useEffect: useEffect15, memo: memo2 } = getReact();
+var { Box: Box14, Paper: Paper2, Typography: Typography13, TextField: TextField8, Button: Button9, Stack: Stack11, Chip: Chip8 } = getMaterialUI();
 var { Icon: Icon10 } = UI;
 var DRAG_THRESHOLD_PX = 6;
 var COLUMN_THEME = {
@@ -12986,9 +13951,9 @@ function columnAtPoint(columnIds, listRefs, clientX, clientY) {
 function TaskCardBody({ task }) {
   const modDate = formatTaskDate(taskModDate(task));
   return /* @__PURE__ */ jsxs23(Fragment9, { children: [
-    /* @__PURE__ */ jsx27(Typography14, { className: "paty-todos-card__title", component: "div", variant: "body2", children: task.title }),
+    /* @__PURE__ */ jsx27(Typography13, { className: "paty-todos-card__title", component: "div", variant: "body2", children: task.title }),
     /* @__PURE__ */ jsx27(TaskAssigneeLabel, { assignedTo: task.assignedTo }),
-    /* @__PURE__ */ jsx27(Typography14, { className: "paty-todos-card__date paty-todos-card__date--bottom", component: "div", variant: "caption", color: "text.secondary", children: modDate })
+    /* @__PURE__ */ jsx27(Typography13, { className: "paty-todos-card__date paty-todos-card__date--bottom", component: "div", variant: "caption", color: "text.secondary", children: modDate })
   ] });
 }
 function DragGhost({ task, x, y, width }) {
@@ -13053,7 +14018,7 @@ function ColumnAddForm({ onAdd }) {
   const [title, setTitle] = useState16("");
   if (!open) {
     return /* @__PURE__ */ jsx27(
-      Button10,
+      Button9,
       {
         fullWidth: true,
         size: "small",
@@ -13090,7 +14055,7 @@ function ColumnAddForm({ onAdd }) {
     ),
     /* @__PURE__ */ jsxs23(Stack11, { direction: "row", spacing: 1, sx: { mt: 1 }, children: [
       /* @__PURE__ */ jsx27(
-        Button10,
+        Button9,
         {
           variant: "contained",
           size: "small",
@@ -13103,7 +14068,7 @@ function ColumnAddForm({ onAdd }) {
           children: "A\xF1adir"
         }
       ),
-      /* @__PURE__ */ jsx27(Button10, { size: "small", onClick: () => {
+      /* @__PURE__ */ jsx27(Button9, { size: "small", onClick: () => {
         setOpen(false);
         setTitle("");
       }, children: "Cancelar" })
@@ -13119,12 +14084,12 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
   const dragRef = useRef8(null);
   const cardElRef = useRef8(null);
   const suppressClickRef = useRef8(false);
-  const tasksByColumn = useMemo12(() => groupTasksByColumn(boardData), [boardData]);
-  const ghostTask = useMemo12(() => {
+  const tasksByColumn = useMemo14(() => groupTasksByColumn(boardData), [boardData]);
+  const ghostTask = useMemo14(() => {
     if (!dragGhost?.taskId) return null;
     return boardData?.tasks?.find((t) => t.id === dragGhost.taskId) ?? null;
   }, [dragGhost, boardData?.tasks]);
-  const columnIds = useMemo12(
+  const columnIds = useMemo14(
     () => (boardData?.columns ?? []).map((c) => c.id),
     [boardData?.columns]
   );
@@ -13159,7 +14124,7 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
     } catch {
     }
   }
-  useEffect14(() => {
+  useEffect15(() => {
     if (readOnly) return void 0;
     function onPointerMove(e) {
       const state = dragRef.current;
@@ -13219,7 +14184,7 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
       sx: fullBoard ? { flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", p: 0 } : void 0,
       children: [
         readOnly && !preview ? /* @__PURE__ */ jsx27(
-          Chip9,
+          Chip8,
           {
             size: "small",
             className: "paty-todos-kanban__readonly-chip",
@@ -13309,7 +14274,7 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
                               task.id
                             )),
                             hiddenCount > 0 ? /* @__PURE__ */ jsxs23(
-                              Button10,
+                              Button9,
                               {
                                 fullWidth: true,
                                 size: "small",
@@ -13323,7 +14288,7 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
                               }
                             ) : null,
                             isExpanded && hasMore ? /* @__PURE__ */ jsx27(
-                              Button10,
+                              Button9,
                               {
                                 fullWidth: true,
                                 size: "small",
@@ -13353,11 +14318,15 @@ function TodosKanban({ boardData, readOnly = false, preview = false, onOpenTask,
   );
 }
 
+// js/tools/todos/TaskDetailDialog.jsx
+init_platform();
+
 // js/tools/todos/UserAssignAutocomplete.jsx
+init_platform();
 import { jsx as jsx28 } from "react/jsx-runtime";
 import { createElement as createElement3 } from "react";
-var { useState: useState17, useEffect: useEffect15, useRef: useRef9, useCallback: useCallback9 } = getReact();
-var { Autocomplete: Autocomplete2, TextField: TextField9, Typography: Typography15, Box: Box15 } = getMaterialUI();
+var { useState: useState17, useEffect: useEffect16, useRef: useRef9, useCallback: useCallback9 } = getReact();
+var { Autocomplete: Autocomplete2, TextField: TextField9, Typography: Typography14, Box: Box15 } = getMaterialUI();
 var DEBOUNCE_MS2 = 300;
 function optionLabel(row) {
   if (!row) return "";
@@ -13394,7 +14363,7 @@ function UserAssignAutocomplete({ value, onChange, disabled = false, label = "As
       runSearch(query);
     }, DEBOUNCE_MS2);
   }, [runSearch]);
-  useEffect15(() => {
+  useEffect16(() => {
     if (!username) {
       resolveAttemptRef.current = "";
       setInputValue("");
@@ -13431,12 +14400,12 @@ function UserAssignAutocomplete({ value, onChange, disabled = false, label = "As
       cancelled = true;
     };
   }, [value, username, options, runSearch, onChange]);
-  useEffect15(() => {
+  useEffect16(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
-  useEffect15(() => {
+  useEffect16(() => {
     if (disabled) return;
     runSearch("");
   }, [disabled, runSearch]);
@@ -13487,7 +14456,7 @@ function UserAssignAutocomplete({ value, onChange, disabled = false, label = "As
         setInputValue(row ? optionLabel(row) : "");
         setInvalidHint("");
       },
-      renderOption: (props, row) => /* @__PURE__ */ createElement3(Box15, { component: "li", ...props, key: row.username, sx: { display: "flex", flexDirection: "column", py: 0.75 } }, /* @__PURE__ */ jsx28(Typography15, { variant: "body2", sx: { fontWeight: 600 }, children: row.displayName || row.username }), row.displayName ? /* @__PURE__ */ jsx28(Typography15, { variant: "caption", color: "text.secondary", children: row.username }) : null),
+      renderOption: (props, row) => /* @__PURE__ */ createElement3(Box15, { component: "li", ...props, key: row.username, sx: { display: "flex", flexDirection: "column", py: 0.75 } }, /* @__PURE__ */ jsx28(Typography14, { variant: "body2", sx: { fontWeight: 600 }, children: row.displayName || row.username }), row.displayName ? /* @__PURE__ */ jsx28(Typography14, { variant: "caption", color: "text.secondary", children: row.username }) : null),
       renderInput: (params) => /* @__PURE__ */ jsx28(
         TextField9,
         {
@@ -13502,7 +14471,13 @@ function UserAssignAutocomplete({ value, onChange, disabled = false, label = "As
   );
 }
 
+// js/tools/todos/TaskConvoThread.jsx
+init_platform();
+
 // js/api/treeMsgsApi.ts
+init_platform();
+init_patyia();
+init_sessionApi();
 var treeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
@@ -13557,12 +14532,12 @@ function pathDepth(path) {
 
 // js/tools/todos/TaskConvoThread.jsx
 import { jsx as jsx29, jsxs as jsxs24 } from "react/jsx-runtime";
-var { useState: useState18, useEffect: useEffect16, useCallback: useCallback10 } = getReact();
+var { useState: useState18, useEffect: useEffect17, useCallback: useCallback10 } = getReact();
 var {
   Box: Box16,
   Stack: Stack12,
-  Typography: Typography16,
-  Button: Button11,
+  Typography: Typography15,
+  Button: Button10,
   IconButton: IconButton7,
   Tooltip: Tooltip6,
   CircularProgress: CircularProgress8,
@@ -13595,19 +14570,19 @@ function MessageBubble({ msg, messages, readOnly, busy, onReply, onQuote, onDele
       sx: { ml: depth * 2.5, pl: 1.5, borderLeft: depth ? 2 : 0, borderColor: "divider" },
       children: [
         /* @__PURE__ */ jsxs24(Stack12, { direction: "row", spacing: 1, alignItems: "center", sx: { mb: 0.5 }, children: [
-          /* @__PURE__ */ jsx29(Typography16, { variant: "caption", sx: { fontWeight: 700 }, children: author }),
-          /* @__PURE__ */ jsx29(Typography16, { variant: "caption", color: "text.secondary", children: formatMsgDate(msg.updatedAt || msg.createdAt) }),
-          msg.jlog?.kind === "reply" && msg.jlog?.replyToPath ? /* @__PURE__ */ jsxs24(Typography16, { variant: "caption", color: "text.secondary", children: [
+          /* @__PURE__ */ jsx29(Typography15, { variant: "caption", sx: { fontWeight: 700 }, children: author }),
+          /* @__PURE__ */ jsx29(Typography15, { variant: "caption", color: "text.secondary", children: formatMsgDate(msg.updatedAt || msg.createdAt) }),
+          msg.jlog?.kind === "reply" && msg.jlog?.replyToPath ? /* @__PURE__ */ jsxs24(Typography15, { variant: "caption", color: "text.secondary", children: [
             "\u21A9 ",
             msg.jlog.replyToPath
           ] }) : null
         ] }),
         quote ? /* @__PURE__ */ jsxs24(Box16, { className: "paty-task-msg__quote", children: [
-          /* @__PURE__ */ jsxs24(Typography16, { variant: "caption", color: "text.secondary", sx: { display: "block", mb: 0.5 }, children: [
+          /* @__PURE__ */ jsxs24(Typography15, { variant: "caption", color: "text.secondary", sx: { display: "block", mb: 0.5 }, children: [
             "Cita ",
             msg.jlog.quotePath
           ] }),
-          /* @__PURE__ */ jsx29(Typography16, { variant: "body2", color: "text.secondary", sx: { fontStyle: "italic" }, children: quote })
+          /* @__PURE__ */ jsx29(Typography15, { variant: "body2", color: "text.secondary", sx: { fontStyle: "italic" }, children: quote })
         ] }) : null,
         msg.body.trim() ? /* @__PURE__ */ jsx29(
           Box16,
@@ -13615,7 +14590,7 @@ function MessageBubble({ msg, messages, readOnly, busy, onReply, onQuote, onDele
             className: "paty-task-msg__body prompt-md-preview msg-body",
             dangerouslySetInnerHTML: { __html: mdToHtml(msg.body) }
           }
-        ) : /* @__PURE__ */ jsx29(Typography16, { variant: "body2", color: "text.secondary", children: "(sin texto)" }),
+        ) : /* @__PURE__ */ jsx29(Typography15, { variant: "body2", color: "text.secondary", children: "(sin texto)" }),
         !readOnly ? /* @__PURE__ */ jsxs24(Stack12, { direction: "row", spacing: 0.5, sx: { mt: 0.75 }, children: [
           /* @__PURE__ */ jsx29(Tooltip6, { title: "Responder", children: /* @__PURE__ */ jsx29(IconButton7, { size: "small", disabled: busy, onClick: () => onReply(msg), "aria-label": "Responder", children: /* @__PURE__ */ jsx29(Icon11, { icon: "mdi:reply-outline", size: 16 }) }) }),
           /* @__PURE__ */ jsx29(Tooltip6, { title: "Citar", children: /* @__PURE__ */ jsx29(IconButton7, { size: "small", disabled: busy, onClick: () => onQuote(msg), "aria-label": "Citar", children: /* @__PURE__ */ jsx29(Icon11, { icon: "mdi:format-quote-close-outline", size: 16 }) }) }),
@@ -13647,7 +14622,7 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
       setLoading(false);
     }
   }, [appId, contextKey]);
-  useEffect16(() => {
+  useEffect17(() => {
     reload();
   }, [reload]);
   async function run(fn) {
@@ -13677,14 +14652,14 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
   }
   if (!contextKey) return null;
   return /* @__PURE__ */ jsxs24(Box16, { className: "paty-task-convo", children: [
-    /* @__PURE__ */ jsx29(Typography16, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block", flexShrink: 0 }, children: "Conversaci\xF3n" }),
+    /* @__PURE__ */ jsx29(Typography15, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block", flexShrink: 0 }, children: "Conversaci\xF3n" }),
     error ? /* @__PURE__ */ jsxs24(Alert9, { severity: "warning", sx: { mb: 1, flexShrink: 0 }, children: [
       "No se pudo cargar el hilo: ",
       error
     ] }) : null,
     /* @__PURE__ */ jsxs24(Box16, { className: "paty-task-convo__thread custom-scrollbar", children: [
       loading ? /* @__PURE__ */ jsx29(Box16, { sx: { display: "flex", justifyContent: "center", py: 3 }, children: /* @__PURE__ */ jsx29(CircularProgress8, { size: 24 }) }) : null,
-      !loading && !messages.length && !error ? /* @__PURE__ */ jsx29(Typography16, { variant: "body2", color: "text.secondary", sx: { py: 2 }, children: "Sin mensajes publicados." }) : null,
+      !loading && !messages.length && !error ? /* @__PURE__ */ jsx29(Typography15, { variant: "body2", color: "text.secondary", sx: { py: 2 }, children: "Sin mensajes publicados." }) : null,
       !loading && messages.length ? /* @__PURE__ */ jsx29(Stack12, { spacing: 1.5, sx: { py: 0.5 }, children: messages.map((msg) => /* @__PURE__ */ jsx29(
         MessageBubble,
         {
@@ -13710,12 +14685,12 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
     ] }),
     !readOnly ? /* @__PURE__ */ jsxs24(Box16, { className: "paty-task-convo__composer", children: [
       replyTo ? /* @__PURE__ */ jsxs24(Stack12, { direction: "row", spacing: 1, alignItems: "center", sx: { mb: 1 }, children: [
-        /* @__PURE__ */ jsxs24(Typography16, { variant: "caption", color: "text.secondary", children: [
+        /* @__PURE__ */ jsxs24(Typography15, { variant: "caption", color: "text.secondary", children: [
           "Respondiendo a ",
           replyTo.jlog?.author || replyTo.treePath,
           quotePath ? ` \xB7 citando ${quotePath}` : ""
         ] }),
-        /* @__PURE__ */ jsx29(Button11, { size: "small", onClick: () => {
+        /* @__PURE__ */ jsx29(Button10, { size: "small", onClick: () => {
           setReplyTo(null);
           setQuotePath(null);
         }, children: "Cancelar" })
@@ -13733,11 +14708,11 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
         }
       ) }),
       /* @__PURE__ */ jsxs24(Stack12, { direction: "row", spacing: 1, alignItems: "center", justifyContent: "flex-end", sx: { mt: 1 }, children: [
-        /* @__PURE__ */ jsxs24(Typography16, { variant: "caption", color: "text.secondary", sx: { mr: "auto" }, children: [
+        /* @__PURE__ */ jsxs24(Typography15, { variant: "caption", color: "text.secondary", sx: { mr: "auto" }, children: [
           "Autor: ",
           Session.username() || "\u2014"
         ] }),
-        /* @__PURE__ */ jsx29(Button11, { variant: "contained", disabled: busy || !draft.trim(), onClick: handlePost, children: "Publicar" })
+        /* @__PURE__ */ jsx29(Button10, { variant: "contained", disabled: busy || !draft.trim(), onClick: handlePost, children: "Publicar" })
       ] })
     ] }) : null
   ] });
@@ -13745,16 +14720,16 @@ function TaskConvoThread({ contextKey, readOnly = false, appId = SCRUM_APP_ID })
 
 // js/tools/todos/TaskDetailDialog.jsx
 import { jsx as jsx30, jsxs as jsxs25 } from "react/jsx-runtime";
-var { useState: useState19, useEffect: useEffect17, useRef: useRef10 } = getReact();
+var { useState: useState19, useEffect: useEffect18, useRef: useRef10 } = getReact();
 var {
   Dialog: Dialog6,
   DialogTitle: DialogTitle6,
   DialogContent: DialogContent8,
   DialogActions: DialogActions6,
-  Button: Button12,
+  Button: Button11,
   TextField: TextField10,
   Stack: Stack13,
-  Typography: Typography17,
+  Typography: Typography16,
   Tabs: Tabs3,
   Tab: Tab3,
   Box: Box17,
@@ -13764,8 +14739,8 @@ var {
   Checkbox,
   FormControlLabel: FormControlLabel2,
   CircularProgress: CircularProgress9,
-  Chip: Chip10,
-  Divider: Divider5,
+  Chip: Chip9,
+  Divider: Divider4,
   IconButton: IconButton8,
   Tooltip: Tooltip7
 } = getMaterialUI();
@@ -13796,12 +14771,12 @@ function toDateInputValue(value) {
 function SubtaskEditor({ subtask, readOnly, busy, onSave, onDelete }) {
   const [title, setTitle] = useState19(subtask.title);
   const [doc, setDoc] = useState19(subtask.descriptionDoc || "");
-  useEffect17(() => {
+  useEffect18(() => {
     setTitle(subtask.title);
     setDoc(subtask.descriptionDoc || "");
   }, [subtask.id, subtask.title, subtask.descriptionDoc]);
   return /* @__PURE__ */ jsxs25(Accordion, { className: "paty-todos-subtask-acc", disableGutters: true, children: [
-    /* @__PURE__ */ jsx30(AccordionSummary, { expandIcon: /* @__PURE__ */ jsx30(Icon12, { icon: "mdi:chevron-down", size: 18 }), children: readOnly ? /* @__PURE__ */ jsx30(Typography17, { variant: "body2", sx: { fontWeight: 600 }, children: subtask.title }) : /* @__PURE__ */ jsx30(
+    /* @__PURE__ */ jsx30(AccordionSummary, { expandIcon: /* @__PURE__ */ jsx30(Icon12, { icon: "mdi:chevron-down", size: 18 }), children: readOnly ? /* @__PURE__ */ jsx30(Typography16, { variant: "body2", sx: { fontWeight: 600 }, children: subtask.title }) : /* @__PURE__ */ jsx30(
       TextField10,
       {
         size: "small",
@@ -13830,7 +14805,7 @@ function SubtaskEditor({ subtask, readOnly, busy, onSave, onDelete }) {
       ),
       !readOnly ? /* @__PURE__ */ jsxs25(Stack13, { direction: "row", spacing: 1, justifyContent: "flex-end", children: [
         /* @__PURE__ */ jsx30(
-          Button12,
+          Button11,
           {
             size: "small",
             variant: "contained",
@@ -13857,7 +14832,7 @@ function SubtaskEditor({ subtask, readOnly, busy, onSave, onDelete }) {
 function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle }) {
   const [title, setTitle] = useState19(milestone.title);
   const [dueDate, setDueDate] = useState19(toDateInputValue(milestone.dueDate));
-  useEffect17(() => {
+  useEffect18(() => {
     setTitle(milestone.title);
     setDueDate(toDateInputValue(milestone.dueDate));
   }, [milestone.id, milestone.title, milestone.dueDate]);
@@ -13865,8 +14840,8 @@ function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle
     return /* @__PURE__ */ jsxs25(Stack13, { direction: "row", alignItems: "center", spacing: 1, className: "paty-todos-ms-row", children: [
       /* @__PURE__ */ jsx30(Checkbox, { checked: !!milestone.completedAt, disabled: true }),
       /* @__PURE__ */ jsxs25(Box17, { sx: { flex: 1 }, children: [
-        /* @__PURE__ */ jsx30(Typography17, { variant: "body2", sx: { fontWeight: 600, textDecoration: milestone.completedAt ? "line-through" : "none" }, children: milestone.title }),
-        milestone.dueDate ? /* @__PURE__ */ jsxs25(Typography17, { variant: "caption", color: "text.secondary", children: [
+        /* @__PURE__ */ jsx30(Typography16, { variant: "body2", sx: { fontWeight: 600, textDecoration: milestone.completedAt ? "line-through" : "none" }, children: milestone.title }),
+        milestone.dueDate ? /* @__PURE__ */ jsxs25(Typography16, { variant: "caption", color: "text.secondary", children: [
           "Vence: ",
           toDateInputValue(milestone.dueDate)
         ] }) : null
@@ -13912,7 +14887,7 @@ function MilestoneEditor({ milestone, readOnly, busy, onSave, onDelete, onToggle
     ),
     /* @__PURE__ */ jsxs25(Stack13, { direction: "row", spacing: 0.5, sx: { flexShrink: 0 }, children: [
       /* @__PURE__ */ jsx30(
-        Button12,
+        Button11,
         {
           size: "small",
           variant: "outlined",
@@ -13946,7 +14921,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
   const [comment, setComment] = useState19("");
   const [busy, setBusy] = useState19(false);
   const prevId = useRef10(null);
-  useEffect17(() => {
+  useEffect18(() => {
     if (!task || task.id === prevId.current) return;
     prevId.current = task.id;
     setTitle(task.title);
@@ -13974,9 +14949,9 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
       children: [
         /* @__PURE__ */ jsxs25(DialogTitle6, { sx: { display: "flex", alignItems: "center", gap: 1 }, children: [
           /* @__PURE__ */ jsx30(Icon12, { icon: "mdi:card-text-outline", size: 22 }),
-          /* @__PURE__ */ jsx30(Typography17, { component: "span", variant: "h6", sx: { flex: 1, fontWeight: 700, lineHeight: 1.3 }, children: loading ? "Cargando\u2026" : task?.title || "Tarea" }),
+          /* @__PURE__ */ jsx30(Typography16, { component: "span", variant: "h6", sx: { flex: 1, fontWeight: 700, lineHeight: 1.3 }, children: loading ? "Cargando\u2026" : task?.title || "Tarea" }),
           task?.id ? /* @__PURE__ */ jsx30(
-            Typography17,
+            Typography16,
             {
               component: "span",
               variant: "caption",
@@ -14022,7 +14997,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
               ) })
             ] }),
             /* @__PURE__ */ jsxs25(Box17, { className: "paty-todos-task-objective", children: [
-              /* @__PURE__ */ jsx30(Typography17, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block" }, children: "Objetivo" }),
+              /* @__PURE__ */ jsx30(Typography16, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block" }, children: "Objetivo" }),
               /* @__PURE__ */ jsx30(Box17, { className: "paty-todos-task-objective__editor", children: /* @__PURE__ */ jsx30(
                 PromptBodyEditor,
                 {
@@ -14053,8 +15028,8 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
               }
             ) }),
             /* @__PURE__ */ jsxs25(Stack13, { direction: "row", spacing: 1, flexWrap: "wrap", sx: { flexShrink: 0 }, children: [
-              /* @__PURE__ */ jsx30(Chip10, { size: "small", label: `Creada por ${task.createdBy}` }),
-              task.completedAt ? /* @__PURE__ */ jsx30(Chip10, { size: "small", color: "success", label: "Finalizada" }) : null
+              /* @__PURE__ */ jsx30(Chip9, { size: "small", label: `Creada por ${task.createdBy}` }),
+              task.completedAt ? /* @__PURE__ */ jsx30(Chip9, { size: "small", color: "success", label: "Finalizada" }) : null
             ] })
           ] }) : null,
           tab === 1 ? /* @__PURE__ */ jsx30(Box17, { className: "paty-todos-task-dialog__scroll", children: /* @__PURE__ */ jsxs25(Stack13, { spacing: 1, children: [
@@ -14069,7 +15044,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
               },
               st.id
             )),
-            /* @__PURE__ */ jsx30(Divider5, { sx: { my: 1 } }),
+            /* @__PURE__ */ jsx30(Divider4, { sx: { my: 1 } }),
             !readOnly ? /* @__PURE__ */ jsxs25(Stack13, { direction: "row", spacing: 1, children: [
               /* @__PURE__ */ jsx30(
                 TextField10,
@@ -14090,7 +15065,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
                 }
               ),
               /* @__PURE__ */ jsx30(
-                Button12,
+                Button11,
                 {
                   variant: "contained",
                   size: "small",
@@ -14117,7 +15092,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
               },
               ms.id
             )),
-            /* @__PURE__ */ jsx30(Divider5, { sx: { my: 1 } }),
+            /* @__PURE__ */ jsx30(Divider4, { sx: { my: 1 } }),
             !readOnly ? /* @__PURE__ */ jsxs25(Stack13, { direction: { xs: "column", sm: "row" }, spacing: 1, children: [
               /* @__PURE__ */ jsx30(TextField10, { size: "small", fullWidth: true, label: "Hito", value: msTitle, onChange: (e) => setMsTitle(e.target.value) }),
               /* @__PURE__ */ jsx30(
@@ -14133,7 +15108,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
                 }
               ),
               /* @__PURE__ */ jsx30(
-                Button12,
+                Button11,
                 {
                   variant: "contained",
                   size: "small",
@@ -14163,7 +15138,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
                 }
               ),
               /* @__PURE__ */ jsx30(
-                Button12,
+                Button11,
                 {
                   variant: "outlined",
                   size: "small",
@@ -14187,13 +15162,13 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
               ] }),
               /* @__PURE__ */ jsx30("div", { children: ev.body || "\u2014" })
             ] }, ev.id)),
-            !(task.events ?? []).length ? /* @__PURE__ */ jsx30(Typography17, { variant: "body2", color: "text.secondary", children: "Sin eventos a\xFAn." }) : null
+            !(task.events ?? []).length ? /* @__PURE__ */ jsx30(Typography16, { variant: "body2", color: "text.secondary", children: "Sin eventos a\xFAn." }) : null
           ] }) }) : null
-        ] }) : /* @__PURE__ */ jsx30(Typography17, { color: "text.secondary", children: "Selecciona una tarea." }) }),
+        ] }) : /* @__PURE__ */ jsx30(Typography16, { color: "text.secondary", children: "Selecciona una tarea." }) }),
         /* @__PURE__ */ jsxs25(DialogActions6, { children: [
-          /* @__PURE__ */ jsx30(Button12, { onClick: onClose, children: "Cerrar" }),
+          /* @__PURE__ */ jsx30(Button11, { onClick: onClose, children: "Cerrar" }),
           tab === 0 && task && !readOnly ? /* @__PURE__ */ jsx30(
-            Button12,
+            Button11,
             {
               variant: "contained",
               disabled: busy || !title.trim(),
@@ -14214,6 +15189,7 @@ function TaskDetailDialog({ open, task, loading, readOnly = false, onClose, onSa
 }
 
 // js/tools/todos/NewBoardDialog.jsx
+init_platform();
 import { jsx as jsx31, jsxs as jsxs26 } from "react/jsx-runtime";
 var { useState: useState20 } = getReact();
 var {
@@ -14221,7 +15197,7 @@ var {
   DialogTitle: DialogTitle7,
   DialogContent: DialogContent9,
   DialogActions: DialogActions7,
-  Button: Button13,
+  Button: Button12,
   TextField: TextField11,
   Stack: Stack14,
   FormControl: FormControl4,
@@ -14229,7 +15205,7 @@ var {
   Select: Select4,
   MenuItem: MenuItem4,
   FormHelperText,
-  Chip: Chip11,
+  Chip: Chip10,
   Box: Box18
 } = getMaterialUI();
 var { Icon: Icon13 } = UI;
@@ -14311,12 +15287,12 @@ function NewBoardDialog({ open, onClose, onCreate, busy }) {
           helperText: "T\xFA quedas como editor. Indica usuarios BD_AUTH y rol por defecto editor."
         }
       ),
-      membersRaw.trim() ? /* @__PURE__ */ jsx31(Box18, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5 }, children: parseMembers(membersRaw).map((u) => /* @__PURE__ */ jsx31(Chip11, { size: "small", label: u, icon: /* @__PURE__ */ jsx31(Icon13, { icon: "mdi:account", size: 14 }) }, u)) }) : null
+      membersRaw.trim() ? /* @__PURE__ */ jsx31(Box18, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5 }, children: parseMembers(membersRaw).map((u) => /* @__PURE__ */ jsx31(Chip10, { size: "small", label: u, icon: /* @__PURE__ */ jsx31(Icon13, { icon: "mdi:account", size: 14 }) }, u)) }) : null
     ] }) }),
     /* @__PURE__ */ jsxs26(DialogActions7, { children: [
-      /* @__PURE__ */ jsx31(Button13, { onClick: handleClose, children: "Cancelar" }),
+      /* @__PURE__ */ jsx31(Button12, { onClick: handleClose, children: "Cancelar" }),
       /* @__PURE__ */ jsx31(
-        Button13,
+        Button12,
         {
           variant: "contained",
           disabled: busy || !title.trim(),
@@ -14341,15 +15317,16 @@ function NewBoardDialog({ open, onClose, onCreate, busy }) {
 }
 
 // js/tools/todos/PublicScrumBoard.jsx
+init_platform();
 import { jsx as jsx32, jsxs as jsxs27 } from "react/jsx-runtime";
-var { useState: useState21, useEffect: useEffect18 } = getReact();
+var { useState: useState21, useEffect: useEffect19 } = getReact();
 var { Box: Box19, Alert: Alert10, CircularProgress: CircularProgress10 } = getMaterialUI();
 var { Icon: Icon14 } = UI;
 function PublicScrumBoard({ publicSlug }) {
   const [boardData, setBoardData] = useState21(null);
   const [loading, setLoading] = useState21(true);
   const [error, setError] = useState21("");
-  useEffect18(() => {
+  useEffect19(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -14401,9 +15378,10 @@ function PublicScrumBoard({ publicSlug }) {
 }
 
 // js/tools/todos/BoardsHome.jsx
+init_platform();
 import { jsx as jsx33, jsxs as jsxs28 } from "react/jsx-runtime";
-var { useState: useState22, useEffect: useEffect19, useMemo: useMemo13 } = getReact();
-var { Box: Box20, Typography: Typography18, Button: Button14, Stack: Stack15, Chip: Chip12, CircularProgress: CircularProgress11, Skeleton, Accordion: Accordion2, AccordionSummary: AccordionSummary2, AccordionDetails: AccordionDetails2, IconButton: IconButton9, Tooltip: Tooltip8 } = getMaterialUI();
+var { useState: useState22, useEffect: useEffect20, useMemo: useMemo15 } = getReact();
+var { Box: Box20, Typography: Typography17, Button: Button13, Stack: Stack15, Chip: Chip11, CircularProgress: CircularProgress11, Skeleton, Accordion: Accordion2, AccordionSummary: AccordionSummary2, AccordionDetails: AccordionDetails2, IconButton: IconButton9, Tooltip: Tooltip8 } = getMaterialUI();
 var { Icon: Icon15 } = UI;
 function formatBoardDate(iso) {
   if (!iso) return "";
@@ -14467,7 +15445,7 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
       ] }),
       /* @__PURE__ */ jsxs28(Stack15, { direction: "row", spacing: 0.35, flexWrap: "nowrap", useFlexGap: true, className: "paty-todos-board-row__chips", onClick: stopBubble, children: [
         board.visibility === "public" ? /* @__PURE__ */ jsx33(
-          Chip12,
+          Chip11,
           {
             size: "small",
             className: "paty-todos-board-card__chip paty-todos-board-card__chip--visibility paty-todos-board-card__chip--public",
@@ -14475,7 +15453,7 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
             icon: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:earth", size: 11 })
           }
         ) : /* @__PURE__ */ jsx33(
-          Chip12,
+          Chip11,
           {
             size: "small",
             className: "paty-todos-board-card__chip paty-todos-board-card__chip--visibility",
@@ -14484,7 +15462,7 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
           }
         ),
         roleChips.map((chip) => /* @__PURE__ */ jsx33(
-          Chip12,
+          Chip11,
           {
             size: "small",
             className: `paty-todos-board-card__chip paty-todos-board-card__chip--${chip.variant}`,
@@ -14496,7 +15474,7 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
         ))
       ] }),
       /* @__PURE__ */ jsxs28(Box20, { className: "paty-todos-board-row__tail", onClick: stopBubble, children: [
-        /* @__PURE__ */ jsx33(Typography18, { className: "paty-todos-board-row__meta", component: "span", variant: "caption", children: formatBoardDate(board.updatedAt) }),
+        /* @__PURE__ */ jsx33(Typography17, { className: "paty-todos-board-row__meta", component: "span", variant: "caption", children: formatBoardDate(board.updatedAt) }),
         deletable ? /* @__PURE__ */ jsx33(Tooltip8, { title: "Eliminar tablero (solo admin global)", children: /* @__PURE__ */ jsx33("span", { children: /* @__PURE__ */ jsx33(IconButton9, { size: "small", className: "paty-todos-board-row__delete", "aria-label": "Eliminar tablero", disabled: deleting, onClick: handleDelete, children: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:delete-outline", size: 16 }) }) }) }) : null
       ] })
     ] }) }),
@@ -14512,7 +15490,7 @@ function BoardAccordionRow({ board, preview, previewReady, loadingPreviews, expa
         onDragStart: (taskId) => onPreviewDragStart(board.id, taskId),
         onDropColumn: (columnId) => onPreviewDropColumn(board.id, columnId)
       }
-    ) : previewReady ? /* @__PURE__ */ jsx33(Typography18, { variant: "body2", color: "text.secondary", sx: { py: 2, px: 1 }, children: "No se pudo cargar la vista previa del tablero." }) : /* @__PURE__ */ jsx33(BoardPreviewSkeleton, {}) }) })
+    ) : previewReady ? /* @__PURE__ */ jsx33(Typography17, { variant: "body2", color: "text.secondary", sx: { py: 2, px: 1 }, children: "No se pudo cargar la vista previa del tablero." }) : /* @__PURE__ */ jsx33(BoardPreviewSkeleton, {}) }) })
   ] });
 }
 function BoardsHomeToolbar({ loading, onNewBoard, onRefresh }) {
@@ -14520,15 +15498,15 @@ function BoardsHomeToolbar({ loading, onNewBoard, onRefresh }) {
     /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:view-dashboard-outline", size: 22 }),
     /* @__PURE__ */ jsx33("span", { className: "paty-todos-board-title", children: "Mis tableros SCRUM" }),
     /* @__PURE__ */ jsx33(Box20, { sx: { flex: 1 } }),
-    /* @__PURE__ */ jsx33(Button14, { size: "small", variant: "outlined", startIcon: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:plus", size: 16 }), onClick: onNewBoard, children: "Nuevo" }),
-    /* @__PURE__ */ jsx33(Button14, { size: "small", variant: "text", onClick: onRefresh, disabled: loading, startIcon: loading ? /* @__PURE__ */ jsx33(CircularProgress11, { size: 14 }) : /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:refresh", size: 16 }), children: "Actualizar" })
+    /* @__PURE__ */ jsx33(Button13, { size: "small", variant: "outlined", startIcon: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:plus", size: 16 }), onClick: onNewBoard, children: "Nuevo" }),
+    /* @__PURE__ */ jsx33(Button13, { size: "small", variant: "text", onClick: onRefresh, disabled: loading, startIcon: loading ? /* @__PURE__ */ jsx33(CircularProgress11, { size: 14 }) : /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:refresh", size: 16 }), children: "Actualizar" })
   ] });
 }
 function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loading, onOpenBoard, onOpenTask, onPreviewDragStart, onPreviewDropColumn, onNewBoard, onDeleteBoard }) {
-  const sortedBoards = useMemo13(() => sortBoardsByRecent(boards), [boards]);
+  const sortedBoards = useMemo15(() => sortBoardsByRecent(boards), [boards]);
   const [expandState, setExpandState] = useState22(() => readBoardExpandState());
   const [deletingId, setDeletingId] = useState22("");
-  useEffect19(() => {
+  useEffect20(() => {
     writeBoardExpandState(expandState);
   }, [expandState]);
   function isExpanded(boardId) {
@@ -14559,22 +15537,23 @@ function BoardsHome({ boards, boardPreviews = {}, loadingPreviews = false, loadi
   if (!boards.length) {
     return /* @__PURE__ */ jsx33(Box20, { className: "paty-todos-gate", children: /* @__PURE__ */ jsxs28(Stack15, { spacing: 2, alignItems: "center", sx: { maxWidth: 420, p: 2 }, children: [
       /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:view-column", width: "2.5em", height: "2.5em", style: { opacity: 0.7 } }),
-      /* @__PURE__ */ jsx33(Typography18, { variant: "body1", color: "text.secondary", textAlign: "center", children: "No hay tableros SCRUM. Crea el primero para empezar." }),
-      /* @__PURE__ */ jsx33(Button14, { variant: "contained", startIcon: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:plus", size: 18 }), onClick: onNewBoard, children: "Crear tablero" })
+      /* @__PURE__ */ jsx33(Typography17, { variant: "body1", color: "text.secondary", textAlign: "center", children: "No hay tableros SCRUM. Crea el primero para empezar." }),
+      /* @__PURE__ */ jsx33(Button13, { variant: "contained", startIcon: /* @__PURE__ */ jsx33(Icon15, { icon: "mdi:plus", size: 18 }), onClick: onNewBoard, children: "Crear tablero" })
     ] }) });
   }
   return /* @__PURE__ */ jsx33(Box20, { className: "paty-todos-boards-home", children: /* @__PURE__ */ jsx33(Box20, { className: "paty-todos-boards-list", children: sortedBoards.map((board) => /* @__PURE__ */ jsx33(BoardAccordionRow, { board, preview: boardPreviews[board.id], previewReady: Object.prototype.hasOwnProperty.call(boardPreviews, board.id), loadingPreviews, expanded: isExpanded(board.id), onToggleExpand: handleToggleExpand, onOpenBoard, onOpenTask, onPreviewDragStart, onPreviewDropColumn, onDeleteBoard: handleDeleteBoard, deleting: deletingId === board.id }, board.id)) }) });
 }
 
 // js/tools/todos/BoardSettingsDialog.jsx
+init_platform();
 import { Fragment as Fragment10, jsx as jsx34, jsxs as jsxs29 } from "react/jsx-runtime";
-var { useState: useState23, useEffect: useEffect20 } = getReact();
+var { useState: useState23, useEffect: useEffect21 } = getReact();
 var {
   Dialog: Dialog8,
   DialogTitle: DialogTitle8,
   DialogContent: DialogContent10,
   DialogActions: DialogActions8,
-  Button: Button15,
+  Button: Button14,
   Stack: Stack16,
   TextField: TextField12,
   Box: Box21,
@@ -14582,8 +15561,8 @@ var {
   InputLabel: InputLabel2,
   Select: Select5,
   MenuItem: MenuItem5,
-  Typography: Typography19,
-  Chip: Chip13,
+  Typography: Typography18,
+  Chip: Chip12,
   IconButton: IconButton10,
   Tooltip: Tooltip9,
   CircularProgress: CircularProgress12
@@ -14603,7 +15582,7 @@ function BoardMembersSection({
   const [loading, setLoading] = useState23(false);
   const [membersSaving, setMembersSaving] = useState23(false);
   const [addKey, setAddKey] = useState23(0);
-  useEffect20(() => {
+  useEffect21(() => {
     if (!open || !boardId) return;
     let cancelled = false;
     setLoading(true);
@@ -14650,8 +15629,8 @@ function BoardMembersSection({
     setAddKey((n) => n + 1);
   }
   return /* @__PURE__ */ jsxs29(Box21, { className: "paty-todos-board-members", children: [
-    /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block" }, children: "Integrantes" }),
-    loading ? /* @__PURE__ */ jsx34(Box21, { sx: { display: "flex", justifyContent: "center", py: 1.5 }, children: /* @__PURE__ */ jsx34(CircularProgress12, { size: 22 }) }) : members.length === 0 ? /* @__PURE__ */ jsx34(Typography19, { variant: "body2", color: "text.secondary", sx: { mb: 1 }, children: "Sin integrantes registrados." }) : /* @__PURE__ */ jsx34(Stack16, { spacing: 0.75, className: "paty-todos-board-members__list", sx: { mb: 1 }, children: members.map((m) => /* @__PURE__ */ jsxs29(
+    /* @__PURE__ */ jsx34(Typography18, { variant: "caption", color: "text.secondary", sx: { mb: 0.75, display: "block" }, children: "Integrantes" }),
+    loading ? /* @__PURE__ */ jsx34(Box21, { sx: { display: "flex", justifyContent: "center", py: 1.5 }, children: /* @__PURE__ */ jsx34(CircularProgress12, { size: 22 }) }) : members.length === 0 ? /* @__PURE__ */ jsx34(Typography18, { variant: "body2", color: "text.secondary", sx: { mb: 1 }, children: "Sin integrantes registrados." }) : /* @__PURE__ */ jsx34(Stack16, { spacing: 0.75, className: "paty-todos-board-members__list", sx: { mb: 1 }, children: members.map((m) => /* @__PURE__ */ jsxs29(
       Stack16,
       {
         direction: "row",
@@ -14660,7 +15639,7 @@ function BoardMembersSection({
         className: "paty-todos-board-members__row",
         children: [
           /* @__PURE__ */ jsx34(
-            Chip13,
+            Chip12,
             {
               size: "small",
               label: m.username,
@@ -14674,7 +15653,7 @@ function BoardMembersSection({
               sx: { flex: 1, minWidth: 0, justifyContent: "flex-start" }
             }
           ),
-          readOnly ? /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { flexShrink: 0 }, children: roleLabel2(m.boardRole) }) : /* @__PURE__ */ jsxs29(Fragment10, { children: [
+          readOnly ? /* @__PURE__ */ jsx34(Typography18, { variant: "caption", color: "text.secondary", sx: { flexShrink: 0 }, children: roleLabel2(m.boardRole) }) : /* @__PURE__ */ jsxs29(Fragment10, { children: [
             /* @__PURE__ */ jsx34(FormControl5, { size: "small", disabled, className: "paty-todos-board-members__role", children: /* @__PURE__ */ jsxs29(
               Select5,
               {
@@ -14713,7 +15692,7 @@ function BoardMembersSection({
       },
       addKey
     ) }) : null,
-    membersSaving ? /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { mt: 0.5, display: "block" }, children: "Guardando integrantes\u2026" }) : null
+    membersSaving ? /* @__PURE__ */ jsx34(Typography18, { variant: "caption", color: "text.secondary", sx: { mt: 0.5, display: "block" }, children: "Guardando integrantes\u2026" }) : null
   ] });
 }
 function BoardSettingsDialog({
@@ -14729,7 +15708,7 @@ function BoardSettingsDialog({
   const [title, setTitle] = useState23(board?.title ?? "");
   const [description, setDescription] = useState23(board?.description ?? "");
   const [visibility, setVisibility] = useState23(board?.visibility ?? "private");
-  useEffect20(() => {
+  useEffect21(() => {
     if (!open) return;
     setTitle(board?.title ?? "");
     setDescription(board?.description ?? "");
@@ -14755,12 +15734,12 @@ function BoardSettingsDialog({
           flexWrap: "wrap",
           className: "paty-todos-board-settings-head",
           children: [
-            /* @__PURE__ */ jsxs29(Typography19, { variant: "body2", sx: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ jsxs29(Typography18, { variant: "body2", sx: { flex: 1, minWidth: 0 }, children: [
               /* @__PURE__ */ jsx34("strong", { children: "T\xEDtulo:" }),
               " ",
               board.title
             ] }),
-            /* @__PURE__ */ jsxs29(Typography19, { variant: "body2", color: "text.secondary", children: [
+            /* @__PURE__ */ jsxs29(Typography18, { variant: "body2", color: "text.secondary", children: [
               /* @__PURE__ */ jsx34("strong", { children: "Visibilidad:" }),
               " ",
               board.visibility === "public" ? "P\xFAblico" : "Privado"
@@ -14769,7 +15748,7 @@ function BoardSettingsDialog({
         }
       ),
       /* @__PURE__ */ jsxs29(Box21, { className: "paty-todos-board-desc-field", children: [
-        /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { mb: 0.5, display: "block" }, children: "Descripci\xF3n" }),
+        /* @__PURE__ */ jsx34(Typography18, { variant: "caption", color: "text.secondary", sx: { mb: 0.5, display: "block" }, children: "Descripci\xF3n" }),
         /* @__PURE__ */ jsx34(Box21, { className: "paty-todos-board-desc-editor", children: /* @__PURE__ */ jsx34(
           PromptBodyEditor,
           {
@@ -14844,7 +15823,7 @@ function BoardSettingsDialog({
         }
       ),
       /* @__PURE__ */ jsxs29(Box21, { className: "paty-todos-board-desc-field", children: [
-        /* @__PURE__ */ jsx34(Typography19, { variant: "caption", color: "text.secondary", sx: { mb: 0.5, display: "block" }, children: "Descripci\xF3n" }),
+        /* @__PURE__ */ jsx34(Typography18, { variant: "caption", color: "text.secondary", sx: { mb: 0.5, display: "block" }, children: "Descripci\xF3n" }),
         /* @__PURE__ */ jsx34(Box21, { className: "paty-todos-board-desc-editor", children: /* @__PURE__ */ jsx34(
           PromptBodyEditor,
           {
@@ -14875,13 +15854,14 @@ function BoardSettingsDialog({
         }
       )
     ] }) }),
-    /* @__PURE__ */ jsx34(DialogActions8, { children: /* @__PURE__ */ jsx34(Button15, { onClick: onClose, children: "Cerrar" }) })
+    /* @__PURE__ */ jsx34(DialogActions8, { children: /* @__PURE__ */ jsx34(Button14, { onClick: onClose, children: "Cerrar" }) })
   ] });
 }
 
 // js/tools/todos/TodosShellParts.jsx
+init_platform();
 import { jsx as jsx35, jsxs as jsxs30 } from "react/jsx-runtime";
-var { Box: Box22, Typography: Typography20, Button: Button16, Stack: Stack17, Alert: Alert11, CircularProgress: CircularProgress13, Tooltip: Tooltip10, IconButton: IconButton11 } = getMaterialUI();
+var { Box: Box22, Typography: Typography19, Button: Button15, Stack: Stack17, Alert: Alert11, CircularProgress: CircularProgress13, Tooltip: Tooltip10, IconButton: IconButton11 } = getMaterialUI();
 var { Icon: Icon17 } = UI;
 function TodosBoardToolbar({
   boardTitle,
@@ -14923,10 +15903,10 @@ function TodosBoardToolbar({
       }
     ) }),
     /* @__PURE__ */ jsx35(Box22, { sx: { flex: 1 } }),
-    /* @__PURE__ */ jsx35(Button16, { size: "small", variant: "outlined", startIcon: /* @__PURE__ */ jsx35(Icon17, { icon: "mdi:plus", size: 16 }), onClick: onNewBoard, children: "Nuevo" }),
+    /* @__PURE__ */ jsx35(Button15, { size: "small", variant: "outlined", startIcon: /* @__PURE__ */ jsx35(Icon17, { icon: "mdi:plus", size: 16 }), onClick: onNewBoard, children: "Nuevo" }),
     publicSlug ? /* @__PURE__ */ jsx35(Tooltip10, { title: "Copiar enlace p\xFAblico (solo lectura)", children: /* @__PURE__ */ jsx35(IconButton11, { size: "small", onClick: copyPublicLink, "aria-label": "Copiar enlace p\xFAblico", children: /* @__PURE__ */ jsx35(Icon17, { icon: "mdi:link-variant", size: 20 }) }) }) : null,
     /* @__PURE__ */ jsx35(
-      Button16,
+      Button15,
       {
         size: "small",
         variant: "text",
@@ -14940,9 +15920,10 @@ function TodosBoardToolbar({
 }
 
 // js/tools/todos/TodosPublicHome.jsx
+init_platform();
 import { jsx as jsx36, jsxs as jsxs31 } from "react/jsx-runtime";
-var { useState: useState24, useEffect: useEffect21 } = getReact();
-var { Box: Box23, Typography: Typography21, Button: Button17, Stack: Stack18, Alert: Alert12, CircularProgress: CircularProgress14, Chip: Chip14 } = getMaterialUI();
+var { useState: useState24, useEffect: useEffect22 } = getReact();
+var { Box: Box23, Typography: Typography20, Button: Button16, Stack: Stack18, Alert: Alert12, CircularProgress: CircularProgress14, Chip: Chip13 } = getMaterialUI();
 var { Icon: Icon18 } = UI;
 var PUBLIC_CARD_ACCENTS = () => {
   const { NEON_COLORS } = getGlass();
@@ -14955,7 +15936,7 @@ function TodosPublicHome() {
   const [loading, setLoading] = useState24(true);
   const [error, setError] = useState24("");
   const [selectedSlug, setSelectedSlug] = useState24("");
-  useEffect21(() => {
+  useEffect22(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -14979,7 +15960,7 @@ function TodosPublicHome() {
   if (selectedSlug) {
     return /* @__PURE__ */ jsxs31(Box23, { className: "paty-todos-shell", children: [
       /* @__PURE__ */ jsx36(Box23, { className: "paty-todos-toolbar", children: /* @__PURE__ */ jsx36(
-        Button17,
+        Button16,
         {
           size: "small",
           variant: "text",
@@ -15016,10 +15997,10 @@ function TodosPublicHome() {
           children: [
             /* @__PURE__ */ jsx36(Box23, { className: "paty-todos-public-card__icon-wrap", "aria-hidden": true, children: /* @__PURE__ */ jsx36(Icon18, { icon: "mdi:view-column", size: 22 }) }),
             /* @__PURE__ */ jsxs31(Box23, { className: "paty-todos-public-card__body", children: [
-              /* @__PURE__ */ jsx36(Typography21, { className: "paty-todos-public-card__title", component: "div", variant: "subtitle1", children: board.title }),
-              /* @__PURE__ */ jsx36(Typography21, { className: "paty-todos-public-card__desc", component: "div", variant: "body2", color: "text.secondary", children: board.description || "Tablero SCRUM" }),
+              /* @__PURE__ */ jsx36(Typography20, { className: "paty-todos-public-card__title", component: "div", variant: "subtitle1", children: board.title }),
+              /* @__PURE__ */ jsx36(Typography20, { className: "paty-todos-public-card__desc", component: "div", variant: "body2", color: "text.secondary", children: board.description || "Tablero SCRUM" }),
               /* @__PURE__ */ jsx36(
-                Chip14,
+                Chip13,
                 {
                   size: "small",
                   className: "paty-todos-public-card__chip",
@@ -15035,7 +16016,7 @@ function TodosPublicHome() {
       );
     }) }) : /* @__PURE__ */ jsxs31(Stack18, { spacing: 1, alignItems: "center", sx: { p: 4, opacity: 0.85 }, children: [
       /* @__PURE__ */ jsx36(Icon18, { icon: "mdi:view-column-outline", width: "2.5em", height: "2.5em" }),
-      /* @__PURE__ */ jsx36(Typography21, { variant: "body2", color: "text.secondary", align: "center", children: "No hay tableros publicados todav\xEDa." })
+      /* @__PURE__ */ jsx36(Typography20, { variant: "body2", color: "text.secondary", align: "center", children: "No hay tableros publicados todav\xEDa." })
     ] })
   ] });
 }
@@ -15222,30 +16203,23 @@ function TodosTool({ bootTodos, onNeedLogin }) {
   ] });
 }
 
+// js/tools/ConfigTool.jsx
+init_platform();
+init_systemConfigApi();
+init_platform();
+init_sessionApi();
+
+// js/tools/PermisosPanel.jsx
+init_platform();
+init_systemConfigApi();
+
 // js/tools/permFixFilter.js
 var SESSION_OWNER_FIX_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
 };
-var FIX_FILTER_VAR_HINT = "itercero, icontacto, iusuario, nombres";
-function formatFixFilter(fixFilter) {
-  if (!fixFilter || typeof fixFilter !== "object" || Array.isArray(fixFilter)) return "";
-  return Object.entries(fixFilter).map(([k, v]) => `${k}: ${String(v)}`).join(" \xB7 ");
-}
-function fixFilterFromRestriction(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-  const ff = value.fixFilter;
-  if (!ff || typeof ff !== "object" || Array.isArray(ff)) return void 0;
-  return { ...ff };
-}
-function withSessionOwnerFixFilter(restriction) {
-  if (restriction === true) return { fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
-  if (!restriction || typeof restriction !== "object") return restriction;
-  return { ...restriction, fixFilter: { ...SESSION_OWNER_FIX_FILTER } };
-}
 
 // js/tools/permisosForm.js
-var PERM_META = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles"]);
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
@@ -15269,60 +16243,10 @@ function userRoles(permisos) {
   const r = permisos?.roles;
   return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
 }
-function restrictionToMode(value) {
-  if (value === true) return "allow";
-  if (value && typeof value === "object") {
-    const ff = value.fixFilter;
-    if (ff && typeof ff === "object" && !Array.isArray(ff) && Object.keys(ff).length) return "filtered";
-    return "allow";
-  }
-  return "off";
-}
-function modeToRestriction(mode, fixFilter) {
-  if (mode === "allow") return true;
-  if (mode === "filtered") {
-    const ff = fixFilterFromRestriction({ fixFilter });
-    return ff ? { fixFilter: ff } : true;
-  }
-  return null;
-}
-function splitRolePermisos(permisos) {
-  const flags = Object.fromEntries(FLAG_DEFS.map((f) => [f.key, false]));
-  const routes = [];
-  for (const [key, value] of Object.entries(permisos ?? {})) {
-    if (PERM_META.has(key)) continue;
-    if (FLAG_KEYS.has(key)) {
-      flags[key] = value === true;
-      continue;
-    }
-    const mode = restrictionToMode(value);
-    if (mode !== "off") {
-      const fixFilter = fixFilterFromRestriction(value);
-      routes.push(fixFilter ? { key, mode, fixFilter } : { key, mode });
-    }
-  }
-  routes.sort((a, b) => a.key.localeCompare(b.key));
-  return { flags, routes };
-}
-function buildRolePermisos(desc, namedisplay, flags, routes) {
-  const out = {};
-  if (String(desc ?? "").trim()) out.descripcion = String(desc).trim();
-  if (String(namedisplay ?? "").trim()) out.namedisplay = String(namedisplay).trim();
-  for (const def of FLAG_DEFS) {
-    if (flags[def.key]) out[def.key] = true;
-  }
-  for (const row of routes) {
-    if (!row.key || row.mode === "off") continue;
-    const restr = modeToRestriction(row.mode, row.fixFilter);
-    if (restr != null) out[row.key] = restr;
-  }
-  return out;
-}
-function countActiveRoutes(routes) {
-  return (routes || []).filter((r) => r.mode && r.mode !== "off").length;
-}
 
 // js/tools/permisosKanbanShared.js
+init_roleHierarchy();
+init_roleCanonicalMeta();
 var VISITANTE = "visitante";
 var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
@@ -15498,6 +16422,15 @@ function pointInRef(ref, clientX, clientY) {
   return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
 }
 
+// js/tools/PermisosPanel.jsx
+init_roleHierarchy();
+
+// js/tools/PermisosKanban.jsx
+init_platform();
+
+// js/tools/permisosRoleConfig.jsx
+init_platform();
+
 // js/tools/permisosRouteCatalog.js
 var ROUTE_GROUPS = [
   {
@@ -15550,62 +16483,9 @@ var ROUTE_GROUPS = [
   }
 ];
 var CATALOG_KEYS = new Set(ROUTE_GROUPS.flatMap((g) => g.routes.map((r) => r.key)));
-function isWildcardRole(permisos) {
-  return permisos?.["*"] === true;
-}
-function routesForRoleEditor(permisos, { includeInactive = false } = {}) {
-  const wildcard = isWildcardRole(permisos);
-  const modeByKey = /* @__PURE__ */ new Map();
-  const fixByKey = /* @__PURE__ */ new Map();
-  for (const [key, value] of Object.entries(permisos ?? {})) {
-    if (key === "*" || key === "descripcion" || key === "namedisplay" || key === "roles" || key === "impersonate" || key === "manage_permissions") continue;
-    const hasFix = !!(value && typeof value === "object" && value.fixFilter && typeof value.fixFilter === "object" && !Array.isArray(value.fixFilter) && Object.keys(value.fixFilter).length);
-    const mode = value === true ? "allow" : hasFix ? "filtered" : value && typeof value === "object" ? "allow" : "off";
-    if (mode !== "off") modeByKey.set(key, mode);
-    const ff = fixFilterFromRestriction(value);
-    if (ff) fixByKey.set(key, ff);
-  }
-  const groups = ROUTE_GROUPS.map((g) => ({
-    id: g.id,
-    title: g.title,
-    routes: g.routes.map((def) => {
-      let mode = "off";
-      if (wildcard) mode = def.scoped ? "filtered" : "allow";
-      else if (modeByKey.has(def.key)) mode = modeByKey.get(def.key);
-      return { ...def, mode, fixFilter: fixByKey.get(def.key), active: mode !== "off" };
-    }).filter((r) => includeInactive || r.active)
-  })).filter((g) => g.routes.length > 0);
-  const extras = [...modeByKey.entries()].filter(([key]) => !CATALOG_KEYS.has(key)).map(([key, mode]) => ({
-    key,
-    label: key,
-    mode,
-    fixFilter: fixByKey.get(key),
-    active: true,
-    scoped: mode === "filtered"
-  })).sort((a, b) => a.key.localeCompare(b.key));
-  return { groups, extras, wildcard, activeCount: [...modeByKey.keys()].length + (wildcard ? 1 : 0) };
-}
-function routesArrayFromPermisos(permisos, includeInactive) {
-  const { groups, extras } = routesForRoleEditor(permisos, { includeInactive });
-  const rows = [];
-  for (const g of groups) {
-    for (const r of g.routes) rows.push({ key: r.key, mode: r.mode, ...r.fixFilter ? { fixFilter: r.fixFilter } : {} });
-  }
-  for (const r of extras) rows.push({ key: r.key, mode: r.mode, ...r.fixFilter ? { fixFilter: r.fixFilter } : {} });
-  return rows;
-}
-function groupsFromRouteRows(routes, flags, { includeInactive = false } = {}) {
-  const permisos = {};
-  if (flags?.["*"]) permisos["*"] = true;
-  for (const r of routes ?? []) {
-    if (!r?.key || r.mode === "off") continue;
-    if (r.mode === "allow") permisos[r.key] = true;
-    else if (r.mode === "filtered") permisos[r.key] = r.fixFilter ? { fixFilter: r.fixFilter } : true;
-  }
-  return routesForRoleEditor(permisos, { includeInactive });
-}
 
 // js/tools/permisosRoleTransfer.js
+init_roleHierarchy();
 function isTopDevLeadRole(roleName, jerarquia) {
   const key = String(roleName ?? "").trim().toLowerCase();
   if (key === "dev_lead") return true;
@@ -15691,11 +16571,14 @@ function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
 }
 
 // js/tools/PermisosUserAutocomplete.jsx
+init_platform();
+init_systemConfigApi();
 import { jsx as jsx38 } from "react/jsx-runtime";
 import { createElement as createElement4 } from "react";
-var { useState: useState26, useEffect: useEffect22, useRef: useRef11, useCallback: useCallback11 } = getReact();
-var { Autocomplete: Autocomplete3, TextField: TextField13, Typography: Typography22, Box: Box25 } = getMaterialUI();
+var { useState: useState26, useEffect: useEffect23, useRef: useRef11, useCallback: useCallback11 } = getReact();
+var { Autocomplete: Autocomplete3, TextField: TextField13, Typography: Typography21, Box: Box25 } = getMaterialUI();
 var DEBOUNCE_MS3 = 300;
+var DEFAULT_LIMIT = 10;
 function optionLabel2(row) {
   if (!row) return "";
   return row.displayName ? `${row.displayName} (${row.username})` : row.username;
@@ -15707,7 +16590,20 @@ function usernameFromInput(text) {
   if (paren) return normalizePermisosUsername(paren[1]);
   return normalizePermisosUsername(raw.split(/\s+/)[0]);
 }
-function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "Usuario", roleFilter = null, allowNew = true }) {
+function PermisosUserAutocomplete({
+  value,
+  onChange,
+  disabled = false,
+  label = "Usuario",
+  roleFilter = null,
+  allowNew = true,
+  limit = DEFAULT_LIMIT,
+  variant = "dialog",
+  placeholder,
+  className,
+  sx
+}) {
+  const toolbar = variant === "toolbar";
   const username = value ? normalizePermisosUsername(value) : null;
   const [inputValue, setInputValue] = useState26("");
   const [options, setOptions] = useState26([]);
@@ -15719,7 +16615,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     const id = ++requestIdRef.current;
     setLoading(true);
     try {
-      const users = await searchPermisosUsers(query, roleFilter ? { role: roleFilter } : void 0);
+      const users = await searchPermisosUsers(query, {
+        ...roleFilter ? { role: roleFilter } : {},
+        limit
+      });
       if (id !== requestIdRef.current) return users;
       setOptions(users);
       return users;
@@ -15729,14 +16628,14 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     } finally {
       if (id === requestIdRef.current) setLoading(false);
     }
-  }, [roleFilter]);
+  }, [roleFilter, limit]);
   const scheduleSearch = useCallback11((query) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       runSearch(query);
     }, DEBOUNCE_MS3);
   }, [runSearch]);
-  useEffect22(() => {
+  useEffect23(() => {
     if (!username) {
       setInputValue("");
       return;
@@ -15748,20 +16647,33 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
     const match = options.find((o) => o.username === username);
     setInputValue(match ? optionLabel2(match) : username);
   }, [value, username, options, onChange]);
-  useEffect22(() => () => {
+  useEffect23(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
-  useEffect22(() => {
+  useEffect23(() => {
     if (disabled) return;
     runSearch("");
   }, [disabled, runSearch]);
   if (disabled) {
-    return /* @__PURE__ */ jsx38(TextField13, { label, fullWidth: true, size: "small", value: username || "", disabled: true, placeholder: "Sin usuario" });
+    return /* @__PURE__ */ jsx38(
+      TextField13,
+      {
+        label,
+        fullWidth: !toolbar,
+        size: "small",
+        value: username || "",
+        disabled: true,
+        placeholder: "Sin usuario",
+        className,
+        sx
+      }
+    );
   }
+  const ph = placeholder ?? (toolbar ? "Buscar usuario\u2026" : "Buscar login ISS\u2026");
   return /* @__PURE__ */ jsx38(
     Autocomplete3,
     {
-      fullWidth: true,
+      fullWidth: !toolbar,
       size: "small",
       openOnFocus: true,
       autoHighlight: true,
@@ -15776,8 +16688,10 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
       filterOptions: (x) => x,
       getOptionLabel: optionLabel2,
       isOptionEqualToValue: (a, b) => String(a?.username) === String(b?.username),
-      noOptionsText: loading ? "Buscando\u2026" : "Sin coincidencias \u2014 escriba login",
+      noOptionsText: loading ? "Buscando\u2026" : toolbar ? "Sin coincidencias" : "Sin coincidencias \u2014 escriba login",
       loadingText: "Buscando\u2026",
+      className,
+      sx,
       onOpen: () => {
         if (!options.length) runSearch(inputValue);
       },
@@ -15787,7 +16701,7 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         scheduleSearch(text);
         if (allowNew) {
           const u = usernameFromInput(text);
-          if (u && !text.includes("(")) onChange(u);
+          onChange(u);
         }
       },
       onChange: (_e, row) => {
@@ -15800,14 +16714,21 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
         onChange(row?.username ?? null);
         setInputValue(row ? optionLabel2(row) : "");
       },
-      renderOption: (props, row) => /* @__PURE__ */ createElement4(Box25, { component: "li", ...props, key: row.username, sx: { display: "flex", flexDirection: "column", py: 0.75 } }, /* @__PURE__ */ jsx38(Typography22, { variant: "body2", sx: { fontWeight: 600 }, children: row.displayName || row.username }), row.displayName ? /* @__PURE__ */ jsx38(Typography22, { variant: "caption", color: "text.secondary", children: row.username }) : null),
+      renderOption: (props, row) => /* @__PURE__ */ createElement4(Box25, { component: "li", ...props, key: row.username, sx: { display: "flex", flexDirection: "column", py: 0.75 } }, /* @__PURE__ */ jsx38(Typography21, { variant: "body2", sx: { fontWeight: 600 }, children: row.displayName || row.username }), row.displayName ? /* @__PURE__ */ jsx38(Typography21, { variant: "caption", color: "text.secondary", children: row.username }) : null),
       renderInput: (params) => /* @__PURE__ */ jsx38(
         TextField13,
         {
           ...params,
-          label,
-          placeholder: "Buscar login ISS\u2026",
-          helperText: allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS"
+          label: toolbar ? "" : label,
+          placeholder: ph,
+          InputLabelProps: { ...params.InputLabelProps, shrink: toolbar ? false : true },
+          helperText: toolbar ? void 0 : allowNew ? "Usuarios en permisos ISS o login nuevo" : "Usuarios registrados en permisos ISS",
+          sx: toolbar ? {
+            "& .MuiOutlinedInput-root": { height: 28, minHeight: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 }
+          } : void 0
         }
       )
     }
@@ -15815,7 +16736,6 @@ function PermisosUserAutocomplete({ value, onChange, disabled = false, label = "
 }
 
 // js/tools/permisosVisitante.js
-var VISITANTE_ROLE = "visitante";
 var VISITANTE_DEFAULT_PERMISOS = {
   namedisplay: "Visitante",
   descripcion: "Visitante \u2014 solo sus propias conversaciones; logs abiertos; resto lectura",
@@ -15826,63 +16746,20 @@ var VISITANTE_DEFAULT_PERMISOS = {
   "POST:/api/mensaje": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
   "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } }
 };
-var VISITANTE_LOCKED_OWN_KEYS = /* @__PURE__ */ new Set([
-  "GET:/api/conversaciones",
-  "GET:/api/conversacion/*",
-  "POST:/api/conversacion",
-  "POST:/api/mensaje",
-  "DELETE:/api/conversacion/*"
-]);
-var VISITANTE_REQUIRED_OWN_KEYS = /* @__PURE__ */ new Set([
-  "GET:/api/conversaciones",
-  "GET:/api/conversacion/*"
-]);
-function isVisitanteRole(roleName) {
-  return String(roleName ?? "").trim().toLowerCase() === VISITANTE_ROLE;
-}
-function enforceVisitantePermisos(permisos) {
-  const out = { ...permisos ?? {} };
-  delete out["*"];
-  delete out.impersonate;
-  delete out.manage_permissions;
-  for (const key of VISITANTE_REQUIRED_OWN_KEYS) {
-    out[key] = withSessionOwnerFixFilter({ fixFilter: { ...SESSION_OWNER_FIX_FILTER } });
-  }
-  for (const key of VISITANTE_LOCKED_OWN_KEYS) {
-    const v = out[key];
-    if (v == null || v === false) continue;
-    if (v === true) out[key] = withSessionOwnerFixFilter(v);
-    else if (typeof v === "object") out[key] = withSessionOwnerFixFilter(v);
-  }
-  return out;
-}
-function visitanteRouteLocked(key) {
-  return VISITANTE_LOCKED_OWN_KEYS.has(key);
-}
-function getVisitanteRoleEntry(data) {
-  const hit = (data?.roles ?? []).find((r) => roleNameFromEntry(r) === VISITANTE_ROLE);
-  if (hit) return hit;
-  return {
-    iusuario: VISITANTE_ROLE,
-    itipo: "role",
-    permisos: { ...VISITANTE_DEFAULT_PERMISOS },
-    bactivo: true
-  };
-}
 
 // js/tools/permisosRoleConfig.jsx
 import { Fragment as Fragment12, jsx as jsx39, jsxs as jsxs33 } from "react/jsx-runtime";
-var { useState: useState27, useEffect: useEffect23, useMemo: useMemo14 } = getReact();
+var { useState: useState27, useEffect: useEffect24, useMemo: useMemo16 } = getReact();
 var {
-  Typography: Typography23,
+  Typography: Typography22,
   TextField: TextField14,
   Stack: Stack19,
   Alert: Alert14,
-  Chip: Chip15,
+  Chip: Chip14,
   Box: Box26,
   Checkbox: Checkbox2,
   FormControlLabel: FormControlLabel3,
-  Divider: Divider6,
+  Divider: Divider5,
   Select: Select6,
   MenuItem: MenuItem6,
   FormControl: FormControl6,
@@ -15894,7 +16771,7 @@ var {
   TableRow: TableRow3,
   DialogContent: DialogContent11,
   DialogActions: DialogActions9,
-  Button: Button18,
+  Button: Button17,
   Tooltip: Tooltip11,
   CircularProgress: CircularProgress15
 } = getMaterialUI();
@@ -15904,244 +16781,9 @@ function renderImpactLine(text) {
   return parts.map((part, i) => i % 2 === 1 ? /* @__PURE__ */ jsx39("strong", { children: part }, i) : part);
 }
 var MODE_LABEL = Object.fromEntries(ACCESS_MODES.map((m) => [m.value, m.label]));
-function AccessModeSelect({ value, onChange, disabled, scoped }) {
-  const modes = scoped ? ACCESS_MODES : ACCESS_MODES.filter((m) => m.value === "off" || m.value === "allow");
-  return /* @__PURE__ */ jsxs33(FormControl6, { size: "small", fullWidth: true, disabled, children: [
-    /* @__PURE__ */ jsx39(InputLabel3, { id: "perm-route-access-label", shrink: true, children: "Acceso" }),
-    /* @__PURE__ */ jsx39(Select6, { labelId: "perm-route-access-label", label: "Acceso", value: value || "off", onChange: (e) => onChange(e.target.value), children: modes.map((m) => /* @__PURE__ */ jsx39(MenuItem6, { value: m.value, children: m.label }, m.value)) })
-  ] });
-}
-function ModeChip({ mode }) {
-  const color = mode === "off" ? "default" : mode === "filtered" ? "info" : "success";
-  return /* @__PURE__ */ jsx39(Chip15, { size: "small", variant: mode === "off" ? "outlined" : "filled", color, label: MODE_LABEL[mode] || mode });
-}
-function RouteGroupSection({ title, routes, canEdit, wildcard, onRouteMode, isVisitante }) {
-  if (!routes.length) return null;
-  return /* @__PURE__ */ jsxs33(Box26, { className: "permisos-route-group", children: [
-    /* @__PURE__ */ jsx39(Typography23, { variant: "subtitle2", fontWeight: 700, className: "permisos-route-group__title", children: title }),
-    /* @__PURE__ */ jsxs33(Table3, { size: "small", className: "permisos-route-table__grid permisos-route-group__table", children: [
-      /* @__PURE__ */ jsx39(TableHead3, { children: /* @__PURE__ */ jsxs33(TableRow3, { children: [
-        /* @__PURE__ */ jsx39(TableCell3, { children: "Ruta" }),
-        /* @__PURE__ */ jsx39(TableCell3, { sx: { width: "38%" }, children: "Clave" }),
-        /* @__PURE__ */ jsx39(TableCell3, { sx: { minWidth: 140 }, children: /* @__PURE__ */ jsx39(Tooltip11, { title: `fixFilter \u2014 filtra por el usuario de la sesi\xF3n (${FIX_FILTER_VAR_HINT})`, children: /* @__PURE__ */ jsx39("span", { children: "Filtro de sesi\xF3n" }) }) }),
-        /* @__PURE__ */ jsx39(TableCell3, { sx: { width: 168 }, children: "Acceso" })
-      ] }) }),
-      /* @__PURE__ */ jsx39(TableBody3, { children: routes.map((row) => {
-        const active = row.mode !== "off";
-        return /* @__PURE__ */ jsxs33(TableRow3, { className: active ? "permisos-route-row--active" : "permisos-route-row--inactive", children: [
-          /* @__PURE__ */ jsx39(TableCell3, { children: /* @__PURE__ */ jsx39(Typography23, { variant: "body2", fontWeight: active ? 600 : 400, children: row.label }) }),
-          /* @__PURE__ */ jsx39(TableCell3, { children: /* @__PURE__ */ jsx39(Typography23, { component: "code", variant: "caption", sx: { wordBreak: "break-all" }, children: row.key }) }),
-          /* @__PURE__ */ jsx39(TableCell3, { children: row.fixFilter ? /* @__PURE__ */ jsx39(Tooltip11, { title: `Plantillas {{var}} \u2014 ${FIX_FILTER_VAR_HINT}`, children: /* @__PURE__ */ jsx39(Typography23, { variant: "caption", color: "text.secondary", sx: { wordBreak: "break-all" }, children: formatFixFilter(row.fixFilter) }) }) : /* @__PURE__ */ jsx39(Typography23, { variant: "caption", color: "text.disabled", children: "\u2014" }) }),
-          /* @__PURE__ */ jsx39(TableCell3, { children: canEdit && !isVisitante && !visitanteRouteLocked(row.key) ? /* @__PURE__ */ jsx39(
-            AccessModeSelect,
-            {
-              value: row.mode,
-              scoped: !!row.scoped,
-              disabled: wildcard,
-              onChange: (mode) => onRouteMode(row.key, mode)
-            }
-          ) : isVisitante && visitanteRouteLocked(row.key) ? /* @__PURE__ */ jsx39(
-            Chip15,
-            {
-              size: "small",
-              color: "info",
-              variant: "outlined",
-              icon: /* @__PURE__ */ jsx39(Icon19, { icon: "mdi:lock", size: 14 }),
-              label: "Alcance: propio (fijo)"
-            }
-          ) : /* @__PURE__ */ jsx39(ModeChip, { mode: row.mode }) })
-        ] }, row.key);
-      }) })
-    ] })
-  ] });
-}
-function RoutePermCatalog({ routes, flags, permisos, canEdit, onRoutesChange, isVisitante }) {
-  const [newKey, setNewKey] = useState27("");
-  const wildcard = flags?.["*"] || isWildcardRole(permisos);
-  const view = useMemo14(() => {
-    if (canEdit) return groupsFromRouteRows(routes, flags, { includeInactive: true });
-    return routesForRoleEditor(permisos, { includeInactive: false });
-  }, [canEdit, routes, flags, permisos]);
-  const activeCount = canEdit ? countActiveRoutes(routes) : view.groups.reduce((n, g) => n + g.routes.length, 0) + view.extras.length;
-  function onRouteMode(key, mode) {
-    if (!canEdit || visitanteRouteLocked(key)) return;
-    const hit = routes.find((r) => r.key === key);
-    const next = hit ? routes.map((r) => {
-      if (r.key !== key) return r;
-      const row = { ...r, mode };
-      if (mode === "allow" || mode === "off") delete row.fixFilter;
-      return row;
-    }) : [...routes, { key, mode }].sort((a, b) => a.key.localeCompare(b.key));
-    onRoutesChange?.(next);
-  }
-  function addRow() {
-    const key = String(newKey ?? "").trim();
-    if (!key || routes.some((r) => r.key === key)) return;
-    onRoutesChange?.([...routes, { key, mode: "allow" }].sort((a, b) => a.key.localeCompare(b.key)));
-    setNewKey("");
-  }
-  return /* @__PURE__ */ jsxs33(Box26, { className: "permisos-route-catalog", children: [
-    /* @__PURE__ */ jsxs33(Stack19, { direction: "row", alignItems: "center", justifyContent: "space-between", sx: { mb: 1 }, children: [
-      /* @__PURE__ */ jsx39(Typography23, { variant: "subtitle2", fontWeight: 700, children: "Rutas API" }),
-      /* @__PURE__ */ jsx39(Chip15, { size: "small", variant: "outlined", label: `${activeCount} activas` })
-    ] }),
-    isVisitante ? /* @__PURE__ */ jsxs33(Alert14, { severity: "info", sx: { mb: 1.5 }, icon: /* @__PURE__ */ jsx39(Icon19, { icon: "mdi:account-lock-outline", size: 18 }), children: [
-      "Alcance fijo por ",
-      /* @__PURE__ */ jsx39("code", { children: "fixFilter" }),
-      " de sesi\xF3n (",
-      /* @__PURE__ */ jsx39("code", { children: "itercero" }),
-      ", ",
-      /* @__PURE__ */ jsx39("code", { children: "icontacto" }),
-      "). El ISS fusiona ese filtro con la petici\xF3n y siempre gana sobre query o ",
-      /* @__PURE__ */ jsx39("code", { children: "f.eq" }),
-      "."
-    ] }) : null,
-    wildcard ? /* @__PURE__ */ jsxs33(Alert14, { severity: "info", sx: { mb: 1.5 }, icon: /* @__PURE__ */ jsx39(Icon19, { icon: "mdi:asterisk", size: 18 }), children: [
-      "Acceso total (",
-      /* @__PURE__ */ jsx39("code", { children: "*" }),
-      ") \u2014 todas las rutas quedan cubiertas por el wildcard."
-    ] }) : null,
-    !view.groups.length && !view.extras.length ? /* @__PURE__ */ jsx39(Typography23, { variant: "body2", color: "text.secondary", children: "Sin rutas activas para este rol." }) : /* @__PURE__ */ jsxs33(Stack19, { spacing: 2, className: "permisos-route-catalog__groups", children: [
-      view.groups.map((g) => /* @__PURE__ */ jsx39(RouteGroupSection, { title: g.title, routes: g.routes, canEdit, wildcard, onRouteMode, isVisitante }, g.id)),
-      view.extras.length ? /* @__PURE__ */ jsx39(RouteGroupSection, { title: "Otras claves", routes: view.extras, canEdit, wildcard, onRouteMode, isVisitante }) : null
-    ] }),
-    canEdit && !wildcard && !isVisitante ? /* @__PURE__ */ jsxs33(Stack19, { direction: { xs: "column", sm: "row" }, spacing: 1, sx: { mt: 1.5 }, children: [
-      /* @__PURE__ */ jsx39(
-        TextField14,
-        {
-          size: "small",
-          fullWidth: true,
-          label: "Clave adicional",
-          placeholder: "GET:/api/conversaciones",
-          value: newKey,
-          onChange: (e) => setNewKey(e.target.value),
-          onKeyDown: (e) => e.key === "Enter" && addRow()
-        }
-      ),
-      /* @__PURE__ */ jsx39(ButtonIconify, { icon: "mdi:plus", title: "Agregar", label: "Agregar", onClick: addRow, disabled: !newKey.trim() })
-    ] }) : null
-  ] });
-}
-function RoleConfigEditor({ entry, roleName, canManage, canEditRoleDescriptions, onChange }) {
-  const canEditPermisos = !!canManage;
-  const canEditMeta = canManage || canEditRoleDescriptions;
-  const resolvedRole = roleName ?? String(entry?.iusuario ?? "").trim().toLowerCase().replace(/^role:/i, "");
-  const isVisitante = isVisitanteRole(resolvedRole);
-  const [namedisplay, setNamedisplay] = useState27(roleNamedisplay(entry?.permisos));
-  const [desc, setDesc] = useState27(roleDescripcion(entry?.permisos));
-  const [flags, setFlags] = useState27(() => splitRolePermisos(entry?.permisos).flags);
-  const [routes, setRoutes] = useState27(() => routesArrayFromPermisos(entry?.permisos, canEditPermisos));
-  const entryDesc = roleDescripcion(entry?.permisos);
-  const entryNamedisplay = roleNamedisplay(entry?.permisos);
-  useEffect23(() => {
-    setNamedisplay(roleNamedisplay(entry?.permisos));
-    setDesc(roleDescripcion(entry?.permisos));
-    const split = splitRolePermisos(entry?.permisos);
-    setFlags(split.flags);
-    setRoutes(routesArrayFromPermisos(entry?.permisos, canEditPermisos));
-  }, [entry?.permisos, entry?.iusuario, canEditPermisos]);
-  function emit(nextNamedisplay = namedisplay, nextDesc = desc, nextFlags = flags, nextRoutes = routes) {
-    if (!onChange) return;
-    if (canManage) {
-      let permisos = buildRolePermisos(
-        canEditMeta ? nextDesc : entryDesc,
-        canEditMeta ? nextNamedisplay : entryNamedisplay,
-        nextFlags,
-        nextRoutes
-      );
-      if (isVisitante) permisos = enforceVisitantePermisos(permisos);
-      onChange(permisos);
-    } else if (canEditRoleDescriptions) {
-      onChange({
-        ...entry?.permisos ?? {},
-        descripcion: String(nextDesc).trim() || void 0,
-        namedisplay: String(nextNamedisplay).trim() || void 0
-      });
-    }
-  }
-  return /* @__PURE__ */ jsxs33(Stack19, { spacing: 3, className: "permisos-role-config-editor", children: [
-    canEditMeta ? /* @__PURE__ */ jsxs33(Box26, { component: "section", className: "permisos-role-config-editor__meta", children: [
-      /* @__PURE__ */ jsx39(Typography23, { variant: "subtitle2", fontWeight: 700, sx: { mb: 1.25 }, children: "Metadatos del rol" }),
-      /* @__PURE__ */ jsxs33(Stack19, { spacing: 1.5, children: [
-        /* @__PURE__ */ jsx39(
-          TextField14,
-          {
-            label: "Nombre a mostrar",
-            size: "small",
-            fullWidth: true,
-            value: namedisplay,
-            disabled: !canEditMeta,
-            onChange: (e) => {
-              const v = e.target.value;
-              setNamedisplay(v);
-              emit(v, desc, flags, routes);
-            }
-          }
-        ),
-        /* @__PURE__ */ jsx39(
-          TextField14,
-          {
-            label: "Descripci\xF3n",
-            size: "small",
-            fullWidth: true,
-            value: desc,
-            disabled: !canEditMeta,
-            onChange: (e) => {
-              const v = e.target.value;
-              setDesc(v);
-              emit(namedisplay, v, flags, routes);
-            }
-          }
-        )
-      ] })
-    ] }) : /* @__PURE__ */ jsxs33(Box26, { component: "section", className: "permisos-role-config-editor__meta permisos-role-config-editor__meta--readonly", children: [
-      /* @__PURE__ */ jsx39(Typography23, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: roleNamedisplay(entry?.permisos) || roleTitleFromEntry(entry) }),
-      roleDescripcion(entry?.permisos) ? /* @__PURE__ */ jsx39(Typography23, { variant: "body2", color: "text.secondary", children: roleDescripcion(entry?.permisos) }) : null
-    ] }),
-    /* @__PURE__ */ jsx39(Divider6, { className: "permisos-role-config-divider" }),
-    /* @__PURE__ */ jsxs33(Box26, { component: "section", className: "permisos-role-config-editor__flags", children: [
-      /* @__PURE__ */ jsx39(Typography23, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "Privilegios globales" }),
-      isVisitante ? /* @__PURE__ */ jsx39(Typography23, { variant: "body2", color: "text.secondary", children: "El rol visitante no usa privilegios globales ni acceso total." }) : /* @__PURE__ */ jsx39(Stack19, { spacing: 0.25, children: FLAG_DEFS.map((f) => /* @__PURE__ */ jsx39(Tooltip11, { title: f.hint, placement: "right", children: /* @__PURE__ */ jsx39(
-        FormControlLabel3,
-        {
-          control: /* @__PURE__ */ jsx39(
-            Checkbox2,
-            {
-              size: "small",
-              checked: !!flags[f.key],
-              disabled: !canEditPermisos,
-              onChange: (e) => {
-                if (!canEditPermisos) return;
-                const nf = { ...flags, [f.key]: e.target.checked };
-                setFlags(nf);
-                emit(namedisplay, desc, nf, routes);
-              }
-            }
-          ),
-          label: /* @__PURE__ */ jsx39(Typography23, { variant: "body2", fontWeight: flags[f.key] ? 600 : 400, children: f.label })
-        }
-      ) }, f.key)) })
-    ] }),
-    /* @__PURE__ */ jsx39(Divider6, { className: "permisos-role-config-divider" }),
-    /* @__PURE__ */ jsx39(Box26, { component: "section", className: "permisos-role-config-editor__routes", children: /* @__PURE__ */ jsx39(
-      RoutePermCatalog,
-      {
-        routes,
-        flags,
-        permisos: entry?.permisos,
-        canEdit: canEditPermisos,
-        isVisitante,
-        onRoutesChange: (nr) => {
-          setRoutes(nr);
-          emit(namedisplay, desc, flags, nr);
-        }
-      }
-    ) })
-  ] });
-}
 function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   const [moveStep, setMoveStep] = useState27(false);
-  useEffect23(() => {
+  useEffect24(() => {
     if (!open) setMoveStep(false);
   }, [open]);
   if (!pending) return null;
@@ -16182,7 +16824,7 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
       ),
       children: !moveStep ? /* @__PURE__ */ jsxs33(Fragment12, { children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
-          /* @__PURE__ */ jsxs33(Typography23, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
+          /* @__PURE__ */ jsxs33(Typography22, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
             "\xBFC\xF3mo asignar a ",
             /* @__PURE__ */ jsx39("strong", { children: username }),
             " el rol ",
@@ -16192,7 +16834,7 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
           copyDenied ? /* @__PURE__ */ jsx39(Alert14, { severity: "info", sx: { mb: 2 }, children: copyDeniedReason || "En la misma rama jer\xE1rquica solo puede moverse el rol, no copiarse." }) : null,
           /* @__PURE__ */ jsxs33(Stack19, { spacing: 1.25, children: [
             /* @__PURE__ */ jsx39(
-              Button18,
+              Button17,
               {
                 variant: "outlined",
                 fullWidth: true,
@@ -16203,9 +16845,9 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
                 children: busy ? "Procesando\u2026" : copyDenied ? "Copiar no disponible (misma rama)" : `Copiar (mantener tambi\xE9n en ${fromLabel})`
               }
             ),
-            !copyDenied ? /* @__PURE__ */ jsx39(Typography23, { variant: "caption", color: "text.secondary", sx: { px: 0.5 }, children: "Copiar no quita el rol origen; no hay cambio de privilegios neto salvo sumar los del destino." }) : null,
+            !copyDenied ? /* @__PURE__ */ jsx39(Typography22, { variant: "caption", color: "text.secondary", sx: { px: 0.5 }, children: "Copiar no quita el rol origen; no hay cambio de privilegios neto salvo sumar los del destino." }) : null,
             /* @__PURE__ */ jsx39(
-              Button18,
+              Button17,
               {
                 variant: "contained",
                 fullWidth: true,
@@ -16218,7 +16860,7 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
             )
           ] })
         ] }),
-        /* @__PURE__ */ jsx39(DialogActions9, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx39(Button18, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }) })
+        /* @__PURE__ */ jsx39(DialogActions9, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx39(Button17, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }) })
       ] }) : /* @__PURE__ */ jsxs33(Fragment12, { children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsxs33(Alert14, { severity: "warning", sx: { mb: 2 }, children: [
@@ -16230,7 +16872,7 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
             /* @__PURE__ */ jsx39("strong", { children: fromLabel }),
             ". Revisa el impacto antes de confirmar."
           ] }),
-          /* @__PURE__ */ jsxs33(Typography23, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
+          /* @__PURE__ */ jsxs33(Typography22, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
             username,
             " pasar\xE1 de ",
             /* @__PURE__ */ jsx39("strong", { children: fromLabel }),
@@ -16241,9 +16883,9 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
           /* @__PURE__ */ jsx39(Box26, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: moveBullets.map((line) => /* @__PURE__ */ jsx39("li", { children: renderImpactLine(line) }, line)) })
         ] }),
         /* @__PURE__ */ jsxs33(DialogActions9, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx39(Button18, { onClick: () => setMoveStep(false), disabled: busy, sx: { textTransform: "none" }, children: "Atr\xE1s" }),
+          /* @__PURE__ */ jsx39(Button17, { onClick: () => setMoveStep(false), disabled: busy, sx: { textTransform: "none" }, children: "Atr\xE1s" }),
           /* @__PURE__ */ jsx39(
-            Button18,
+            Button17,
             {
               variant: "contained",
               color: "warning",
@@ -16261,7 +16903,7 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
 }
 function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
   const [username, setUsername] = useState27(null);
-  useEffect23(() => {
+  useEffect24(() => {
     if (open) setUsername(null);
   }, [open]);
   if (!pending) return null;
@@ -16281,7 +16923,7 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
       header: /* @__PURE__ */ jsx39(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel3, accent: "#10b981", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
-          /* @__PURE__ */ jsxs33(Typography23, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
+          /* @__PURE__ */ jsxs33(Typography22, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
             "Busque un usuario en permisos ISS o escriba un login nuevo para asignarlo al rol ",
             /* @__PURE__ */ jsx39("strong", { children: roleLabel3 }),
             "."
@@ -16291,9 +16933,9 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
           inheritanceBlocked ? /* @__PURE__ */ jsx39(Alert14, { severity: "warning", sx: { mt: 1.5 }, children: addCheck.reason }) : null
         ] }),
         /* @__PURE__ */ jsxs33(DialogActions9, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx39(Button18, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
+          /* @__PURE__ */ jsx39(Button17, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
           /* @__PURE__ */ jsx39(
-            Button18,
+            Button17,
             {
               variant: "contained",
               disabled: busy || !username || alreadyInRole || inheritanceBlocked,
@@ -16327,7 +16969,7 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
       children: [
         /* @__PURE__ */ jsxs33(DialogContent11, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsx39(Alert14, { severity: "warning", sx: { mb: 2 }, children: isSelf && isDevLead ? "Te quitar\xE1s dev_lead (m\xE1ximo privilegio). Otro dev_lead o un ajuste en BD ser\xE1 necesario para recuperarlo." : "Esta acci\xF3n revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar." }),
-          /* @__PURE__ */ jsxs33(Typography23, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
+          /* @__PURE__ */ jsxs33(Typography22, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
             "\xBFQuitar a ",
             /* @__PURE__ */ jsx39("strong", { children: username }),
             " del rol ",
@@ -16337,9 +16979,9 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
           /* @__PURE__ */ jsx39(Box26, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: bullets.map((line) => /* @__PURE__ */ jsx39("li", { children: renderImpactLine(line) }, line)) })
         ] }),
         /* @__PURE__ */ jsxs33(DialogActions9, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx39(Button18, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
+          /* @__PURE__ */ jsx39(Button17, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
           /* @__PURE__ */ jsx39(
-            Button18,
+            Button17,
             {
               variant: "contained",
               color: "warning",
@@ -16358,9 +17000,9 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
 
 // js/tools/PermisosKanban.jsx
 import { Fragment as Fragment13, jsx as jsx40, jsxs as jsxs34 } from "react/jsx-runtime";
-var { useState: useState28, useMemo: useMemo15, useRef: useRef12, useEffect: useEffect24, memo: memo3 } = getReact();
+var { useState: useState28, useMemo: useMemo17, useRef: useRef12, useEffect: useEffect25, memo: memo3 } = getReact();
 var { createPortal } = getReactDOM();
-var { Box: Box27, Paper: Paper3, Typography: Typography24, Stack: Stack20, Chip: Chip16, IconButton: IconButton12, Tooltip: Tooltip12, CircularProgress: CircularProgress16 } = getMaterialUI();
+var { Box: Box27, Paper: Paper3, Typography: Typography23, Stack: Stack20, Chip: Chip15, IconButton: IconButton12, Tooltip: Tooltip12, CircularProgress: CircularProgress16 } = getMaterialUI();
 var { Icon: Icon20 } = UI;
 var DRAG_THRESHOLD_PX2 = 6;
 var UserCard = memo3(function UserCard2({ card, columnId, columnTitle, columnJerarquia, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, onUserSummary, suppressClickRef }) {
@@ -16403,8 +17045,8 @@ var UserCard = memo3(function UserCard2({ card, columnId, columnTitle, columnJer
       },
       children: /* @__PURE__ */ jsxs34(Stack20, { direction: "row", alignItems: "center", spacing: 0.25, className: "paty-permisos-user-card__row", sx: { minWidth: 0 }, children: [
         /* @__PURE__ */ jsxs34(Box27, { className: "paty-permisos-user-card__body", sx: { minWidth: 0, flex: 1 }, children: [
-          /* @__PURE__ */ jsx40(Typography24, { className: "paty-todos-card__title", component: "div", variant: "body2", fontWeight: 700, noWrap: true, title: labels.primary, children: labels.primary }),
-          labels.secondary ? /* @__PURE__ */ jsx40(Typography24, { className: "paty-todos-card__caption", component: "div", variant: "caption", color: "text.secondary", noWrap: true, title: labels.secondary, children: labels.secondary }) : null
+          /* @__PURE__ */ jsx40(Typography23, { className: "paty-todos-card__title", component: "div", variant: "body2", fontWeight: 700, noWrap: true, title: labels.primary, children: labels.primary }),
+          labels.secondary ? /* @__PURE__ */ jsx40(Typography23, { className: "paty-todos-card__caption", component: "div", variant: "caption", color: "text.secondary", noWrap: true, title: labels.secondary, children: labels.secondary }) : null
         ] }),
         userBusy ? /* @__PURE__ */ jsx40(Tooltip12, { title: "Procesando\u2026", children: /* @__PURE__ */ jsx40("span", { className: "paty-permisos-user-card__busy", "aria-label": "Procesando", children: /* @__PURE__ */ jsx40(CircularProgress16, { size: 14, thickness: 5, color: "inherit" }) }) }) : canDragRole ? /* @__PURE__ */ jsx40(Tooltip12, { title: `Quitar de ${columnTitle || columnId}`, children: /* @__PURE__ */ jsx40("span", { className: "paty-permisos-user-card__remove-wrap", children: /* @__PURE__ */ jsx40(
           IconButton12,
@@ -16439,7 +17081,7 @@ function DragGhost2({ card, column, x, y, width }) {
         "aria-hidden": true,
         children: /* @__PURE__ */ jsxs34(Stack20, { direction: "row", alignItems: "center", spacing: 0.75, sx: { minWidth: 0 }, children: [
           /* @__PURE__ */ jsx40(Icon20, { icon: column.icon, size: 16 }),
-          /* @__PURE__ */ jsx40(Typography24, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: column.title })
+          /* @__PURE__ */ jsx40(Typography23, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: column.title })
         ] })
       }
     );
@@ -16455,8 +17097,8 @@ function DragGhost2({ card, column, x, y, width }) {
       style: { position: "fixed", left: x, top: y, width, zIndex: 1e4, pointerEvents: "none", margin: 0 },
       "aria-hidden": true,
       children: [
-        /* @__PURE__ */ jsx40(Typography24, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: labels.primary }),
-        labels.secondary ? /* @__PURE__ */ jsx40(Typography24, { className: "paty-todos-card__caption", variant: "caption", color: "text.secondary", noWrap: true, children: labels.secondary }) : null
+        /* @__PURE__ */ jsx40(Typography23, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: labels.primary }),
+        labels.secondary ? /* @__PURE__ */ jsx40(Typography23, { className: "paty-todos-card__caption", variant: "caption", color: "text.secondary", noWrap: true, children: labels.secondary }) : null
       ]
     }
   );
@@ -16474,7 +17116,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   const [processingUsername, setProcessingUsername] = useState28(null);
   const [selectedUsername, setSelectedUsername] = useState28(null);
   const [dragSourceCol, setDragSourceCol] = useState28(null);
-  const effectiveActorJerarquias = useMemo15(() => {
+  const effectiveActorJerarquias = useMemo17(() => {
     if (Array.isArray(actorJerarquias) && actorJerarquias.length) return actorJerarquias;
     if (actorJerarquia != null && String(actorJerarquia).trim()) return [String(actorJerarquia).trim()];
     return [];
@@ -16492,12 +17134,12 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   const assignEnabled = !!loggedIn && !!canAssignRoles;
   const filterDragEnabled = !!loggedIn && !canAssignRoles;
   const noUsersVisible = !!boardData?.noUsersVisible;
-  const columnIds = useMemo15(() => columns.map((c) => c.id), [columns]);
-  const ghostColumn = useMemo15(() => {
+  const columnIds = useMemo17(() => columns.map((c) => c.id), [columns]);
+  const ghostColumn = useMemo17(() => {
     if (!dragGhost?.columnId) return null;
     return columns.find((c) => c.id === dragGhost.columnId) ?? null;
   }, [dragGhost, columns]);
-  const ghostCard = useMemo15(() => {
+  const ghostCard = useMemo17(() => {
     if (!dragGhost?.cardId) return null;
     for (const col of columns) {
       const hit = col.users.find((u) => u.id === dragGhost.cardId);
@@ -16507,7 +17149,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   }, [dragGhost, columns]);
   const selectedUserKey = selectedUsername ? String(selectedUsername).trim().toUpperCase() : null;
   const processingUserKey = processingUsername ? String(processingUsername).trim().toUpperCase() : null;
-  useEffect24(() => {
+  useEffect25(() => {
     dragPendingRef.current = dragPending;
   }, [dragPending]);
   function userKey(username) {
@@ -16524,7 +17166,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
     processingUserRef.current = null;
     setProcessingUsername(null);
   }
-  useEffect24(() => {
+  useEffect25(() => {
     function onDocPointerDown(e) {
       if (e.target.closest(".paty-permisos-user-card")) return;
       if (e.target.closest(".MuiDialog-root, .isa-glass-dialog")) return;
@@ -16677,7 +17319,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
     } catch {
     }
   }
-  useEffect24(() => {
+  useEffect25(() => {
     function onPointerMove(e) {
       const state = dragRef.current;
       if (!state || e.pointerId !== state.pointerId) return;
@@ -16730,8 +17372,8 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   return /* @__PURE__ */ jsxs34(Box27, { ref: kanbanWrapRef, className: "paty-todos-kanban-wrap paty-permisos-kanban-wrap", sx: { flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden", p: 0 }, children: [
     /* @__PURE__ */ jsxs34(Box27, { className: `paty-todos-kanban paty-permisos-kanban${!assignEnabled ? " paty-permisos-kanban--no-assign" : ""}${draggingId ? " paty-todos-kanban--dragging" : ""}${selectedUserKey ? " paty-permisos-kanban--user-selected" : ""}${processingUserKey ? " paty-permisos-kanban--user-busy" : ""}`, sx: { flex: 1, minHeight: 0, maxHeight: "100%", display: "flex", alignItems: "stretch", alignSelf: "stretch", position: "relative" }, children: [
       dragGhost ? /* @__PURE__ */ jsx40(DragGhost2, { card: ghostCard, column: ghostColumn, x: dragGhost.x, y: dragGhost.y, width: dragGhost.width }) : null,
-      noUsersVisible ? /* @__PURE__ */ jsx40(Box27, { sx: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", p: 3, pointerEvents: "none", zIndex: 2 }, children: /* @__PURE__ */ jsx40(Typography24, { variant: "body2", color: "text.secondary", children: "Ning\xFAn usuario coincide con los filtros." }) }) : null,
-      columns.length === 0 ? /* @__PURE__ */ jsx40(Box27, { sx: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }, children: /* @__PURE__ */ jsx40(Typography24, { variant: "body2", color: "text.secondary", children: boardData?.hideEmptyColumns ? "No hay columnas visibles (activa roles o desactiva \xABOcultar vac\xEDos\xBB)." : "No hay roles configurados." }) }) : null,
+      noUsersVisible ? /* @__PURE__ */ jsx40(Box27, { sx: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", p: 3, pointerEvents: "none", zIndex: 2 }, children: /* @__PURE__ */ jsx40(Typography23, { variant: "body2", color: "text.secondary", children: "Ning\xFAn usuario coincide con los filtros." }) }) : null,
+      columns.length === 0 ? /* @__PURE__ */ jsx40(Box27, { sx: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }, children: /* @__PURE__ */ jsx40(Typography23, { variant: "body2", color: "text.secondary", children: boardData?.hideEmptyColumns ? "No hay columnas visibles (activa roles o desactiva \xABOcultar vac\xEDos\xBB)." : "No hay roles configurados." }) }) : null,
       columns.map((col) => {
         const canManageCol = assignEnabled && canActorManageColumn(effectiveActorJerarquias, col);
         const canDropOnCol = canManageCol;
@@ -16774,7 +17416,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
                       /* @__PURE__ */ jsx40(Icon20, { icon: col.icon, size: 16 }),
                       /* @__PURE__ */ jsxs34(Box27, { sx: { minWidth: 0 }, children: [
                         /* @__PURE__ */ jsx40(Stack20, { direction: "row", alignItems: "baseline", spacing: 0.75, sx: { minWidth: 0 }, children: /* @__PURE__ */ jsx40(Box27, { component: "span", sx: { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }, title: col.jerarquia ? `${col.title} \xB7 Jerarqu\xEDa ${col.jerarquia}${col.roleName && col.title !== col.roleName ? ` (${col.roleName})` : ""}` : col.roleName && col.title !== col.roleName ? `${col.title} (${col.roleName})` : col.title, children: col.title }) }),
-                        col.descripcion ? /* @__PURE__ */ jsx40(Typography24, { variant: "caption", color: "text.secondary", sx: { display: "block", lineHeight: 1.3, mt: 0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: col.descripcion, children: col.descripcion }) : null
+                        col.descripcion ? /* @__PURE__ */ jsx40(Typography23, { variant: "caption", color: "text.secondary", sx: { display: "block", lineHeight: 1.3, mt: 0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: col.descripcion, children: col.descripcion }) : null
                       ] })
                     ] }),
                     /* @__PURE__ */ jsxs34(Stack20, { direction: "row", alignItems: "center", spacing: 0.5, sx: { flexShrink: 0 }, children: [
@@ -16853,7 +17495,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
                         card.id
                       );
                     }),
-                    !col.users.length ? /* @__PURE__ */ jsx40(Typography24, { variant: "caption", color: "text.secondary", sx: { px: 0.5, py: 1 }, children: "Sin usuarios" }) : null
+                    !col.users.length ? /* @__PURE__ */ jsx40(Typography23, { variant: "caption", color: "text.secondary", sx: { px: 0.5, py: 1 }, children: "Sin usuarios" }) : null
                   ]
                 }
               )
@@ -16907,8 +17549,9 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
 }
 
 // js/tools/PermisosRoleFilterAutocomplete.jsx
+init_platform();
 import { jsx as jsx41 } from "react/jsx-runtime";
-var { Autocomplete: Autocomplete4, TextField: TextField15, Chip: Chip17 } = getMaterialUI();
+var { Autocomplete: Autocomplete4, TextField: TextField15, Chip: Chip16 } = getMaterialUI();
 function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = false }) {
   const selected = options.filter((o) => value.includes(o.id));
   return /* @__PURE__ */ jsx41(
@@ -16927,781 +17570,501 @@ function PermisosRoleFilterAutocomplete({ options, value, onChange, disabled = f
       limitTags: 2,
       renderTags: (tagValue, getTagProps) => tagValue.map((option, index) => {
         const { key, ...chipProps } = getTagProps({ index });
-        return /* @__PURE__ */ jsx41(Chip17, { ...chipProps, label: option.label, size: "small", className: "isa-neon-glass-chip" }, key);
+        return /* @__PURE__ */ jsx41(Chip16, { ...chipProps, label: option.label, size: "small", className: "isa-neon-glass-chip" }, key);
       }),
-      renderInput: (params) => /* @__PURE__ */ jsx41(TextField15, { ...params, label: "Roles", placeholder: selected.length ? "" : "Todos" })
-    }
-  );
-}
-
-// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
-import * as React2 from "react";
-
-// js/ui/treeView/TreeRowItem.tsx
-import * as React from "react";
-
-// js/ui/treeView/treeDrag.ts
-function resolveDragZone(clientY, rectTop, rectHeight, isGrouper) {
-  if (isGrouper) {
-    const y = clientY - rectTop;
-    const topBand = rectHeight * 0.25;
-    const bottomBand = rectHeight * 0.75;
-    if (y < topBand) return "before";
-    if (y > bottomBand) return "after";
-    return "into";
-  }
-  const midY = rectTop + rectHeight / 2;
-  return clientY < midY ? "before" : "after";
-}
-function summaryDragClass(dragOver, forbidden) {
-  if (!dragOver) return "";
-  if (forbidden) {
-    if (dragOver === "before") return "trvwr-itm-sum--drg-forbidden-bf";
-    if (dragOver === "after") return "trvwr-itm-sum--drg-forbidden-aftr";
-    return "trvwr-itm-sum--drg-forbidden-into";
-  }
-  if (dragOver === "before") return "trvwr-itm-sum--drg-bf";
-  if (dragOver === "after") return "trvwr-itm-sum--drg-aftr";
-  return "trvwr-itm-sum--drg-into";
-}
-
-// js/ui/treeView/TreeRowItem.tsx
-import { Fragment as Fragment14, jsx as jsx42, jsxs as jsxs35 } from "react/jsx-runtime";
-var { IconButton: IconButton13, Tooltip: Tooltip13 } = getMaterialUI();
-function TreeRow({ node, ...ctx }) {
-  const {
-    items,
-    manifest,
-    customs,
-    collapsed,
-    selectedPath,
-    highlightedPath,
-    canMutate,
-    drag,
-    onToggleCollapse,
-    onSelect,
-    onDragStart,
-    onDragOver,
-    onDragLeave,
-    onDragEnd,
-    onDrop
-  } = ctx;
-  const features = manifest.features ?? {};
-  const icons = manifest.icons ?? {};
-  const path = node.flatPath;
-  const isOpen = !collapsed.has(path);
-  const isGrouper = customs.isGrouper ? customs.isGrouper(node) : node.hasChildren;
-  const isSelected = selectedPath === path;
-  const isHighlighted = highlightedPath === path;
-  const isDragging = drag.sourcePath === path;
-  const isDragTarget = drag.overPath === path;
-  const dragZone = isDragTarget ? drag.overZone : null;
-  const dragForbidden = isDragTarget && drag.forbidden;
-  const childCount = node.childrens.length;
-  const rowCtx = { node, isOpen, isSelected, isGrouper, childCount };
-  const iconCtx = { ...rowCtx, isExpanded: isOpen };
-  const label = customs.getLabel?.(node) ?? path;
-  const helper = features.showHelper !== false ? customs.getHelper?.(node) ?? null : null;
-  const pathLabel = features.showPathLabel !== false ? customs.getPathLabel?.(node) ?? path : null;
-  const grouperIcons = customs.getGrouperIcons?.(iconCtx) ?? {
-    open: icons.grouperOpen ?? "mdi:folder-open",
-    closed: icons.grouperClosed ?? "mdi:folder",
-    color: icons.grouperColor ?? "#FFA000"
-  };
-  const leafIcon = customs.getLeafIcon?.(iconCtx) ?? icons.leaf ?? "mdi:circle-small";
-  const rowActions = features.rowActions !== false && canMutate ? customs.rowActions?.(node) ?? [] : [];
-  const detailsRef = React.useRef(null);
-  const dragEnterCount = React.useRef(0);
-  const cachedRect = React.useRef(null);
-  const summaryClass = [
-    "trvwr-itm-sum",
-    isHighlighted ? "trvwr-itm-sum--focused" : "",
-    summaryDragClass(dragZone, dragForbidden),
-    !canMutate ? "trvwr-itm-sum--disabled" : ""
-  ].filter(Boolean).join(" ");
-  const detailsClass = [
-    "trvwr-itm",
-    isHighlighted ? "highlight" : "",
-    isDragging ? "trvwr-itm--dragging" : "",
-    isSelected && isGrouper ? "trvwr-itm--folder-selected" : "",
-    isSelected ? "trvwr-itm--active" : ""
-  ].filter(Boolean).join(" ");
-  const handleToggle = (e) => {
-    if (!canMutate || features.collapse === false) {
-      e.preventDefault();
-      if (detailsRef.current) detailsRef.current.open = isOpen;
-      return;
-    }
-    const open = e.currentTarget.open;
-    if (open !== isOpen) {
-      onToggleCollapse(path, open);
-      customs.onExpand?.(node, open);
-    }
-  };
-  const handleSummaryClick = (e) => {
-    const target = e.target;
-    if (target.closest(".trvwr-drag-handle")) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    if (!canMutate || features.collapse === false) {
-      e.preventDefault();
-      if (detailsRef.current) detailsRef.current.open = isOpen;
-    } else {
-      const clickedSymbol = target.closest(".trvwr-itm-symb");
-      if (isGrouper && clickedSymbol) {
-        e.preventDefault();
-        onToggleCollapse(path, !isOpen);
-        customs.onExpand?.(node, !isOpen);
-      }
-    }
-    onSelect(path);
-    customs.onSelect?.(node);
-  };
-  const dragEnabled = canMutate && features.drag !== false;
-  const handleDragStart = (e) => {
-    if (!dragEnabled) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", path);
-    const summary = e.currentTarget.closest("summary") ?? e.currentTarget;
-    const h = Math.max(24, Math.round(summary.getBoundingClientRect().height));
-    e.dataTransfer.setData("application/x-trvwr-row-height", String(h));
-    onDragStart(path, h);
-  };
-  const handleDragOver = (e) => {
-    if (!dragEnabled || !drag.sourcePath) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (drag.sourcePath === path) return;
-    if (!cachedRect.current) {
-      const r = e.currentTarget.getBoundingClientRect();
-      cachedRect.current = { top: r.top, height: r.height };
-    }
-    const rect = cachedRect.current;
-    const zone = resolveDragZone(e.clientY, rect.top, rect.height, isGrouper);
-    const canDropFn = customs.canDrop ?? (() => true);
-    const forbidden = !canDropFn(drag.sourcePath, path, zone, items);
-    onDragOver(path, zone, forbidden);
-  };
-  const handleDragEnter = () => {
-    dragEnterCount.current++;
-    cachedRect.current = null;
-  };
-  const handleDragLeave = () => {
-    dragEnterCount.current--;
-    if (dragEnterCount.current <= 0) {
-      dragEnterCount.current = 0;
-      cachedRect.current = null;
-      onDragLeave(path);
-    }
-  };
-  const handleDrop = (e) => {
-    e.preventDefault();
-    dragEnterCount.current = 0;
-    cachedRect.current = null;
-    const sourcePath = e.dataTransfer.getData("text/plain") || drag.sourcePath;
-    const zone = drag.overPath === path ? drag.overZone : null;
-    if (!sourcePath || !zone || drag.forbidden || sourcePath === path) {
-      onDragEnd();
-      return;
-    }
-    onDrop(sourcePath, path, zone);
-  };
-  const handleDragEnd = () => {
-    dragEnterCount.current = 0;
-    cachedRect.current = null;
-    onDragEnd();
-  };
-  return /* @__PURE__ */ jsx42("div", { className: "trvwr-row-host", "data-flatpath": path, children: /* @__PURE__ */ jsxs35("details", { ref: detailsRef, className: detailsClass, open: isOpen, onToggle: handleToggle, "aria-disabled": !canMutate || void 0, children: [
-    /* @__PURE__ */ jsx42(
-      "summary",
-      {
-        className: summaryClass,
-        role: "treeitem",
-        "aria-selected": isSelected,
-        "aria-expanded": isGrouper ? isOpen : void 0,
-        draggable: dragEnabled,
-        onClick: handleSummaryClick,
-        onDragStart: handleDragStart,
-        onDragEnd: handleDragEnd,
-        onDragEnter: handleDragEnter,
-        onDragOver: handleDragOver,
-        onDragLeave: handleDragLeave,
-        onDrop: handleDrop,
-        children: /* @__PURE__ */ jsxs35("div", { className: "trvwr-sum-row", children: [
-          dragEnabled ? /* @__PURE__ */ jsx42("span", { className: "trvwr-drag-handle", title: "Arrastrar para reordenar", draggable: true, onDragStart: handleDragStart, onDragEnd: handleDragEnd, children: /* @__PURE__ */ jsx42("iconify-icon", { icon: icons.dragHandle ?? "mdi:dots-grid", style: { fontSize: "1rem", opacity: 0.45 } }) }) : null,
-          isGrouper ? /* @__PURE__ */ jsxs35("span", { className: "trvwr-itm-symb", children: [
-            /* @__PURE__ */ jsx42("span", { className: `trvwr-chevron${isOpen ? "" : " trvwr-chevron--closed"}`, children: /* @__PURE__ */ jsx42("iconify-icon", { icon: icons.chevron ?? "mdi:chevron-down", style: { fontSize: "1rem" } }) }),
-            /* @__PURE__ */ jsx42("iconify-icon", { icon: isOpen ? grouperIcons.open : grouperIcons.closed, style: { fontSize: "1rem", color: grouperIcons.color } })
-          ] }) : /* @__PURE__ */ jsx42("span", { className: "trvwr-itm-symb", children: /* @__PURE__ */ jsx42("iconify-icon", { icon: leafIcon, style: { fontSize: "1rem", opacity: 0.75 } }) }),
-          /* @__PURE__ */ jsxs35("div", { className: "trvwr-itm-content", children: [
-            /* @__PURE__ */ jsxs35("span", { className: "trvwr-itm-label", title: label, children: [
-              label,
-              pathLabel ? /* @__PURE__ */ jsx42("span", { className: "trvwr-itm-path", children: pathLabel }) : null
-            ] }),
-            helper ? /* @__PURE__ */ jsx42("span", { className: "trvwr-itm-helper", children: /* @__PURE__ */ jsx42("small", { children: helper }) }) : null
-          ] }),
-          rowActions.length ? /* @__PURE__ */ jsx42("div", { className: "trvwr-float-card", role: "presentation", onClick: (e) => e.stopPropagation(), children: rowActions.map((act) => /* @__PURE__ */ jsx42(Tooltip13, { title: act.title, children: /* @__PURE__ */ jsx42(IconButton13, { size: "small", "aria-label": act.title, disabled: act.disabled, onClick: act.onClick, children: /* @__PURE__ */ jsx42("iconify-icon", { icon: act.icon, width: "16", height: "16" }) }) }, act.id)) }) : null,
-          customs.renderRowExtra?.(node)
-        ] })
-      }
-    ),
-    isGrouper && isOpen ? /* @__PURE__ */ jsx42("div", { className: "trvwr-itm-childrens-wrap", children: /* @__PURE__ */ jsx42("div", { className: "trvwr-itm-childrens", role: "group", children: /* @__PURE__ */ jsx42(TreeRowItem, { nodes: node.childrens, ...ctx }) }) }) : null
-  ] }) });
-}
-function TreeRowItem(props) {
-  const { nodes, ...ctx } = props;
-  if (!nodes?.length) return null;
-  return /* @__PURE__ */ jsx42(Fragment14, { children: nodes.map((node) => /* @__PURE__ */ jsx42(TreeRow, { node, nodes, ...ctx }, node.pathInit)) });
-}
-
-// js/ui/treeView/treeData.ts
-function dedupeItems(items, keyFn) {
-  const seen = /* @__PURE__ */ new Map();
-  for (const item of items) {
-    const key = keyFn(item);
-    if (key && !seen.has(key)) seen.set(key, item);
-  }
-  return Array.from(seen.values());
-}
-function defaultSort(a, b) {
-  return a.flatPath.localeCompare(b.flatPath, void 0, { numeric: true });
-}
-function buildTreeFromFlatList(items, config) {
-  const keyFn = config.dedupeKey ?? config.getFlatPath;
-  const unique = dedupeItems(items, keyFn);
-  const byPath = /* @__PURE__ */ new Map();
-  for (const item of unique) {
-    const flatPath = String(config.getFlatPath(item) ?? "").trim();
-    if (!flatPath) continue;
-    byPath.set(flatPath, {
-      flatPath,
-      pathInit: flatPath,
-      hasChildren: false,
-      depth: 0,
-      childrens: [],
-      data: item
-    });
-  }
-  const childrenOf = /* @__PURE__ */ new Map();
-  for (const [flatPath, node] of byPath) {
-    const parentPath = config.getParentPath(flatPath, node.data);
-    if (!parentPath || !byPath.has(parentPath)) continue;
-    if (!childrenOf.has(parentPath)) childrenOf.set(parentPath, []);
-    if (!childrenOf.get(parentPath).includes(flatPath)) childrenOf.get(parentPath).push(flatPath);
-  }
-  const visited = /* @__PURE__ */ new Set();
-  const computeDepth = (path, depth) => {
-    if (visited.has(path)) return;
-    visited.add(path);
-    const node = byPath.get(path);
-    if (!node) return;
-    node.depth = depth;
-    const kids = childrenOf.get(path) ?? [];
-    node.hasChildren = kids.length > 0;
-    for (const kid of kids) computeDepth(kid, depth + 1);
-  };
-  for (const item of unique) {
-    const fp = String(config.getFlatPath(item) ?? "").trim();
-    if (fp && !visited.has(fp)) computeDepth(fp, 0);
-  }
-  const hasKnownParent = (path) => {
-    const node = byPath.get(path);
-    if (!node) return false;
-    const parent = config.getParentPath(path, node.data);
-    return !!parent && byPath.has(parent);
-  };
-  const roots = [];
-  for (const node of byPath.values()) {
-    const parentPath = config.getParentPath(node.flatPath, node.data);
-    const parent = parentPath ? byPath.get(parentPath) : void 0;
-    if (parent) {
-      parent.childrens.push(node);
-      parent.hasChildren = true;
-    } else if (!hasKnownParent(node.flatPath)) {
-      roots.push(node);
-    }
-  }
-  const sortRec = (list) => {
-    const cmp = config.sortSiblings ?? defaultSort;
-    list.sort(cmp);
-    for (const n of list) sortRec(n.childrens);
-  };
-  sortRec(roots);
-  return roots;
-}
-function findTreeNodeByPath(roots, path) {
-  const walk = (nodes) => {
-    for (const n of nodes) {
-      if (n.flatPath === path) return n;
-      const hit = walk(n.childrens);
-      if (hit) return hit;
-    }
-    return void 0;
-  };
-  return walk(roots);
-}
-function collectPathsWithChildren(roots) {
-  const out = [];
-  const walk = (nodes) => {
-    for (const n of nodes) {
-      if (n.hasChildren) out.push(n.flatPath);
-      walk(n.childrens);
-    }
-  };
-  walk(roots);
-  return out;
-}
-
-// js/ui/treeView/TreeView.tsx
-import { Fragment as Fragment15, jsx as jsx43, jsxs as jsxs36 } from "react/jsx-runtime";
-var { useState: useState29, useMemo: useMemo16, useCallback: useCallback12 } = getReact();
-var { Box: Box28, Stack: Stack21, Typography: Typography25, Chip: Chip18, IconButton: IconButton14, Tooltip: Tooltip14, Button: Button19, CircularProgress: CircularProgress17 } = getMaterialUI();
-var EMPTY_DRAG = { sourcePath: null, overPath: null, overZone: null, forbidden: false };
-function TreeView(props) {
-  const {
-    items,
-    manifest,
-    customs,
-    readonly = false,
-    busy = false,
-    selectedPath: selectedPathProp,
-    onSelectedPathChange,
-    className = "",
-    toolbarTitle,
-    toolbarExtra,
-    showToolbar = true
-  } = props;
-  const features = manifest.features ?? {};
-  const [collapsed, setCollapsed] = useState29(/* @__PURE__ */ new Set());
-  const [selectedPathInternal, setSelectedPathInternal] = useState29(null);
-  const [drag, setDrag] = useState29(EMPTY_DRAG);
-  const selectedPath = selectedPathProp !== void 0 ? selectedPathProp : selectedPathInternal;
-  const setSelectedPath = useCallback12((path) => {
-    if (onSelectedPathChange) onSelectedPathChange(path);
-    else setSelectedPathInternal(path);
-  }, [onSelectedPathChange]);
-  const rootNodes = useMemo16(() => buildTreeFromFlatList(items, customs.build), [items, customs.build]);
-  const canMutate = !readonly && !busy;
-  const runtime = useMemo16(() => ({
-    rootNodes,
-    items,
-    selectedPath,
-    collapsed,
-    readonly,
-    busy,
-    collapseAll: () => setCollapsed(new Set(collectPathsWithChildren(rootNodes))),
-    expandAll: () => setCollapsed(/* @__PURE__ */ new Set()),
-    select: setSelectedPath,
-    findByPath: (path) => findTreeNodeByPath(rootNodes, path)
-  }), [rootNodes, items, selectedPath, collapsed, readonly, busy, setSelectedPath]);
-  const setCollapsedFor = useCallback12((path, open) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (open) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
-  const handleDragStart = useCallback12((path) => {
-    setDrag({ sourcePath: path, overPath: null, overZone: null, forbidden: false });
-  }, []);
-  const handleDragOver = useCallback12((path, zone, forbidden) => {
-    setDrag((prev) => {
-      if (prev.overPath === path && prev.overZone === zone && prev.forbidden === forbidden) return prev;
-      return { ...prev, overPath: path, overZone: zone, forbidden };
-    });
-  }, []);
-  const handleDragLeave = useCallback12((path) => {
-    setDrag((prev) => prev.overPath === path ? { ...prev, overPath: null, overZone: null, forbidden: false } : prev);
-  }, []);
-  const handleDragEnd = useCallback12(() => setDrag(EMPTY_DRAG), []);
-  const handleDrop = useCallback12(async (sourcePath, targetPath, zone) => {
-    setDrag(EMPTY_DRAG);
-    await customs.onDrop?.(sourcePath, targetPath, zone, items);
-  }, [customs, items]);
-  const toolbarActions = useMemo16(
-    () => (customs.toolbarActions?.(runtime) ?? []).filter((a) => !a.hidden),
-    [customs, runtime]
-  );
-  const countLabel = manifest.countLabel ?? `${items.length} ${manifest.entrie ?? "elemento"}${items.length !== 1 ? "s" : ""}`;
-  const ariaLabel = manifest.ariaLabel ?? manifest.entries ?? `\xC1rbol de ${manifest.entrie ?? "elementos"}`;
-  return /* @__PURE__ */ jsxs36(Box28, { className: `isp-tree-host isp-tree ${className}`.trim(), sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
-    showToolbar ? /* @__PURE__ */ jsxs36(Stack21, { direction: "row", alignItems: "center", spacing: 1, className: "isp-tree-toolbar", sx: { p: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }, children: [
-      toolbarTitle ? /* @__PURE__ */ jsx43(Typography25, { variant: "subtitle1", sx: { flex: 1 }, children: toolbarTitle }) : /* @__PURE__ */ jsx43(Box28, { sx: { flex: 1 } }),
-      /* @__PURE__ */ jsx43(Chip18, { size: "small", label: countLabel }),
-      features.toolbarExpandCollapse !== false ? /* @__PURE__ */ jsxs36(Fragment15, { children: [
-        /* @__PURE__ */ jsx43(Tooltip14, { title: "Expandir todo", children: /* @__PURE__ */ jsx43(IconButton14, { size: "small", onClick: runtime.expandAll, disabled: busy, children: /* @__PURE__ */ jsx43("iconify-icon", { icon: "mdi:unfold-more-horizontal", width: "18", height: "18" }) }) }),
-        /* @__PURE__ */ jsx43(Tooltip14, { title: "Colapsar todo", children: /* @__PURE__ */ jsx43(IconButton14, { size: "small", onClick: runtime.collapseAll, disabled: busy, children: /* @__PURE__ */ jsx43("iconify-icon", { icon: "mdi:unfold-less-horizontal", width: "18", height: "18" }) }) })
-      ] }) : null,
-      toolbarActions.map((act) => act.variant === "button" ? /* @__PURE__ */ jsx43(
-        Button19,
+      renderInput: (params) => /* @__PURE__ */ jsx41(
+        TextField15,
         {
+          ...params,
           size: "small",
-          variant: "contained",
-          disabled: act.disabled || busy,
-          startIcon: /* @__PURE__ */ jsx43("iconify-icon", { icon: act.icon, width: "16", height: "16" }),
-          onClick: act.onClick,
-          children: act.label ?? act.title
-        },
-        act.id
-      ) : /* @__PURE__ */ jsx43(Tooltip14, { title: act.title, children: /* @__PURE__ */ jsx43("span", { children: /* @__PURE__ */ jsx43(IconButton14, { size: "small", disabled: act.disabled || busy, onClick: act.onClick, "aria-label": act.title, children: /* @__PURE__ */ jsx43("iconify-icon", { icon: act.icon, width: "18", height: "18" }) }) }) }, act.id)),
-      toolbarExtra
-    ] }) : null,
-    busy ? /* @__PURE__ */ jsx43(Box28, { sx: { display: "flex", alignItems: "center", justifyContent: "center", p: 2, flex: 1, minHeight: 0 }, children: /* @__PURE__ */ jsx43(CircularProgress17, { size: 20 }) }) : /* @__PURE__ */ jsx43(Box28, { className: "isp-tree isp-tree-body custom-scrollbar", role: "tree", "aria-label": ariaLabel, sx: { flex: 1, minHeight: 0, overflow: "auto" }, children: rootNodes.length === 0 ? /* @__PURE__ */ jsx43(Typography25, { variant: "body2", color: "text.secondary", sx: { p: 2 }, children: manifest.emptyMessage ?? "Sin elementos." }) : /* @__PURE__ */ jsx43(
-      TreeRowItem,
-      {
-        nodes: rootNodes,
-        items,
-        manifest,
-        customs,
-        collapsed,
-        selectedPath,
-        highlightedPath: selectedPath,
-        canMutate,
-        drag,
-        onToggleCollapse: setCollapsedFor,
-        onSelect: setSelectedPath,
-        onDragStart: handleDragStart,
-        onDragOver: handleDragOver,
-        onDragLeave: handleDragLeave,
-        onDragEnd: handleDragEnd,
-        onDrop: handleDrop
-      }
-    ) })
-  ] });
-}
-
-// js/tools/roleHierarchyTree/treeLogic.ts
-function immediateParentJer(jer) {
-  const ancestors = ancestorsFromPath(jer);
-  return ancestors.length > 1 ? ancestors[1] : null;
-}
-function isDescendant(targetJer, ancestorJer) {
-  if (targetJer === ancestorJer) return true;
-  return ancestorsFromPath(targetJer).includes(ancestorJer);
-}
-function canDrop(sourceJer, targetJer, position, _nodes) {
-  if (!position || !sourceJer || !targetJer || sourceJer === targetJer) return false;
-  if (isDescendant(targetJer, sourceJer)) return false;
-  return true;
-}
-function nextChildJer(parentJer, existing) {
-  const prefix = `${parentJer}.`;
-  let max = -1;
-  for (const j of existing) {
-    if (!j.startsWith(prefix)) continue;
-    const seg = j.slice(prefix.length).split(".")[0];
-    const n = Number(seg);
-    if (!Number.isNaN(n)) max = Math.max(max, n);
-  }
-  return `${parentJer}.${max + 1}`;
-}
-function computeDropJerarquia(sourceJer, targetJer, position, nodes) {
-  if (!canDrop(sourceJer, targetJer, position, nodes)) return null;
-  const existing = new Set(nodes.map((n) => n.jerarquia).filter((j) => j !== sourceJer));
-  if (position === "into") return nextChildJer(targetJer, existing);
-  const targetParent = immediateParentJer(targetJer);
-  const siblings = nodes.filter((n) => n.jerarquia !== sourceJer).filter((n) => immediateParentJer(n.jerarquia) === targetParent).map((n) => n.jerarquia).sort((a, b) => compareHierarchy(a, b));
-  const tgtIdx = siblings.indexOf(targetJer);
-  if (tgtIdx === -1) return null;
-  const insertIdx = position === "before" ? tgtIdx : tgtIdx + 1;
-  const parentPrefix = targetParent ? `${targetParent}.` : "";
-  const reindexed = [...siblings];
-  reindexed.splice(insertIdx, 0, "__moving__");
-  const myIdx = reindexed.indexOf("__moving__");
-  const seg = myIdx;
-  if (targetParent) return `${targetParent}.${seg}`;
-  return String(seg);
-}
-
-// js/tools/roleHierarchyTree/roleHierarchyTreeConfig.ts
-var ROLE_HIERARCHY_MANIFEST = {
-  ariaLabel: "\xC1rbol de roles",
-  entrie: "rol",
-  entries: "roles",
-  emptyMessage: "Sin roles.",
-  countLabel: void 0,
-  icons: {
-    grouperOpen: "mdi:folder-account",
-    grouperClosed: "mdi:folder-account-outline",
-    grouperColor: "#1976d2",
-    leaf: "mdi:account",
-    chevron: "mdi:chevron-down",
-    dragHandle: "mdi:dots-grid"
-  },
-  features: {
-    drag: true,
-    collapse: true,
-    toolbarExpandCollapse: true,
-    rowActions: true,
-    showPathLabel: true,
-    showHelper: true
-  }
-};
-function immediateParentJer2(jer) {
-  const ancestors = ancestorsFromPath(jer);
-  return ancestors.length > 1 ? ancestors[1] : null;
-}
-function createRoleHierarchyCustoms(handlers) {
-  const { items, canMutate, onSave, onDelete, onEdit, onCreateClick } = handlers;
-  return {
-    build: {
-      getFlatPath: (item) => String(item.jerarquia ?? "").trim(),
-      getParentPath: (flatPath) => immediateParentJer2(flatPath),
-      dedupeKey: (item) => String(item.jerarquia ?? "").trim(),
-      sortSiblings: (a, b) => compareHierarchy(a.flatPath, b.flatPath)
-    },
-    getLabel: (node) => node.data.namedisplay?.trim() || node.data.iusuario,
-    getHelper: (node) => node.data.descripcion?.trim() || null,
-    getPathLabel: (node) => formatJerarquiaLabel(node.flatPath),
-    canDrop: (sourcePath, targetPath, zone) => canDrop(sourcePath, targetPath, zone, items),
-    onDrop: async (sourcePath, targetPath, zone) => {
-      const source = items.find((n) => n.jerarquia === sourcePath);
-      if (!source) return;
-      const newJer = computeDropJerarquia(sourcePath, targetPath, zone, items);
-      if (!newJer) {
-        toastInfo?.("No se puede mover: operaci\xF3n no permitida");
-        return;
-      }
-      try {
-        await onSave(source.iusuario, newJer);
-      } catch (err) {
-        toastError?.(`Error al reparentar: ${err?.message ?? err}`);
-      }
-    },
-    rowActions: (node) => {
-      if (!canMutate) return [];
-      const data = node.data;
-      return [
-        {
-          id: "edit",
-          icon: "mdi:pencil",
-          title: "Editar jerarqu\xEDa",
-          onClick: () => onEdit(data)
-        },
-        {
-          id: "delete",
-          icon: "mdi:delete",
-          title: "Eliminar rol",
-          onClick: () => {
-            if (confirm(`\xBFEliminar rol "${data.iusuario}"?`)) {
-              onDelete(data.iusuario).catch((e) => toastError?.(String(e)));
-            }
+          label: "",
+          placeholder: selected.length ? "" : "Filtrar por roles\u2026",
+          InputLabelProps: { ...params.InputLabelProps, shrink: false },
+          sx: {
+            "& .MuiOutlinedInput-root": { minHeight: 28, height: 28, maxHeight: 28, py: 0 },
+            "& .MuiOutlinedInput-input": { py: "4px", fontSize: "0.8125rem", fontWeight: 600 },
+            "& .MuiInputLabel-root": { display: "none" },
+            "& .MuiOutlinedInput-notchedOutline legend": { width: 0, padding: 0 }
           }
         }
-      ];
-    },
-    toolbarActions: (runtime) => {
-      if (!canMutate) return [];
-      return [
-        {
-          id: "new-role",
-          icon: "mdi:plus",
-          title: "Nuevo rol",
-          label: "Nuevo rol",
-          variant: "button",
-          onClick: onCreateClick
-        }
-      ];
+      )
     }
+  );
+}
+
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+init_platform();
+import * as React from "react";
+
+// js/tools/roleHierarchyTree/HierarchyOrgChart.jsx
+init_platform();
+init_roleHierarchy();
+import { jsx as jsx42, jsxs as jsxs35 } from "react/jsx-runtime";
+var { useEffect: useEffect26, useMemo: useMemo18, useRef: useRef13, useCallback: useCallback12, useState: useState29 } = getReact();
+var { Box: Box28, Stack: Stack21, Typography: Typography24, Chip: Chip17, IconButton: IconButton13, Tooltip: Tooltip13, CircularProgress: CircularProgress17 } = getMaterialUI();
+var ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.esm.min.js";
+var NODE_W = 140;
+var NODE_H = 40;
+var NODE_GAP_Y = 18;
+var LAYER_GAP_X = 56;
+var echartsPromise = null;
+function loadEcharts() {
+  if (!echartsPromise) echartsPromise = import(
+    /* @vite-ignore */
+    ECHARTS_CDN
+  );
+  return echartsPromise;
+}
+function immediateParentJer(jer) {
+  const parts = String(jer ?? "").split(".").filter(Boolean);
+  if (parts.length <= 1) return null;
+  return parts.slice(0, -1).join(".");
+}
+function nextChildJerarquia(parentJer, nodes) {
+  const parent = String(parentJer ?? "").trim();
+  if (!parent) return "0";
+  const prefix = `${parent}.`;
+  let max = -1;
+  for (const n of nodes ?? []) {
+    const j = String(n.jerarquia ?? "").trim();
+    if (!j.startsWith(prefix)) continue;
+    const rest = j.slice(prefix.length);
+    if (!rest || rest.includes(".")) continue;
+    const idx = Number(rest);
+    if (Number.isFinite(idx) && idx > max) max = idx;
+  }
+  return `${parent}.${max + 1}`;
+}
+function isDarkScheme() {
+  return document.documentElement.getAttribute("data-mui-color-scheme") !== "light";
+}
+function treeBreadth(node) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return 1;
+  return kids.reduce((sum, c) => sum + treeBreadth(c), 0);
+}
+function treeDepth(node, d = 1) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return d;
+  return Math.max(...kids.map((c) => treeDepth(c, d + 1)));
+}
+function applySelection(node, selectedJer, dark) {
+  const sel = !!selectedJer && node.jerarquia === selectedJer;
+  return {
+    ...node,
+    itemStyle: {
+      color: sel ? dark ? "rgba(8,47,73,0.95)" : "rgba(224,242,254,0.98)" : dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)",
+      borderColor: sel ? "#22d3ee" : dark ? "rgba(56,189,248,0.55)" : "rgba(30,144,255,0.45)",
+      borderWidth: sel ? 2.5 : 1.5,
+      borderRadius: 0,
+      shadowBlur: dark ? 8 : 2,
+      shadowColor: dark ? "rgba(56,189,248,0.25)" : "rgba(15,23,42,0.08)"
+    },
+    children: (node.children || []).map((c) => applySelection(c, selectedJer, dark))
+  };
+}
+function buildOrgTreeData(nodes) {
+  const byJer = /* @__PURE__ */ new Map();
+  for (const n of nodes ?? []) {
+    const jer = String(n.jerarquia ?? "").trim();
+    if (!jer) continue;
+    byJer.set(jer, {
+      name: n.namedisplay?.trim() || n.iusuario,
+      value: jer,
+      jerarquia: jer,
+      iusuario: n.iusuario,
+      namedisplay: n.namedisplay,
+      descripcion: n.descripcion,
+      children: []
+    });
+  }
+  const roots = [];
+  for (const [jer, node] of byJer) {
+    const parent = immediateParentJer(jer);
+    if (parent && byJer.has(parent)) byJer.get(parent).children.push(node);
+    else roots.push(node);
+  }
+  const sortRec = (list) => {
+    list.sort((a, b) => String(a.jerarquia).localeCompare(String(b.jerarquia), void 0, { numeric: true }));
+    for (const n of list) sortRec(n.children);
+  };
+  sortRec(roots);
+  if (roots.length === 1) return roots[0];
+  if (!roots.length) return { name: "Sin roles", value: "", children: [] };
+  return { name: "Roles", value: "", children: roots };
+}
+function nodePixelCenter(chart, data) {
+  if (!chart || !data) return null;
+  try {
+    const px = chart.convertToPixel({ seriesIndex: 0 }, data);
+    if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+      return { x: px[0], y: px[1] };
+    }
+  } catch {
+  }
+  if (Number.isFinite(data.x) && Number.isFinite(data.y)) {
+    try {
+      const px = chart.convertToPixel({ seriesIndex: 0 }, [data.x, data.y]);
+      if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+        return { x: px[0], y: px[1] };
+      }
+    } catch {
+    }
+  }
+  return null;
+}
+function HierarchyOrgChart({
+  nodes,
+  selectedJer,
+  onSelect,
+  canMutate = false,
+  canCreateRoles = false,
+  busy = false,
+  onEditClick,
+  onDeleteClick,
+  onAddChildClick
+}) {
+  const treeData = useMemo18(() => buildOrgTreeData(nodes), [nodes]);
+  const hostRef = useRef13(null);
+  const wrapRef = useRef13(null);
+  const chartRef = useRef13(null);
+  const onSelectRef = useRef13(onSelect);
+  onSelectRef.current = onSelect;
+  const onEditRef = useRef13(onEditClick);
+  onEditRef.current = onEditClick;
+  const treeDataRef = useRef13(treeData);
+  treeDataRef.current = treeData;
+  const selectedJerRef = useRef13(selectedJer);
+  selectedJerRef.current = selectedJer;
+  const nodesRef = useRef13(nodes);
+  nodesRef.current = nodes;
+  const canMutateRef = useRef13(canMutate);
+  canMutateRef.current = canMutate;
+  const canCreateRef = useRef13(canCreateRoles);
+  canCreateRef.current = canCreateRoles;
+  const [hover, setHover] = useState29(null);
+  const hoverHideTimer = useRef13(null);
+  const countLabel = `${nodes?.length ?? 0} rol${(nodes?.length ?? 0) !== 1 ? "es" : ""}`;
+  const showNodeActions = canMutate || canCreateRoles;
+  const layoutSize = useMemo18(() => {
+    const breadth = Math.max(1, treeBreadth(treeData));
+    const depth = Math.max(1, treeDepth(treeData));
+    const h = Math.max(420, breadth * (NODE_H + NODE_GAP_Y) + 80);
+    const w = Math.max(640, depth * (NODE_W + LAYER_GAP_X) + 120);
+    return { w, h, breadth, depth };
+  }, [treeData]);
+  const clearHoverSoon = useCallback12(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+    hoverHideTimer.current = setTimeout(() => setHover(null), 180);
+  }, []);
+  const keepHover = useCallback12(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+  }, []);
+  const showHoverFor = useCallback12((chart, data) => {
+    if (!canMutateRef.current && !canCreateRef.current || !data?.jerarquia) {
+      setHover(null);
+      return;
+    }
+    const pt = nodePixelCenter(chart, data);
+    if (!pt) return;
+    keepHover();
+    setHover({
+      jerarquia: data.jerarquia,
+      iusuario: data.iusuario,
+      x: pt.x,
+      y: pt.y
+    });
+  }, [keepHover]);
+  const applyChartOption = useCallback12((chart, data, sel) => {
+    if (!chart) return;
+    chart.setOption(buildOption(data, sel, isDarkScheme(), layoutSize), { notMerge: true });
+    chart.resize();
+  }, [layoutSize]);
+  useEffect26(() => {
+    let disposed = false;
+    let chart;
+    let onResize;
+    let ro;
+    (async () => {
+      const echarts = await loadEcharts();
+      if (disposed || !hostRef.current) return;
+      chart = echarts.init(hostRef.current, null, { renderer: "canvas" });
+      chartRef.current = chart;
+      chart.on("click", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (jer) onSelectRef.current?.(jer);
+      });
+      chart.on("dblclick", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (!jer || !canMutateRef.current) return;
+        const node = (nodesRef.current ?? []).find((n) => n.jerarquia === jer);
+        if (node) onEditRef.current?.(node);
+      });
+      chart.on("mouseover", (params) => {
+        if (params?.dataType && params.dataType !== "node") return;
+        showHoverFor(chart, params?.data);
+      });
+      chart.on("mouseout", () => clearHoverSoon());
+      chart.on("globalout", () => clearHoverSoon());
+      onResize = () => {
+        chart?.resize();
+        setHover(null);
+      };
+      window.addEventListener("resize", onResize);
+      if (typeof ResizeObserver !== "undefined" && hostRef.current) {
+        ro = new ResizeObserver(() => {
+          chart?.resize();
+          setHover(null);
+        });
+        ro.observe(hostRef.current);
+      }
+      applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    })();
+    return () => {
+      disposed = true;
+      if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+      if (onResize) window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+      chart?.dispose();
+      chartRef.current = null;
+    };
+  }, [applyChartOption, clearHoverSoon, showHoverFor]);
+  useEffect26(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeData, selectedJer);
+    setHover(null);
+  }, [treeData, selectedJer, applyChartOption]);
+  const zoomBy = useCallback12((factor) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const opt = chart.getOption();
+    const series = Array.isArray(opt?.series) ? opt.series[0] : null;
+    const cur = Number(series?.zoom) || 1;
+    const next = Math.max(0.35, Math.min(3.5, cur * factor));
+    chart.setOption({ series: [{ zoom: next }] });
+    setHover(null);
+  }, []);
+  const resetView = useCallback12(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    setHover(null);
+  }, [applyChartOption]);
+  const hoverNode = hover ? (nodes ?? []).find((n) => n.jerarquia === hover.jerarquia) : null;
+  return /* @__PURE__ */ jsxs35(Box28, { className: "role-hierarchy-orgchart", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxs35(Stack21, { direction: "row", alignItems: "center", spacing: 0.5, sx: { px: 1, py: 0.4, borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 36 }, children: [
+      /* @__PURE__ */ jsx42(Chip17, { size: "small", label: countLabel, sx: { height: 22, "& .MuiChip-label": { px: 0.75, fontSize: "0.72rem" } } }),
+      /* @__PURE__ */ jsx42(Box28, { sx: { flex: 1, minWidth: 8 } }),
+      /* @__PURE__ */ jsx42(Tooltip13, { title: "Acercar", children: /* @__PURE__ */ jsx42(IconButton13, { size: "small", onClick: () => zoomBy(1.2), "aria-label": "Zoom in", children: /* @__PURE__ */ jsx42("iconify-icon", { icon: "mdi:magnify-plus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx42(Tooltip13, { title: "Alejar", children: /* @__PURE__ */ jsx42(IconButton13, { size: "small", onClick: () => zoomBy(1 / 1.2), "aria-label": "Zoom out", children: /* @__PURE__ */ jsx42("iconify-icon", { icon: "mdi:magnify-minus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx42(Tooltip13, { title: "Restablecer vista", children: /* @__PURE__ */ jsx42(IconButton13, { size: "small", onClick: resetView, "aria-label": "Reset view", children: /* @__PURE__ */ jsx42("iconify-icon", { icon: "mdi:fit-to-screen-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx42(Typography24, { variant: "caption", color: "text.secondary", sx: { display: { xs: "none", md: "block" }, mr: 0.5 }, children: "Doble clic edita \xB7 hover \xB1" }),
+      busy ? /* @__PURE__ */ jsx42(CircularProgress17, { size: 14 }) : null
+    ] }),
+    /* @__PURE__ */ jsxs35(
+      Box28,
+      {
+        ref: wrapRef,
+        sx: {
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          overflow: "auto",
+          position: "relative"
+        },
+        children: [
+          /* @__PURE__ */ jsx42(
+            Box28,
+            {
+              ref: hostRef,
+              sx: {
+                width: "100%",
+                minWidth: layoutSize.w,
+                minHeight: layoutSize.h,
+                height: "100%"
+              }
+            }
+          ),
+          showNodeActions && hover && hoverNode ? /* @__PURE__ */ jsxs35(
+            Stack21,
+            {
+              direction: "row",
+              spacing: 0.25,
+              className: "role-hierarchy-node-actions",
+              onMouseEnter: keepHover,
+              onMouseLeave: clearHoverSoon,
+              sx: {
+                position: "absolute",
+                left: hover.x,
+                top: hover.y - NODE_H / 2 - 14,
+                transform: "translateX(-50%)",
+                zIndex: 5,
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 0.75,
+                boxShadow: 2,
+                p: 0.15
+              },
+              children: [
+                canCreateRoles ? /* @__PURE__ */ jsx42(Tooltip13, { title: "Agregar hijo", children: /* @__PURE__ */ jsx42(
+                  IconButton13,
+                  {
+                    size: "small",
+                    color: "primary",
+                    disabled: busy,
+                    "aria-label": "Agregar hijo",
+                    onClick: () => onAddChildClick?.(hoverNode),
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx42("iconify-icon", { icon: "mdi:plus", width: "16", height: "16" })
+                  }
+                ) }) : null,
+                canMutate ? /* @__PURE__ */ jsx42(Tooltip13, { title: "Eliminar rol", children: /* @__PURE__ */ jsx42(
+                  IconButton13,
+                  {
+                    size: "small",
+                    color: "error",
+                    disabled: busy,
+                    "aria-label": "Eliminar",
+                    onClick: () => {
+                      if (confirm(`\xBFEliminar rol "${hoverNode.iusuario}"?`)) onDeleteClick?.(hoverNode);
+                    },
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx42("iconify-icon", { icon: "mdi:delete-outline", width: "16", height: "16" })
+                  }
+                ) }) : null
+              ]
+            }
+          ) : null
+        ]
+      }
+    )
+  ] });
+}
+function buildOption(treeData, selectedJer, dark, layoutSize) {
+  const data = applySelection(JSON.parse(JSON.stringify(treeData)), selectedJer, dark);
+  const breadth = layoutSize?.breadth ?? 1;
+  const topPct = breadth > 8 ? "2%" : "4%";
+  const bottomPct = breadth > 8 ? "2%" : "4%";
+  return {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => {
+        const d = p?.data;
+        if (!d?.jerarquia) return d?.name ?? "";
+        const desc = d.descripcion ? `<br/><span style="opacity:.75">${d.descripcion}</span>` : "";
+        return `<b>${d.name}</b><br/>${d.iusuario} ${formatJerarquiaLabel(d.jerarquia)}${desc}`;
+      }
+    },
+    series: [{
+      type: "tree",
+      data: [data],
+      top: topPct,
+      left: "3%",
+      bottom: bottomPct,
+      right: "8%",
+      symbol: "rect",
+      symbolSize: [NODE_W, NODE_H],
+      orient: "LR",
+      layout: "orthogonal",
+      edgeShape: "polyline",
+      edgeForkPosition: "63%",
+      expandAndCollapse: false,
+      initialTreeDepth: -1,
+      roam: true,
+      scaleLimit: { min: 0.35, max: 3.5 },
+      animationDuration: 280,
+      animationDurationUpdate: 200,
+      label: {
+        position: "inside",
+        verticalAlign: "middle",
+        align: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 14,
+        color: dark ? "#e2e8f0" : "#0f172a",
+        formatter: (p) => {
+          const d = p.data;
+          if (!d?.jerarquia) return d?.name ?? "";
+          return `${d.name}
+${formatJerarquiaLabel(d.jerarquia)}`;
+        }
+      },
+      leaves: { label: { position: "inside", align: "center" } },
+      lineStyle: {
+        color: dark ? "rgba(56,189,248,0.45)" : "rgba(30,144,255,0.4)",
+        width: 1.5,
+        curveness: 0
+      },
+      emphasis: { focus: "descendant" }
+    }]
   };
 }
 
 // js/tools/roleHierarchyTree/RoleHierarchyView.tsx
-import { jsx as jsx44, jsxs as jsxs37 } from "react/jsx-runtime";
-var { useState: useState30, useMemo: useMemo17, useCallback: useCallback13, useEffect: useEffect26 } = getReact();
-var { Box: Box29, Typography: Typography26, Button: Button20, Dialog: Dialog9, DialogTitle: DialogTitle9, DialogContent: DialogContent12, DialogActions: DialogActions10, TextField: TextField16, Alert: Alert15, CircularProgress: CircularProgress18, Stack: Stack22, Chip: Chip19 } = getMaterialUI();
-var EMPTY_PERMISOS = Object.freeze({});
+import { jsx as jsx43, jsxs as jsxs36 } from "react/jsx-runtime";
+var { useState: useState30, useCallback: useCallback13, useEffect: useEffect28 } = getReact();
+var {
+  Box: Box29,
+  Button: Button18,
+  Dialog: Dialog9,
+  DialogTitle: DialogTitle9,
+  DialogContent: DialogContent12,
+  DialogActions: DialogActions10,
+  TextField: TextField16,
+  Alert: Alert15,
+  CircularProgress: CircularProgress18,
+  Stack: Stack22
+} = getMaterialUI();
 function RoleHierarchyView(props) {
-  const { nodes, roleEntries, canManagePermisos, canEditRoleDescriptions, initialSelectedRole, onSaveRolePermisos, canMutate, busy, onSave, onSaveLocalPerm, onPromote, onCreate, onDelete } = props;
+  const {
+    nodes,
+    initialSelectedRole,
+    canMutate,
+    canCreateRoles = false,
+    busy,
+    onSave,
+    onCreate,
+    onDelete
+  } = props;
   const [selectedJer, setSelectedJer] = useState30(null);
   const [editTarget, setEditTarget] = useState30(null);
-  const [visitanteDraft, setVisitanteDraft] = useState30(null);
-  const [visitanteSaving, setVisitanteSaving] = useState30(false);
-  const [roleDraft, setRoleDraft] = useState30(null);
-  const [roleSaving, setRoleSaving] = useState30(false);
-  const currentEditNode = useMemo17(
-    () => selectedJer ? nodes.find((n) => n.jerarquia === selectedJer) ?? null : null,
-    [selectedJer, nodes]
-  );
-  const visitanteEntry = useMemo17(() => getVisitanteRoleEntry({ roles: roleEntries ?? [] }), [roleEntries]);
-  const currentRoleEntry = useMemo17(() => {
-    if (!currentEditNode) return null;
-    const key = String(currentEditNode.iusuario ?? "").trim().toLowerCase();
-    return (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key) ?? { iusuario: key, permisos: EMPTY_PERMISOS, bactivo: true };
-  }, [currentEditNode, roleEntries]);
-  const visitantePermisosSig = useMemo17(
-    () => JSON.stringify(visitanteEntry.permisos ?? EMPTY_PERMISOS),
-    [visitanteEntry.permisos]
-  );
-  const rolePermisosSig = useMemo17(
-    () => currentRoleEntry ? JSON.stringify(currentRoleEntry.permisos ?? EMPTY_PERMISOS) : "",
-    [currentRoleEntry?.iusuario, currentRoleEntry?.permisos]
-  );
-  const roleEditorEntry = useMemo17(() => {
-    if (!currentRoleEntry) return null;
-    const permisos = roleDraft ?? currentRoleEntry.permisos ?? EMPTY_PERMISOS;
-    return { ...currentRoleEntry, permisos };
-  }, [currentRoleEntry, roleDraft]);
-  useEffect26(() => {
+  useEffect28(() => {
     if (!initialSelectedRole || !nodes.length) return;
     const key = String(initialSelectedRole).trim().toLowerCase();
     const node = nodes.find((n) => String(n.iusuario ?? "").trim().toLowerCase() === key);
     if (node?.jerarquia) setSelectedJer((prev) => prev === node.jerarquia ? prev : node.jerarquia);
   }, [initialSelectedRole, nodes]);
-  useEffect26(() => {
-    if (!selectedJer) {
-      setVisitanteDraft(null);
-      setRoleDraft(null);
-      return;
-    }
-    const node = nodes.find((n) => n.jerarquia === selectedJer);
-    if (!node) return;
-    if (isVisitanteRole(node.iusuario)) {
-      setRoleDraft(null);
-      const next2 = enforceVisitantePermisos(visitanteEntry.permisos ?? EMPTY_PERMISOS);
-      setVisitanteDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next2) ? prev : next2);
-      return;
-    }
-    setVisitanteDraft(null);
-    const key = String(node.iusuario ?? "").trim().toLowerCase();
-    const entry = (roleEntries ?? []).find((e) => roleNameFromEntry(e) === key);
-    const next = { ...entry?.permisos ?? EMPTY_PERMISOS };
-    setRoleDraft((prev) => prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
-  }, [selectedJer, visitantePermisosSig, rolePermisosSig, nodes, roleEntries, visitanteEntry]);
-  const openCreateDialog = useCallback13(() => {
+  const openAddChild = useCallback13((parent) => {
+    const jer = nextChildJerarquia(parent.jerarquia, nodes);
+    setSelectedJer(parent.jerarquia);
     setEditTarget({
       isNew: true,
-      node: { iusuario: "", jerarquia: "", namedisplay: null, descripcion: null }
+      node: { iusuario: "", jerarquia: jer, namedisplay: null, descripcion: null }
     });
-  }, []);
-  const customs = useMemo17(
-    () => createRoleHierarchyCustoms({
-      items: nodes,
-      canMutate,
-      onSave,
-      onDelete,
-      onEdit: (node) => setEditTarget({ node, isNew: false }),
-      onCreateClick: openCreateDialog
-    }),
-    [nodes, canMutate, onSave, onDelete, openCreateDialog]
-  );
-  const typedNodes = nodes;
-  const countLabel = `${nodes.length} rol${nodes.length !== 1 ? "es" : ""}`;
-  const manifest = useMemo17(() => ({ ...ROLE_HIERARCHY_MANIFEST, countLabel }), [countLabel]);
-  const IsaSplitView = getIsaSplitView();
-  const treePanel = /* @__PURE__ */ jsx44(
-    TreeView,
-    {
-      items: typedNodes,
-      manifest,
-      customs,
-      readonly: !canMutate,
-      busy,
-      selectedPath: selectedJer,
-      onSelectedPathChange: setSelectedJer,
-      toolbarTitle: "Jerarqu\xEDa de roles",
-      className: "role-hierarchy-tree-panel",
-      showToolbar: true
-    }
-  );
-  const editorPanel = currentEditNode ? isVisitanteRole(currentEditNode.iusuario) ? /* @__PURE__ */ jsxs37(Box29, { className: "role-hierarchy-visitante-editor", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }, children: [
-    /* @__PURE__ */ jsxs37(Stack22, { direction: "row", alignItems: "center", spacing: 1, sx: { px: 2, pt: 2, pb: 1, flexShrink: 0 }, children: [
-      /* @__PURE__ */ jsx44(Typography26, { variant: "h6", sx: { flex: 1 }, children: currentEditNode.namedisplay ?? "Visitante" }),
-      /* @__PURE__ */ jsx44(Chip19, { size: "small", label: currentEditNode.jerarquia })
-    ] }),
-    /* @__PURE__ */ jsx44(Box29, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx44(
-      RoleConfigEditor,
+  }, [nodes]);
+  return /* @__PURE__ */ jsxs36(Box29, { className: "role-hierarchy-tree", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsx43(
+      HierarchyOrgChart,
       {
-        entry: visitanteDraft ? { ...visitanteEntry, permisos: visitanteDraft } : visitanteEntry,
-        roleName: "visitante",
-        canManage: !!canManagePermisos,
-        canEditRoleDescriptions: !!canEditRoleDescriptions,
-        onChange: (permisos) => setVisitanteDraft(enforceVisitantePermisos(permisos))
-      },
-      `visitante-${visitantePermisosSig}`
-    ) }),
-    (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx44(Stack22, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx44(
-      Button20,
-      {
-        variant: "contained",
-        disabled: busy || visitanteSaving || !visitanteDraft,
-        onClick: async () => {
-          if (!visitanteDraft) return;
-          setVisitanteSaving(true);
-          try {
-            await onSaveRolePermisos("visitante", visitanteDraft, visitanteEntry.bactivo !== false);
-          } finally {
-            setVisitanteSaving(false);
-          }
-        },
-        sx: { textTransform: "none", fontWeight: 600 },
-        children: visitanteSaving ? /* @__PURE__ */ jsx44(CircularProgress18, { size: 18, color: "inherit" }) : "Guardar visitante"
-      }
-    ) }) : null
-  ] }) : /* @__PURE__ */ jsxs37(Box29, { className: "role-hierarchy-role-editor", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "auto" }, children: [
-    /* @__PURE__ */ jsxs37(Stack22, { direction: "row", alignItems: "center", spacing: 1, sx: { px: 2, pt: 2, pb: 1, flexShrink: 0 }, children: [
-      /* @__PURE__ */ jsx44(Typography26, { variant: "h6", sx: { flex: 1 }, children: currentEditNode.namedisplay ?? currentEditNode.iusuario }),
-      /* @__PURE__ */ jsx44(Chip19, { size: "small", label: currentEditNode.jerarquia })
-    ] }),
-    /* @__PURE__ */ jsx44(Box29, { sx: { flex: 1, minHeight: 0, overflow: "auto", px: 2, pb: 2 }, children: /* @__PURE__ */ jsx44(
-      RoleConfigEditor,
-      {
-        entry: roleEditorEntry ?? { iusuario: currentEditNode.iusuario, permisos: EMPTY_PERMISOS, bactivo: true },
-        roleName: currentEditNode.iusuario,
-        canManage: !!canManagePermisos,
-        canEditRoleDescriptions: !!canEditRoleDescriptions,
-        onChange: (permisos) => setRoleDraft(permisos)
-      },
-      `${currentEditNode.iusuario}-${rolePermisosSig}`
-    ) }),
-    (canManagePermisos || canEditRoleDescriptions) && onSaveRolePermisos ? /* @__PURE__ */ jsx44(Stack22, { direction: "row", justifyContent: "flex-end", spacing: 1, sx: { px: 2, py: 1.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }, children: /* @__PURE__ */ jsx44(
-      Button20,
-      {
-        variant: "contained",
-        disabled: busy || roleSaving || !roleDraft,
-        onClick: async () => {
-          if (!roleDraft) return;
-          setRoleSaving(true);
-          try {
-            await onSaveRolePermisos(currentEditNode.iusuario, roleDraft, currentRoleEntry?.bactivo !== false);
-          } finally {
-            setRoleSaving(false);
-          }
-        },
-        sx: { textTransform: "none", fontWeight: 600 },
-        children: roleSaving ? /* @__PURE__ */ jsx44(CircularProgress18, { size: 18, color: "inherit" }) : "Guardar rol"
-      }
-    ) }) : null
-  ] }) : /* @__PURE__ */ jsxs37(Box29, { sx: { p: 4, textAlign: "center", color: "text.secondary", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }, children: [
-    /* @__PURE__ */ jsx44("iconify-icon", { icon: "mdi:family-tree", width: "48", height: "48" }),
-    /* @__PURE__ */ jsx44(Typography26, { variant: "body1", sx: { mt: 2 }, children: "Selecciona un rol del \xE1rbol \u2014 visitante incluye editor de permisos completo." }),
-    !canMutate ? /* @__PURE__ */ jsx44(Typography26, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 1 }, children: "(Solo roles de branch 0 pueden editar la jerarqu\xEDa.)" }) : null
-  ] });
-  return /* @__PURE__ */ jsxs37(Box29, { className: "role-hierarchy-tree isp-tree-host", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
-    /* @__PURE__ */ jsx44(
-      IsaSplitView,
-      {
-        className: "role-hierarchy-split",
-        sx: { flex: 1, minHeight: 0 },
-        panelClassName: "role-hierarchy-tree-panel",
-        storageKey: "isa-patyia:role-hierarchy-tree-w",
-        defaultWidth: 360,
-        minWidth: 260,
-        maxWidth: 560,
-        panelTitle: "Jerarqu\xEDa de roles",
-        panelIcon: "mdi:family-tree",
-        UI,
-        panel: treePanel,
-        children: /* @__PURE__ */ jsx44(Box29, { className: "role-hierarchy-editor-panel", sx: { flex: 1, minWidth: 0, minHeight: 0, overflow: "auto", height: "100%" }, children: editorPanel })
+        nodes,
+        selectedJer,
+        onSelect: setSelectedJer,
+        canMutate,
+        canCreateRoles,
+        busy,
+        onAddChildClick: openAddChild,
+        onEditClick: (node) => setEditTarget({ node, isNew: false }),
+        onDeleteClick: (node) => {
+          void onDelete(node.iusuario);
+        }
       }
     ),
-    /* @__PURE__ */ jsx44(
+    /* @__PURE__ */ jsx43(
       HierarchyEditDialog,
       {
         target: editTarget,
@@ -17719,13 +18082,13 @@ function RoleHierarchyView(props) {
 function HierarchyEditDialog({ target, busy, onClose, onSave }) {
   const isNew = target?.isNew ?? false;
   const [name, setName] = useState30(target?.node.iusuario ?? "");
-  const [jerarquia, setJerarquia] = useState30(isNew ? "" : target?.node.jerarquia ?? "");
+  const [jerarquia, setJerarquia] = useState30(target?.node.jerarquia ?? "");
   const [err, setErr] = useState30("");
-  React2.useEffect(() => {
+  React.useEffect(() => {
     setName(target?.node.iusuario ?? "");
-    setJerarquia(isNew ? "" : target?.node.jerarquia ?? "");
+    setJerarquia(target?.node.jerarquia ?? "");
     setErr("");
-  }, [target, isNew]);
+  }, [target]);
   if (!target) return null;
   const handleSubmit = async () => {
     setErr("");
@@ -17749,28 +18112,22 @@ function HierarchyEditDialog({ target, busy, onClose, onSave }) {
       setErr(e?.message ?? String(e));
     }
   };
-  return /* @__PURE__ */ jsxs37(Dialog9, { open: true, onClose, maxWidth: "sm", fullWidth: true, children: [
-    /* @__PURE__ */ jsx44(DialogTitle9, { children: isNew ? "Nuevo rol" : `Mover ${target.node.iusuario}` }),
-    /* @__PURE__ */ jsx44(DialogContent12, { dividers: true, children: /* @__PURE__ */ jsxs37(Stack22, { spacing: 2, children: [
-      err ? /* @__PURE__ */ jsx44(Alert15, { severity: "error", children: err }) : null,
-      /* @__PURE__ */ jsx44(TextField16, { label: "Nombre", value: name, onChange: (e) => setName(e.target.value), disabled: !isNew, helperText: "min\xFAsculas, sin espacios (ej. dev_lead)" }),
-      /* @__PURE__ */ jsx44(TextField16, { label: "Nueva jerarqu\xEDa", value: jerarquia, onChange: (e) => setJerarquia(e.target.value), helperText: "dot-notation: 0, 0.0, 0.1.1, ..." }),
-      /* @__PURE__ */ jsx44(Alert15, { severity: "info", children: "Los ancestros se derivan del path. Arrastra un rol sobre otro (antes / dentro / despu\xE9s) para reubicarlo." })
+  return /* @__PURE__ */ jsxs36(Dialog9, { open: true, onClose, maxWidth: "sm", fullWidth: true, children: [
+    /* @__PURE__ */ jsx43(DialogTitle9, { children: isNew ? "Nuevo rol hijo" : `Editar ${target.node.iusuario}` }),
+    /* @__PURE__ */ jsx43(DialogContent12, { dividers: true, children: /* @__PURE__ */ jsxs36(Stack22, { spacing: 2, children: [
+      err ? /* @__PURE__ */ jsx43(Alert15, { severity: "error", children: err }) : null,
+      /* @__PURE__ */ jsx43(TextField16, { label: "Nombre", value: name, onChange: (e) => setName(e.target.value), disabled: !isNew, helperText: "min\xFAsculas, sin espacios (ej. dev_lead)" }),
+      /* @__PURE__ */ jsx43(TextField16, { label: "Jerarqu\xEDa", value: jerarquia, onChange: (e) => setJerarquia(e.target.value), helperText: "dot-notation: 0, 0.0, 0.1.1, ..." })
     ] }) }),
-    /* @__PURE__ */ jsxs37(DialogActions10, { children: [
-      /* @__PURE__ */ jsx44(Button20, { onClick: onClose, disabled: busy, children: "Cancelar" }),
-      /* @__PURE__ */ jsx44(Button20, { variant: "contained", onClick: handleSubmit, disabled: busy, children: busy ? /* @__PURE__ */ jsx44(CircularProgress18, { size: 16 }) : "Guardar" })
+    /* @__PURE__ */ jsxs36(DialogActions10, { children: [
+      /* @__PURE__ */ jsx43(Button18, { onClick: onClose, disabled: busy, children: "Cancelar" }),
+      /* @__PURE__ */ jsx43(Button18, { variant: "contained", onClick: handleSubmit, disabled: busy, children: busy ? /* @__PURE__ */ jsx43(CircularProgress18, { size: 16 }) : "Guardar" })
     ] })
   ] });
 }
 
-// js/tools/roleHierarchyTree/RolePermissionsEditor.tsx
-import { Fragment as Fragment16, jsx as jsx45, jsxs as jsxs38 } from "react/jsx-runtime";
-var { useState: useState31, useMemo: useMemo18, useCallback: useCallback14, useEffect: useEffect27 } = getReact();
-var { Box: Box30, Stack: Stack23, Typography: Typography27, Breadcrumbs, Link, Chip: Chip20, IconButton: IconButton15, Tooltip: Tooltip15, Button: Button21, TextField: TextField17, Alert: Alert16, CircularProgress: CircularProgress19 } = getMaterialUI();
-var { Icon: Icon21 } = UI;
-
 // js/tools/roleHierarchyTree/hierarchyFromRoles.ts
+init_roleHierarchy();
 function hierarchyNodesFromRoleEntries(roleEntries) {
   const out = [];
   for (const e of roleEntries ?? []) {
@@ -17791,8 +18148,10 @@ function hierarchyNodesFromRoleEntries(roleEntries) {
 }
 
 // js/tools/UserPermissionsSummaryDialog.jsx
-import { Fragment as Fragment17, jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
-var { Typography: Typography28, Stack: Stack24, Box: Box31, Chip: Chip21, Divider: Divider7, CircularProgress: CircularProgress20 } = getMaterialUI();
+init_platform();
+init_roleHierarchy();
+import { Fragment as Fragment14, jsx as jsx44, jsxs as jsxs37 } from "react/jsx-runtime";
+var { Typography: Typography25, Stack: Stack23, Box: Box30, Chip: Chip18, Divider: Divider6, CircularProgress: CircularProgress19 } = getMaterialUI();
 var { useMemo: useMemo19 } = getReact();
 var ROLE_KEYS_OMIT = /* @__PURE__ */ new Set(["descripcion", "namedisplay", "roles", "jerarquia", "accent", "color", "icon"]);
 function getRoleEntry(roles, roleName) {
@@ -17841,13 +18200,13 @@ function summarizePerms(perms) {
   return { allows, fixFilters, others };
 }
 function ChipChain({ chain, roles }) {
-  return /* @__PURE__ */ jsxs39(Stack24, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
-    chain.ancestors.map((anc) => /* @__PURE__ */ jsxs39(Box31, { sx: { display: "inline-flex", alignItems: "center" }, children: [
-      /* @__PURE__ */ jsx46(Chip21, { size: "small", variant: "outlined", label: roleTitleFromEntry(anc.entry) || anc.entry.iusuario, sx: { fontFamily: "monospace", fontSize: 11 }, title: `Jerarqu\xEDa ${anc.jerarquia}` }),
-      /* @__PURE__ */ jsx46(Box31, { component: "span", sx: { mx: 0.5, opacity: 0.6 }, children: "\u203A" })
+  return /* @__PURE__ */ jsxs37(Stack23, { direction: "row", spacing: 0.5, alignItems: "center", flexWrap: "wrap", useFlexGap: true, children: [
+    chain.ancestors.map((anc) => /* @__PURE__ */ jsxs37(Box30, { sx: { display: "inline-flex", alignItems: "center" }, children: [
+      /* @__PURE__ */ jsx44(Chip18, { size: "small", variant: "outlined", label: roleTitleFromEntry(anc.entry) || anc.entry.iusuario, sx: { fontFamily: "monospace", fontSize: 11 }, title: `Jerarqu\xEDa ${anc.jerarquia}` }),
+      /* @__PURE__ */ jsx44(Box30, { component: "span", sx: { mx: 0.5, opacity: 0.6 }, children: "\u203A" })
     ] }, anc.jerarquia)),
-    /* @__PURE__ */ jsx46(
-      Chip21,
+    /* @__PURE__ */ jsx44(
+      Chip18,
       {
         size: "small",
         color: "primary",
@@ -17859,29 +18218,29 @@ function ChipChain({ chain, roles }) {
   ] });
 }
 function RoleCard({ chain, roles }) {
-  return /* @__PURE__ */ jsx46(Box31, { className: "isa-glass-card paty-permisos-summary__role", sx: { p: 1.25, borderRadius: 1.5 }, children: /* @__PURE__ */ jsxs39(Stack24, { spacing: 0.75, children: [
-    /* @__PURE__ */ jsxs39(Stack24, { direction: "row", alignItems: "center", spacing: 0.75, children: [
-      /* @__PURE__ */ jsx46(Typography28, { variant: "subtitle2", fontWeight: 700, title: `${chain.name} \xB7 jerarqu\xEDa ${chain.jerarquia}`, children: chain.name }),
-      /* @__PURE__ */ jsx46(Typography28, { variant: "caption", color: "text.secondary", sx: { fontFamily: "monospace" }, children: chain.jerarquia })
+  return /* @__PURE__ */ jsx44(Box30, { className: "isa-glass-card paty-permisos-summary__role", sx: { p: 1.25, borderRadius: 1.5 }, children: /* @__PURE__ */ jsxs37(Stack23, { spacing: 0.75, children: [
+    /* @__PURE__ */ jsxs37(Stack23, { direction: "row", alignItems: "center", spacing: 0.75, children: [
+      /* @__PURE__ */ jsx44(Typography25, { variant: "subtitle2", fontWeight: 700, title: `${chain.name} \xB7 jerarqu\xEDa ${chain.jerarquia}`, children: chain.name }),
+      /* @__PURE__ */ jsx44(Typography25, { variant: "caption", color: "text.secondary", sx: { fontFamily: "monospace" }, children: chain.jerarquia })
     ] }),
-    /* @__PURE__ */ jsx46(ChipChain, { chain, roles })
+    /* @__PURE__ */ jsx44(ChipChain, { chain, roles })
   ] }) });
 }
 function PermList({ title, items, kind }) {
   if (!items.length) return null;
-  return /* @__PURE__ */ jsxs39(Box31, { sx: { mt: 1 }, children: [
-    /* @__PURE__ */ jsxs39(Typography28, { variant: "overline", color: "text.secondary", sx: { letterSpacing: 1 }, children: [
+  return /* @__PURE__ */ jsxs37(Box30, { sx: { mt: 1 }, children: [
+    /* @__PURE__ */ jsxs37(Typography25, { variant: "overline", color: "text.secondary", sx: { letterSpacing: 1 }, children: [
       title,
       " (",
       items.length,
       ")"
     ] }),
-    /* @__PURE__ */ jsxs39(Box31, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }, children: [
+    /* @__PURE__ */ jsxs37(Box30, { sx: { display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }, children: [
       items.slice(0, kind === "fixFilter" ? 50 : 100).map((it, i) => {
         if (kind === "fixFilter") {
           const ffSummary = Object.entries(it.filter ?? {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
-          return /* @__PURE__ */ jsx46(
-            Chip21,
+          return /* @__PURE__ */ jsx44(
+            Chip18,
             {
               size: "small",
               variant: "outlined",
@@ -17894,8 +18253,8 @@ function PermList({ title, items, kind }) {
           );
         }
         if (kind === "allow") {
-          return /* @__PURE__ */ jsx46(
-            Chip21,
+          return /* @__PURE__ */ jsx44(
+            Chip18,
             {
               size: "small",
               color: "success",
@@ -17907,8 +18266,8 @@ function PermList({ title, items, kind }) {
             it
           );
         }
-        return /* @__PURE__ */ jsx46(
-          Chip21,
+        return /* @__PURE__ */ jsx44(
+          Chip18,
           {
             size: "small",
             variant: "outlined",
@@ -17919,7 +18278,7 @@ function PermList({ title, items, kind }) {
           `${it.key}-${i}`
         );
       }),
-      items.length > (kind === "fixFilter" ? 50 : 100) ? /* @__PURE__ */ jsx46(Chip21, { size: "small", label: `+${items.length - (kind === "fixFilter" ? 50 : 100)} m\xE1s`, sx: { fontFamily: "monospace", fontSize: 11 } }) : null
+      items.length > (kind === "fixFilter" ? 50 : 100) ? /* @__PURE__ */ jsx44(Chip18, { size: "small", label: `+${items.length - (kind === "fixFilter" ? 50 : 100)} m\xE1s`, sx: { fontFamily: "monospace", fontSize: 11 } }) : null
     ] })
   ] });
 }
@@ -17934,7 +18293,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
     const { allows, fixFilters, others } = summarizePerms(targetUser.permisos);
     return { targetUser, chains, activeRoles: active, allows, fixFilters, others };
   }, [open, username, users, roles]);
-  return /* @__PURE__ */ jsxs39(
+  return /* @__PURE__ */ jsxs37(
     GlassDialog,
     {
       open,
@@ -17942,7 +18301,7 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
       maxWidth: "md",
       fullWidth: true,
       paperClassName: "permisos-user-summary-dialog",
-      header: /* @__PURE__ */ jsx46(
+      header: /* @__PURE__ */ jsx44(
         GlassDialogHeader,
         {
           icon: "mdi:shield-account-outline",
@@ -17953,33 +18312,33 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
         }
       ),
       children: [
-        /* @__PURE__ */ jsx46(Box31, { sx: { ...glassDialogContentSx(), minHeight: 360 }, children: !username ? /* @__PURE__ */ jsx46(Typography28, { color: "text.secondary", children: "Sin usuario seleccionado." }) : !data ? /* @__PURE__ */ jsxs39(Stack24, { direction: "row", spacing: 1.5, alignItems: "center", children: [
-          /* @__PURE__ */ jsx46(CircularProgress20, { size: 20 }),
-          /* @__PURE__ */ jsx46(Typography28, { color: "text.secondary", children: "Usuario no encontrado en los datos cargados." })
-        ] }) : /* @__PURE__ */ jsxs39(Fragment17, { children: [
-          /* @__PURE__ */ jsxs39(Box31, { children: [
-            /* @__PURE__ */ jsx46(Typography28, { variant: "overline", color: "text.secondary", children: "Usuario" }),
-            /* @__PURE__ */ jsx46(Typography28, { variant: "h6", fontWeight: 700, children: data.targetUser.iusuario }),
-            data.targetUser.permisos?.nombre || data.targetUser.permisos?.namedisplay ? /* @__PURE__ */ jsx46(Typography28, { variant: "body2", color: "text.secondary", children: data.targetUser.permisos.nombre || data.targetUser.permisos.namedisplay }) : null
+        /* @__PURE__ */ jsx44(Box30, { sx: { ...glassDialogContentSx(), minHeight: 360 }, children: !username ? /* @__PURE__ */ jsx44(Typography25, { color: "text.secondary", children: "Sin usuario seleccionado." }) : !data ? /* @__PURE__ */ jsxs37(Stack23, { direction: "row", spacing: 1.5, alignItems: "center", children: [
+          /* @__PURE__ */ jsx44(CircularProgress19, { size: 20 }),
+          /* @__PURE__ */ jsx44(Typography25, { color: "text.secondary", children: "Usuario no encontrado en los datos cargados." })
+        ] }) : /* @__PURE__ */ jsxs37(Fragment14, { children: [
+          /* @__PURE__ */ jsxs37(Box30, { children: [
+            /* @__PURE__ */ jsx44(Typography25, { variant: "overline", color: "text.secondary", children: "Usuario" }),
+            /* @__PURE__ */ jsx44(Typography25, { variant: "h6", fontWeight: 700, children: data.targetUser.iusuario }),
+            data.targetUser.permisos?.nombre || data.targetUser.permisos?.namedisplay ? /* @__PURE__ */ jsx44(Typography25, { variant: "body2", color: "text.secondary", children: data.targetUser.permisos.nombre || data.targetUser.permisos.namedisplay }) : null
           ] }),
-          /* @__PURE__ */ jsx46(Divider7, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsxs39(Typography28, { variant: "overline", color: "text.secondary", children: [
+          /* @__PURE__ */ jsx44(Divider6, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsxs37(Typography25, { variant: "overline", color: "text.secondary", children: [
             "Cadena de roles ",
             data.chains.length ? `(${data.chains.length})` : ""
           ] }),
-          data.chains.length === 0 ? /* @__PURE__ */ jsx46(Typography28, { variant: "body2", color: "text.secondary", sx: { mt: 0.5 }, children: "El usuario no tiene roles asignados. Permisos efectivos = visitante por defecto." }) : /* @__PURE__ */ jsx46(Stack24, { spacing: 1, sx: { mt: 1 }, children: data.chains.map((c) => /* @__PURE__ */ jsx46(RoleCard, { chain: c, roles: data.activeRoles }, c.name)) }),
-          /* @__PURE__ */ jsx46(Divider7, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsx46(Typography28, { variant: "overline", color: "text.secondary", children: "Permisos efectivos del usuario" }),
-          /* @__PURE__ */ jsx46(Typography28, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 0.25 }, children: "Calculados a partir de sus roles directos m\xE1s la herencia por path jer\xE1rquico, replicando el merge del backend." }),
-          data.allows.length === 0 && data.fixFilters.length === 0 && data.others.length === 0 ? /* @__PURE__ */ jsx46(Typography28, { variant: "body2", color: "text.secondary", sx: { mt: 1 }, children: "Sin permisos materializados m\xE1s all\xE1 del visitante por defecto." }) : /* @__PURE__ */ jsxs39(Fragment17, { children: [
-            /* @__PURE__ */ jsx46(PermList, { title: "Permitidos", items: data.allows, kind: "allow" }),
-            /* @__PURE__ */ jsx46(PermList, { title: "Con filtro fijo", items: data.fixFilters, kind: "fixFilter" }),
-            /* @__PURE__ */ jsx46(PermList, { title: "Otros", items: data.others, kind: "other" })
+          data.chains.length === 0 ? /* @__PURE__ */ jsx44(Typography25, { variant: "body2", color: "text.secondary", sx: { mt: 0.5 }, children: "El usuario no tiene roles asignados. Permisos efectivos = visitante por defecto." }) : /* @__PURE__ */ jsx44(Stack23, { spacing: 1, sx: { mt: 1 }, children: data.chains.map((c) => /* @__PURE__ */ jsx44(RoleCard, { chain: c, roles: data.activeRoles }, c.name)) }),
+          /* @__PURE__ */ jsx44(Divider6, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsx44(Typography25, { variant: "overline", color: "text.secondary", children: "Permisos efectivos del usuario" }),
+          /* @__PURE__ */ jsx44(Typography25, { variant: "caption", color: "text.secondary", sx: { display: "block", mt: 0.25 }, children: "Calculados a partir de sus roles directos m\xE1s la herencia por path jer\xE1rquico, replicando el merge del backend." }),
+          data.allows.length === 0 && data.fixFilters.length === 0 && data.others.length === 0 ? /* @__PURE__ */ jsx44(Typography25, { variant: "body2", color: "text.secondary", sx: { mt: 1 }, children: "Sin permisos materializados m\xE1s all\xE1 del visitante por defecto." }) : /* @__PURE__ */ jsxs37(Fragment14, { children: [
+            /* @__PURE__ */ jsx44(PermList, { title: "Permitidos", items: data.allows, kind: "allow" }),
+            /* @__PURE__ */ jsx44(PermList, { title: "Con filtro fijo", items: data.fixFilters, kind: "fixFilter" }),
+            /* @__PURE__ */ jsx44(PermList, { title: "Otros", items: data.others, kind: "other" })
           ] }),
-          /* @__PURE__ */ jsx46(Divider7, { sx: { my: 1.5 } }),
-          /* @__PURE__ */ jsx46(Typography28, { variant: "caption", color: "text.secondary", children: "Los detalles completos por rol se obtienen al abrir cada columna en la jerarqu\xEDa. Este resumen es de solo lectura y se actualiza al recargar el panel." })
+          /* @__PURE__ */ jsx44(Divider6, { sx: { my: 1.5 } }),
+          /* @__PURE__ */ jsx44(Typography25, { variant: "caption", color: "text.secondary", children: "Los detalles completos por rol se obtienen al abrir cada columna en la jerarqu\xEDa. Este resumen es de solo lectura y se actualiza al recargar el panel." })
         ] }) }),
-        /* @__PURE__ */ jsx46(Box31, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx46(
+        /* @__PURE__ */ jsx44(Box30, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx44(
           "button",
           {
             type: "button",
@@ -17994,32 +18353,34 @@ function UserPermissionsSummaryDialog({ open, onClose, username, users, roles })
 }
 
 // js/tools/PermisosPanel.jsx
-import { jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
-var { useState: useState32, useEffect: useEffect28, useCallback: useCallback15, useMemo: useMemo20, useRef: useRef14 } = getReact();
-var { Typography: Typography29, TextField: TextField18, Stack: Stack25, Alert: Alert17, CircularProgress: CircularProgress21, Box: Box32, Chip: Chip22, DialogContent: DialogContent13, DialogActions: DialogActions11, Button: Button22, FormControlLabel: FormControlLabel4, Switch: Switch2 } = getMaterialUI();
+init_sessionApi();
+import { jsx as jsx45, jsxs as jsxs38 } from "react/jsx-runtime";
+var { useState: useState31, useEffect: useEffect29, useCallback: useCallback14, useMemo: useMemo20, useRef: useRef14 } = getReact();
+var { Typography: Typography26, Stack: Stack24, Alert: Alert16, CircularProgress: CircularProgress20, Box: Box31, Chip: Chip19, DialogContent: DialogContent13, DialogActions: DialogActions11, Button: Button19, FormControlLabel: FormControlLabel4, Switch: Switch2 } = getMaterialUI();
 function PermisosPanel({ onNeedLogin }) {
-  const [loading, setLoading] = useState32(true);
-  const [busy, setBusy] = useState32(false);
-  const [canManage, setCanManage] = useState32(false);
-  const [canAssignUserRoles, setCanAssignUserRoles] = useState32(false);
-  const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState32(false);
-  const [authTick, setAuthTick] = useState32(0);
+  const [loading, setLoading] = useState31(true);
+  const [busy, setBusy] = useState31(false);
+  const [canManage, setCanManage] = useState31(false);
+  const [canAssignUserRoles, setCanAssignUserRoles] = useState31(false);
+  const [canEditRoleDescriptions, setCanEditRoleDescriptions] = useState31(false);
+  const [authTick, setAuthTick] = useState31(0);
   const loggedIn = useMemo20(() => !!Session?.isLoggedIn?.(), [authTick]);
   const sessionUsername = useMemo20(() => String(Session.username?.() ?? "").trim().toUpperCase(), [authTick]);
-  const [err, setErr] = useState32("");
-  const [data, setData] = useState32({ roles: [], users: [] });
-  const [userSearch, setUserSearch] = useState32("");
-  const [roleFilters, setRoleFilters] = useState32([]);
-  const [hideEmptyStacks, setHideEmptyStacks] = useState32(readPermisosHideEmptyFromUrl);
-  const [filterBusy, setFilterBusy] = useState32(false);
-  const [dragOverFilter, setDragOverFilter] = useState32(false);
-  const [actorJerarquia, setActorJerarquia] = useState32(null);
-  const [actorJerarquias, setActorJerarquias] = useState32([]);
-  const [hierarchyOpen, setHierarchyOpen] = useState32(false);
-  const [hierarchyFocusRole, setHierarchyFocusRole] = useState32(null);
-  const [hierarchyNodes, setHierarchyNodes] = useState32([]);
-  const [hierarchyBusy, setHierarchyBusy] = useState32(false);
-  const [summaryUsername, setSummaryUsername] = useState32(null);
+  const [err, setErr] = useState31("");
+  const [data, setData] = useState31({ roles: [], users: [] });
+  const [userSearch, setUserSearch] = useState31("");
+  const [roleFilters, setRoleFilters] = useState31([]);
+  const [hideEmptyStacks, setHideEmptyStacks] = useState31(readPermisosHideEmptyFromUrl);
+  const [filterBusy, setFilterBusy] = useState31(false);
+  const [dragOverFilter, setDragOverFilter] = useState31(false);
+  const [actorJerarquia, setActorJerarquia] = useState31(null);
+  const [actorJerarquias, setActorJerarquias] = useState31([]);
+  const [actorRoles, setActorRoles] = useState31([]);
+  const [hierarchyOpen, setHierarchyOpen] = useState31(false);
+  const [hierarchyFocusRole, setHierarchyFocusRole] = useState31(null);
+  const [hierarchyNodes, setHierarchyNodes] = useState31([]);
+  const [hierarchyBusy, setHierarchyBusy] = useState31(false);
+  const [summaryUsername, setSummaryUsername] = useState31(null);
   const filterToolbarRef = useRef14(null);
   const filterFetchSkipRef = useRef14(true);
   const filterDropFetchRef = useRef14(false);
@@ -18029,16 +18390,17 @@ function PermisosPanel({ onNeedLogin }) {
   rolesRef.current = data.roles;
   usersRef.current = data.users;
   const usersPaginated = !!data.usersTruncated;
-  const applyFlags = useCallback15((result) => {
+  const applyFlags = useCallback14((result) => {
     setCanManage(!!result.canManage);
     setCanAssignUserRoles(!!result.canAssignUserRoles);
     setCanEditRoleDescriptions(!!result.canEditRoleDescriptions);
-    const actorRoles = Array.isArray(result.actorRoles) ? result.actorRoles : Array.isArray(Session?.roles) ? Session.roles : [];
+    const actorRoles2 = Array.isArray(result.actorRoles) ? result.actorRoles : Array.isArray(Session?.roles) ? Session.roles : [];
     const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
-    setActorJerarquias(actorJerarquiasFromRoles(actorRoles, rolePermisosIdx));
-    setActorJerarquia(actorJerarquiaFromRoles(actorRoles, rolePermisosIdx));
+    setActorRoles(actorRoles2.map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean));
+    setActorJerarquias(actorJerarquiasFromRoles(actorRoles2, rolePermisosIdx));
+    setActorJerarquia(actorJerarquiaFromRoles(actorRoles2, rolePermisosIdx));
   }, []);
-  const load = useCallback15(async () => {
+  const load = useCallback14(async () => {
     setLoading(true);
     setErr("");
     try {
@@ -18056,7 +18418,7 @@ function PermisosPanel({ onNeedLogin }) {
       setLoading(false);
     }
   }, [applyFlags]);
-  const refreshPermisos = useCallback15(async () => {
+  const refreshPermisos = useCallback14(async () => {
     const result = await fetchPermisos();
     if (!Array.isArray(result.roles) || result.roles.length === 0) {
       throw new Error("ISS no devolvi\xF3 roles activos. Verifique modo Local (ISS :8802) o recargue tras iniciar func start.");
@@ -18065,7 +18427,7 @@ function PermisosPanel({ onNeedLogin }) {
     applyFlags(result);
     return result;
   }, [applyFlags]);
-  const loadHierarchy = useCallback15(async (fallbackRoles = rolesRef.current) => {
+  const loadHierarchy = useCallback14(async (fallbackRoles = rolesRef.current) => {
     if (hierarchyLoadRef.current) return hierarchyLoadRef.current;
     setHierarchyBusy(true);
     const task = (async () => {
@@ -18088,7 +18450,7 @@ function PermisosPanel({ onNeedLogin }) {
     hierarchyLoadRef.current = task;
     return task;
   }, []);
-  const openHierarchyDialog = useCallback15(() => {
+  const openHierarchyDialog = useCallback14(() => {
     hierarchyLoadRef.current = null;
     setHierarchyFocusRole(null);
     const roles = rolesRef.current;
@@ -18097,7 +18459,7 @@ function PermisosPanel({ onNeedLogin }) {
     }
     setHierarchyOpen(true);
   }, []);
-  const openHierarchyForRole = useCallback15((roleName) => {
+  const openHierarchyForRole = useCallback14((roleName) => {
     const id = String(roleName ?? "").trim().toLowerCase();
     if (!id) return;
     hierarchyLoadRef.current = null;
@@ -18108,14 +18470,14 @@ function PermisosPanel({ onNeedLogin }) {
     setHierarchyFocusRole(id);
     setHierarchyOpen(true);
   }, []);
-  useEffect28(() => {
+  useEffect29(() => {
     if (!hierarchyOpen) return void 0;
     const roles = rolesRef.current;
     if (!Array.isArray(roles) || !roles.length) return void 0;
     void loadHierarchy(roles);
     return void 0;
   }, [hierarchyOpen, data.roles, loadHierarchy]);
-  const handleHierarchySave = useCallback15(async (name, jerarquia) => {
+  const handleHierarchySave = useCallback14(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await updateHierarchyRole(name, { jerarquia });
@@ -18126,7 +18488,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, [loadHierarchy, refreshPermisos]);
-  const handleHierarchyCreate = useCallback15(async (name, jerarquia) => {
+  const handleHierarchyCreate = useCallback14(async (name, jerarquia) => {
     setHierarchyBusy(true);
     try {
       await createHierarchyRole({ name, jerarquia });
@@ -18137,7 +18499,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, [loadHierarchy, refreshPermisos]);
-  const handleHierarchyPromote = useCallback15(async (key, value, fromJer, toJer) => {
+  const handleHierarchyPromote = useCallback14(async (key, value, fromJer, toJer) => {
     setHierarchyBusy(true);
     try {
       throw new Error(`Promover permisos entre roles a\xFAn no soportado en backend (${fromJer} \u2192 ${toJer})`);
@@ -18145,7 +18507,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, []);
-  const handleHierarchyLocalPerm = useCallback15(async (nodeJer, key, value) => {
+  const handleHierarchyLocalPerm = useCallback14(async (nodeJer, key, value) => {
     setHierarchyBusy(true);
     try {
       throw new Error(`Edici\xF3n de permisos individuales a\xFAn no soportada en backend (${nodeJer}: ${key})`);
@@ -18153,7 +18515,7 @@ function PermisosPanel({ onNeedLogin }) {
       setHierarchyBusy(false);
     }
   }, []);
-  const handleHierarchyDelete = useCallback15(async (name) => {
+  const handleHierarchyDelete = useCallback14(async (name) => {
     setHierarchyBusy(true);
     try {
       await deleteHierarchyRole(name);
@@ -18166,20 +18528,19 @@ function PermisosPanel({ onNeedLogin }) {
   }, [loadHierarchy, refreshPermisos]);
   const loadRef = useRef14(load);
   loadRef.current = load;
-  useEffect28(() => {
+  useEffect29(() => {
     loadRef.current();
   }, []);
-  useEffect28(() => subscribe((snap) => {
-    const permisos = snap.config?.permisos;
-    const hide = permisos && typeof permisos === "object" && permisos.hideEmpty === true;
+  useEffect29(() => subscribe((snap) => {
+    const hide = readPermisosHideEmptyFromUrl(snap);
     setHideEmptyStacks((prev) => prev === hide ? prev : hide);
   }), []);
-  const setHideEmptyStacksPersist = useCallback15((hide) => {
+  const setHideEmptyStacksPersist = useCallback14((hide) => {
     setHideEmptyStacks(hide);
     persistPermisosHideEmpty(hide);
   }, []);
   const userDirectory = useMemo20(() => buildUserDirectoryFromPermisos(data.users), [data.users]);
-  useEffect28(() => {
+  useEffect29(() => {
     Assets.ensureTodosCss();
     const onAuth = () => {
       setAuthTick((t) => t + 1);
@@ -18211,7 +18572,7 @@ function PermisosPanel({ onNeedLogin }) {
       setBusy(false);
     }
   }
-  const handleRoleRemove = useCallback15(async ({ username, role, roleTitle: roleTitle2 }) => {
+  const handleRoleRemove = useCallback14(async ({ username, role, roleTitle: roleTitle2 }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -18228,7 +18589,7 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const handleRoleAdd = useCallback15(async ({ username, role, roleTitle: roleTitle2 }) => {
+  const handleRoleAdd = useCallback14(async ({ username, role, roleTitle: roleTitle2 }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -18245,7 +18606,7 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const handleRoleDrag = useCallback15(async ({ username, fromRole, toRole, mode }) => {
+  const handleRoleDrag = useCallback14(async ({ username, fromRole, toRole, mode }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesi\xF3n requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
     setErr("");
@@ -18262,11 +18623,11 @@ function PermisosPanel({ onNeedLogin }) {
       throw e;
     }
   }, [onNeedLogin, applyFlags, canAssignUserRoles]);
-  const fetchPermisosWithSearch = useCallback15(async (search) => {
+  const fetchPermisosWithSearch = useCallback14(async (search) => {
     const q = String(search ?? "").trim();
     return fetchPermisos(q ? { search: q } : void 0);
   }, []);
-  const handleUserFilterDrop = useCallback15(async (username) => {
+  const handleUserFilterDrop = useCallback14(async (username) => {
     const q = String(username ?? "").trim();
     if (!q) return;
     setUserSearch(q);
@@ -18286,12 +18647,12 @@ function PermisosPanel({ onNeedLogin }) {
       setFilterBusy(false);
     }
   }, [usersPaginated, fetchPermisosWithSearch, applyFlags]);
-  const handleRoleFilterDrop = useCallback15((roleId) => {
+  const handleRoleFilterDrop = useCallback14((roleId) => {
     const id = String(roleId ?? "").trim().toLowerCase();
     if (!id) return;
     setRoleFilters((prev) => prev.includes(id) ? prev : [...prev, id]);
   }, []);
-  const clearFilters = useCallback15(async () => {
+  const clearFilters = useCallback14(async () => {
     setUserSearch("");
     setRoleFilters([]);
     if (!usersPaginated) return;
@@ -18309,7 +18670,7 @@ function PermisosPanel({ onNeedLogin }) {
       setFilterBusy(false);
     }
   }, [usersPaginated, applyFlags]);
-  useEffect28(() => {
+  useEffect29(() => {
     if (!usersPaginated) return void 0;
     if (filterFetchSkipRef.current) {
       filterFetchSkipRef.current = false;
@@ -18349,7 +18710,7 @@ function PermisosPanel({ onNeedLogin }) {
   const editRoleMeta = canEditRoleDescriptions || canManage;
   const filtersActive = !!(userSearch.trim() || roleFilters.length);
   const { GlassToolbar } = getGlass();
-  const handleSaveRolePermisos = useCallback15(async (name, permisos, bactivo) => {
+  const handleSaveRolePermisos = useCallback14(async (name, permisos, bactivo) => {
     if (!editRoleMeta || !requireAppSession(onNeedLogin)) return;
     setBusy(true);
     setErr("");
@@ -18370,25 +18731,28 @@ function PermisosPanel({ onNeedLogin }) {
     }
   }, [editRoleMeta, onNeedLogin, managePermisos, applyFlags, loadHierarchy]);
   if (loading && !hierarchyOpen) {
-    return /* @__PURE__ */ jsx47(Box32, { className: "config-permisos-loading", children: /* @__PURE__ */ jsx47(CircularProgress21, { size: 26 }) });
+    return /* @__PURE__ */ jsx45(Box31, { className: "config-permisos-loading", children: /* @__PURE__ */ jsx45(CircularProgress20, { size: 26 }) });
   }
-  return /* @__PURE__ */ jsxs40(Box32, { className: "paty-permisos-shell", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
-    /* @__PURE__ */ jsx47(Box32, { ref: filterToolbarRef, className: "config-permisos-toolbar-wrap", sx: { flexShrink: 0 }, children: /* @__PURE__ */ jsxs40(GlassToolbar, { className: `config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`, sx: { borderRadius: 0, mb: 0, flexShrink: 0, gap: 1, px: { xs: 1.5, sm: 2 }, py: 1 }, children: [
-      /* @__PURE__ */ jsx47(
-        TextField18,
+  return /* @__PURE__ */ jsxs38(Box31, { className: "paty-permisos-shell", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
+    /* @__PURE__ */ jsx45(Box31, { ref: filterToolbarRef, className: "config-permisos-toolbar-wrap", sx: { flexShrink: 0 }, children: /* @__PURE__ */ jsxs38(GlassToolbar, { className: `config-permisos-toolbar${dragOverFilter ? " config-permisos-toolbar--filter-drop" : ""}`, sx: { borderRadius: 0, mb: 0, flexShrink: 0, gap: 0.75, px: { xs: 1.25, sm: 1.75 }, py: 0.5, alignItems: "center", minHeight: 40 }, children: [
+      /* @__PURE__ */ jsx45(
+        PermisosUserAutocomplete,
         {
-          size: "small",
-          label: "Buscar usuario",
-          placeholder: "Usuario",
-          value: userSearch,
-          onChange: (e) => setUserSearch(e.target.value),
+          variant: "toolbar",
+          label: "",
+          placeholder: "Buscar usuario\u2026",
+          value: userSearch || null,
+          onChange: (u) => setUserSearch(u ?? ""),
           disabled: filterBusy,
+          allowNew: true,
+          limit: 10,
+          roleFilter: roleFilters.length === 1 ? roleFilters[0] : null,
           className: "config-permisos-toolbar__field config-permisos-toolbar__field--search"
         }
       ),
-      /* @__PURE__ */ jsx47(PermisosRoleFilterAutocomplete, { options: roleOptions, value: roleFilters, onChange: setRoleFilters, disabled: filterBusy }),
-      filtersActive ? /* @__PURE__ */ jsx47(
-        Chip22,
+      /* @__PURE__ */ jsx45(PermisosRoleFilterAutocomplete, { options: roleOptions, value: roleFilters, onChange: setRoleFilters, disabled: filterBusy }),
+      filtersActive ? /* @__PURE__ */ jsx45(
+        Chip19,
         {
           size: "small",
           variant: "outlined",
@@ -18398,23 +18762,23 @@ function PermisosPanel({ onNeedLogin }) {
           disabled: filterBusy
         }
       ) : null,
-      /* @__PURE__ */ jsx47(
+      /* @__PURE__ */ jsx45(
         FormControlLabel4,
         {
           className: "config-permisos-toolbar__hide-empty",
-          control: /* @__PURE__ */ jsx47(Switch2, { size: "small", checked: hideEmptyStacks, onChange: (e) => setHideEmptyStacksPersist(e.target.checked), disabled: filterBusy }),
+          control: /* @__PURE__ */ jsx45(Switch2, { size: "small", checked: hideEmptyStacks, onChange: (e) => setHideEmptyStacksPersist(e.target.checked), disabled: filterBusy }),
           label: "Ocultar vac\xEDos",
-          sx: { mr: 0, ml: 0.5, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.8rem", whiteSpace: "nowrap" } }
+          sx: { mr: 0, ml: 0.25, flexShrink: 0, "& .MuiFormControlLabel-label": { fontSize: "0.75rem", whiteSpace: "nowrap" } }
         }
       ),
-      /* @__PURE__ */ jsx47(Box32, { sx: { flex: 1, minWidth: 8 } }),
-      /* @__PURE__ */ jsxs40(Stack25, { direction: "row", spacing: 0.5, alignItems: "center", className: "config-form-section__actions config-permisos-toolbar__actions", children: [
-        /* @__PURE__ */ jsx47(ButtonIconify, { icon: "mdi:family-tree", title: "Jerarqu\xEDa y rol visitante", onClick: openHierarchyDialog, disabled: busy || filterBusy }),
-        /* @__PURE__ */ jsx47(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, disabled: busy || filterBusy })
+      /* @__PURE__ */ jsx45(Box31, { sx: { flex: 1, minWidth: 8 } }),
+      /* @__PURE__ */ jsxs38(Stack24, { direction: "row", spacing: 0.5, alignItems: "center", className: "config-form-section__actions config-permisos-toolbar__actions", children: [
+        /* @__PURE__ */ jsx45(ButtonIconify, { icon: "mdi:family-tree", title: "Jerarqu\xEDa y rol visitante", onClick: openHierarchyDialog, disabled: busy || filterBusy }),
+        /* @__PURE__ */ jsx45(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, disabled: busy || filterBusy })
       ] })
     ] }) }),
-    err ? /* @__PURE__ */ jsx47(Alert17, { severity: "warning", className: "config-form-alert config-permisos-alert", children: err }) : null,
-    /* @__PURE__ */ jsx47(
+    err ? /* @__PURE__ */ jsx45(Alert16, { severity: "warning", className: "config-form-alert config-permisos-alert", children: err }) : null,
+    /* @__PURE__ */ jsx45(
       PermisosKanban,
       {
         boardData,
@@ -18440,7 +18804,7 @@ function PermisosPanel({ onNeedLogin }) {
         onRoleAdd: handleRoleAdd
       }
     ),
-    /* @__PURE__ */ jsxs40(
+    /* @__PURE__ */ jsxs38(
       GlassDialog,
       {
         open: hierarchyOpen,
@@ -18452,12 +18816,12 @@ function PermisosPanel({ onNeedLogin }) {
         fullWidth: true,
         maxWidth: false,
         paperClassName: "isa-glass-dialog--fullscreen permisos-hierarchy-dialog",
-        header: /* @__PURE__ */ jsx47(GlassDialogHeader, { icon: "mdi:family-tree", title: "Jerarqu\xEDa de roles", subtitle: "Visitante y permisos \u2014 solo branch 0 edita la jerarqu\xEDa", accent: "#10b981", onClose: () => {
+        header: /* @__PURE__ */ jsx45(GlassDialogHeader, { icon: "mdi:family-tree", title: "Jerarqu\xEDa de roles", subtitle: "Zoom/pan \xB7 hover \xB1 \xB7 doble clic edita", accent: "#10b981", onClose: () => {
           setHierarchyOpen(false);
           setHierarchyFocusRole(null);
         } }),
         children: [
-          /* @__PURE__ */ jsx47(DialogContent13, { dividers: true, sx: Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" }), children: /* @__PURE__ */ jsx47(
+          /* @__PURE__ */ jsx45(DialogContent13, { dividers: true, sx: Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" }), children: /* @__PURE__ */ jsx45(
             RoleHierarchyView,
             {
               nodes: hierarchyNodes,
@@ -18467,6 +18831,7 @@ function PermisosPanel({ onNeedLogin }) {
               canEditRoleDescriptions: editRoleMeta,
               onSaveRolePermisos: editRoleMeta ? handleSaveRolePermisos : void 0,
               canMutate: isBranchZero(actorJerarquia ?? ""),
+              canCreateRoles: isViewingAsRole() ? String(getViewAsRole() || "").toLowerCase() === "dev_lead" : actorIsDevLead(actorRoles),
               busy: hierarchyBusy,
               onSave: handleHierarchySave,
               onCreate: handleHierarchyCreate,
@@ -18475,11 +18840,11 @@ function PermisosPanel({ onNeedLogin }) {
               onPromote: handleHierarchyPromote
             }
           ) }),
-          /* @__PURE__ */ jsx47(DialogActions11, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx47(Button22, { onClick: () => setHierarchyOpen(false), sx: { textTransform: "none", fontWeight: 600 }, children: "Cerrar" }) })
+          /* @__PURE__ */ jsx45(DialogActions11, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx45(Button19, { onClick: () => setHierarchyOpen(false), sx: { textTransform: "none", fontWeight: 600 }, children: "Cerrar" }) })
         ]
       }
     ),
-    /* @__PURE__ */ jsx47(
+    /* @__PURE__ */ jsx45(
       UserPermissionsSummaryDialog,
       {
         open: !!summaryUsername,
@@ -18491,6 +18856,12 @@ function PermisosPanel({ onNeedLogin }) {
     )
   ] });
 }
+
+// js/tools/ConfigPromptsOperativosPanel.jsx
+init_platform();
+init_systemConfigApi();
+init_platform();
+init_sessionApi();
 
 // js/tools/configOpenAi.ts
 var DEFAULT_MAX_NUM_RESULTS = 8;
@@ -18773,10 +19144,11 @@ function writePromptSkeletonCount(count) {
 }
 
 // js/tools/configFieldPersist.ts
-var { useRef: useRef15, useState: useState33 } = getReact();
+init_platform();
+var { useRef: useRef15, useState: useState32 } = getReact();
 function useConfigFieldPersist() {
   const saveGenRef = useRef15(0);
-  const [fieldBusy, setFieldBusy] = useState33({});
+  const [fieldBusy, setFieldBusy] = useState32({});
   function beginSave(fields) {
     const gen = ++saveGenRef.current;
     if (fields.length) {
@@ -18794,59 +19166,191 @@ function useConfigFieldPersist() {
 }
 
 // js/tools/ConfigPromptsOperativosPanel.jsx
-import { Fragment as Fragment18, jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
-var { useState: useState34, useEffect: useEffect29, useCallback: useCallback16, useRef: useRef16 } = getReact();
+import { Fragment as Fragment15, jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
+var { useState: useState33, useEffect: useEffect30, useCallback: useCallback15, useRef: useRef16 } = getReact();
 var {
-  Typography: Typography30,
-  TextField: TextField19,
-  Stack: Stack26,
-  Alert: Alert18,
-  Box: Box33,
+  Typography: Typography27,
+  TextField: TextField17,
+  Stack: Stack25,
+  Alert: Alert17,
+  Box: Box32,
   Skeleton: Skeleton2,
+  Paper: Paper4,
   FormControl: FormControl7,
   InputLabel: InputLabel4,
   Select: Select7,
   MenuItem: MenuItem7,
-  Accordion: Accordion3,
-  AccordionSummary: AccordionSummary3,
-  AccordionDetails: AccordionDetails3,
   DialogContent: DialogContent14,
   DialogActions: DialogActions12,
-  Button: Button23,
-  Tooltip: Tooltip16
+  Button: Button20,
+  Tooltip: Tooltip14
 } = getMaterialUI();
-var { Icon: Icon22 } = UI;
+var { Icon: Icon21 } = UI;
 var PROMPT_LABELS = {
   generarTitulo: "Generar t\xEDtulo",
   generarResumenTicket: "Resumen ticket"
 };
-var PROMPT_DEF_FIELD_SX = { width: 200, minWidth: 200, flex: "0 0 auto" };
+var PROMPT_ICONS = {
+  generarTitulo: "mdi:format-title",
+  generarResumenTicket: "mdi:ticket-confirmation-outline"
+};
+var PROMPT_DEF_FIELD_SX = {
+  width: 118,
+  minWidth: 108,
+  flex: "0 0 auto",
+  "& .MuiInputBase-root": { minHeight: 34, height: 34 },
+  "& .MuiOutlinedInput-input, & .MuiSelect-select": {
+    py: "6px !important",
+    fontSize: "0.8125rem",
+    fontWeight: 600
+  },
+  "& .MuiInputLabel-root": { fontSize: "0.72rem" },
+  "& .MuiInputLabel-shrink": { transform: "translate(14px, -7px) scale(0.85)" },
+  "& .MuiFormHelperText-root": { display: "none" }
+};
 function promptLabel(key) {
   return PROMPT_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
-var SKELETON_TITLE_WIDTHS = ["42%", "52%", "38%", "48%"];
+function promptIcon(key) {
+  return PROMPT_ICONS[key] || "mdi:robot-outline";
+}
+function GlassPromptAccordion({ title, icon, expanded, onToggle, accent, children, skeleton = false }) {
+  const { useGlassColors, glassCardSx, glassHeaderSx, glassInnerSx, NEON_COLORS } = getGlass();
+  const c = useGlassColors();
+  const accentColor = accent || NEON_COLORS.cyan;
+  function handleKey(e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onToggle?.();
+    }
+  }
+  return /* @__PURE__ */ jsxs39(
+    Paper4,
+    {
+      variant: "outlined",
+      elevation: 0,
+      className: [
+        "isa-glass-section",
+        "config-prompt-accordion",
+        expanded ? "config-prompt-accordion--expanded" : "",
+        skeleton ? "config-prompt-accordion--skeleton" : ""
+      ].filter(Boolean).join(" "),
+      sx: glassCardSx(c, {
+        tone: expanded ? "purple" : "default",
+        accent: accentColor,
+        hover: !expanded,
+        mb: 0,
+        radius: "14px"
+      }),
+      children: [
+        /* @__PURE__ */ jsx46(
+          Box32,
+          {
+            className: "isa-glass-section__head config-prompt-accordion__summary",
+            role: "button",
+            tabIndex: 0,
+            "aria-expanded": expanded,
+            onClick: onToggle,
+            onKeyDown: handleKey,
+            sx: {
+              px: { xs: 1.5, sm: 2 },
+              py: 1,
+              cursor: "pointer",
+              userSelect: "none",
+              ...glassHeaderSx(c, accentColor),
+              ...glassInnerSx(c, "blue")
+            },
+            children: /* @__PURE__ */ jsxs39(Stack25, { direction: "row", spacing: 1.25, alignItems: "center", sx: { width: "100%" }, children: [
+              /* @__PURE__ */ jsx46(
+                Box32,
+                {
+                  className: "isa-glass-section__icon config-prompt-accordion__icon",
+                  sx: {
+                    width: 28,
+                    height: 28,
+                    borderRadius: 1.25,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background: `linear-gradient(135deg, ${accentColor}, ${accentColor}99)`,
+                    color: "#fff",
+                    boxShadow: c.dark ? `0 4px 12px ${accentColor}44` : "none"
+                  },
+                  children: /* @__PURE__ */ jsx46(Icon21, { icon: icon || "mdi:robot-outline", size: 16 })
+                }
+              ),
+              skeleton ? /* @__PURE__ */ jsx46(Skeleton2, { variant: "text", width: "46%", height: 22, sx: { flex: 1 } }) : /* @__PURE__ */ jsx46(
+                Typography27,
+                {
+                  variant: "subtitle2",
+                  className: "config-prompt-accordion__title",
+                  sx: { fontWeight: 700, letterSpacing: -0.15, color: c.text, flex: 1, minWidth: 0 },
+                  children: title
+                }
+              ),
+              /* @__PURE__ */ jsx46(
+                Box32,
+                {
+                  className: "config-prompt-accordion__chevron",
+                  sx: {
+                    display: "flex",
+                    color: c.muted,
+                    transition: "transform 0.2s ease",
+                    transform: expanded ? "rotate(180deg)" : "none"
+                  },
+                  "aria-hidden": true,
+                  children: /* @__PURE__ */ jsx46(Icon21, { icon: "mdi:chevron-down", size: 20 })
+                }
+              )
+            ] })
+          }
+        ),
+        expanded ? /* @__PURE__ */ jsx46(
+          Box32,
+          {
+            className: "isa-glass-section__body config-prompt-accordion__details",
+            sx: { px: { xs: 1.5, sm: 2 }, pt: 1.5, pb: 2, color: c.text },
+            children
+          }
+        ) : null
+      ]
+    }
+  );
+}
 function ConfigPromptsSkeleton({ count, expandState }) {
+  const { NEON_COLORS } = getGlass();
   const expandedKey = Object.keys(expandState ?? {}).find((k) => expandState[k]);
-  return /* @__PURE__ */ jsx48(Stack26, { spacing: 1, className: "config-prompt-accordions config-prompt-accordions--skeleton", "aria-busy": "true", "aria-label": "Cargando prompts operativos", children: Array.from({ length: count }, (_, i) => {
+  return /* @__PURE__ */ jsx46(Stack25, { spacing: 1.25, className: "config-prompt-accordions config-prompt-accordions--skeleton", "aria-busy": "true", "aria-label": "Cargando prompts operativos", children: Array.from({ length: count }, (_, i) => {
     const expanded = expandedKey ? i === 0 : false;
-    return /* @__PURE__ */ jsxs41(Accordion3, { expanded, className: "config-prompt-accordion", disableGutters: true, elevation: 0, children: [
-      /* @__PURE__ */ jsx48(AccordionSummary3, { expandIcon: /* @__PURE__ */ jsx48(Icon22, { icon: "mdi:chevron-down", size: 20 }), children: /* @__PURE__ */ jsx48(Skeleton2, { variant: "text", width: SKELETON_TITLE_WIDTHS[i % SKELETON_TITLE_WIDTHS.length], height: 22 }) }),
-      expanded ? /* @__PURE__ */ jsx48(AccordionDetails3, { children: /* @__PURE__ */ jsxs41(Stack26, { spacing: 2, className: "config-prompt-def", children: [
-        /* @__PURE__ */ jsxs41(Stack26, { direction: "row", spacing: 2, className: "config-prompt-def-fields", children: [
-          /* @__PURE__ */ jsx48(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } }),
-          /* @__PURE__ */ jsx48(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } }),
-          /* @__PURE__ */ jsx48(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } })
-        ] }),
-        /* @__PURE__ */ jsx48(Skeleton2, { variant: "rounded", height: 140 }),
-        /* @__PURE__ */ jsx48(Skeleton2, { variant: "rounded", height: 140 })
-      ] }) }) : null
-    ] }, i);
+    return /* @__PURE__ */ jsx46(
+      GlassPromptAccordion,
+      {
+        title: "",
+        icon: "mdi:robot-outline",
+        expanded,
+        skeleton: true,
+        accent: i % 2 ? NEON_COLORS.purple : NEON_COLORS.cyan,
+        onToggle: () => {
+        },
+        children: expanded ? /* @__PURE__ */ jsxs39(Stack25, { spacing: 2, className: "config-prompt-def", children: [
+          /* @__PURE__ */ jsxs39(Stack25, { direction: "row", spacing: 2, className: "config-prompt-def-fields", children: [
+            /* @__PURE__ */ jsx46(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } }),
+            /* @__PURE__ */ jsx46(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } }),
+            /* @__PURE__ */ jsx46(Skeleton2, { variant: "rounded", height: 40, sx: { width: 200, flex: "0 0 auto" } })
+          ] }),
+          /* @__PURE__ */ jsx46(Skeleton2, { variant: "rounded", height: 140 }),
+          /* @__PURE__ */ jsx46(Skeleton2, { variant: "rounded", height: 140 })
+        ] }) : null
+      },
+      i
+    );
   }) });
 }
 function OperativosJsonModal({ open, initial: initial2, readOnly, operativeModel, onClose, onApply }) {
-  const [json, setJson] = useState34(initial2);
-  const [errors, setErrors] = useState34([]);
-  useEffect29(() => {
+  const [json, setJson] = useState33(initial2);
+  const [errors, setErrors] = useState33([]);
+  useEffect30(() => {
     if (open) {
       setJson(initial2);
       setErrors([]);
@@ -18864,7 +19368,7 @@ function OperativosJsonModal({ open, initial: initial2, readOnly, operativeModel
     onClose();
   }
   const canApply = parseAndValidateJsonText2(json, { operativeModel }).ok;
-  return /* @__PURE__ */ jsxs41(
+  return /* @__PURE__ */ jsxs39(
     GlassDialog,
     {
       open,
@@ -18872,44 +19376,85 @@ function OperativosJsonModal({ open, initial: initial2, readOnly, operativeModel
       maxWidth: "md",
       fullWidth: true,
       paperMaxWidth: 960,
-      header: /* @__PURE__ */ jsx48(GlassDialogHeader, { icon: "mdi:code-json", title: "JSON", accent: "#6366f1", onClose }),
+      header: /* @__PURE__ */ jsx46(GlassDialogHeader, { icon: "mdi:code-json", title: "JSON", accent: "#6366f1", onClose }),
       children: [
-        /* @__PURE__ */ jsxs41(DialogContent14, { dividers: true, sx: glassDialogContentSx({ p: 0, minHeight: 380 }), children: [
-          errors.length ? /* @__PURE__ */ jsx48(Alert18, { severity: "warning", sx: { m: 1.5, mb: 0 }, children: /* @__PURE__ */ jsx48(Stack26, { component: "ul", spacing: 0.25, sx: { m: 0, pl: 2 }, children: errors.map((e) => /* @__PURE__ */ jsx48("li", { children: /* @__PURE__ */ jsx48(Typography30, { variant: "body2", children: e }) }, e)) }) }) : null,
-          /* @__PURE__ */ jsx48(Box33, { className: "permisos-json-modal-editor config-prompts-json-modal", sx: { minHeight: 340, p: 1 }, children: /* @__PURE__ */ jsx48(JsonCodeEditor, { value: json, onChange: readOnly ? void 0 : (v) => {
+        /* @__PURE__ */ jsxs39(DialogContent14, { dividers: true, sx: glassDialogContentSx({ p: 0, minHeight: 380 }), children: [
+          errors.length ? /* @__PURE__ */ jsx46(Alert17, { severity: "warning", sx: { m: 1.5, mb: 0 }, children: /* @__PURE__ */ jsx46(Stack25, { component: "ul", spacing: 0.25, sx: { m: 0, pl: 2 }, children: errors.map((e) => /* @__PURE__ */ jsx46("li", { children: /* @__PURE__ */ jsx46(Typography27, { variant: "body2", children: e }) }, e)) }) }) : null,
+          /* @__PURE__ */ jsx46(Box32, { className: "permisos-json-modal-editor config-prompts-json-modal", sx: { minHeight: 340, p: 1 }, children: /* @__PURE__ */ jsx46(JsonCodeEditor, { value: json, onChange: readOnly ? void 0 : (v) => {
             setJson(v);
             validateNow(v);
           }, readOnly, placeholder: "{}", fullPageTitle: "prompts_operativos" }) })
         ] }),
-        /* @__PURE__ */ jsxs41(DialogActions12, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx48(Button23, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600 }, children: readOnly ? "Cerrar" : "Cancelar" }),
-          !readOnly && onApply ? /* @__PURE__ */ jsx48(Button23, { variant: "contained", onClick: apply, disabled: !canApply, sx: { textTransform: "none", fontWeight: 600 }, children: "Aplicar JSON" }) : null
+        /* @__PURE__ */ jsxs39(DialogActions12, { sx: glassDialogActionsSx(), children: [
+          /* @__PURE__ */ jsx46(Button20, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600 }, children: readOnly ? "Cerrar" : "Cancelar" }),
+          !readOnly && onApply ? /* @__PURE__ */ jsx46(Button20, { variant: "contained", onClick: apply, disabled: !canApply, sx: { textTransform: "none", fontWeight: 600 }, children: "Aplicar JSON" }) : null
         ] })
       ]
     }
   );
 }
 function MessageCard({ role, body, bodyLines, canEdit, promptKey, onChange }) {
+  const { NEON_COLORS } = getGlass();
   const icon = role === "system" ? "mdi:cog-outline" : role === "user" ? "mdi:account-outline" : "mdi:robot-outline";
   const title = role === "system" ? "Sistema" : role === "user" ? "Usuario" : "Asistente";
-  return /* @__PURE__ */ jsxs41(Box33, { className: `config-prompt-msg config-prompt-msg--${role} isa-neon-accent-stripe`, children: [
-    /* @__PURE__ */ jsxs41(Stack26, { direction: "row", spacing: 1, alignItems: "center", className: "config-prompt-msg__head", children: [
-      /* @__PURE__ */ jsx48(Icon22, { icon, size: 16 }),
-      /* @__PURE__ */ jsx48(Typography30, { variant: "subtitle2", fontWeight: 700, children: title })
-    ] }),
-    /* @__PURE__ */ jsx48(Box33, { className: "config-prompt-msg__editor", children: /* @__PURE__ */ jsx48(
-      PromptBodyEditor,
-      {
-        body,
-        bodyLines,
-        canEdit,
-        onChange,
-        tipo: `${promptKey}_${role}`,
-        title: `${promptLabel(promptKey)} \xB7 ${title}`,
-        placeholder: "Escriba el prompt\u2026"
-      }
-    ) })
-  ] });
+  const accent = role === "system" ? NEON_COLORS.purple : NEON_COLORS.cyan;
+  const isUser = role === "user";
+  const avatar = /* @__PURE__ */ jsx46(
+    Box32,
+    {
+      className: "config-prompt-msg__avatar",
+      sx: {
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: `linear-gradient(135deg, ${accent}, ${accent}88)`,
+        color: "#fff",
+        boxShadow: `0 0 12px ${accent}44`
+      },
+      "aria-hidden": true,
+      children: /* @__PURE__ */ jsx46(Icon21, { icon, size: 15 })
+    }
+  );
+  return /* @__PURE__ */ jsx46(
+    Box32,
+    {
+      className: `config-prompt-msg config-prompt-msg--chat config-prompt-msg--${role}`,
+      style: { ["--stripe-accent"]: accent },
+      children: /* @__PURE__ */ jsxs39(
+        Stack25,
+        {
+          direction: "row",
+          spacing: 1,
+          alignItems: "flex-end",
+          justifyContent: isUser ? "flex-end" : "flex-start",
+          className: "config-prompt-msg__row",
+          children: [
+            !isUser ? avatar : null,
+            /* @__PURE__ */ jsxs39(Box32, { className: "config-prompt-msg__bubble", children: [
+              /* @__PURE__ */ jsx46(Typography27, { component: "div", className: "config-prompt-msg__role", variant: "caption", children: title }),
+              /* @__PURE__ */ jsx46(Box32, { className: "config-prompt-msg__editor", children: /* @__PURE__ */ jsx46(
+                PromptBodyEditor,
+                {
+                  body,
+                  bodyLines,
+                  canEdit,
+                  onChange,
+                  tipo: `${promptKey}_${role}`,
+                  title: `${promptLabel(promptKey)} \xB7 ${title}`,
+                  placeholder: "Escriba el prompt\u2026"
+                }
+              ) })
+            ] }),
+            isUser ? avatar : null
+          ]
+        }
+      )
+    }
+  );
 }
 function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) {
   const msgs = Array.isArray(def?.messages) ? def.messages : [];
@@ -18926,28 +19471,27 @@ function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) 
     if (idx < 0) next.push({ role, content: textToContentLines(text) });
     onChange({ ...def, messages: next });
   }
-  return /* @__PURE__ */ jsxs41(Stack26, { spacing: 2, className: "config-prompt-def", children: [
-    /* @__PURE__ */ jsxs41(Stack26, { direction: { xs: "column", md: "row" }, spacing: 2, useFlexGap: true, flexWrap: "wrap", alignItems: "flex-end", className: "config-prompt-def-fields", children: [
-      /* @__PURE__ */ jsxs41(FormControl7, { size: "small", sx: PROMPT_DEF_FIELD_SX, disabled: !canEdit, children: [
-        /* @__PURE__ */ jsx48(InputLabel4, { id: `prompt-reasoning-${promptKey}-label`, shrink: true, children: "Razonamiento" }),
-        /* @__PURE__ */ jsx48(Select7, { labelId: `prompt-reasoning-${promptKey}-label`, label: "Razonamiento", value: def?.reasoning_effort || "low", onChange: (e) => patchDef({ reasoning_effort: e.target.value }), children: REASONING_EFFORT_OPTIONS.map((o) => /* @__PURE__ */ jsx48(MenuItem7, { value: o, children: o }, o)) })
+  return /* @__PURE__ */ jsxs39(Stack25, { spacing: 1.5, className: "config-prompt-def", children: [
+    /* @__PURE__ */ jsxs39(Stack25, { direction: "row", spacing: 1, useFlexGap: true, flexWrap: "nowrap", alignItems: "center", className: "config-prompt-def-fields", children: [
+      /* @__PURE__ */ jsxs39(FormControl7, { size: "small", sx: PROMPT_DEF_FIELD_SX, disabled: !canEdit, children: [
+        /* @__PURE__ */ jsx46(InputLabel4, { id: `prompt-reasoning-${promptKey}-label`, shrink: true, children: "Razonamiento" }),
+        /* @__PURE__ */ jsx46(Select7, { labelId: `prompt-reasoning-${promptKey}-label`, label: "Razonamiento", value: def?.reasoning_effort || "low", onChange: (e) => patchDef({ reasoning_effort: e.target.value }), children: REASONING_EFFORT_OPTIONS.map((o) => /* @__PURE__ */ jsx46(MenuItem7, { value: o, dense: true, children: o }, o)) })
       ] }),
-      /* @__PURE__ */ jsx48(
-        TextField19,
+      /* @__PURE__ */ jsx46(
+        TextField17,
         {
           size: "small",
           label: "M\xE1x. tokens",
           type: "number",
           disabled: !canEdit,
-          fullWidth: true,
           value: def?.max_completion_tokens ?? "",
           sx: PROMPT_DEF_FIELD_SX,
           onChange: (e) => patchDef({ max_completion_tokens: e.target.value === "" ? void 0 : Number(e.target.value) }),
           slotProps: { htmlInput: { min: 1, max: 128e3, step: 1 } }
         }
       ),
-      /* @__PURE__ */ jsx48(Tooltip16, { title: tempAllowed ? void 0 : "No aplica a este modelo", placement: "top", children: /* @__PURE__ */ jsx48(Box33, { component: "span", sx: PROMPT_DEF_FIELD_SX, children: /* @__PURE__ */ jsx48(
-        TextField19,
+      /* @__PURE__ */ jsx46(Tooltip14, { title: tempAllowed ? void 0 : "No aplica a este modelo", placement: "top", children: /* @__PURE__ */ jsx46(Box32, { component: "span", sx: PROMPT_DEF_FIELD_SX, children: /* @__PURE__ */ jsx46(
+        TextField17,
         {
           size: "small",
           fullWidth: true,
@@ -18957,44 +19501,47 @@ function PromptDefEditor({ promptKey, def, canEdit, operativeModel, onChange }) 
         }
       ) }) })
     ] }),
-    /* @__PURE__ */ jsx48(
-      MessageCard,
-      {
-        role: "system",
-        promptKey,
-        canEdit,
-        body: contentLinesToText(systemMsg.content),
-        bodyLines: systemMsg.content,
-        onChange: (text) => patchMessage("system", systemIdx, text)
-      }
-    ),
-    /* @__PURE__ */ jsx48(
-      MessageCard,
-      {
-        role: "user",
-        promptKey,
-        canEdit,
-        body: contentLinesToText(userMsg.content),
-        bodyLines: userMsg.content,
-        onChange: (text) => patchMessage("user", userIdx, text)
-      }
-    )
+    /* @__PURE__ */ jsxs39(Box32, { className: "config-prompt-thread", children: [
+      /* @__PURE__ */ jsx46(
+        MessageCard,
+        {
+          role: "system",
+          promptKey,
+          canEdit,
+          body: contentLinesToText(systemMsg.content),
+          bodyLines: systemMsg.content,
+          onChange: (text) => patchMessage("system", systemIdx, text)
+        }
+      ),
+      /* @__PURE__ */ jsx46(
+        MessageCard,
+        {
+          role: "user",
+          promptKey,
+          canEdit,
+          body: contentLinesToText(userMsg.content),
+          bodyLines: userMsg.content,
+          onChange: (text) => patchMessage("user", userIdx, text)
+        }
+      )
+    ] })
   ] });
 }
 function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFormSection2, operativeModel, conversationModel: _conversationModel }) {
-  const [loading, setLoading] = useState34(true);
-  const [canEdit, setCanEdit] = useState34(false);
-  const [config, setConfig] = useState34({});
-  const [saved, setSaved] = useState34({});
+  const [loading, setLoading] = useState33(true);
+  const [canEdit, setCanEdit] = useState33(false);
+  const [config, setConfig] = useState33({});
+  const [saved, setSaved] = useState33({});
   const savedRef = useRef16(saved);
   savedRef.current = saved;
   const { saveGenRef, beginSave, endSave, fieldDisabled } = useConfigFieldPersist();
-  const [jsonOpen, setJsonOpen] = useState34(false);
-  const [expandState, setExpandState] = useState34(() => readPromptAccordionExpandState());
-  const [skeletonCount, setSkeletonCount] = useState34(() => readPromptSkeletonCount());
+  const [jsonOpen, setJsonOpen] = useState33(false);
+  const [expandState, setExpandState] = useState33(() => readPromptAccordionExpandState());
+  const [skeletonCount, setSkeletonCount] = useState33(() => readPromptSkeletonCount());
   const opModel = String(operativeModel ?? DEFAULT_MODELO_OPERATIVO).trim() || DEFAULT_MODELO_OPERATIVO;
   const promptKeys = listPromptKeys(config);
-  useEffect29(() => {
+  const { NEON_COLORS } = getGlass();
+  useEffect30(() => {
     writePromptAccordionExpandState(expandState);
   }, [expandState]);
   function isExpanded(key) {
@@ -19004,7 +19551,7 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
   function handleToggleExpand(key, on) {
     setExpandState((prev) => ({ ...prev, [key]: on }));
   }
-  const load = useCallback16(async () => {
+  const load = useCallback15(async () => {
     setLoading(true);
     try {
       const { config: cfg, canEdit: ce } = await fetchPromptsOperativosConfig();
@@ -19014,17 +19561,17 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
       setSkeletonCount(keys.length);
       setConfig(data);
       setSaved(data);
-      setCanEdit(!!ce);
+      setCanEdit(isViewingAsRole() ? canEditPromptsOperativos() : !!ce);
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   }, []);
-  useEffect29(() => {
+  useEffect30(() => {
     load();
   }, [load]);
-  useEffect29(() => {
+  useEffect30(() => {
     const onAuth = () => {
       load();
     };
@@ -19032,9 +19579,11 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
       load();
     };
     window.addEventListener(Session.EVENT, onAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onAuth);
     window.addEventListener("isa-patyia:openai-config", onOpenAi);
     return () => {
       window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onAuth);
       window.removeEventListener("isa-patyia:openai-config", onOpenAi);
     };
   }, [load]);
@@ -19078,29 +19627,29 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
     setConfig(next);
     void persist(next, beginSave([key]), [key]);
   }
-  return /* @__PURE__ */ jsxs41(
+  return /* @__PURE__ */ jsxs39(
     ConfigFormSection2,
     {
       className: "config-form-section--prompts",
-      icon: /* @__PURE__ */ jsx48(Icon22, { icon: "mdi:robot-outline", size: 20 }),
+      icon: /* @__PURE__ */ jsx46(Icon21, { icon: "mdi:robot-outline", size: 20 }),
       title: "Prompts operativos",
       description: "Tareas autom\xE1ticas: t\xEDtulo, resumen de ticket y similares.",
-      actions: /* @__PURE__ */ jsxs41(Fragment18, { children: [
-        /* @__PURE__ */ jsx48(ButtonIconify, { icon: "mdi:code-json", title: "JSON", onClick: () => setJsonOpen(true) }),
-        /* @__PURE__ */ jsx48(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, busy: loading })
+      actions: /* @__PURE__ */ jsxs39(Fragment15, { children: [
+        /* @__PURE__ */ jsx46(ButtonIconify, { icon: "mdi:code-json", title: "JSON", onClick: () => setJsonOpen(true) }),
+        /* @__PURE__ */ jsx46(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, busy: loading })
       ] }),
       children: [
-        loading ? /* @__PURE__ */ jsx48(ConfigPromptsSkeleton, { count: skeletonCount, expandState }) : /* @__PURE__ */ jsx48(Stack26, { spacing: 1, className: "config-prompt-accordions", children: promptKeys.map((key) => /* @__PURE__ */ jsxs41(
-          Accordion3,
-          {
-            expanded: isExpanded(key),
-            onChange: (_e, on) => handleToggleExpand(key, on),
-            className: "config-prompt-accordion",
-            disableGutters: true,
-            elevation: 0,
-            children: [
-              /* @__PURE__ */ jsx48(AccordionSummary3, { expandIcon: /* @__PURE__ */ jsx48(Icon22, { icon: "mdi:chevron-down", size: 20 }), children: /* @__PURE__ */ jsx48(Typography30, { fontWeight: 600, children: promptLabel(key) }) }),
-              /* @__PURE__ */ jsx48(AccordionDetails3, { children: /* @__PURE__ */ jsx48(
+        loading ? /* @__PURE__ */ jsx46(ConfigPromptsSkeleton, { count: skeletonCount, expandState }) : /* @__PURE__ */ jsx46(Stack25, { spacing: 1.25, className: "config-prompt-accordions", children: promptKeys.map((key, idx) => {
+          const accent = idx % 2 ? NEON_COLORS.purple : NEON_COLORS.cyan;
+          return /* @__PURE__ */ jsx46(
+            GlassPromptAccordion,
+            {
+              title: promptLabel(key),
+              icon: promptIcon(key),
+              accent,
+              expanded: isExpanded(key),
+              onToggle: () => handleToggleExpand(key, !isExpanded(key)),
+              children: /* @__PURE__ */ jsx46(
                 PromptDefEditor,
                 {
                   promptKey: key,
@@ -19109,12 +19658,12 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
                   operativeModel: opModel,
                   onChange: (def) => updatePrompt(key, def)
                 }
-              ) })
-            ]
-          },
-          key
-        )) }),
-        /* @__PURE__ */ jsx48(
+              )
+            },
+            key
+          );
+        }) }),
+        /* @__PURE__ */ jsx46(
           OperativosJsonModal,
           {
             open: jsonOpen,
@@ -19135,44 +19684,25 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
   );
 }
 
-// js/tools/configToolState.ts
-var LS_KEY2 = "isa-patyia:config-tab";
-var DEFAULT_TAB = "sistema";
-var VALID_TABS = /* @__PURE__ */ new Set(["sistema", "permisos"]);
-function readConfigToolTab() {
-  try {
-    const v = localStorage.getItem(LS_KEY2);
-    return v && VALID_TABS.has(v) ? v : DEFAULT_TAB;
-  } catch {
-    return DEFAULT_TAB;
-  }
-}
-function writeConfigToolTab(tab) {
-  try {
-    if (VALID_TABS.has(tab)) localStorage.setItem(LS_KEY2, tab);
-  } catch {
-  }
-}
-
 // js/tools/ConfigTool.jsx
-import { Fragment as Fragment19, jsx as jsx49, jsxs as jsxs42 } from "react/jsx-runtime";
-var { useState: useState35, useEffect: useEffect30, useCallback: useCallback17, useMemo: useMemo21, useRef: useRef17 } = getReact();
-var { Paper: Paper4, Typography: Typography31, TextField: TextField20, Stack: Stack27, Alert: Alert19, Tabs: Tabs4, Tab: Tab4, Box: Box34, FormControl: FormControl8, InputLabel: InputLabel5, Select: Select8, MenuItem: MenuItem8, Tooltip: Tooltip17, DialogContent: DialogContent15, DialogActions: DialogActions13, Button: Button24, Divider: Divider8 } = getMaterialUI();
-var { Icon: Icon23 } = UI;
+import { Fragment as Fragment16, jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
+var { useState: useState34, useEffect: useEffect31, useCallback: useCallback16, useMemo: useMemo21, useRef: useRef17 } = getReact();
+var { Paper: Paper5, Typography: Typography28, TextField: TextField18, Stack: Stack26, Alert: Alert18, Box: Box33, FormControl: FormControl8, InputLabel: InputLabel5, Select: Select8, MenuItem: MenuItem8, Tooltip: Tooltip15, DialogContent: DialogContent15, DialogActions: DialogActions13, Button: Button21, Divider: Divider7 } = getMaterialUI();
+var { Icon: Icon22 } = UI;
 function ConfigFormSection({ icon, title, description, chips, actions, footer, children, className, accent }) {
   const { useGlassColors, glassCardSx, glassHeaderSx, glassInnerSx, NEON_COLORS } = getGlass();
   const c = useGlassColors();
   const sectionAccent = accent ?? (className?.includes("openai") ? NEON_COLORS.purple : className?.includes("prompts") ? NEON_COLORS.cyan : NEON_COLORS.blue);
-  return /* @__PURE__ */ jsxs42(
-    Paper4,
+  return /* @__PURE__ */ jsxs40(
+    Paper5,
     {
       variant: "outlined",
       elevation: 0,
       className: ["isa-glass-section", "config-form-section", className].filter(Boolean).join(" "),
       sx: glassCardSx(c, { tone: "default", accent: sectionAccent, hover: true, mb: 0, width: "100%" }),
       children: [
-        title ? /* @__PURE__ */ jsx49(
-          Box34,
+        title ? /* @__PURE__ */ jsx47(
+          Box33,
           {
             className: "isa-glass-section__head config-form-section__head",
             sx: {
@@ -19181,10 +19711,10 @@ function ConfigFormSection({ icon, title, description, chips, actions, footer, c
               ...glassHeaderSx(c, sectionAccent),
               ...glassInnerSx(c, "blue")
             },
-            children: /* @__PURE__ */ jsxs42(Stack27, { direction: "row", alignItems: "center", justifyContent: "space-between", spacing: 1.25, sx: { width: "100%" }, children: [
-              /* @__PURE__ */ jsxs42(Stack27, { direction: "row", spacing: 1.25, alignItems: "center", sx: { minWidth: 0, flex: "1 1 auto" }, children: [
-                icon ? /* @__PURE__ */ jsx49(
-                  Box34,
+            children: /* @__PURE__ */ jsxs40(Stack26, { direction: "row", alignItems: "center", justifyContent: "space-between", spacing: 1.25, sx: { width: "100%" }, children: [
+              /* @__PURE__ */ jsxs40(Stack26, { direction: "row", spacing: 1.25, alignItems: "center", sx: { minWidth: 0, flex: "1 1 auto" }, children: [
+                icon ? /* @__PURE__ */ jsx47(
+                  Box33,
                   {
                     className: "isa-glass-section__icon",
                     sx: {
@@ -19202,16 +19732,16 @@ function ConfigFormSection({ icon, title, description, chips, actions, footer, c
                     children: icon
                   }
                 ) : null,
-                /* @__PURE__ */ jsx49(Typography31, { variant: "subtitle1", component: "h3", className: "config-form-section__title", sx: { fontWeight: 700, letterSpacing: -0.2, color: c.text }, children: title })
+                /* @__PURE__ */ jsx47(Typography28, { variant: "subtitle1", component: "h3", className: "config-form-section__title", sx: { fontWeight: 700, letterSpacing: -0.2, color: c.text }, children: title })
               ] }),
-              actions ? /* @__PURE__ */ jsx49(Stack27, { direction: "row", spacing: 0.5, alignItems: "center", flexShrink: 0, className: "config-form-section__actions", sx: { ml: "auto" }, children: actions }) : null
+              actions ? /* @__PURE__ */ jsx47(Stack26, { direction: "row", spacing: 0.5, alignItems: "center", flexShrink: 0, className: "config-form-section__actions", sx: { ml: "auto" }, children: actions }) : null
             ] })
           }
         ) : null,
-        /* @__PURE__ */ jsxs42(Box34, { className: "isa-glass-section__body config-form-section__content", sx: { pt: 1.75, pb: 2.25, px: { xs: 2, sm: 2.5 }, color: c.text }, children: [
-          description ? /* @__PURE__ */ jsx49(Typography31, { variant: "body2", color: "text.secondary", className: "config-form-section__desc", children: description }) : null,
-          chips?.length ? /* @__PURE__ */ jsx49(Stack27, { direction: "row", spacing: 1, flexWrap: "wrap", useFlexGap: true, className: "config-form-section__chips", sx: { mb: 1.15 }, children: chips }) : null,
-          /* @__PURE__ */ jsx49(Box34, { className: "config-form-section__body", children }),
+        /* @__PURE__ */ jsxs40(Box33, { className: "isa-glass-section__body config-form-section__content", sx: { pt: 1.75, pb: 2.25, px: { xs: 2, sm: 2.5 }, color: c.text }, children: [
+          description ? /* @__PURE__ */ jsx47(Typography28, { variant: "body2", color: "text.secondary", className: "config-form-section__desc", children: description }) : null,
+          chips?.length ? /* @__PURE__ */ jsx47(Stack26, { direction: "row", spacing: 1, flexWrap: "wrap", useFlexGap: true, className: "config-form-section__chips", sx: { mb: 1.15 }, children: chips }) : null,
+          /* @__PURE__ */ jsx47(Box33, { className: "config-form-section__body", children }),
           footer
         ] })
       ]
@@ -19219,9 +19749,9 @@ function ConfigFormSection({ icon, title, description, chips, actions, footer, c
   );
 }
 function OpenAiJsonModal({ open, initial: initial2, readOnly, modelOptions, onClose, onApply }) {
-  const [json, setJson] = useState35(initial2);
-  const [errors, setErrors] = useState35([]);
-  useEffect30(() => {
+  const [json, setJson] = useState34(initial2);
+  const [errors, setErrors] = useState34([]);
+  useEffect31(() => {
     if (open) {
       setJson(initial2);
       setErrors([]);
@@ -19239,7 +19769,7 @@ function OpenAiJsonModal({ open, initial: initial2, readOnly, modelOptions, onCl
     onClose();
   }
   const canApply = parseAndValidateJsonText(json, { modelOptions }).ok;
-  return /* @__PURE__ */ jsxs42(
+  return /* @__PURE__ */ jsxs40(
     GlassDialog,
     {
       open,
@@ -19247,42 +19777,32 @@ function OpenAiJsonModal({ open, initial: initial2, readOnly, modelOptions, onCl
       maxWidth: "md",
       fullWidth: true,
       paperMaxWidth: 720,
-      header: /* @__PURE__ */ jsx49(GlassDialogHeader, { icon: "mdi:code-json", title: "OpenAI \u2014 JSON", accent: "#6366f1", onClose }),
+      header: /* @__PURE__ */ jsx47(GlassDialogHeader, { icon: "mdi:code-json", title: "OpenAI \u2014 JSON", accent: "#6366f1", onClose }),
       children: [
-        /* @__PURE__ */ jsxs42(DialogContent15, { dividers: true, sx: glassDialogContentSx({ p: 0, minHeight: 320 }), children: [
-          errors.length ? /* @__PURE__ */ jsx49(Alert19, { severity: "warning", sx: { m: 1.5, mb: 0 }, children: /* @__PURE__ */ jsx49(Stack27, { component: "ul", spacing: 0.25, sx: { m: 0, pl: 2 }, children: errors.map((e) => /* @__PURE__ */ jsx49("li", { children: /* @__PURE__ */ jsx49(Typography31, { variant: "body2", children: e }) }, e)) }) }) : null,
-          /* @__PURE__ */ jsx49(Box34, { className: "permisos-json-modal-editor config-openai-json-modal", sx: { minHeight: 280, p: 1 }, children: /* @__PURE__ */ jsx49(JsonCodeEditor, { value: json, onChange: readOnly ? void 0 : (v) => {
+        /* @__PURE__ */ jsxs40(DialogContent15, { dividers: true, sx: glassDialogContentSx({ p: 0, minHeight: 320 }), children: [
+          errors.length ? /* @__PURE__ */ jsx47(Alert18, { severity: "warning", sx: { m: 1.5, mb: 0 }, children: /* @__PURE__ */ jsx47(Stack26, { component: "ul", spacing: 0.25, sx: { m: 0, pl: 2 }, children: errors.map((e) => /* @__PURE__ */ jsx47("li", { children: /* @__PURE__ */ jsx47(Typography28, { variant: "body2", children: e }) }, e)) }) }) : null,
+          /* @__PURE__ */ jsx47(Box33, { className: "permisos-json-modal-editor config-openai-json-modal", sx: { minHeight: 280, p: 1 }, children: /* @__PURE__ */ jsx47(JsonCodeEditor, { value: json, onChange: readOnly ? void 0 : (v) => {
             setJson(v);
             validateNow(v);
           }, readOnly, placeholder: "{}", fullPageTitle: "openai" }) })
         ] }),
-        /* @__PURE__ */ jsxs42(DialogActions13, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx49(Button24, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600 }, children: readOnly ? "Cerrar" : "Cancelar" }),
-          !readOnly && onApply ? /* @__PURE__ */ jsx49(Button24, { variant: "contained", onClick: apply, disabled: !canApply, sx: { textTransform: "none", fontWeight: 600 }, children: "Aplicar JSON" }) : null
+        /* @__PURE__ */ jsxs40(DialogActions13, { sx: glassDialogActionsSx(), children: [
+          /* @__PURE__ */ jsx47(Button21, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600 }, children: readOnly ? "Cerrar" : "Cancelar" }),
+          !readOnly && onApply ? /* @__PURE__ */ jsx47(Button21, { variant: "contained", onClick: apply, disabled: !canApply, sx: { textTransform: "none", fontWeight: 600 }, children: "Aplicar JSON" }) : null
         ] })
       ]
     }
   );
 }
-function ConfigTool({ onNeedLogin }) {
-  const [tab, setTab] = useState35(() => readConfigToolTab());
-  useEffect30(() => {
-    writeConfigToolTab(tab);
-  }, [tab]);
-  return /* @__PURE__ */ jsx49("div", { className: "tool-grid tool-grid-config isa-tool-surface", children: /* @__PURE__ */ jsxs42(Paper4, { className: "tool-panel scroll-panel config-tool-panel", elevation: 0, children: [
-    /* @__PURE__ */ jsx49("div", { className: "panel-head config-tool-head", children: /* @__PURE__ */ jsxs42(Tabs4, { value: tab, onChange: (_e, v) => setTab(v), variant: "scrollable", scrollButtons: "auto", className: "config-tool-tabs", children: [
-      /* @__PURE__ */ jsx49(Tab4, { value: "sistema", label: "Sistema", icon: /* @__PURE__ */ jsx49(Icon23, { icon: "mdi:tune-vertical", size: 14 }), iconPosition: "start" }),
-      /* @__PURE__ */ jsx49(Tab4, { value: "permisos", label: "Permisos", icon: /* @__PURE__ */ jsx49(Icon23, { icon: "mdi:shield-key-outline", size: 14 }), iconPosition: "start" })
-    ] }) }),
-    tab === "permisos" ? /* @__PURE__ */ jsx49("div", { className: "panel-body config-panel-body config-panel-body--permisos custom-scrollbar", children: /* @__PURE__ */ jsx49(PermisosPanel, { onNeedLogin }) }) : /* @__PURE__ */ jsx49(SistemaConfigBody, { onNeedLogin })
-  ] }) });
+function ConfigTool({ onNeedLogin, pane = "sistema" }) {
+  return /* @__PURE__ */ jsx47("div", { className: "tool-grid tool-grid-config isa-tool-surface", children: /* @__PURE__ */ jsx47(Paper5, { className: "tool-panel scroll-panel config-tool-panel", elevation: 0, children: pane === "permisos" ? /* @__PURE__ */ jsx47("div", { className: "panel-body config-panel-body config-panel-body--permisos custom-scrollbar", children: /* @__PURE__ */ jsx47(PermisosPanel, { onNeedLogin }) }) : /* @__PURE__ */ jsx47(SistemaConfigBody, { onNeedLogin }) }) });
 }
 function SistemaConfigBody({ onNeedLogin }) {
-  const [openAiModels, setOpenAiModels] = useState35(() => ({ modeloOperativo: buildDefaults().modeloOperativo, modeloConversacion: buildDefaults().modeloConversacion }));
-  return /* @__PURE__ */ jsx49("div", { className: "panel-body config-panel-body custom-scrollbar", children: /* @__PURE__ */ jsxs42(Box34, { className: "config-panel-inner config-panel-inner--form config-sections-stack", children: [
-    /* @__PURE__ */ jsx49(OpenAiSection, { onNeedLogin, onModelsChange: setOpenAiModels }),
-    /* @__PURE__ */ jsx49(Divider8, { className: "config-form-divider", role: "separator", "aria-hidden": "true" }),
-    /* @__PURE__ */ jsx49(
+  const [openAiModels, setOpenAiModels] = useState34(() => ({ modeloOperativo: buildDefaults().modeloOperativo, modeloConversacion: buildDefaults().modeloConversacion }));
+  return /* @__PURE__ */ jsx47("div", { className: "panel-body config-panel-body custom-scrollbar", children: /* @__PURE__ */ jsxs40(Box33, { className: "config-panel-inner config-panel-inner--form config-sections-stack", children: [
+    /* @__PURE__ */ jsx47(OpenAiSection, { onNeedLogin, onModelsChange: setOpenAiModels }),
+    /* @__PURE__ */ jsx47(Divider7, { className: "config-form-divider", role: "separator", "aria-hidden": "true" }),
+    /* @__PURE__ */ jsx47(
       ConfigPromptsOperativosPanel,
       {
         onNeedLogin,
@@ -19294,23 +19814,23 @@ function SistemaConfigBody({ onNeedLogin }) {
   ] }) });
 }
 function OpenAiSection({ onNeedLogin, onModelsChange }) {
-  const [loading, setLoading] = useState35(true);
-  const [canEdit, setCanEdit] = useState35(false);
-  const [jsonOpen, setJsonOpen] = useState35(false);
-  const [config, setConfig] = useState35(buildDefaults);
-  const [saved, setSaved] = useState35(buildDefaults);
+  const [loading, setLoading] = useState34(true);
+  const [canEdit, setCanEdit] = useState34(false);
+  const [jsonOpen, setJsonOpen] = useState34(false);
+  const [config, setConfig] = useState34(buildDefaults);
+  const [saved, setSaved] = useState34(buildDefaults);
   const savedRef = useRef17(saved);
   savedRef.current = saved;
   const { saveGenRef, beginSave, endSave, fieldDisabled } = useConfigFieldPersist();
   const modelOptions = useMemo21(() => modelSelectOptions(config.modeloOperativo, config.modeloConversacion), [config]);
-  const load = useCallback17(async () => {
+  const load = useCallback16(async () => {
     setLoading(true);
     try {
       const cfg = await fetchOpenAiSystemConfig();
       const next = { ...buildDefaults(), ...cfg };
       setConfig(next);
       setSaved(next);
-      setCanEdit(!!cfg.canEdit);
+      setCanEdit(isViewingAsRole() ? canEditOpenAiConfig() : !!cfg.canEdit);
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
@@ -19318,15 +19838,19 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       setLoading(false);
     }
   }, [onModelsChange]);
-  useEffect30(() => {
+  useEffect31(() => {
     load();
   }, [load]);
-  useEffect30(() => {
+  useEffect31(() => {
     const onAuth = () => {
       load();
     };
     window.addEventListener(Session.EVENT, onAuth);
-    return () => window.removeEventListener(Session.EVENT, onAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onAuth);
+    return () => {
+      window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onAuth);
+    };
   }, [load]);
   async function persist(snapshot, gen, fields) {
     if (!requireAppSession(onNeedLogin)) {
@@ -19371,42 +19895,46 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
     onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     void persist(next, beginSave(fields), fields);
   }
-  return /* @__PURE__ */ jsxs42(
+  return /* @__PURE__ */ jsxs40(
     ConfigFormSection,
     {
       className: "config-form-section--openai",
-      icon: /* @__PURE__ */ jsx49(Icon23, { icon: "mdi:brain", size: 20 }),
+      icon: /* @__PURE__ */ jsx47(Icon22, { icon: "mdi:brain", size: 20 }),
       title: "OpenAI",
-      description: "Modelos por defecto y fragmentos de b\xFAsqueda en archivos.",
-      actions: /* @__PURE__ */ jsxs42(Fragment19, { children: [
-        /* @__PURE__ */ jsx49(ButtonIconify, { icon: "mdi:code-json", title: "JSON", onClick: () => setJsonOpen(true) }),
-        /* @__PURE__ */ jsx49(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, busy: loading })
+      actions: /* @__PURE__ */ jsxs40(Fragment16, { children: [
+        /* @__PURE__ */ jsx47(ButtonIconify, { icon: "mdi:code-json", title: "JSON", onClick: () => setJsonOpen(true) }),
+        /* @__PURE__ */ jsx47(ButtonIconify, { icon: "mdi:refresh", title: "Recargar", onClick: load, busy: loading })
       ] }),
       children: [
-        /* @__PURE__ */ jsxs42(Box34, { className: "config-openai-fields-row", sx: { display: "grid", gridTemplateColumns: "minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px", gap: "1rem 1.25rem", alignItems: "start", width: "100%", maxWidth: 640, mt: 0.5 }, children: [
-          /* @__PURE__ */ jsxs42(FormControl8, { size: "small", className: "config-openai-fields-row__cell", disabled: fieldDisabled(canEdit, "modeloOperativo"), children: [
-            /* @__PURE__ */ jsx49(InputLabel5, { id: "config-openai-operativo-label", shrink: true, children: "Operativo" }),
-            /* @__PURE__ */ jsx49(Select8, { labelId: "config-openai-operativo-label", label: "Operativo", value: config.modeloOperativo, onChange: (e) => patch({ modeloOperativo: e.target.value }), children: modelOptions.map((id) => /* @__PURE__ */ jsx49(MenuItem8, { value: id, children: id }, id)) })
+        /* @__PURE__ */ jsxs40(Box33, { className: "config-openai-fields-row", sx: { display: "grid", gridTemplateColumns: "minmax(170px, 1.2fr) minmax(190px, 1.3fr) minmax(120px, 0.85fr)", gap: "0.65rem 0.85rem", alignItems: "start", width: "100%", maxWidth: 720, mt: 0.25 }, children: [
+          /* @__PURE__ */ jsxs40(FormControl8, { size: "small", className: "config-openai-fields-row__cell", disabled: fieldDisabled(canEdit, "modeloOperativo"), children: [
+            /* @__PURE__ */ jsx47(InputLabel5, { id: "config-openai-operativo-label", shrink: true, children: "Operativo" }),
+            /* @__PURE__ */ jsx47(Select8, { labelId: "config-openai-operativo-label", label: "Operativo", value: config.modeloOperativo, onChange: (e) => patch({ modeloOperativo: e.target.value }), children: modelOptions.map((id) => /* @__PURE__ */ jsx47(MenuItem8, { value: id, children: id }, id)) }),
+            /* @__PURE__ */ jsx47(Typography28, { component: "span", variant: "caption", className: "config-openai-fields-row__prop", children: "modeloOperativo" })
           ] }),
-          /* @__PURE__ */ jsxs42(FormControl8, { size: "small", className: "config-openai-fields-row__cell", disabled: fieldDisabled(canEdit, "modeloConversacion"), children: [
-            /* @__PURE__ */ jsx49(InputLabel5, { id: "config-openai-conversacion-label", shrink: true, children: "Conversaci\xF3n" }),
-            /* @__PURE__ */ jsx49(Select8, { labelId: "config-openai-conversacion-label", label: "Conversaci\xF3n", value: config.modeloConversacion, onChange: (e) => patch({ modeloConversacion: e.target.value }), children: modelOptions.map((id) => /* @__PURE__ */ jsx49(MenuItem8, { value: id, children: id }, id)) })
+          /* @__PURE__ */ jsxs40(FormControl8, { size: "small", className: "config-openai-fields-row__cell", disabled: fieldDisabled(canEdit, "modeloConversacion"), children: [
+            /* @__PURE__ */ jsx47(InputLabel5, { id: "config-openai-conversacion-label", shrink: true, children: "Conversaci\xF3n" }),
+            /* @__PURE__ */ jsx47(Select8, { labelId: "config-openai-conversacion-label", label: "Conversaci\xF3n", value: config.modeloConversacion, onChange: (e) => patch({ modeloConversacion: e.target.value }), children: modelOptions.map((id) => /* @__PURE__ */ jsx47(MenuItem8, { value: id, children: id }, id)) }),
+            /* @__PURE__ */ jsx47(Typography28, { component: "span", variant: "caption", className: "config-openai-fields-row__prop", children: "modeloConversacion" })
           ] }),
-          /* @__PURE__ */ jsx49(Box34, { className: "config-openai-fields-row__cell config-openai-fields-row__fragments", children: /* @__PURE__ */ jsx49(Tooltip17, { title: "Fragmentos de documentaci\xF3n usados por consulta (3\u201350)", placement: "top", children: /* @__PURE__ */ jsx49(
-            TextField20,
+          /* @__PURE__ */ jsx47(Box33, { className: "config-openai-fields-row__cell config-openai-fields-row__fragments", children: /* @__PURE__ */ jsx47(Tooltip15, { title: "M\xE1ximo de fragmentos de documentaci\xF3n por consulta file_search (3\u201350)", placement: "top", children: /* @__PURE__ */ jsx47(
+            TextField18,
             {
-              label: "Fragmentos",
+              label: "M\xE1x. resultados",
               type: "number",
               size: "small",
               fullWidth: true,
               value: config.max_num_results,
               disabled: fieldDisabled(canEdit, "max_num_results"),
               onChange: (e) => patch({ max_num_results: Math.round(Number(e.target.value)) || buildDefaults().max_num_results }),
-              slotProps: { htmlInput: { min: 3, max: 50, step: 1 } }
+              helperText: "max_num_results",
+              FormHelperTextProps: { className: "config-openai-fields-row__prop" },
+              InputLabelProps: { shrink: true },
+              slotProps: { htmlInput: { min: 3, max: 50, step: 1 }, inputLabel: { shrink: true } }
             }
           ) }) })
         ] }),
-        /* @__PURE__ */ jsx49(
+        /* @__PURE__ */ jsx47(
           OpenAiJsonModal,
           {
             open: jsonOpen,
@@ -19426,47 +19954,203 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
 }
 
 // js/app/App.jsx
-import { Fragment as Fragment20, jsx as jsx50, jsxs as jsxs43 } from "react/jsx-runtime";
+init_IssTargetSwitch();
+
+// js/components/ViewAsRoleControl.jsx
+init_platform();
+init_sessionApi();
+import { jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
+var { useState: useState35, useEffect: useEffect32 } = getReact();
+var { Box: Box34, Select: Select9, MenuItem: MenuItem9, IconButton: IconButton14 } = getMaterialUI();
+var { Icon: Icon25 } = UI;
+function useViewAsTick() {
+  const [tick, setTick] = useState35(0);
+  useEffect32(() => {
+    function refresh() {
+      setTick((n) => n + 1);
+    }
+    window.addEventListener("patyia-apptools:caps-changed", refresh);
+    window.addEventListener(VIEW_AS_ROLE_EVENT, refresh);
+    window.addEventListener("isa-patyia:auth", refresh);
+    return () => {
+      window.removeEventListener("patyia-apptools:caps-changed", refresh);
+      window.removeEventListener(VIEW_AS_ROLE_EVENT, refresh);
+      window.removeEventListener("isa-patyia:auth", refresh);
+    };
+  }, []);
+  void tick;
+}
+var MENU_ITEM_SX = {
+  cursor: "default",
+  width: "100%",
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  pl: 2,
+  pr: 1.5,
+  py: 0,
+  minHeight: 36,
+  overflow: "hidden",
+  display: "flex",
+  alignItems: "center",
+  "&:hover": { bgcolor: "transparent" },
+  "& > .MuiBox-root": { width: "100%", maxWidth: "100%" }
+};
+function roleOptionLabel(label, id) {
+  return `${label} (${id})`;
+}
+function ViewAsRoleMenu({ onPicked } = {}) {
+  useViewAsTick();
+  if (!isLoggedIn() || !canViewAsRole()) return null;
+  const viewAs = getViewAsRole();
+  const isSimulating = !!viewAs;
+  const value = viewAs || "";
+  const realLabel = resolveDisplayRole() || "Dev";
+  const primaryId = resolvePrimaryIssRoleId() || "dev";
+  const accent = isSimulating ? "text.secondary" : "primary.main";
+  function onChange(e) {
+    const roleId = String(e.target.value || "");
+    if (!roleId) stopViewAsRole();
+    else setViewAsRole(roleId);
+    onPicked?.();
+  }
+  function onReset(e) {
+    e.stopPropagation();
+    stopViewAsRole();
+    onPicked?.();
+  }
+  return /* @__PURE__ */ jsx48(
+    MenuItem9,
+    {
+      disableRipple: true,
+      sx: MENU_ITEM_SX,
+      onClick: (e) => e.stopPropagation(),
+      title: "Solo roles dev. Simula otro rol en la UI (solo puede quitar accesos; nunca a\xF1ade los que tu login no tiene).",
+      children: /* @__PURE__ */ jsxs41(Box34, { sx: { display: "flex", alignItems: "center", gap: 0.75, width: "100%", minHeight: 36 }, children: [
+        isSimulating ? /* @__PURE__ */ jsx48(
+          IconButton14,
+          {
+            size: "small",
+            onClick: onReset,
+            "aria-label": "Restaurar rol original",
+            title: "Restaurar rol original",
+            sx: { p: 0.25, color: accent },
+            children: /* @__PURE__ */ jsx48(Icon25, { icon: "mdi:restart", size: 18 })
+          }
+        ) : /* @__PURE__ */ jsx48(Icon25, { icon: "mdi:account-eye-outline", size: 18, style: { color: "inherit", opacity: 0.85 } }),
+        /* @__PURE__ */ jsxs41(
+          Select9,
+          {
+            value,
+            displayEmpty: true,
+            disableUnderline: true,
+            onChange,
+            size: "small",
+            variant: "standard",
+            fullWidth: true,
+            sx: {
+              fontSize: 14,
+              minWidth: 0,
+              color: accent,
+              "& .MuiSelect-select": {
+                py: 0.25,
+                color: accent,
+                fontWeight: isSimulating ? 500 : 600
+              },
+              "& .MuiSvgIcon-root": { color: accent }
+            },
+            renderValue: (v) => v ? roleOptionLabel(formatViewAsRoleLabel(v), v) : roleOptionLabel(realLabel, primaryId),
+            children: [
+              /* @__PURE__ */ jsx48(MenuItem9, { value: "", children: roleOptionLabel(realLabel, primaryId) }),
+              VIEW_AS_ROLE_OPTIONS.map((opt) => /* @__PURE__ */ jsx48(MenuItem9, { value: opt.id, children: roleOptionLabel(opt.label, opt.id) }, opt.id))
+            ]
+          }
+        )
+      ] })
+    }
+  );
+}
+
+// js/app/App.jsx
+init_sessionApi();
+import { Fragment as Fragment17, jsx as jsx49, jsxs as jsxs42 } from "react/jsx-runtime";
+(function registerViewAsRoleMenu() {
+  const ui = window.ISA?.UI;
+  if (!ui) return;
+  ui.ViewAsRoleMenu = ViewAsRoleMenu;
+  try {
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+})();
+var { Stack: Stack27 } = getMaterialUI();
 var BRAND_HOME_EVENT = "isa:brand-home";
 var DEVFLOW_NAV_ENABLED = false;
 var ALL_TOOLS = [
-  { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline", cap: "canViewLogs" },
-  { id: "prompts", label: "Prompts", icon: "mdi:database-export", cap: "canViewPrompts" },
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline", cap: "canViewChat" },
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column", cap: null, devflow: true },
-  { id: "config", label: "Config", icon: "mdi:cog-outline", cap: "canViewConfig" }
+  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
+  { id: "todos", label: "DevFlow", icon: "mdi:view-column", devflow: true },
+  { id: "config", label: "Config", icon: "mdi:cog-outline" }
+];
+var CHAT_PANES = [
+  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
+  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" }
+];
+var CONFIG_PANES = [
+  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
+  { id: "sistema", label: "Sistema", icon: "mdi:tune-vertical" },
+  { id: "permisos", label: "Permisos", icon: "mdi:shield-key-outline" }
 ];
 var PUBLIC_SCRUM_TOOLS = [
   { id: "todos", label: "DevFlow", icon: "mdi:view-column" }
 ];
+function navTabs(tabs) {
+  return tabs.map(({ id, label, icon }) => ({ id, label, icon }));
+}
 function isPublicScrumBoot(todos) {
   return !!String(todos?.publicSlug ?? "").trim();
 }
+function readChatPane(boot) {
+  const pane = boot?.chat?.pane;
+  if (pane === "logs" || pane === "conv") return pane;
+  return "conv";
+}
+function readConfigPane(boot) {
+  const pane = boot?.config?.pane;
+  if (pane === "permisos" || pane === "prompts" || pane === "sistema") return pane;
+  return "sistema";
+}
+function LocalIssBadge() {
+  return /* @__PURE__ */ jsx49(IssTargetChip, {});
+}
 function App() {
-  const { useState: useState36, useEffect: useEffect31 } = getReact();
+  const { useState: useState36, useEffect: useEffect33, useMemo: useMemo22 } = getReact();
   const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState36(boot);
-  const [tool, setTool] = useState36(() => boot.tool || "log");
+  const [tool, setTool] = useState36(() => boot.tool || "chat");
+  const [chatPane, setChatPane] = useState36(() => readChatPane(boot));
+  const [configPane, setConfigPane] = useState36(() => readConfigPane(boot));
   const [authOpen, setAuthOpen] = useState36(false);
   const [authTick, setAuthTick] = useState36(0);
   const [homeTick, setHomeTick] = useState36(0);
   const publicScrumView = isPublicScrumBoot(appBoot.todos);
-  useEffect31(() => {
+  useEffect33(() => {
     Assets.ensureMarked().catch(() => {
     });
   }, []);
-  useEffect31(() => {
+  useEffect33(() => {
     return subscribe(() => {
-      const t = getSnapshot().tool || "log";
-      setTool(t);
+      const snap = getSnapshot();
+      setAppBoot(snap);
+      setTool(snap.tool || "chat");
+      setChatPane(readChatPane(snap));
+      setConfigPane(readConfigPane(snap));
     });
   }, []);
-  useEffect31(() => {
-    if (tool === "chat" || tool === "log") Assets.ensureChatStagingCss();
+  useEffect33(() => {
+    if (tool === "chat") Assets.ensureChatStagingCss();
     if (tool === "todos" || publicScrumView) Assets.ensureTodosCss();
   }, [tool, publicScrumView]);
-  useEffect31(() => {
+  useEffect33(() => {
     if (publicScrumView) {
       document.documentElement.classList.add("paty-public-scrum");
     } else {
@@ -19474,35 +20158,26 @@ function App() {
     }
     return () => document.documentElement.classList.remove("paty-public-scrum");
   }, [publicScrumView]);
-  useEffect31(() => {
+  useEffect33(() => {
     if (publicScrumView && tool !== "todos") {
       setTool("todos");
     }
   }, [publicScrumView, tool]);
-  const visibleToolTabs = ALL_TOOLS.filter((t) => {
+  const toolTabs = useMemo22(() => navTabs(ALL_TOOLS.filter((t) => {
     if (t.devflow) return DEVFLOW_NAV_ENABLED;
     if (publicScrumView) return false;
     return true;
-  });
-  useEffect31(() => {
+  })), [publicScrumView]);
+  const chatPanes = useMemo22(() => navTabs(CHAT_PANES), []);
+  const configPanes = useMemo22(() => navTabs(CONFIG_PANES), []);
+  useEffect33(() => {
     if (publicScrumView) return;
     if (!DEVFLOW_NAV_ENABLED && tool === "todos") {
-      const fallback = visibleToolTabs[0]?.id || "log";
-      setTool(fallback);
-      mergePartial({ tool: fallback });
+      setTool("chat");
+      mergePartial({ tool: "chat" });
     }
   }, [publicScrumView, tool, authTick]);
-  useEffect31(() => {
-    if (publicScrumView) return;
-    if (!visibleToolTabs.length) return;
-    const stillVisible = visibleToolTabs.some((t) => t.id === tool);
-    if (!stillVisible) {
-      const fallback = visibleToolTabs[0].id;
-      setTool(fallback);
-      mergePartial({ tool: fallback });
-    }
-  }, [publicScrumView, tool, authTick]);
-  useEffect31(() => {
+  useEffect33(() => {
     let alive = true;
     function onAuth() {
       if (!alive) return;
@@ -19520,10 +20195,11 @@ function App() {
       window.removeEventListener("patyia-apptools:caps-changed", onAuth);
     };
   }, []);
-  useEffect31(() => {
+  useEffect33(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
-      setTool("log");
+      setTool("chat");
+      setChatPane("conv");
       setHomeTick((n) => n + 1);
     }
     window.addEventListener(BRAND_HOME_EVENT, onBrandHome);
@@ -19531,22 +20207,70 @@ function App() {
   }, []);
   function selectTool(id) {
     setTool(id);
-    mergePartial({ tool: id });
+    if (id === "chat") {
+      mergePartial({ tool: id, chat: { pane: chatPane || "conv" } });
+    } else if (id === "config") {
+      mergePartial({ tool: id, config: { pane: configPane || "sistema" } });
+    } else {
+      mergePartial({ tool: id });
+    }
+  }
+  function selectChatPane(id) {
+    const pane = id === "logs" ? "logs" : "conv";
+    setChatPane(pane);
+    setTool("chat");
+    mergePartial({ tool: "chat", chat: { pane } });
+  }
+  function selectConfigPane(id) {
+    const pane = id === "permisos" ? "permisos" : id === "prompts" ? "prompts" : "sistema";
+    setConfigPane(pane);
+    setTool("config");
+    mergePartial({ tool: "config", config: { pane } });
+    try {
+      localStorage.setItem("isa-patyia:config-tab", pane);
+    } catch {
+    }
   }
   const Shell = window.ISAFront?.Layout?.AppShell;
   if (!Shell) throw new Error("AppShell no cargado \u2014 revisar loader.mjs");
-  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsx50(
-    LoginButton,
-    {
-      loginOpen: authOpen,
-      onLoginOpenChange: setAuthOpen,
-      onLoggedIn: () => {
-        setAuthTick((n) => n + 1);
-        window.dispatchEvent(new Event("isa-patyia:auth"));
+  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsxs42(Stack27, { direction: "row", spacing: 0.75, alignItems: "center", className: "header-session-wrap", children: [
+    /* @__PURE__ */ jsx49(LocalIssBadge, {}),
+    /* @__PURE__ */ jsx49(
+      LoginButton,
+      {
+        loginOpen: authOpen,
+        onLoginOpenChange: setAuthOpen,
+        onLoggedIn: () => {
+          setAuthTick((n) => n + 1);
+          window.dispatchEvent(new Event("isa-patyia:auth"));
+        }
       }
-    }
-  );
-  return /* @__PURE__ */ jsx50(
+    )
+  ] });
+  const navRows = publicScrumView ? [
+    { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) }
+  ] : [
+    { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
+    ...tool === "chat" ? [{
+      id: "chat-pane",
+      tier: "secondary",
+      compact: true,
+      value: chatPane,
+      onChange: selectChatPane,
+      tabs: chatPanes,
+      tabHref: (id) => hrefFor({ tool: "chat", chat: { pane: id } })
+    }] : [],
+    ...tool === "config" ? [{
+      id: "config-pane",
+      tier: "secondary",
+      compact: true,
+      value: configPane,
+      onChange: selectConfigPane,
+      tabs: configPanes,
+      tabHref: (id) => hrefFor({ tool: "config", config: { pane: id } })
+    }] : []
+  ];
+  return /* @__PURE__ */ jsx49(
     Shell,
     {
       ns: "ISA",
@@ -19555,17 +20279,13 @@ function App() {
       mobileBreakpoint: "xs",
       chromeless: publicScrumView,
       toolbarExtra: toolbarTools,
-      navRows: publicScrumView ? [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) }
-      ] : [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: visibleToolTabs, tabHref: (id) => hrefFor({ tool: id }) }
-      ],
-      children: publicScrumView ? /* @__PURE__ */ jsx50(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs43(Fragment20, { children: [
-        tool === "log" && /* @__PURE__ */ jsx50(LogViewer, { bootLog: appBoot.log || {} }, homeTick),
-        tool === "prompts" && /* @__PURE__ */ jsx50(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "chat" && /* @__PURE__ */ jsx50(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx50(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
-        tool === "config" && /* @__PURE__ */ jsx50(ConfigTool, { onNeedLogin: () => setAuthOpen(true) }, homeTick)
+      navRows,
+      children: publicScrumView ? /* @__PURE__ */ jsx49(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs42(Fragment17, { children: [
+        tool === "chat" && chatPane === "logs" && /* @__PURE__ */ jsx49(LogViewer, { bootLog: appBoot.log || getSnapshot().log || {} }, `logs-${homeTick}`),
+        tool === "chat" && chatPane !== "logs" && /* @__PURE__ */ jsx49(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx49(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
+        tool === "config" && configPane === "prompts" && /* @__PURE__ */ jsx49(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "config" && (configPane === "permisos" || configPane === "sistema") && /* @__PURE__ */ jsx49(ConfigTool, { pane: configPane, onNeedLogin: () => setAuthOpen(true) }, homeTick)
       ] })
     }
   );

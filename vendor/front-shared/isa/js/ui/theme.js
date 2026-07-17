@@ -46,10 +46,16 @@ export const dodgerComponentOverrides = {
   MuiButton: {
     styleOverrides: {
       root: { textTransform: "none" },
-      containedPrimary: {
-        boxShadow: "0 0 20px rgba(30,144,255,0.35)",
-        "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" },
-      },
+      containedPrimary: ({ theme }) =>
+        theme.palette.mode === "light"
+          ? {
+              boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
+              "&:hover": { boxShadow: "0 2px 6px rgba(15,23,42,0.12)" },
+            }
+          : {
+              boxShadow: "0 0 20px rgba(30,144,255,0.35)",
+              "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" },
+            },
     },
   },
   MuiTab: {
@@ -130,6 +136,11 @@ export const dodgerComponentOverrides = {
       root: { textTransform: "none" },
     },
   },
+  MuiTextField: { defaultProps: { size: "small", margin: "dense" } },
+  MuiFormControl: { defaultProps: { size: "small", margin: "dense" } },
+  MuiAutocomplete: { defaultProps: { size: "small" } },
+  MuiSelect: { defaultProps: { size: "small" } },
+  MuiInputBase: { defaultProps: { size: "small" } },
   MuiAppBar: {
     styleOverrides: {
       root: ({ theme }) =>

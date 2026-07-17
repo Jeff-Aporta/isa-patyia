@@ -1,1 +1,356 @@
-import{ensureIssLocalDefault as j}from"./patyia.js";const h=1;function v(n){if(!n||typeof n!="object")return{};const o={...n},t=Number(o.sidebarW);return Number.isFinite(t)&&t>0?o.sidebarW=Math.round(t):delete o.sidebarW,o}function k(){return{v:h,tool:"log",log:{},prompts:{},chat:{},todos:{},config:{}}}function R(n){return n==="prompts"?"prompts":n==="chat"?"chat":n==="todos"?"todos":n==="config"?"config":"log"}function x(n){const o=n&&typeof n=="object"?{...n}:{};return(o.mode==null||String(o.mode).trim()==="")&&o.jailbreak!=null?(o.mode=o.jailbreak===!0?"libre":"patyia",delete o.jailbreak):o.jailbreak!=null&&delete o.jailbreak,o}function I(n,o){if(!n||typeof n!="object")return k();const t=R(n.tool),e=x(n.chat),r=n.todos&&typeof n.todos=="object"?n.todos:{},i=n.config&&typeof n.config=="object"?n.config:{};return{v:n.v??h,tool:t,log:v(n.log),prompts:n.prompts&&typeof n.prompts=="object"?n.prompts:{},chat:e,todos:r,config:i}}function y(n){const o={...n},t=o.log;if(t){const r={...t};r.jsonInput&&String(r.jsonInput).length>4e3?o.log={convId:r.convId||"",...r.sidebarW!=null?{sidebarW:r.sidebarW}:{}}:o.log=r}const e=o.prompts;if(e?.bodies){const r={};let i=0;for(const[s,c]of Object.entries(e.bodies)){const l=String(c??"");if(i+l.length>6e3)break;r[s]=l,i+=l.length}o.prompts={...e,bodies:r}}return o}function P(n,o){const t=n.config&&typeof n.config=="object"?{...n.config}:{},e=o&&typeof o=="object"?o:{},r=t.permisos&&typeof t.permisos=="object"?{...t.permisos}:{},i=e.permisos&&typeof e.permisos=="object"?e.permisos:null;return{...t,...e,...i?{permisos:{...r,...i}}:{}}}function N(n,o){const t={...n.log,...o.log||{}};return"jsonInput"in t&&delete t.jsonInput,{...n,...o,log:t,prompts:{...n.prompts,...o.prompts||{}},chat:{...n.chat,...o.chat||{}},todos:{...n.todos,...o.todos||{}},config:P(n,o.config)}}const b="s";function w(){try{const n=new URL(location.href);if(!n.searchParams.has(b))return;n.searchParams.delete(b),history.replaceState(null,"",n)}catch{}}function L(){if(!(typeof window>"u"||!window.ISAFront?.b64urlEncode))try{const n=new URL(location.href);if(n.searchParams.has(b))return;const o=n.searchParams.get("tool"),t=[...n.searchParams.keys()].filter(s=>s==="tool"||s==="local"||s.includes("."));if(!t.length)return;const e={v:h,tool:R(o),log:{},prompts:{},chat:{},todos:{},config:{}};for(const[s,c]of n.searchParams.entries()){if(s==="tool"||s==="local")continue;const l=s.indexOf(".");if(l<0)continue;const u=s.slice(0,l),a=s.slice(l+1);if(u!=="log"&&u!=="prompts"&&u!=="chat"&&u!=="todos")continue;const f=e[u]||{};if(a==="convId"&&(u==="chat"||u==="log")){const g=Number(c);f.convId=Number.isFinite(g)&&g>0?g:String(c??"").trim()}else if(a==="mode")f.mode=String(c??"").trim().toLowerCase()||"patyia";else if(a==="jailbreak")f.mode=c==="1"||c==="true"?"libre":"patyia";else if(a==="boardId"||a==="milestoneId"||a==="taskId"){const g=Number(c);Number.isFinite(g)&&g>0&&(f[a]=g)}else f[a]=c;e[u]=f}t.forEach(s=>n.searchParams.delete(s));const r=y(e),i=JSON.stringify(r);i!=="{}"&&n.searchParams.set(b,window.ISAFront.b64urlEncode(i)),history.replaceState(null,"",n)}catch{}}L();const p=window.ISAFront.createUrlState({param:b,debounceMs:350,maxB64Len:12e3,historyKey:"patyAppState",initial:k,normalize:I,slimForUrl:y,merge:N,onInit(){j()},brandHomeReset(n){const o=n.reset();return w(),o}}),F=p.boot,d=p.getSnapshot,m=p.mergePartial,E=p.hrefFor,M=p.subscribe,W=p.PARAM;function C(){const n=p.reset();return w(),n}function U(n){const o=Math.round(Number(n));if(!Number.isFinite(o)||o<=0)return d();const t=d();return Number(t.log?.sidebarW)===o?t:m({log:{sidebarW:o}})}function z(n){const o=d(),t=n||"";return String(o.log?.convId??"")===t?o:m({log:{convId:t}})}function T(n){const o=d(),t=n!=null&&Number(n)>0?Number(n):null;return(Number(o.chat?.convId)||null)===t?o:m({tool:"chat",chat:{convId:t}})}function O(n){const o=d();return o.chat?.messageSource===n?o:m({tool:"chat",chat:{messageSource:n}})}function _(n){const o=String(n||"patyia").trim().toLowerCase()||"patyia",t=d();return String(t.chat?.mode||"patyia")===o?t:m({tool:"chat",chat:{mode:o}})}function S(n){const t=(n??d()).config?.permisos;return t&&typeof t=="object"?t:void 0}function B(){return S()?.hideEmpty===!0}function H(n){return S()?.hideEmpty===!0===n?d():m({tool:"config",config:{permisos:{hideEmpty:!!n}}})}export{W as PARAM,F as bootState,d as getSnapshot,E as hrefFor,m as mergePartial,T as persistChatConvId,O as persistChatMessageSource,_ as persistChatMode,z as persistLogMeta,U as persistLogSidebarWidth,H as persistPermisosHideEmpty,B as readPermisosHideEmptyFromUrl,C as resetUrlState,M as subscribe};
+// js/core/patyia.ts
+window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+var PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+var PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+var PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+var PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+var PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+var PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+function ensureIssLocalDefault() {
+  try {
+    if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null) return;
+    const def = isDevHost() ? "local" : "staging";
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, def);
+  } catch {
+  }
+}
+var AVATAR_BG_PALETTE = [
+  "1e90ff",
+  "0ea5e9",
+  "14b8a6",
+  "22c55e",
+  "84cc16",
+  "eab308",
+  "f97316",
+  "ef4444",
+  "ec4899",
+  "a855f7",
+  "6366f1",
+  "64748b"
+];
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+try {
+  window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+} catch {
+}
+
+// js/core/urlState.ts
+var STATE_VERSION = 1;
+function normalizeLog(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  const o = { ...raw };
+  const w = Number(o.sidebarW);
+  if (Number.isFinite(w) && w > 0) o.sidebarW = Math.round(w);
+  else delete o.sidebarW;
+  return o;
+}
+function initial() {
+  return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } };
+}
+function normalizeChatPane(raw) {
+  return raw === "logs" ? "logs" : "conv";
+}
+function normalizeConfigPane(raw) {
+  if (raw === "permisos") return "permisos";
+  if (raw === "prompts") return "prompts";
+  return "sistema";
+}
+function legacyConfigPaneFromLs() {
+  try {
+    const v = localStorage.getItem("isa-patyia:config-tab");
+    if (v === "permisos" || v === "prompts") return v;
+    return "sistema";
+  } catch {
+    return "sistema";
+  }
+}
+function normalizeTool(raw) {
+  if (raw === "log") return "chat";
+  if (raw === "prompts") return "config";
+  if (raw === "chat") return "chat";
+  if (raw === "todos") return "todos";
+  if (raw === "config") return "config";
+  return "chat";
+}
+function normalizeChatBag(chat, legacyTool) {
+  const bag = chat && typeof chat === "object" ? { ...chat } : {};
+  if ((bag.mode == null || String(bag.mode).trim() === "") && bag.jailbreak != null) {
+    bag.mode = bag.jailbreak === true ? "libre" : "patyia";
+    delete bag.jailbreak;
+  } else if (bag.jailbreak != null) {
+    delete bag.jailbreak;
+  }
+  if (legacyTool === "log") {
+    bag.pane = "logs";
+  } else {
+    bag.pane = normalizeChatPane(bag.pane);
+  }
+  return bag;
+}
+function normalizeConfigBag(config, legacyTool) {
+  const bag = config && typeof config === "object" ? { ...config } : {};
+  if (legacyTool === "prompts") {
+    bag.pane = "prompts";
+  } else if (bag.pane !== "sistema" && bag.pane !== "permisos" && bag.pane !== "prompts") {
+    bag.pane = legacyConfigPaneFromLs();
+  } else {
+    bag.pane = normalizeConfigPane(bag.pane);
+  }
+  return bag;
+}
+function normalize(raw, _prev) {
+  if (!raw || typeof raw !== "object") return initial();
+  const legacyTool = raw.tool;
+  const tool = normalizeTool(legacyTool);
+  const chat = normalizeChatBag(raw.chat, legacyTool);
+  const todos = raw.todos && typeof raw.todos === "object" ? raw.todos : {};
+  const config = normalizeConfigBag(raw.config, legacyTool);
+  return {
+    v: raw.v ?? STATE_VERSION,
+    tool,
+    log: normalizeLog(raw.log),
+    prompts: raw.prompts && typeof raw.prompts === "object" ? raw.prompts : {},
+    chat,
+    todos,
+    config
+  };
+}
+function slimForUrl(src) {
+  const slim = { ...src };
+  const log = slim.log;
+  if (log) {
+    const nextLog = { ...log };
+    if (nextLog.jsonInput && String(nextLog.jsonInput).length > 4e3) {
+      slim.log = {
+        convId: nextLog.convId || "",
+        ...nextLog.sidebarW != null ? { sidebarW: nextLog.sidebarW } : {}
+      };
+    } else {
+      slim.log = nextLog;
+    }
+  }
+  const prompts = slim.prompts;
+  if (prompts?.bodies) {
+    const bodies = {};
+    let total = 0;
+    for (const [k, v] of Object.entries(prompts.bodies)) {
+      const t = String(v ?? "");
+      if (total + t.length > 6e3) break;
+      bodies[k] = t;
+      total += t.length;
+    }
+    slim.prompts = { ...prompts, bodies };
+  }
+  return slim;
+}
+function mergeConfig(state, partial) {
+  const prev = state.config && typeof state.config === "object" ? { ...state.config } : {};
+  const next = partial && typeof partial === "object" ? partial : {};
+  const prevPermisos = prev.permisos && typeof prev.permisos === "object" ? { ...prev.permisos } : {};
+  const nextPermisos = next.permisos && typeof next.permisos === "object" ? next.permisos : null;
+  return {
+    ...prev,
+    ...next,
+    ...nextPermisos ? { permisos: { ...prevPermisos, ...nextPermisos } } : {}
+  };
+}
+function merge(state, partial) {
+  const nextLog = { ...state.log, ...partial.log || {} };
+  if ("jsonInput" in nextLog) delete nextLog.jsonInput;
+  return {
+    ...state,
+    ...partial,
+    log: nextLog,
+    prompts: {
+      ...state.prompts,
+      ...partial.prompts || {}
+    },
+    chat: {
+      ...state.chat,
+      ...partial.chat || {}
+    },
+    todos: {
+      ...state.todos,
+      ...partial.todos || {}
+    },
+    config: mergeConfig(state, partial.config)
+  };
+}
+var URL_STATE_PARAM = "s";
+function stripUrlStateParam() {
+  try {
+    const url = new URL(location.href);
+    if (!url.searchParams.has(URL_STATE_PARAM)) return;
+    url.searchParams.delete(URL_STATE_PARAM);
+    history.replaceState(null, "", url);
+  } catch {
+  }
+}
+function migrateLegacyFlatQuery() {
+  if (typeof window === "undefined" || !window.ISAFront?.b64urlEncode) return;
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.has(URL_STATE_PARAM)) return;
+    const tool = url.searchParams.get("tool");
+    const legacyKeys = [...url.searchParams.keys()].filter(
+      (k) => k === "tool" || k === "local" || k.includes(".")
+    );
+    if (!legacyKeys.length) return;
+    const next = {
+      v: STATE_VERSION,
+      tool: normalizeTool(tool),
+      log: {},
+      prompts: {},
+      chat: {},
+      todos: {},
+      config: {}
+    };
+    for (const [key, raw] of url.searchParams.entries()) {
+      if (key === "tool" || key === "local") continue;
+      const dot = key.indexOf(".");
+      if (dot < 0) continue;
+      const section = key.slice(0, dot);
+      const field = key.slice(dot + 1);
+      if (section !== "log" && section !== "prompts" && section !== "chat" && section !== "todos") continue;
+      const bag = next[section] || {};
+      if (field === "convId" && (section === "chat" || section === "log")) {
+        const n = Number(raw);
+        bag.convId = Number.isFinite(n) && n > 0 ? n : String(raw ?? "").trim();
+      } else if (field === "mode") {
+        bag.mode = String(raw ?? "").trim().toLowerCase() || "patyia";
+      } else if (field === "jailbreak") {
+        bag.mode = raw === "1" || raw === "true" ? "libre" : "patyia";
+      } else if (field === "boardId" || field === "milestoneId" || field === "taskId") {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) bag[field] = n;
+      } else {
+        bag[field] = raw;
+      }
+      next[section] = bag;
+    }
+    legacyKeys.forEach((k) => url.searchParams.delete(k));
+    const slim = slimForUrl(next);
+    const json = JSON.stringify(slim);
+    if (json !== "{}") url.searchParams.set(URL_STATE_PARAM, window.ISAFront.b64urlEncode(json));
+    history.replaceState(null, "", url);
+  } catch {
+  }
+}
+migrateLegacyFlatQuery();
+var urlState = window.ISAFront.createUrlState({
+  param: URL_STATE_PARAM,
+  debounceMs: 350,
+  maxB64Len: 12e3,
+  historyKey: "patyAppState",
+  initial,
+  normalize,
+  slimForUrl,
+  merge,
+  onInit() {
+    ensureIssLocalDefault();
+  },
+  brandHomeReset(api) {
+    const snap = api.reset();
+    stripUrlStateParam();
+    return snap;
+  }
+});
+var bootState = urlState.boot;
+var getSnapshot = urlState.getSnapshot;
+var mergePartial = urlState.mergePartial;
+var hrefFor = urlState.hrefFor;
+var subscribe = urlState.subscribe;
+var PARAM = urlState.PARAM;
+function resetUrlState() {
+  const snap = urlState.reset();
+  stripUrlStateParam();
+  return snap;
+}
+function persistLogSidebarWidth(width) {
+  const n = Math.round(Number(width));
+  if (!Number.isFinite(n) || n <= 0) return getSnapshot();
+  const snap = getSnapshot();
+  const prev = Number(snap.log?.sidebarW);
+  if (prev === n) return snap;
+  return mergePartial({ log: { sidebarW: n } });
+}
+function persistLogMeta(convId) {
+  const snap = getSnapshot();
+  const id = convId || "";
+  if (String(snap.log?.convId ?? "") === id) return snap;
+  return mergePartial({ log: { convId: id } });
+}
+function persistChatConvId(convId) {
+  const snap = getSnapshot();
+  const id = convId != null && Number(convId) > 0 ? Number(convId) : null;
+  const prev = Number(snap.chat?.convId) || null;
+  if (prev === id) return snap;
+  return mergePartial({ tool: "chat", chat: { convId: id } });
+}
+function persistChatMessageSource(source) {
+  const snap = getSnapshot();
+  const prev = snap.chat?.messageSource;
+  if (prev === source) return snap;
+  return mergePartial({ tool: "chat", chat: { messageSource: source } });
+}
+function persistChatMode(mode) {
+  const normalized = String(mode || "patyia").trim().toLowerCase() || "patyia";
+  const snap = getSnapshot();
+  const prev = String(snap.chat?.mode || "patyia");
+  if (prev === normalized) return snap;
+  return mergePartial({ tool: "chat", chat: { mode: normalized } });
+}
+function configPermisosBag(snap) {
+  const cfg = (snap ?? getSnapshot()).config;
+  const permisos = cfg?.permisos;
+  return permisos && typeof permisos === "object" ? permisos : void 0;
+}
+function readPermisosHideEmptyFromUrl(snap) {
+  return configPermisosBag(snap)?.hideEmpty !== false;
+}
+function persistPermisosHideEmpty(hide) {
+  const prev = readPermisosHideEmptyFromUrl();
+  if (prev === hide) return getSnapshot();
+  return mergePartial({ tool: "config", config: { permisos: { hideEmpty: !!hide } } });
+}
+export {
+  PARAM,
+  bootState,
+  getSnapshot,
+  hrefFor,
+  mergePartial,
+  persistChatConvId,
+  persistChatMessageSource,
+  persistChatMode,
+  persistLogMeta,
+  persistLogSidebarWidth,
+  persistPermisosHideEmpty,
+  readPermisosHideEmptyFromUrl,
+  resetUrlState,
+  subscribe
+};

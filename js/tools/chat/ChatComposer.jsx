@@ -3,9 +3,10 @@ import { PATYIA_API_BASE } from "../../core/patyia-jwt.ts";
 import { MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS } from "./constants.ts";
 import { ChatPayloadPreview } from "./ChatPayloadPreview.jsx";
 import { ImageLightboxDialog } from "../../ui/ImageLightboxDialog.jsx";
-import { isVoiceRecordingSupported } from "./audio.ts";
+import { isVoiceRecordingSupported, blobToPreviewUrl as blobToAudioPreviewUrl } from "./audio.ts";
+import { blobToPreviewUrl } from "./images.ts";
 
-const { useState } = getReact();
+const { useState, useMemo, useEffect } = getReact();
 const {
   Box, Button, IconButton, TextField, CircularProgress, Tooltip,
 } = getMaterialUI();
@@ -36,6 +37,20 @@ export function ChatComposer({
   const canRecord = isVoiceRecordingSupported();
   const hasContent = Boolean(draft.trim() || images.length || audios.length);
 
+  // Object URLs para preview local desde Blob (sin base64).
+  const imagePreviewUrls = useMemo(
+    () => images.map((img) => blobToPreviewUrl(img.blob)),
+    [images],
+  );
+  const audioPreviewUrls = useMemo(
+    () => audios.map((aud) => blobToAudioPreviewUrl(aud.blob)),
+    [audios],
+  );
+  useEffect(() => () => {
+    // Libera Object URLs al desmontar o cambiar adjuntos.
+    [...imagePreviewUrls, ...audioPreviewUrls].forEach((u) => { if (u) URL.revokeObjectURL(u); });
+  }, [imagePreviewUrls, audioPreviewUrls]);
+
   if (!canSend) return null;
 
   return (
@@ -48,37 +63,43 @@ export function ChatComposer({
       />
       {images.length > 0 && (
         <Box className="paty-chat-image-previews">
-          {images.map((img, idx) => (
-            <figure key={idx}>
-              <button
-                type="button"
-                className="paty-chat-image-previews__thumb-btn"
-                aria-label={`Ver ${img.name || "adjunto"} en tamaño completo`}
-                onClick={() => setLightboxSrc(img.dataUrl)}
-              >
-                <img
-                  src={img.dataUrl}
-                  alt={img.name || "adjunto"}
-                  onError={(e) => {
-                    e.currentTarget.classList.add("paty-chat-image-previews__img--broken");
-                    e.currentTarget.removeAttribute("src");
-                  }}
-                />
-              </button>
-              <button type="button" className="paty-chat-image-previews__remove" aria-label="Quitar" onClick={() => onRemoveImage(idx)}>×</button>
-            </figure>
-          ))}
+          {images.map((img, idx) => {
+            const previewSrc = img.uploadedUrl || imagePreviewUrls[idx] || "";
+            return (
+              <figure key={idx}>
+                <button
+                  type="button"
+                  className="paty-chat-image-previews__thumb-btn"
+                  aria-label={`Ver ${img.name || "adjunto"} en tamaño completo`}
+                  onClick={() => previewSrc && setLightboxSrc(previewSrc)}
+                >
+                  <img
+                    src={previewSrc}
+                    alt={img.name || "adjunto"}
+                    onError={(e) => {
+                      e.currentTarget.classList.add("paty-chat-image-previews__img--broken");
+                      e.currentTarget.removeAttribute("src");
+                    }}
+                  />
+                </button>
+                <button type="button" className="paty-chat-image-previews__remove" aria-label="Quitar" onClick={() => onRemoveImage(idx)}>×</button>
+              </figure>
+            );
+          })}
         </Box>
       )}
       {audios.length > 0 && (
         <Box className="paty-chat-audio-previews">
-          {audios.map((aud, idx) => (
-            <figure key={idx}>
-              <audio controls preload="metadata" src={aud.dataUrl} aria-label={aud.name || `Nota de voz ${idx + 1}`} />
-              <figcaption>{aud.name || `Nota ${idx + 1}`}</figcaption>
-              <button type="button" className="paty-chat-audio-previews__remove" aria-label="Quitar audio" onClick={() => onRemoveAudio(idx)}>×</button>
-            </figure>
-          ))}
+          {audios.map((aud, idx) => {
+            const previewSrc = aud.uploadedUrl || audioPreviewUrls[idx] || "";
+            return (
+              <figure key={idx}>
+                <audio controls preload="metadata" src={previewSrc} aria-label={aud.name || `Nota de voz ${idx + 1}`} />
+                <figcaption>{aud.name || `Nota ${idx + 1}`}</figcaption>
+                <button type="button" className="paty-chat-audio-previews__remove" aria-label="Quitar audio" onClick={() => onRemoveAudio(idx)}>×</button>
+              </figure>
+            );
+          })}
         </Box>
       )}
       <Box className="paty-chat-input-wrap">

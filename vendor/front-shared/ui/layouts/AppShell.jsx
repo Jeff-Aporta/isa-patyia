@@ -111,7 +111,8 @@
 
   function NavTabLabel(props) {
     const UI = props.UI || bagUi(props.ns);
-    const icon = props.locked ? "mdi:lock-outline" : props.icon;
+    // Keep section icon even when disabled — lock state via disabled UI, not icon swap.
+    const icon = props.icon;
     const size = props.iconSize != null ? props.iconSize : 18;
     return React.createElement(
       "span",
@@ -381,7 +382,7 @@
                     MUI.ListItemIcon,
                     { sx: { minWidth: 36 } },
                     React.createElement(UI.Icon, {
-                      icon: blocked ? "mdi:lock-outline" : t.icon,
+                      icon: t.icon,
                       size: 20,
                     }),
                   ),

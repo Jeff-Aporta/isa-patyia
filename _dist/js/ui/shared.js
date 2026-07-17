@@ -13,6 +13,92 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// js/core/patyia.ts
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+  }
+});
+
+// js/core/platform.ts
+function frontSharedLazy() {
+  const api = window.ISAFront;
+  return api?.ensureCodeMirrorLoaded ? api : null;
+}
+function mdToHtml(src) {
+  const api = frontSharedLazy();
+  if (api?.mdToHtml) return api.mdToHtml(src);
+  return String(src ?? "");
+}
+function lightboxApi() {
+  const api = window.ISAComponents?.LightboxZoom;
+  if (!api?.LightboxZoomDialog) {
+    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return api;
+}
+function CodeMirrorPanel(props) {
+  const Panel = window.ISAFront?.CodeMirrorPanel;
+  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  return Panel(props);
+}
+var bridge, UI, getReact, getMaterialUI, Lightbox;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+    Lightbox = {
+      get ImageLightboxDialog() {
+        return lightboxApi().LightboxZoomDialog;
+      },
+      get LightboxImage() {
+        return lightboxApi().LightboxZoomImage;
+      },
+      get useImageLightboxZoom() {
+        return lightboxApi().useLightboxZoom;
+      }
+    };
+  }
+});
+
 // js/boot/cdn.mjs
 var cdn_exports = {};
 __export(cdn_exports, {
@@ -28,12 +114,18 @@ __export(cdn_exports, {
   swaggerViewerBase: () => swaggerViewerBase
 });
 function useLocalMonorepoCdn() {
-  if (!isDevHost) return false;
+  if (!isDevHost2) return false;
   try {
     const q = new URLSearchParams(location.search);
     if (q.get("isa_cdn") === "remote") return false;
-    if (q.get("isa_cdn") === "local") return true;
-    return localStorage.getItem("isa-patyia:local-cdn") === "1";
+    if (q.get("isa_cdn") === "local" || q.get("isa_cdn") === "monorepo") return true;
+    try {
+      if (localStorage.getItem("isa-patyia:local-cdn") === "1") {
+        localStorage.removeItem("isa-patyia:local-cdn");
+      }
+    } catch {
+    }
+    return false;
   } catch {
     return false;
   }
@@ -48,8 +140,16 @@ function vendorCdnBase() {
 }
 function lightboxZoomBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost) {
-    return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+  if (isDevHost2) {
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") {
+      return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
+    }
+    if (q.get("isa_cdn") === "monorepo" || q.get("isa_cdn") === "local") {
+      return new URL("../../components/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    }
+    const sameOrigin = new URL("vendor/lightbox/cdn/", base).href.replace(/\/?$/, "/");
+    return sameOrigin;
   }
   return `https://cdn.jsdelivr.net/gh/Jeff-Aporta/lightbox-zoom@${LIGHTBOX_ZOOM_REF}/cdn/`;
 }
@@ -94,7 +194,14 @@ async function ensureLightboxZoom(base = lightboxZoomBase()) {
 }
 function swaggerViewerBase() {
   const base = document.querySelector("base")?.href || location.href;
-  if (isDevHost) {
+  if (isDevHost2) {
+    const q = new URLSearchParams(location.search);
+    if (q.get("isa_cdn") === "remote") {
+      return `${location.origin}/api/swagger/cdn/`;
+    }
+    if (q.get("isa_cdn") === "monorepo" || q.get("isa_cdn") === "local") {
+      return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
+    }
     return new URL("../../components/swagger/cdn/", base).href.replace(/\/?$/, "/");
   }
   return `${location.origin}/api/swagger/cdn/`;
@@ -126,89 +233,21 @@ async function ensureSwaggerViewer(base = swaggerViewerBase()) {
   }
   return globalThis.ISAComponents.Swagger;
 }
-var PIN, isDevHost, JSDELIVR_CDN, CDN, asset, LIGHTBOX_ZOOM_REF, SWAGGER_VIEWER_REF;
+var PIN, isDevHost2, JSDELIVR_CDN, CDN, asset, LIGHTBOX_ZOOM_REF, SWAGGER_VIEWER_REF;
 var init_cdn = __esm({
   "js/boot/cdn.mjs"() {
     PIN = "a13fc29";
-    isDevHost = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
+    isDevHost2 = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
     JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
-    CDN = isDevHost && useLocalMonorepoCdn() ? frontSharedCdnBase() : isDevHost ? JSDELIVR_CDN : vendorCdnBase();
-    asset = (p) => isDevHost ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`;
+    CDN = !isDevHost2 ? vendorCdnBase() : useLocalMonorepoCdn() ? frontSharedCdnBase() : typeof location !== "undefined" && new URLSearchParams(location.search).get("isa_cdn") === "remote" ? JSDELIVR_CDN : vendorCdnBase();
+    asset = (p) => isDevHost2 ? `${CDN}${p}` : `${CDN}${p}?v=${PIN}`;
     LIGHTBOX_ZOOM_REF = "4dd6595";
     SWAGGER_VIEWER_REF = "859035b";
   }
 });
 
-// js/core/patyia.ts
-window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
-var PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
-var PATYIA_BRIDGE_LOCAL = `${PATYIA_ISS_LOCAL}/api`;
-
-// js/core/platform.ts
-var bridge = () => window.ISAFront.createPlatformBridge("ISA");
-var UI = {
-  get Icon() {
-    return bridge().UI.Icon;
-  },
-  get TargetSwitch() {
-    return bridge().UI.TargetSwitch;
-  },
-  get ThemeSwitch() {
-    return bridge().UI.ThemeSwitch;
-  },
-  get useRealtimeStatus() {
-    return bridge().UI.useRealtimeStatus;
-  },
-  get RealtimeStatusDot() {
-    return bridge().UI.RealtimeStatusDot;
-  },
-  get Loading() {
-    return bridge().UI.Loading;
-  },
-  get ErrorBox() {
-    return bridge().UI.ErrorBox;
-  },
-  get LoginGate() {
-    return bridge().UI.LoginGate;
-  },
-  get LoginButton() {
-    return bridge().UI.LoginButton;
-  }
-};
-function frontSharedLazy() {
-  const api = window.ISAFront;
-  return api?.ensureCodeMirrorLoaded ? api : null;
-}
-function mdToHtml(src) {
-  const api = frontSharedLazy();
-  if (api?.mdToHtml) return api.mdToHtml(src);
-  return String(src ?? "");
-}
-var getReact = () => window.ISAFront.getReact();
-var getMaterialUI = () => window.ISAFront.getMaterialUI();
-function lightboxApi() {
-  const api = window.ISAComponents?.LightboxZoom;
-  if (!api?.LightboxZoomDialog) {
-    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
-  }
-  return api;
-}
-var Lightbox = {
-  get ImageLightboxDialog() {
-    return lightboxApi().LightboxZoomDialog;
-  },
-  get LightboxImage() {
-    return lightboxApi().LightboxZoomImage;
-  },
-  get useImageLightboxZoom() {
-    return lightboxApi().useLightboxZoom;
-  }
-};
-function CodeMirrorPanel(props) {
-  const Panel = window.ISAFront?.CodeMirrorPanel;
-  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
-  return Panel(props);
-}
+// js/ui/shared.jsx
+init_platform();
 
 // js/core/convLog.ts
 function tokensFromUsage(usage) {
@@ -271,6 +310,13 @@ function usageHasData(tokens, cost) {
   return (Number(tokens?.total ?? 0) || 0) > 0 || (Number(cost?.total_usd ?? 0) || 0) > 0;
 }
 
+// js/ui/shared.jsx
+init_platform();
+
+// js/ui/ImageLightboxDialog.jsx
+init_platform();
+init_platform();
+
 // js/core/lightboxBoot.ts
 function isLightboxZoomReady() {
   return Boolean(globalThis.ISAComponents?.LightboxZoom?.LightboxZoomDialog);
@@ -319,6 +365,7 @@ function ImageLightboxDialog(props) {
 }
 
 // js/ui/GlassDialog.jsx
+init_platform();
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function isaLoginSurface() {
   const fs = globalThis.ISAFront || {};
@@ -622,11 +669,6 @@ function chunksFromMeta(meta) {
   if (!out.length) return compactChunksFromMeta(meta);
   return out;
 }
-function chunkPreview(text, max = 360) {
-  const t = String(text ?? "").trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max).trimEnd()}\u2026`;
-}
 
 // js/ui/shared.jsx
 import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
@@ -876,8 +918,12 @@ function FileSearchMetaSection({ meta }) {
   const archivos = archivosCitadosFromMeta(meta);
   const chunks = useMemo2(() => chunksFromMeta(meta), [meta]);
   const vectorStores = useMemo2(() => vectorStoresFromMeta(meta), [meta]);
+  const [expandedKey, setExpandedKey] = useState3(null);
   const [openChunk, setOpenChunk] = useState3(null);
   if (!trace?.length && !archivos.length && !chunks.length && !vectorStores.length) return null;
+  function toggleChunk(key) {
+    setExpandedKey((prev) => prev === key ? null : key);
+  }
   return /* @__PURE__ */ jsxs2(Box2, { className: "meta-file-search", sx: { mt: 1.5 }, children: [
     vectorStores.length ? /* @__PURE__ */ jsxs2(Box2, { className: "meta-file-search__vector-stores", sx: { mb: 1.5 }, children: [
       /* @__PURE__ */ jsx3(Typography2, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "Vector stores consultados" }),
@@ -906,7 +952,7 @@ function FileSearchMetaSection({ meta }) {
       )) })
     ] }) : null,
     /* @__PURE__ */ jsx3(Typography2, { variant: "subtitle2", fontWeight: 700, sx: { mb: 0.75 }, children: "File Search (archivos citados)" }),
-    archivos.length ? /* @__PURE__ */ jsx3(Stack2, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, sx: { mb: chunks.length ? 1.25 : 0 }, children: archivos.map((name) => /* @__PURE__ */ jsx3(
+    archivos.length ? /* @__PURE__ */ jsx3(Stack2, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, sx: { mb: chunks.length ? 1 : 0 }, children: archivos.map((name) => /* @__PURE__ */ jsx3(
       Chip2,
       {
         size: "small",
@@ -917,63 +963,89 @@ function FileSearchMetaSection({ meta }) {
       },
       name
     )) }) : null,
-    chunks.length ? /* @__PURE__ */ jsx3(Stack2, { spacing: 0.85, className: "meta-file-search__chunk-list", children: chunks.map((c) => {
-      const preview = chunkPreview(c.text, 380);
+    chunks.length ? /* @__PURE__ */ jsx3(Stack2, { spacing: 0.5, className: "meta-file-search__chunk-list", children: chunks.map((c) => {
+      const expanded = expandedKey === c.key;
       const vsIdx = c.vectorStoreId ? vectorStoreIndexLabel(vectorStores, c.vectorStoreId) : null;
-      return /* @__PURE__ */ jsxs2(Box2, { className: "meta-file-search__chunk", children: [
-        /* @__PURE__ */ jsxs2(Stack2, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.5 }, children: [
-          /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
-          /* @__PURE__ */ jsx3(Typography2, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
-          vsIdx != null ? /* @__PURE__ */ jsx3(
-            Chip2,
-            {
-              size: "small",
-              variant: "outlined",
-              label: `VS \xEDndice ${vsIdx}`,
-              title: c.vectorStoreId || void 0,
-              className: "meta-file-search__vs-chip"
-            }
-          ) : null,
-          c.score != null ? /* @__PURE__ */ jsx3(
-            Chip2,
-            {
-              size: "small",
-              variant: "outlined",
-              label: `score ${Number(c.score).toFixed(3)}`,
-              className: "meta-file-search__score"
-            }
-          ) : null,
-          /* @__PURE__ */ jsx3(Tooltip, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx3(
-            IconButton,
-            {
-              size: "small",
-              "aria-label": `Ver fragmento de ${c.filename || c.fileId || "fragmento"}`,
-              onClick: () => setOpenChunk(c),
-              className: "meta-file-search__open",
-              children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" })
-            }
-          ) })
-        ] }),
-        c.queries?.length ? /* @__PURE__ */ jsxs2(Typography2, { variant: "caption", color: "text.secondary", display: "block", sx: { mb: 0.35 }, children: [
-          "Queries: ",
-          c.queries.join(" \xB7 ")
-        ] }) : null,
-        /* @__PURE__ */ jsx3(
-          Typography2,
-          {
-            variant: "caption",
-            component: "pre",
-            className: "meta-file-search__preview",
-            sx: {
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              m: 0,
-              fontFamily: "inherit"
-            },
-            children: preview
-          }
-        )
-      ] }, c.key);
+      const label = c.filename || c.fileId || "fragmento";
+      return /* @__PURE__ */ jsxs2(
+        Box2,
+        {
+          className: `meta-file-search__chunk${expanded ? " meta-file-search__chunk--expanded" : ""}`,
+          children: [
+            /* @__PURE__ */ jsxs2(
+              Box2,
+              {
+                className: "meta-file-search__chunk-summary",
+                role: "button",
+                tabIndex: 0,
+                "aria-expanded": expanded,
+                title: label,
+                onClick: () => toggleChunk(c.key),
+                onKeyDown: (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleChunk(c.key);
+                  }
+                },
+                children: [
+                  /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:text-box-search-outline", width: "15", height: "15", "aria-hidden": true }),
+                  /* @__PURE__ */ jsx3(Typography2, { variant: "body2", fontWeight: 600, noWrap: true, className: "meta-file-search__chunk-title", children: label }),
+                  vsIdx != null ? /* @__PURE__ */ jsx3(
+                    Chip2,
+                    {
+                      size: "small",
+                      variant: "outlined",
+                      label: `VS ${vsIdx}`,
+                      title: c.vectorStoreId || void 0,
+                      className: "meta-file-search__vs-chip"
+                    }
+                  ) : null,
+                  c.score != null ? /* @__PURE__ */ jsx3(
+                    Chip2,
+                    {
+                      size: "small",
+                      variant: "outlined",
+                      label: Number(c.score).toFixed(3),
+                      className: "meta-file-search__score"
+                    }
+                  ) : null,
+                  /* @__PURE__ */ jsx3(Tooltip, { title: "Ver en pantalla completa", children: /* @__PURE__ */ jsx3(
+                    IconButton,
+                    {
+                      size: "small",
+                      "aria-label": `Ver fragmento de ${label}`,
+                      className: "meta-file-search__open",
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        setOpenChunk(c);
+                      },
+                      children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:fullscreen", width: "15", height: "15" })
+                    }
+                  ) }),
+                  /* @__PURE__ */ jsx3(
+                    "iconify-icon",
+                    {
+                      icon: "mdi:chevron-down",
+                      width: "18",
+                      height: "18",
+                      className: `meta-file-search__chevron${expanded ? " meta-file-search__chevron--open" : ""}`,
+                      "aria-hidden": true
+                    }
+                  )
+                ]
+              }
+            ),
+            expanded ? /* @__PURE__ */ jsxs2(Box2, { className: "meta-file-search__chunk-body", children: [
+              c.queries?.length ? /* @__PURE__ */ jsxs2(Typography2, { variant: "caption", color: "text.secondary", display: "block", className: "meta-file-search__queries", children: [
+                "Queries: ",
+                c.queries.join(" \xB7 ")
+              ] }) : null,
+              /* @__PURE__ */ jsx3(MdRenderer, { source: c.text || "", className: "meta-file-search__md" })
+            ] }) : null
+          ]
+        },
+        c.key
+      );
     }) }) : null,
     /* @__PURE__ */ jsx3(
       MdFullPageDialog,
@@ -1236,39 +1308,41 @@ function MdFullPageDialog({
         /* @__PURE__ */ jsxs2(
           DialogTitle,
           {
+            className: "md-full-page-dialog__head",
             sx: {
               display: "flex",
               alignItems: "center",
-              gap: 1.25,
+              gap: 1,
               borderBottom: 1,
               borderColor: "divider",
-              py: 1.25,
-              px: { xs: 2, sm: 3 }
+              py: 0.75,
+              px: { xs: 1.5, sm: 2 },
+              minHeight: 0
             },
             children: [
               /* @__PURE__ */ jsx3(
                 Box2,
                 {
                   sx: {
-                    width: 36,
-                    height: 36,
-                    borderRadius: "0.5rem",
+                    width: 28,
+                    height: 28,
+                    borderRadius: "0.4rem",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
                     background: `linear-gradient(135deg, ${accent}, ${accent}99)`,
                     color: "#fff",
                     flexShrink: 0,
-                    boxShadow: `0 4px 16px ${accent}55`
+                    boxShadow: `0 2px 8px ${accent}44`
                   },
-                  children: /* @__PURE__ */ jsx3(Icon, { icon, size: 20 })
+                  children: /* @__PURE__ */ jsx3(Icon, { icon, size: 16 })
                 }
               ),
-              /* @__PURE__ */ jsxs2(Box2, { sx: { flex: 1, minWidth: 0 }, children: [
-                /* @__PURE__ */ jsx3(Typography2, { variant: "h6", fontWeight: 700, noWrap: true, children: title }),
-                subtitle ? /* @__PURE__ */ jsx3(Typography2, { variant: "caption", color: "text.secondary", noWrap: true, children: subtitle }) : null
+              /* @__PURE__ */ jsxs2(Box2, { sx: { flex: 1, minWidth: 0, lineHeight: 1.2 }, children: [
+                /* @__PURE__ */ jsx3(Typography2, { variant: "subtitle1", fontWeight: 700, noWrap: true, sx: { lineHeight: 1.25, fontSize: "0.95rem" }, children: title }),
+                subtitle ? /* @__PURE__ */ jsx3(Typography2, { variant: "caption", color: "text.secondary", noWrap: true, sx: { display: "block", lineHeight: 1.3, mt: 0.15, fontSize: "0.72rem" }, children: subtitle }) : null
               ] }),
-              /* @__PURE__ */ jsx3(IconButton, { onClick: onClose, "aria-label": "Cerrar visor", size: "small", children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:close", width: "18", height: "18" }) })
+              /* @__PURE__ */ jsx3(IconButton, { onClick: onClose, "aria-label": "Cerrar visor", size: "small", sx: { p: 0.5 }, children: /* @__PURE__ */ jsx3("iconify-icon", { icon: "mdi:close", width: "16", height: "16" }) })
             ]
           }
         ),
@@ -1277,10 +1351,11 @@ function MdFullPageDialog({
           {
             dividers: true,
             sx: {
-              p: { xs: 2, sm: 3, md: 4 },
-              maxWidth: 920,
-              mx: "auto",
-              width: "100%"
+              px: { xs: 2, sm: 3, md: 4, lg: 5 },
+              py: { xs: 2, sm: 2.5, md: 3 },
+              width: "100%",
+              maxWidth: "100%",
+              boxSizing: "border-box"
             },
             children: /* @__PURE__ */ jsx3(
               "div",

@@ -1,14 +1,12 @@
-import { getMaterialUI, getIsaSplitView } from "../core/platform.ts";
+import { getMaterialUI, getIsaSplitView, getReact, UI, toastInfo } from "../core/platform.ts";
 import { MetaDialog } from "../ui/shared.jsx";
 import { useChatTool } from "./chat/useChatTool.ts";
 import { ChatLoggedOutShell } from "./chat/ChatLoggedOutShell.jsx";
-import { ChatThreadSidebar, ChatNewConversationButton } from "./chat/ChatThreadSidebar.jsx";
+import { ChatThreadSidebar } from "./chat/ChatThreadSidebar.jsx";
 import { ChatMainPanel } from "./chat/ChatMainPanel.jsx";
 import { JwtModal } from "./chat/JwtModal.jsx";
 import { TercerosAuditDialog } from "./chat/TercerosAuditDialog.jsx";
 import { CHAT_SIDEBAR_W } from "./chat/constants.ts";
-import { UI } from "../core/platform.ts";
-import { getReact } from "../core/platform.ts";
 import { mobileDrawerPaperProps } from "../ui/mobileDrawer.ts";
 
 const { Box, Drawer, Fab, IconButton, Tooltip, useTheme, useMediaQuery } = getMaterialUI();
@@ -23,7 +21,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
   const [refreshingThread, setRefreshingThread] = useState(false);
 
   if (!chat.loggedIn) {
-    return <ChatLoggedOutShell onNeedLogin={onNeedLogin} />;
+    return <ChatLoggedOutShell />;
   }
 
   const IsaSplitView = getIsaSplitView();
@@ -37,8 +35,8 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     jwtLoading: chat.jwtLoading,
     convListOwnerLabel: chat.convListOwnerLabel,
     convListHeader: chat.convListHeader,
-    showJwtBadge: chat.showJwtBadge,
     canSend: chat.canSend,
+    canAuditChat: chat.canAuditChat,
     needsJwt: chat.needsJwt,
     listScope: chat.listScope,
     sessionScopeLoading: chat.sessionScopeLoading,
@@ -57,7 +55,13 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     mode: chat.chatMode,
     onChatModeChange: chat.onChatModeChange,
     onOpenJwt: () => chat.setJwtOpen(true),
-    onOpenAudit: () => chat.setAuditDialogOpen(true),
+    onOpenAudit: () => {
+      if (!chat.canAuditChat) {
+        toastInfo("Tu rol solo puede ver tus propias conversaciones");
+        return;
+      }
+      chat.setAuditDialogOpen(true);
+    },
     onNewChat: chat.onNewChat,
     onOpenConv: chat.openConv,
     onDelete: chat.onDelete,
@@ -155,9 +159,6 @@ export function ChatTool({ bootChat, onNeedLogin }) {
           panelTitle="Conversaciones"
           panelIcon="mdi:chat-outline"
           UI={UI}
-          panelHeaderEnd={(
-            <ChatNewConversationButton canSend={chat.canSend} onNewChat={chat.onNewChat} />
-          )}
           collapsedRail={({ expand }) => (
             <Box className="conv-log-collapsed-rail paty-chat-collapsed-rail">
               <Tooltip title="Nueva conversación" placement="right">
@@ -229,6 +230,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         jwt={chat.jwt}
         sessionUser={chat.sessionUser}
         currentScope={chat.auditCurrentScope}
+        canAudit={chat.canAuditChat}
         onSelect={chat.handleSelectAuditScope}
       />
     </Box>

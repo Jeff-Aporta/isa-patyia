@@ -93,13 +93,13 @@ export function PromptsSqlMapeoTable({
                     </TableCell>
 
                     <TableCell onClick={stopRowEvent} onDoubleClick={stopRowEvent}>
-                      <FormControl size="small" sx={{ minWidth: 148 }} onClick={stopRowEvent} disabled={!canEdit}>
+                      <FormControl size="small" sx={{ minWidth: 132 }} onClick={stopRowEvent} disabled={!canEdit}>
                         <Select
                           value={modelValue}
                           onChange={(e) => onUpdateConfig(tipo, { model: e.target.value })}
                           disabled={!canEdit}
                           MenuProps={{ disableScrollLock: true }}
-                          sx={{ fontSize: "0.72rem", "& .MuiSelect-select": { py: 0.35, px: 0.6 } }}
+                          sx={{ fontSize: "0.72rem", "& .MuiSelect-select": { py: "3px", px: 0.6, minHeight: "0 !important" } }}
                         >
                           {modelSelectOptions.map((id) => (
                             <MenuItem key={id} value={id} sx={{ fontSize: "0.72rem" }}>{id}</MenuItem>
