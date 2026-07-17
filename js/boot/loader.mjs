@@ -1,12 +1,27 @@
-import { PIN, CDN, ensureLightboxZoom } from "./cdn.mjs";
+import { PIN, CDN } from "./cdn.mjs";
 
 const bootHold = new URLSearchParams(location.search).has("isa_boot_hold");
 const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
+const isDevHost = /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
 
 const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
 const BOOT_LOADER_URL = `${CDN}boot-loader.mjs?v=${PIN}`;
-const ISA_FRONT_BUNDLE_URL = `${CDN}_dist/isa/js/index.min.js?v=${PIN}`;
+
+function vendorFrontSharedBase() {
+  const base = document.querySelector("base")?.href || location.href;
+  return new URL("vendor/front-shared/", base).href.replace(/\/?$/, "/");
+}
+
+/** URLs del bundle ISAFront, en orden de preferencia (vendor same-origin primero en dev). */
+function isaFrontBundleUrls() {
+  const vendor = `${vendorFrontSharedBase()}_dist/isa/js/index.min.js?v=${PIN}`;
+  const primary = `${CDN}_dist/isa/js/index.min.js?v=${PIN}`;
+  const remote = `${JSDELIVR_CDN}_dist/isa/js/index.min.js?v=${PIN}`;
+  // En localhost: vendor → CDN configurado → jsDelivr (monorepo vacío no tumba el boot).
+  if (isDevHost) return [vendor, primary, remote];
+  return [primary, vendor, remote];
+}
 
 async function importFirst(urls, label) {
   let lastErr;
@@ -25,22 +40,28 @@ async function importFirst(urls, label) {
 }
 
 async function importBootLoader() {
-  const urls = [BOOT_LOADER_URL];
-  if (/localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname)) {
+  const vendorBoot = `${vendorFrontSharedBase()}boot-loader.mjs?v=${PIN}`;
+  const urls = isDevHost ? [vendorBoot, BOOT_LOADER_URL] : [BOOT_LOADER_URL];
+  if (isDevHost) {
     urls.push(new URL("../../../../../components/front-shared/cdn/boot-loader.mjs", import.meta.url).href);
   }
   urls.push(`${JSDELIVR_CDN}boot-loader.mjs?v=${PIN}`);
   return importFirst(urls, "boot-loader");
 }
 
-/** Producción jsDelivr: bundle _dist (esbuild). Fuente isa/js/index.js importa .jsx y falla en el navegador. */
+/** Bundle _dist (esbuild). Fuente isa/js/index.js importa .jsx y falla en el navegador. */
 async function loadIsaFrontPinned(h) {
+  const urls = isaFrontBundleUrls();
   if (isDist) {
-    await import(ISA_FRONT_BUNDLE_URL);
+    await importFirst(urls, "ISAFront bundle");
   } else {
-    await h.loadIsaFront();
+    try {
+      await h.loadIsaFront();
+    } catch (e) {
+      console.warn("loadIsaFront falló, usando bundle _dist:", e);
+    }
     if (!window.ISAFront?.ensureCodeMirrorLoaded) {
-      await import(ISA_FRONT_BUNDLE_URL);
+      await importFirst(urls, "ISAFront bundle");
     }
   }
   if (!window.ISAFront?.ensureCodeMirrorLoaded) {
@@ -62,7 +83,9 @@ importBootLoader().then(({ mountBoot, getBabel, importBootHelper }) => {
     } else {
       await h.importAppModules(["js/core/isa-setup.ts"], Babel);
     }
-    await ensureLightboxZoom();
+    // lightbox se carga lazy vía lightboxBoot.ts → ensureLightboxReady()
+    // NO lo cargamos aquí porque requiere vendor/lightbox/cdn/ que no se
+    // genera por defecto; si falla en dev, rompe el boot completo. Ver llm.md EP-5.
     if (isDist) {
       await import(`../main.js?v=${appBuild}`);
     } else {

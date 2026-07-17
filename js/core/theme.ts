@@ -22,7 +22,17 @@ export function applyThemeModeToDocument(mode: ThemeMode = readStoredThemeMode()
 export const LS_KEY = THEME_LS_KEY;
 export const NEON = { blue: "#1e90ff", cyan: "#00e5ff", purple: "#6366f1", magenta: "#a855f7", darkBg: "#060d18", darkPaper: "rgba(15, 28, 48, 0.82)", lightBg: "#eef4ff", lightPaper: "rgba(255, 255, 255, 0.88)" };
 
+/** Densidad: MUI medium = 56px; small ≈ 40px. Default small en toda la app. */
+const compactFormDefaults = {
+  MuiTextField: { defaultProps: { size: "small" as const, margin: "dense" as const } },
+  MuiFormControl: { defaultProps: { size: "small" as const, margin: "dense" as const } },
+  MuiAutocomplete: { defaultProps: { size: "small" as const } },
+  MuiSelect: { defaultProps: { size: "small" as const } },
+  MuiInputBase: { defaultProps: { size: "small" as const } },
+};
+
 const componentOverrides = {
+  ...compactFormDefaults,
   MuiCssBaseline: {
     styleOverrides: {
       body: ({ theme }: { theme: { palette: { mode: string } } }) =>
@@ -40,10 +50,16 @@ const componentOverrides = {
   MuiButton: {
     styleOverrides: {
       root: { textTransform: "none" as const, borderRadius: 10 },
-      containedPrimary: {
-        boxShadow: "0 0 20px rgba(30,144,255,0.35)",
-        "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" },
-      },
+      containedPrimary: ({ theme }: { theme: { palette: { mode: string } } }) =>
+        theme.palette.mode === "light"
+          ? {
+              boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
+              "&:hover": { boxShadow: "0 2px 6px rgba(15,23,42,0.12)" },
+            }
+          : {
+              boxShadow: "0 0 20px rgba(30,144,255,0.35)",
+              "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" },
+            },
     },
   },
   MuiTab: {
