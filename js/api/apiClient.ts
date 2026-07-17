@@ -1,13 +1,13 @@
-/** Endpoints PatyIA — token `app` (AppSession) en gateway y puente Azure. */
+/** Endpoints PatyIA — token `app` (AppSession) directo al ISS-AyudasCPIA canónico. */
 import { Session, Config } from "../core/platform.ts";
 import {
   isLocalMode,
   isPatyiaApiPath,
-  patyiaBridgeBase,
-  patyiaCapFetchBase,
-  PATYIA_BRIDGE_URL,
+  patyiaIssBase,
+  patyiaIssCapFetchBase,
+  PATYIA_ISS_URL,
   PATYIA_ISS_LOCAL,
-  PATYIA_BRIDGE_LOCAL,
+  PATYIA_ISS_LOCAL_API,
 } from "../core/patyia.ts";
 import { isPatyJwtExpired, loadPatyJwt } from "../core/patyia-jwt.ts";
 import { convLogFromDetalle, getConversacionLogs, listConversaciones } from "./patyiaChatApi.ts";
@@ -24,11 +24,11 @@ import {
 const bridgeHttp = window.ISAFront.createCapFetch({
   Session,
   Config,
-  getApiBase: patyiaCapFetchBase,
+  getApiBase: patyiaIssCapFetchBase,
   localDirect: [
     { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") },
   ],
-  orchOnline: PATYIA_BRIDGE_URL,
+  orchOnline: PATYIA_ISS_URL,
   orchOnlineInLocal: true,
   isLocal: isLocalMode,
 });
@@ -56,7 +56,7 @@ function unwrapIssEnvelope<T>(raw: unknown): T {
 }
 
 /** Rutas ISS AyudasCPIA — sin prefijo /patyia salvo instrucciones. */
-function patyiaBridgePath(path: string): string {
+function patyiaIssPath(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return p;
 }
@@ -97,7 +97,14 @@ function isConvNotFound(err: unknown): boolean {
   return /not found|no encontrad|\b404\b/i.test(msg);
 }
 
-/** QA LogViewer: ISS /conversacion/logs/{id} con JWT; si falla, bridge MSSQL (sin JWT). */
+function isConvForbidden(err: unknown): boolean {
+  const status = err && typeof err === "object" ? Number((err as { status?: number }).status) : 0;
+  if (status === 401 || status === 403) return true;
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /sin permiso|no tienes permiso|no autorizad|forbidden|\b403\b|\b401\b/i.test(msg);
+}
+
+/** QA LogViewer: ISS /conversacion/logs/{id} con JWT. Bridge solo si no hay JWT (no bypass de permisos). */
 export async function fetchConvLogForQa(id: string | number) {
   const convId = Number(id);
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
@@ -108,8 +115,9 @@ export async function fetchConvLogForQa(id: string | number) {
       const detail = await getConversacionLogs(jwt, convId);
       const log = convLogFromDetalle(detail, convId);
       if (log?.mensajes?.length) return log;
+      throw new Error(`Log conv-${convId} sin mensajes`);
     } catch (e) {
-      if (!isConvNotFound(e)) throw e;
+      if (isConvForbidden(e) || !isConvNotFound(e)) throw e;
     }
   }
 
@@ -121,8 +129,8 @@ export async function fetchConvLogById(id: string | number) {
   if (!Number.isInteger(convId) || convId <= 0) throw new Error("iconversacion inválido");
 
   const paths = [
-    patyiaBridgePath(`/conversacion/${convId}/log`),
-    patyiaBridgePath(`/conversacion/logs/${convId}`),
+    patyiaIssPath(`/conversacion/${convId}/log`),
+    patyiaIssPath(`/conversacion/logs/${convId}`),
   ];
   let routeMiss: Error | null = null;
 
@@ -200,6 +208,41 @@ export type TercerosAuditResponse = {
   error?: string;
 };
 
+/** Mensaje legible para fallos HTTP/red del ISS (evita solo "Internal Server Error"). */
+export function formatIssClientError(err: unknown, fallback = "Error del servidor"): string {
+  const data = err && typeof err === "object" ? (err as { data?: unknown }).data : undefined;
+  const enc =
+    data && typeof data === "object" && !Array.isArray(data)
+      ? (data as { encabezado?: { mensaje?: unknown; imensaje?: unknown } }).encabezado
+      : undefined;
+  const envelopeMsg =
+    enc && typeof enc === "object"
+      ? String(enc.mensaje ?? enc.imensaje ?? "").trim()
+      : "";
+  const raw = envelopeMsg || (err instanceof Error ? err.message : String(err ?? ""));
+  const msg = raw.trim();
+  if (!msg) return fallback;
+  if (/failed to fetch|networkerror|load failed|econnrefused|network request failed/i.test(msg)) {
+    return "Sin conexión con el ISS. Si usas Local, arranca el servidor en :8802.";
+  }
+  if (/invalid signature|jwt malformed|jwt expired|token.*expir/i.test(msg)) {
+    return `Auth ISS: ${msg}. En Local el front usa system-login (modo w); revisa PATYIA_AUTH_MODE=w o vuelve a iniciar sesión.`;
+  }
+  if (/^internal server error$/i.test(msg) || (/\b500\b/.test(msg) && /internal server error/i.test(msg))) {
+    return "Error interno del ISS (HTTP 500). Revisa logs del Functions host o el detalle del envelope.";
+  }
+  if (/^unauthorized$/i.test(msg) || /\b401\b/.test(msg)) {
+    return "Sesión no autorizada (401). Vuelve a iniciar sesión.";
+  }
+  if (/^forbidden$/i.test(msg) || /\b403\b/.test(msg)) {
+    return "Sin permiso para auditar terceros (403).";
+  }
+  if (/^not found$/i.test(msg) || /\b404\b/.test(msg)) {
+    return "Endpoint no encontrado (404). ¿ISS desactualizado o ruta incorrecta?";
+  }
+  return msg;
+}
+
 export async function fetchTercerosAudit(input: {
   page?: number;
   limit?: number;
@@ -220,21 +263,31 @@ export async function fetchTercerosAudit(input: {
   if (input.appUser?.trim()) params.set("appUser", input.appUser.trim());
   let raw: unknown;
   try {
-    raw = await capFetch(`${patyiaBridgePath("/auditoria/terceros")}?${params.toString()}`, { method: "GET" });
+    raw = await capFetch(`${patyiaIssPath("/auditoria/terceros")}?${params.toString()}`, { method: "GET" });
   } catch (err) {
-    if (isLocalMode() && input.jwtToken) return fetchTercerosAuditFromLocalConversaciones(input as Parameters<typeof fetchTercerosAuditFromLocalConversaciones>[0]);
-    throw err;
+    if (isLocalMode() && input.jwtToken) {
+      try {
+        return await fetchTercerosAuditFromLocalConversaciones(input as Parameters<typeof fetchTercerosAuditFromLocalConversaciones>[0]);
+      } catch (fallbackErr) {
+        throw new Error(formatIssClientError(fallbackErr, formatIssClientError(err)));
+      }
+    }
+    throw new Error(formatIssClientError(err));
   }
-  const data = unwrapIssEnvelope<TercerosAuditResponse>(raw);
-  if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar terceros"));
-  return {
-    ok: true,
-    rows: Array.isArray(data.rows) ? data.rows : [],
-    total: Number(data.total ?? 0) || 0,
-    page: Number(data.page ?? input.page ?? 1) || 1,
-    limit: Number(data.limit ?? input.limit ?? 20) || 20,
-    pages: Number(data.pages ?? 0) || 0,
-  };
+  try {
+    const data = unwrapIssEnvelope<TercerosAuditResponse>(raw);
+    if (data.ok === false) throw new Error(String(data.error || "No se pudo cargar terceros"));
+    return {
+      ok: true,
+      rows: Array.isArray(data.rows) ? data.rows : [],
+      total: Number(data.total ?? 0) || 0,
+      page: Number(data.page ?? input.page ?? 1) || 1,
+      limit: Number(data.limit ?? input.limit ?? 20) || 20,
+      pages: Number(data.pages ?? 0) || 0,
+    };
+  } catch (err) {
+    throw new Error(formatIssClientError(err));
+  }
 }
 
 async function fetchTercerosAuditFromLocalConversaciones(input: {
@@ -249,7 +302,7 @@ async function fetchTercerosAuditFromLocalConversaciones(input: {
   const groups = new Map<string, TerceroAuditRow>();
   for (let page = 1; page <= 5; page += 1) {
     const params = conversacionesListQueryParams({ page, limit: 100, sort: "-iconversacion" });
-    const res = await fetch(`${PATYIA_BRIDGE_LOCAL.replace(/\/$/, "")}/conversaciones?${params.toString()}`, {
+    const res = await fetch(`${PATYIA_ISS_LOCAL_API.replace(/\/$/, "")}/conversaciones?${params.toString()}`, {
       headers: { Authorization: `Bearer ${input.jwtToken}` },
     });
     if (!res.ok) throw new Error(`No se pudo cargar auditoría local (${res.status})`);

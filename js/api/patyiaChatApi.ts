@@ -33,11 +33,17 @@ async function jsonFetch<T>(path: string, jwt: PatyJwtRecord, init?: RequestInit
     if (ct.includes("json")) {
       try {
         const j = await res.json() as Record<string, unknown>;
-        const inner = j.respuesta || j.body || j;
-        msg = String((inner as Record<string, unknown>)?.error || j.error || j.message || msg);
+        const enc = j.encabezado as { mensaje?: unknown; resultado?: boolean } | undefined;
+        if (enc?.mensaje) msg = String(enc.mensaje);
+        else {
+          const inner = j.respuesta || j.body || j;
+          msg = String((inner as Record<string, unknown>)?.error || (inner as Record<string, unknown>)?.mensaje || j.error || j.message || msg);
+        }
       } catch { /* ignore */ }
     }
-    throw new Error(msg || `HTTP ${res.status}`);
+    const err = new Error(msg || `HTTP ${res.status}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   if (ct.includes("json")) {
     const raw = await res.json();
