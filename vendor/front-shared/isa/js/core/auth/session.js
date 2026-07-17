@@ -162,8 +162,18 @@ export function registerSession(ns, opts = {}) {
     return { "X-App-Id": appId };
   }
 
+  /**
+   * Auth genérico (ISS, capFetch, APIs propias).
+   * NO incluye X-View-As-User: «ver como» / suplantoación es solo system-login + UI;
+   * el ISS y demás backends deben autorizar siempre al Bearer real.
+   */
   function authHeader() {
-    const hdr = isLoggedIn() ? { Authorization: "Bearer " + session.token, ...appHeader() } : {};
+    return isLoggedIn() ? { Authorization: "Bearer " + session.token, ...appHeader() } : {};
+  }
+
+  /** Solo system-login (refresh/session): propaga suplantoación activa. */
+  function authHeaderForSystemLogin() {
+    const hdr = { ...authHeader() };
     const va = viewAsUsername();
     if (va) hdr["X-View-As-User"] = va;
     return hdr;
@@ -175,7 +185,7 @@ export function registerSession(ns, opts = {}) {
     refreshPromise = (async () => {
       try {
         const res = await fetchRaw(authUrl("/api/session"), {
-          headers: { Accept: "application/json", ...authHeader() },
+          headers: { Accept: "application/json", ...authHeaderForSystemLogin() },
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) return null;
