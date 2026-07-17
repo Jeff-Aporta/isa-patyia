@@ -1,1 +1,616 @@
-import*as e from"react";import{getMaterialUI as ue,getReact as ce,getIsaSplitView as de,UI as me}from"../../core/platform.js";const{useState:d,useMemo:g,useCallback:ge,useEffect:Y}=ce(),{Box:v,Typography:J,Button:B,Dialog:fe,DialogTitle:pe,DialogContent:ye,DialogActions:he,TextField:K,Alert:Q,CircularProgress:V,Stack:D,Chip:X}=ue();import{TreeView as xe}from"../../ui/treeView/index.js";import{RoleConfigEditor as Z}from"../permisosRoleConfig.js";import{enforceVisitantePermisos as R,getVisitanteRoleEntry as ve,isVisitanteRole as ee}from"../permisosVisitante.js";import{roleNameFromEntry as ie}from"../permisosKanbanShared.js";import{ROLE_HIERARCHY_MANIFEST as Se,createRoleHierarchyCustoms as be}from"./roleHierarchyTreeConfig.js";const S=Object.freeze({});function Te(n){const{nodes:r,roleEntries:u,canManagePermisos:b,canEditRoleDescriptions:t,initialSelectedRole:w,onSaveRolePermisos:f,canMutate:p,busy:y,onSave:C,onSaveLocalPerm:h,onPromote:M,onCreate:m,onDelete:N}=n,[s,A]=d(null),[T,j]=d(null),[E,q]=d(null),[L,O]=d(!1),[k,H]=d(null),[W,$]=d(!1),o=g(()=>s?r.find(i=>i.jerarquia===s)??null:null,[s,r]),x=g(()=>ve({roles:u??[]}),[u]),c=g(()=>{if(!o)return null;const i=String(o.iusuario??"").trim().toLowerCase();return(u??[]).find(a=>ie(a)===i)??{iusuario:i,permisos:S,bactivo:!0}},[o,u]),z=g(()=>JSON.stringify(x.permisos??S),[x.permisos]),_=g(()=>c?JSON.stringify(c.permisos??S):"",[c?.iusuario,c?.permisos]),re=g(()=>{if(!c)return null;const i=k??c.permisos??S;return{...c,permisos:i}},[c,k]);Y(()=>{if(!w||!r.length)return;const i=String(w).trim().toLowerCase(),a=r.find(P=>String(P.iusuario??"").trim().toLowerCase()===i);a?.jerarquia&&A(P=>P===a.jerarquia?P:a.jerarquia)},[w,r]),Y(()=>{if(!s){q(null),H(null);return}const i=r.find(l=>l.jerarquia===s);if(!i)return;if(ee(i.iusuario)){H(null);const l=R(x.permisos??S);q(I=>I&&JSON.stringify(I)===JSON.stringify(l)?I:l);return}q(null);const a=String(i.iusuario??"").trim().toLowerCase(),U={...(u??[]).find(l=>ie(l)===a)?.permisos??S};H(l=>l&&JSON.stringify(l)===JSON.stringify(U)?l:U)},[s,z,_,r,u,x]);const F=ge(()=>{j({isNew:!0,node:{iusuario:"",jerarquia:"",namedisplay:null,descripcion:null}})},[]),oe=g(()=>be({items:r,canMutate:p,onSave:C,onDelete:N,onEdit:i=>j({node:i,isNew:!1}),onCreateClick:F}),[r,p,C,N,F]),ne=r,G=`${r.length} rol${r.length!==1?"es":""}`,te=g(()=>({...Se,countLabel:G}),[G]),se=de(),ae=e.createElement(xe,{items:ne,manifest:te,customs:oe,readonly:!p,busy:y,selectedPath:s,onSelectedPathChange:A,toolbarTitle:"Jerarqu\xEDa de roles",className:"role-hierarchy-tree-panel",showToolbar:!0}),le=o?ee(o.iusuario)?e.createElement(v,{className:"role-hierarchy-visitante-editor",sx:{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"auto"}},e.createElement(D,{direction:"row",alignItems:"center",spacing:1,sx:{px:2,pt:2,pb:1,flexShrink:0}},e.createElement(J,{variant:"h6",sx:{flex:1}},o.namedisplay??"Visitante"),e.createElement(X,{size:"small",label:o.jerarquia})),e.createElement(v,{sx:{flex:1,minHeight:0,overflow:"auto",px:2,pb:2}},e.createElement(Z,{key:`visitante-${z}`,entry:E?{...x,permisos:E}:x,roleName:"visitante",canManage:!!b,canEditRoleDescriptions:!!t,onChange:i=>q(R(i))})),(b||t)&&f?e.createElement(D,{direction:"row",justifyContent:"flex-end",spacing:1,sx:{px:2,py:1.5,flexShrink:0,borderTop:1,borderColor:"divider"}},e.createElement(B,{variant:"contained",disabled:y||L||!E,onClick:async()=>{if(E){O(!0);try{await f("visitante",E,x.bactivo!==!1)}finally{O(!1)}}},sx:{textTransform:"none",fontWeight:600}},L?e.createElement(V,{size:18,color:"inherit"}):"Guardar visitante")):null):e.createElement(v,{className:"role-hierarchy-role-editor",sx:{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"auto"}},e.createElement(D,{direction:"row",alignItems:"center",spacing:1,sx:{px:2,pt:2,pb:1,flexShrink:0}},e.createElement(J,{variant:"h6",sx:{flex:1}},o.namedisplay??o.iusuario),e.createElement(X,{size:"small",label:o.jerarquia})),e.createElement(v,{sx:{flex:1,minHeight:0,overflow:"auto",px:2,pb:2}},e.createElement(Z,{key:`${o.iusuario}-${_}`,entry:re??{iusuario:o.iusuario,permisos:S,bactivo:!0},roleName:o.iusuario,canManage:!!b,canEditRoleDescriptions:!!t,onChange:i=>H(i)})),(b||t)&&f?e.createElement(D,{direction:"row",justifyContent:"flex-end",spacing:1,sx:{px:2,py:1.5,flexShrink:0,borderTop:1,borderColor:"divider"}},e.createElement(B,{variant:"contained",disabled:y||W||!k,onClick:async()=>{if(k){$(!0);try{await f(o.iusuario,k,c?.bactivo!==!1)}finally{$(!1)}}},sx:{textTransform:"none",fontWeight:600}},W?e.createElement(V,{size:18,color:"inherit"}):"Guardar rol")):null):e.createElement(v,{sx:{p:4,textAlign:"center",color:"text.secondary",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}},e.createElement("iconify-icon",{icon:"mdi:family-tree",width:"48",height:"48"}),e.createElement(J,{variant:"body1",sx:{mt:2}},"Selecciona un rol del \xE1rbol \u2014 visitante incluye editor de permisos completo."),p?null:e.createElement(J,{variant:"caption",color:"text.secondary",sx:{display:"block",mt:1}},"(Solo roles de branch 0 pueden editar la jerarqu\xEDa.)"));return e.createElement(v,{className:"role-hierarchy-tree isp-tree-host",sx:{flex:1,minHeight:0,display:"flex",flexDirection:"column",overflow:"hidden"}},e.createElement(se,{className:"role-hierarchy-split",sx:{flex:1,minHeight:0},panelClassName:"role-hierarchy-tree-panel",storageKey:"isa-patyia:role-hierarchy-tree-w",defaultWidth:360,minWidth:260,maxWidth:560,panelTitle:"Jerarqu\xEDa de roles",panelIcon:"mdi:family-tree",UI:me,panel:ae},e.createElement(v,{className:"role-hierarchy-editor-panel",sx:{flex:1,minWidth:0,minHeight:0,overflow:"auto",height:"100%"}},le)),e.createElement(we,{target:T,busy:y,onClose:()=>j(null),onSave:async(i,a)=>{T?.isNew?await m(i,a):T&&await C(T.node.iusuario,a),j(null)}}))}function we({target:n,busy:r,onClose:u,onSave:b}){const t=n?.isNew??!1,[w,f]=d(n?.node.iusuario??""),[p,y]=d(t?"":n?.node.jerarquia??""),[C,h]=d("");if(e.useEffect(()=>{f(n?.node.iusuario??""),y(t?"":n?.node.jerarquia??""),h("")},[n,t]),!n)return null;const M=async()=>{h("");const m=String(w??"").trim(),N=String(p??"").trim();if(!m){h("nombre requerido");return}if(!N){h("jerarqu\xEDa requerida");return}if(!/^[0-9]+(\.[0-9]+)*$/.test(N)){h("jerarqu\xEDa inv\xE1lida (formato: 0, 0.0, 0.1.1)");return}try{await b(m,N)}catch(s){h(s?.message??String(s))}};return e.createElement(fe,{open:!0,onClose:u,maxWidth:"sm",fullWidth:!0},e.createElement(pe,null,t?"Nuevo rol":`Mover ${n.node.iusuario}`),e.createElement(ye,{dividers:!0},e.createElement(D,{spacing:2},C?e.createElement(Q,{severity:"error"},C):null,e.createElement(K,{label:"Nombre",value:w,onChange:m=>f(m.target.value),disabled:!t,helperText:"min\xFAsculas, sin espacios (ej. dev_lead)"}),e.createElement(K,{label:"Nueva jerarqu\xEDa",value:p,onChange:m=>y(m.target.value),helperText:"dot-notation: 0, 0.0, 0.1.1, ..."}),e.createElement(Q,{severity:"info"},"Los ancestros se derivan del path. Arrastra un rol sobre otro (antes / dentro / despu\xE9s) para reubicarlo."))),e.createElement(he,null,e.createElement(B,{onClick:u,disabled:r},"Cancelar"),e.createElement(B,{variant:"contained",onClick:M,disabled:r},r?e.createElement(V,{size:16}):"Guardar")))}export{Te as RoleHierarchyView};
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+
+// js/core/patyia.ts
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
+
+// js/core/platform.ts
+var getReact, getMaterialUI;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    getReact = () => window.ISAFront.getReact();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+  }
+});
+
+// js/tools/roleHierarchy.js
+function formatJerarquiaLabel(jerarquia) {
+  if (jerarquia == null || jerarquia === "") return "";
+  return `(${jerarquia})`;
+}
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+  }
+});
+
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+init_platform();
+import * as React from "react";
+
+// js/tools/roleHierarchyTree/HierarchyOrgChart.jsx
+init_platform();
+init_roleHierarchy();
+import { jsx, jsxs } from "react/jsx-runtime";
+var { useEffect, useMemo, useRef, useCallback, useState } = getReact();
+var { Box, Stack, Typography, Chip, IconButton, Tooltip, CircularProgress } = getMaterialUI();
+var ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.esm.min.js";
+var NODE_W = 140;
+var NODE_H = 40;
+var NODE_GAP_Y = 18;
+var LAYER_GAP_X = 56;
+var echartsPromise = null;
+function loadEcharts() {
+  if (!echartsPromise) echartsPromise = import(
+    /* @vite-ignore */
+    ECHARTS_CDN
+  );
+  return echartsPromise;
+}
+function immediateParentJer(jer) {
+  const parts = String(jer ?? "").split(".").filter(Boolean);
+  if (parts.length <= 1) return null;
+  return parts.slice(0, -1).join(".");
+}
+function nextChildJerarquia(parentJer, nodes) {
+  const parent = String(parentJer ?? "").trim();
+  if (!parent) return "0";
+  const prefix = `${parent}.`;
+  let max = -1;
+  for (const n of nodes ?? []) {
+    const j = String(n.jerarquia ?? "").trim();
+    if (!j.startsWith(prefix)) continue;
+    const rest = j.slice(prefix.length);
+    if (!rest || rest.includes(".")) continue;
+    const idx = Number(rest);
+    if (Number.isFinite(idx) && idx > max) max = idx;
+  }
+  return `${parent}.${max + 1}`;
+}
+function isDarkScheme() {
+  return document.documentElement.getAttribute("data-mui-color-scheme") !== "light";
+}
+function treeBreadth(node) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return 1;
+  return kids.reduce((sum, c) => sum + treeBreadth(c), 0);
+}
+function treeDepth(node, d = 1) {
+  if (!node) return 0;
+  const kids = node.children || [];
+  if (!kids.length) return d;
+  return Math.max(...kids.map((c) => treeDepth(c, d + 1)));
+}
+function applySelection(node, selectedJer, dark) {
+  const sel = !!selectedJer && node.jerarquia === selectedJer;
+  return {
+    ...node,
+    itemStyle: {
+      color: sel ? dark ? "rgba(8,47,73,0.95)" : "rgba(224,242,254,0.98)" : dark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)",
+      borderColor: sel ? "#22d3ee" : dark ? "rgba(56,189,248,0.55)" : "rgba(30,144,255,0.45)",
+      borderWidth: sel ? 2.5 : 1.5,
+      borderRadius: 0,
+      shadowBlur: dark ? 8 : 2,
+      shadowColor: dark ? "rgba(56,189,248,0.25)" : "rgba(15,23,42,0.08)"
+    },
+    children: (node.children || []).map((c) => applySelection(c, selectedJer, dark))
+  };
+}
+function buildOrgTreeData(nodes) {
+  const byJer = /* @__PURE__ */ new Map();
+  for (const n of nodes ?? []) {
+    const jer = String(n.jerarquia ?? "").trim();
+    if (!jer) continue;
+    byJer.set(jer, {
+      name: n.namedisplay?.trim() || n.iusuario,
+      value: jer,
+      jerarquia: jer,
+      iusuario: n.iusuario,
+      namedisplay: n.namedisplay,
+      descripcion: n.descripcion,
+      children: []
+    });
+  }
+  const roots = [];
+  for (const [jer, node] of byJer) {
+    const parent = immediateParentJer(jer);
+    if (parent && byJer.has(parent)) byJer.get(parent).children.push(node);
+    else roots.push(node);
+  }
+  const sortRec = (list) => {
+    list.sort((a, b) => String(a.jerarquia).localeCompare(String(b.jerarquia), void 0, { numeric: true }));
+    for (const n of list) sortRec(n.children);
+  };
+  sortRec(roots);
+  if (roots.length === 1) return roots[0];
+  if (!roots.length) return { name: "Sin roles", value: "", children: [] };
+  return { name: "Roles", value: "", children: roots };
+}
+function nodePixelCenter(chart, data) {
+  if (!chart || !data) return null;
+  try {
+    const px = chart.convertToPixel({ seriesIndex: 0 }, data);
+    if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+      return { x: px[0], y: px[1] };
+    }
+  } catch {
+  }
+  if (Number.isFinite(data.x) && Number.isFinite(data.y)) {
+    try {
+      const px = chart.convertToPixel({ seriesIndex: 0 }, [data.x, data.y]);
+      if (Array.isArray(px) && Number.isFinite(px[0]) && Number.isFinite(px[1])) {
+        return { x: px[0], y: px[1] };
+      }
+    } catch {
+    }
+  }
+  return null;
+}
+function HierarchyOrgChart({
+  nodes,
+  selectedJer,
+  onSelect,
+  canMutate = false,
+  canCreateRoles = false,
+  busy = false,
+  onEditClick,
+  onDeleteClick,
+  onAddChildClick
+}) {
+  const treeData = useMemo(() => buildOrgTreeData(nodes), [nodes]);
+  const hostRef = useRef(null);
+  const wrapRef = useRef(null);
+  const chartRef = useRef(null);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  const onEditRef = useRef(onEditClick);
+  onEditRef.current = onEditClick;
+  const treeDataRef = useRef(treeData);
+  treeDataRef.current = treeData;
+  const selectedJerRef = useRef(selectedJer);
+  selectedJerRef.current = selectedJer;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const canMutateRef = useRef(canMutate);
+  canMutateRef.current = canMutate;
+  const canCreateRef = useRef(canCreateRoles);
+  canCreateRef.current = canCreateRoles;
+  const [hover, setHover] = useState(null);
+  const hoverHideTimer = useRef(null);
+  const countLabel = `${nodes?.length ?? 0} rol${(nodes?.length ?? 0) !== 1 ? "es" : ""}`;
+  const showNodeActions = canMutate || canCreateRoles;
+  const layoutSize = useMemo(() => {
+    const breadth = Math.max(1, treeBreadth(treeData));
+    const depth = Math.max(1, treeDepth(treeData));
+    const h = Math.max(420, breadth * (NODE_H + NODE_GAP_Y) + 80);
+    const w = Math.max(640, depth * (NODE_W + LAYER_GAP_X) + 120);
+    return { w, h, breadth, depth };
+  }, [treeData]);
+  const clearHoverSoon = useCallback(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+    hoverHideTimer.current = setTimeout(() => setHover(null), 180);
+  }, []);
+  const keepHover = useCallback(() => {
+    if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+  }, []);
+  const showHoverFor = useCallback((chart, data) => {
+    if (!canMutateRef.current && !canCreateRef.current || !data?.jerarquia) {
+      setHover(null);
+      return;
+    }
+    const pt = nodePixelCenter(chart, data);
+    if (!pt) return;
+    keepHover();
+    setHover({
+      jerarquia: data.jerarquia,
+      iusuario: data.iusuario,
+      x: pt.x,
+      y: pt.y
+    });
+  }, [keepHover]);
+  const applyChartOption = useCallback((chart, data, sel) => {
+    if (!chart) return;
+    chart.setOption(buildOption(data, sel, isDarkScheme(), layoutSize), { notMerge: true });
+    chart.resize();
+  }, [layoutSize]);
+  useEffect(() => {
+    let disposed = false;
+    let chart;
+    let onResize;
+    let ro;
+    (async () => {
+      const echarts = await loadEcharts();
+      if (disposed || !hostRef.current) return;
+      chart = echarts.init(hostRef.current, null, { renderer: "canvas" });
+      chartRef.current = chart;
+      chart.on("click", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (jer) onSelectRef.current?.(jer);
+      });
+      chart.on("dblclick", (params) => {
+        const jer = params?.data?.jerarquia;
+        if (!jer || !canMutateRef.current) return;
+        const node = (nodesRef.current ?? []).find((n) => n.jerarquia === jer);
+        if (node) onEditRef.current?.(node);
+      });
+      chart.on("mouseover", (params) => {
+        if (params?.dataType && params.dataType !== "node") return;
+        showHoverFor(chart, params?.data);
+      });
+      chart.on("mouseout", () => clearHoverSoon());
+      chart.on("globalout", () => clearHoverSoon());
+      onResize = () => {
+        chart?.resize();
+        setHover(null);
+      };
+      window.addEventListener("resize", onResize);
+      if (typeof ResizeObserver !== "undefined" && hostRef.current) {
+        ro = new ResizeObserver(() => {
+          chart?.resize();
+          setHover(null);
+        });
+        ro.observe(hostRef.current);
+      }
+      applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    })();
+    return () => {
+      disposed = true;
+      if (hoverHideTimer.current) clearTimeout(hoverHideTimer.current);
+      if (onResize) window.removeEventListener("resize", onResize);
+      ro?.disconnect();
+      chart?.dispose();
+      chartRef.current = null;
+    };
+  }, [applyChartOption, clearHoverSoon, showHoverFor]);
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeData, selectedJer);
+    setHover(null);
+  }, [treeData, selectedJer, applyChartOption]);
+  const zoomBy = useCallback((factor) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const opt = chart.getOption();
+    const series = Array.isArray(opt?.series) ? opt.series[0] : null;
+    const cur = Number(series?.zoom) || 1;
+    const next = Math.max(0.35, Math.min(3.5, cur * factor));
+    chart.setOption({ series: [{ zoom: next }] });
+    setHover(null);
+  }, []);
+  const resetView = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    applyChartOption(chart, treeDataRef.current, selectedJerRef.current);
+    setHover(null);
+  }, [applyChartOption]);
+  const hoverNode = hover ? (nodes ?? []).find((n) => n.jerarquia === hover.jerarquia) : null;
+  return /* @__PURE__ */ jsxs(Box, { className: "role-hierarchy-orgchart", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxs(Stack, { direction: "row", alignItems: "center", spacing: 0.5, sx: { px: 1, py: 0.4, borderBottom: 1, borderColor: "divider", flexShrink: 0, minHeight: 36 }, children: [
+      /* @__PURE__ */ jsx(Chip, { size: "small", label: countLabel, sx: { height: 22, "& .MuiChip-label": { px: 0.75, fontSize: "0.72rem" } } }),
+      /* @__PURE__ */ jsx(Box, { sx: { flex: 1, minWidth: 8 } }),
+      /* @__PURE__ */ jsx(Tooltip, { title: "Acercar", children: /* @__PURE__ */ jsx(IconButton, { size: "small", onClick: () => zoomBy(1.2), "aria-label": "Zoom in", children: /* @__PURE__ */ jsx("iconify-icon", { icon: "mdi:magnify-plus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx(Tooltip, { title: "Alejar", children: /* @__PURE__ */ jsx(IconButton, { size: "small", onClick: () => zoomBy(1 / 1.2), "aria-label": "Zoom out", children: /* @__PURE__ */ jsx("iconify-icon", { icon: "mdi:magnify-minus-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx(Tooltip, { title: "Restablecer vista", children: /* @__PURE__ */ jsx(IconButton, { size: "small", onClick: resetView, "aria-label": "Reset view", children: /* @__PURE__ */ jsx("iconify-icon", { icon: "mdi:fit-to-screen-outline", width: "18", height: "18" }) }) }),
+      /* @__PURE__ */ jsx(Typography, { variant: "caption", color: "text.secondary", sx: { display: { xs: "none", md: "block" }, mr: 0.5 }, children: "Doble clic edita \xB7 hover \xB1" }),
+      busy ? /* @__PURE__ */ jsx(CircularProgress, { size: 14 }) : null
+    ] }),
+    /* @__PURE__ */ jsxs(
+      Box,
+      {
+        ref: wrapRef,
+        sx: {
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          overflow: "auto",
+          position: "relative"
+        },
+        children: [
+          /* @__PURE__ */ jsx(
+            Box,
+            {
+              ref: hostRef,
+              sx: {
+                width: "100%",
+                minWidth: layoutSize.w,
+                minHeight: layoutSize.h,
+                height: "100%"
+              }
+            }
+          ),
+          showNodeActions && hover && hoverNode ? /* @__PURE__ */ jsxs(
+            Stack,
+            {
+              direction: "row",
+              spacing: 0.25,
+              className: "role-hierarchy-node-actions",
+              onMouseEnter: keepHover,
+              onMouseLeave: clearHoverSoon,
+              sx: {
+                position: "absolute",
+                left: hover.x,
+                top: hover.y - NODE_H / 2 - 14,
+                transform: "translateX(-50%)",
+                zIndex: 5,
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 0.75,
+                boxShadow: 2,
+                p: 0.15
+              },
+              children: [
+                canCreateRoles ? /* @__PURE__ */ jsx(Tooltip, { title: "Agregar hijo", children: /* @__PURE__ */ jsx(
+                  IconButton,
+                  {
+                    size: "small",
+                    color: "primary",
+                    disabled: busy,
+                    "aria-label": "Agregar hijo",
+                    onClick: () => onAddChildClick?.(hoverNode),
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx("iconify-icon", { icon: "mdi:plus", width: "16", height: "16" })
+                  }
+                ) }) : null,
+                canMutate ? /* @__PURE__ */ jsx(Tooltip, { title: "Eliminar rol", children: /* @__PURE__ */ jsx(
+                  IconButton,
+                  {
+                    size: "small",
+                    color: "error",
+                    disabled: busy,
+                    "aria-label": "Eliminar",
+                    onClick: () => {
+                      if (confirm(`\xBFEliminar rol "${hoverNode.iusuario}"?`)) onDeleteClick?.(hoverNode);
+                    },
+                    sx: { p: 0.35 },
+                    children: /* @__PURE__ */ jsx("iconify-icon", { icon: "mdi:delete-outline", width: "16", height: "16" })
+                  }
+                ) }) : null
+              ]
+            }
+          ) : null
+        ]
+      }
+    )
+  ] });
+}
+function buildOption(treeData, selectedJer, dark, layoutSize) {
+  const data = applySelection(JSON.parse(JSON.stringify(treeData)), selectedJer, dark);
+  const breadth = layoutSize?.breadth ?? 1;
+  const topPct = breadth > 8 ? "2%" : "4%";
+  const bottomPct = breadth > 8 ? "2%" : "4%";
+  return {
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => {
+        const d = p?.data;
+        if (!d?.jerarquia) return d?.name ?? "";
+        const desc = d.descripcion ? `<br/><span style="opacity:.75">${d.descripcion}</span>` : "";
+        return `<b>${d.name}</b><br/>${d.iusuario} ${formatJerarquiaLabel(d.jerarquia)}${desc}`;
+      }
+    },
+    series: [{
+      type: "tree",
+      data: [data],
+      top: topPct,
+      left: "3%",
+      bottom: bottomPct,
+      right: "8%",
+      symbol: "rect",
+      symbolSize: [NODE_W, NODE_H],
+      orient: "LR",
+      layout: "orthogonal",
+      edgeShape: "polyline",
+      edgeForkPosition: "63%",
+      expandAndCollapse: false,
+      initialTreeDepth: -1,
+      roam: true,
+      scaleLimit: { min: 0.35, max: 3.5 },
+      animationDuration: 280,
+      animationDurationUpdate: 200,
+      label: {
+        position: "inside",
+        verticalAlign: "middle",
+        align: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 14,
+        color: dark ? "#e2e8f0" : "#0f172a",
+        formatter: (p) => {
+          const d = p.data;
+          if (!d?.jerarquia) return d?.name ?? "";
+          return `${d.name}
+${formatJerarquiaLabel(d.jerarquia)}`;
+        }
+      },
+      leaves: { label: { position: "inside", align: "center" } },
+      lineStyle: {
+        color: dark ? "rgba(56,189,248,0.45)" : "rgba(30,144,255,0.4)",
+        width: 1.5,
+        curveness: 0
+      },
+      emphasis: { focus: "descendant" }
+    }]
+  };
+}
+
+// js/tools/roleHierarchyTree/RoleHierarchyView.tsx
+import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
+var { useState: useState2, useCallback: useCallback2, useEffect: useEffect3 } = getReact();
+var {
+  Box: Box2,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  CircularProgress: CircularProgress2,
+  Stack: Stack2
+} = getMaterialUI();
+function RoleHierarchyView(props) {
+  const {
+    nodes,
+    initialSelectedRole,
+    canMutate,
+    canCreateRoles = false,
+    busy,
+    onSave,
+    onCreate,
+    onDelete
+  } = props;
+  const [selectedJer, setSelectedJer] = useState2(null);
+  const [editTarget, setEditTarget] = useState2(null);
+  useEffect3(() => {
+    if (!initialSelectedRole || !nodes.length) return;
+    const key = String(initialSelectedRole).trim().toLowerCase();
+    const node = nodes.find((n) => String(n.iusuario ?? "").trim().toLowerCase() === key);
+    if (node?.jerarquia) setSelectedJer((prev) => prev === node.jerarquia ? prev : node.jerarquia);
+  }, [initialSelectedRole, nodes]);
+  const openAddChild = useCallback2((parent) => {
+    const jer = nextChildJerarquia(parent.jerarquia, nodes);
+    setSelectedJer(parent.jerarquia);
+    setEditTarget({
+      isNew: true,
+      node: { iusuario: "", jerarquia: jer, namedisplay: null, descripcion: null }
+    });
+  }, [nodes]);
+  return /* @__PURE__ */ jsxs2(Box2, { className: "role-hierarchy-tree", sx: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsx2(
+      HierarchyOrgChart,
+      {
+        nodes,
+        selectedJer,
+        onSelect: setSelectedJer,
+        canMutate,
+        canCreateRoles,
+        busy,
+        onAddChildClick: openAddChild,
+        onEditClick: (node) => setEditTarget({ node, isNew: false }),
+        onDeleteClick: (node) => {
+          void onDelete(node.iusuario);
+        }
+      }
+    ),
+    /* @__PURE__ */ jsx2(
+      HierarchyEditDialog,
+      {
+        target: editTarget,
+        busy,
+        onClose: () => setEditTarget(null),
+        onSave: async (name, jer) => {
+          if (editTarget?.isNew) await onCreate(name, jer);
+          else if (editTarget) await onSave(editTarget.node.iusuario, jer);
+          setEditTarget(null);
+        }
+      }
+    )
+  ] });
+}
+function HierarchyEditDialog({ target, busy, onClose, onSave }) {
+  const isNew = target?.isNew ?? false;
+  const [name, setName] = useState2(target?.node.iusuario ?? "");
+  const [jerarquia, setJerarquia] = useState2(target?.node.jerarquia ?? "");
+  const [err, setErr] = useState2("");
+  React.useEffect(() => {
+    setName(target?.node.iusuario ?? "");
+    setJerarquia(target?.node.jerarquia ?? "");
+    setErr("");
+  }, [target]);
+  if (!target) return null;
+  const handleSubmit = async () => {
+    setErr("");
+    const trimmedName = String(name ?? "").trim();
+    const trimmedJer = String(jerarquia ?? "").trim();
+    if (!trimmedName) {
+      setErr("nombre requerido");
+      return;
+    }
+    if (!trimmedJer) {
+      setErr("jerarqu\xEDa requerida");
+      return;
+    }
+    if (!/^[0-9]+(\.[0-9]+)*$/.test(trimmedJer)) {
+      setErr("jerarqu\xEDa inv\xE1lida (formato: 0, 0.0, 0.1.1)");
+      return;
+    }
+    try {
+      await onSave(trimmedName, trimmedJer);
+    } catch (e) {
+      setErr(e?.message ?? String(e));
+    }
+  };
+  return /* @__PURE__ */ jsxs2(Dialog, { open: true, onClose, maxWidth: "sm", fullWidth: true, children: [
+    /* @__PURE__ */ jsx2(DialogTitle, { children: isNew ? "Nuevo rol hijo" : `Editar ${target.node.iusuario}` }),
+    /* @__PURE__ */ jsx2(DialogContent, { dividers: true, children: /* @__PURE__ */ jsxs2(Stack2, { spacing: 2, children: [
+      err ? /* @__PURE__ */ jsx2(Alert, { severity: "error", children: err }) : null,
+      /* @__PURE__ */ jsx2(TextField, { label: "Nombre", value: name, onChange: (e) => setName(e.target.value), disabled: !isNew, helperText: "min\xFAsculas, sin espacios (ej. dev_lead)" }),
+      /* @__PURE__ */ jsx2(TextField, { label: "Jerarqu\xEDa", value: jerarquia, onChange: (e) => setJerarquia(e.target.value), helperText: "dot-notation: 0, 0.0, 0.1.1, ..." })
+    ] }) }),
+    /* @__PURE__ */ jsxs2(DialogActions, { children: [
+      /* @__PURE__ */ jsx2(Button, { onClick: onClose, disabled: busy, children: "Cancelar" }),
+      /* @__PURE__ */ jsx2(Button, { variant: "contained", onClick: handleSubmit, disabled: busy, children: busy ? /* @__PURE__ */ jsx2(CircularProgress2, { size: 16 }) : "Guardar" })
+    ] })
+  ] });
+}
+export {
+  RoleHierarchyView
+};
