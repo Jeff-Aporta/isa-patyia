@@ -1,1 +1,304 @@
-import{roleDescripcion as M,roleNamedisplay as v,userRoles as w}from"./permisosForm.js";import{getRoleJerarquia as D,actorCanManageTarget as T,formatJerarquiaLabel as P,actorJerarquiasFromRoles as q,actorJerarquiaFromRoles as j}from"./roleHierarchy.js";import{canonicalRoleMeta as S}from"./roleCanonicalMeta.js";const O="visitante",b=["#1e90ff","#10b981","#a855f7","#f59e0b","#ec4899","#06b6d4","#8b5cf6"],x=["mdi:shield-account","mdi:file-document-edit-outline","mdi:code-braces","mdi:robot-outline","mdi:eye-outline","mdi:account-group-outline"];function g(e){return String(e?.iusuario??e?.ientity??"").trim()}function p(e){return g(e).toLowerCase().replace(/^role:/i,"")}function k(e){return String(e??"").split("_").map(r=>{const t=r.toLowerCase();return t==="iss"||t==="isw"?t.toUpperCase():t?t.charAt(0).toUpperCase()+t.slice(1):""}).filter(Boolean).join(" ")}function _(e){const r=p(e),t=S(r);if(t?.namedisplay)return t.namedisplay;const o=v(e?.permisos),s=k(r);return!o||s.length>o.length?s:o}function z(e){const r=p(e),t=S(r);return t?.descripcion?t.descripcion:M(e?.permisos)}function V(e,r=0,t=null){const o=t?.accent??t?.color,s=t?.icon;if(o&&s)return{accent:String(o),icon:String(s)};const i=r%b.length;return{accent:b[i],icon:x[i%x.length]}}function $(e,r){const t=String(e??"").trim().toUpperCase(),o=String(r??"").trim();return o?{primary:o,secondary:t}:{primary:t,secondary:null}}function H(e,r,t){const o=String(t??"").trim().toUpperCase();if(!o)return!0;const s=String(e??"").trim().toUpperCase(),i=String(r??"").trim().toUpperCase();return s.includes(o)||i&&i.includes(o)}function R(e){const r=e?.permisos?.nombre??e?.permisos?.namedisplay;return r!=null&&String(r).trim()?String(r).trim():null}function F(e){return String(e??"").trim().toUpperCase()||null}function ee(e){const r={};for(const t of e??[]){const o=F(g(t));if(!o)continue;const s=R(t);s&&(r[o]=s)}return r}function J(e,r,t){const o=R(r);if(o)return o;const s=F(e),i=s?t?.[s]:null;return i!=null&&String(i).trim()?String(i).trim():null}function K(e){return[...e].sort((r,t)=>{const o=t.users.length-r.users.length;return o!==0?o:r.sortIndex-t.sortIndex})}function re(e,r={}){const t=e?.roles??[],o=e?.users??[],s=r.userSearch??"",i=r.roleFilters??r.roleFilter??[],u=(Array.isArray(i)?i:[i]).map(n=>String(n??"").trim().toLowerCase()).filter(Boolean),a=u.length?new Set(u):null,E=r.userDirectory??null,y=!!String(s??"").trim()||!!a?.size,d=t.filter(n=>n?.itipo!=="user"&&n?.bactivo!==!1&&p(n)).map((n,c)=>{const l=p(n),m=V(l,c,n.permisos),f=D(l,n.permisos);return{id:l,roleName:l,title:_(n),jerarquia:f,jerarquiaLabel:P(f),descripcion:z(n),entry:n,accent:m.accent,icon:m.icon,sortIndex:c,users:[],roleFilteredOut:!!(a&&!a.has(l))}}).filter(n=>!(!n.id||n.id===O)),N=new Map(d.map(n=>[n.id,n]));for(const n of o){const c=g(n).toUpperCase(),l=J(c,n,E);if(H(c,l,s))for(const m of w(n.permisos)){const f=N.get(m);if(!f||a&&!a.has(m)||f.users.some(L=>L.username===c))continue;const I=$(c,l);f.users.push({id:`${c}@${m}`,username:c,displayName:l,labels:I,userEntry:n})}}for(const n of d)n.users.sort((c,l)=>c.labels.primary.localeCompare(l.labels.primary,"es"));const h=K(d),C=!!r.hideEmptyColumns,A=C?h.filter(n=>n.users.length>0||a?.has(n.id)):h,B=y&&!d.some(n=>n.users.length>0);return{columns:A,filterActive:y,noUsersVisible:B,hideEmptyColumns:C}}function te(e,r,t,o){for(const s of e){const i=r.current[s];if(!i)continue;const u=i.getBoundingClientRect();if(t>=u.left&&t<=u.right&&o>=u.top&&o<=u.bottom)return s}return null}function oe(e){const r={};for(const t of e??[]){const o=p(t);o&&(r[o]=t.permisos??{})}return r}function U(e,r){if(!r)return!1;const o=(Array.isArray(e)?e:[e]).map(s=>String(s??"").trim()).filter(Boolean);return o.length?T(o,r.jerarquia??"999"):!1}function ne(e,r,t){return U(e,r)&&U(e,t)}function se(e,r,t){const o=e?.current;if(!o)return!1;const s=o.getBoundingClientRect();return r>=s.left&&r<=s.right&&t>=s.top&&t<=s.bottom}export{O as VISITANTE,j as actorJerarquiaFromRoles,q as actorJerarquiasFromRoles,re as buildPermisosBoard,oe as buildRolePermisosIndex,ee as buildUserDirectoryFromPermisos,U as canActorManageColumn,ne as canActorTransferUser,te as columnAtPoint,R as displayNameFromUserEntry,H as matchesUserFilter,F as normalizePermisosUsername,g as permEntryKey,se as pointInRef,z as roleDescripcionFromEntry,p as roleNameFromEntry,_ as roleTitleFromEntry,K as sortPermisosColumnsByMembers,V as themeForRole,$ as userCardLabels};
+// js/tools/permisosForm.js
+var FLAG_DEFS = [
+  { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
+  { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
+];
+var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
+function roleDescripcion(permisos) {
+  const d = permisos?.descripcion;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function roleNamedisplay(permisos) {
+  const d = permisos?.namedisplay;
+  return d != null && String(d).trim() ? String(d).trim() : "";
+}
+function userRoles(permisos) {
+  const r = permisos?.roles;
+  return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+}
+
+// js/tools/roleHierarchy.js
+var DEFAULT_ROLE_JERARQUIA = {
+  visitante: "0",
+  dev: "0.0",
+  dev_lead: "0.0.0",
+  dev_iss: "0.0.1",
+  admn: "0.1",
+  auditador: "0.1.0",
+  admn_isapatyia: "0.1.0.0"
+};
+var DEFAULT_FOR_UNKNOWN = "999";
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+function isSameInheritanceLine(a, b) {
+  const x = String(a ?? "").trim();
+  const y = String(b ?? "").trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+}
+function canManageRole(actorJerarquia, targetJerarquia) {
+  const target = String(targetJerarquia ?? "").trim();
+  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
+  return isSameInheritanceLine(actorJerarquia, target);
+}
+function actorCanManageTarget(actorJerarquias, targetJerarquia) {
+  for (const j of actorJerarquias ?? []) {
+    if (canManageRole(j, targetJerarquia)) return true;
+  }
+  return false;
+}
+function actorJerarquiasFromRoles(roles, rolePermisosByName = {}) {
+  return (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter((r) => r && r !== "visitante").map((r) => getRoleJerarquia(r, rolePermisosByName[r]));
+}
+function actorJerarquiaFromRoles(roles, rolePermisosByName = {}) {
+  const jerarquias = actorJerarquiasFromRoles(roles, rolePermisosByName);
+  if (!jerarquias.length) return DEFAULT_FOR_UNKNOWN;
+  jerarquias.sort((a, b) => {
+    const depth = (s) => String(s).split(".").filter(Boolean).length;
+    const d = depth(b) - depth(a);
+    if (d !== 0) return d;
+    return compareHierarchy(a, b);
+  });
+  return jerarquias[0];
+}
+function formatJerarquiaLabel(jerarquia) {
+  if (jerarquia == null || jerarquia === "") return "";
+  return `(${jerarquia})`;
+}
+
+// js/tools/roleCanonicalMeta.js
+var CANONICAL_ROLE_META = {
+  dev: {
+    namedisplay: "Desarrollador b\xE1sico",
+    descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+  },
+  admn: {
+    namedisplay: "Admn b\xE1sico",
+    descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+  },
+  admn_isapatyia: {
+    namedisplay: "Admn ISA-Paty",
+    descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+  }
+};
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+
+// js/tools/permisosKanbanShared.js
+var VISITANTE = "visitante";
+var ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
+var ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
+function permEntryKey(entry) {
+  return String(entry?.iusuario ?? entry?.ientity ?? "").trim();
+}
+function roleNameFromEntry(entry) {
+  return permEntryKey(entry).toLowerCase().replace(/^role:/i, "");
+}
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleTitleFromEntry(entry) {
+  const roleName = roleNameFromEntry(entry);
+  const canon = canonicalRoleMeta(roleName);
+  if (canon?.namedisplay) return canon.namedisplay;
+  const namedisplay = roleNamedisplay(entry?.permisos);
+  const formatted = formatRoleTitle(roleName);
+  if (!namedisplay) return formatted;
+  if (formatted.length > namedisplay.length) return formatted;
+  return namedisplay;
+}
+function roleDescripcionFromEntry(entry) {
+  const roleName = roleNameFromEntry(entry);
+  const canon = canonicalRoleMeta(roleName);
+  if (canon?.descripcion) return canon.descripcion;
+  return roleDescripcion(entry?.permisos);
+}
+function themeForRole(roleName, index = 0, permisos = null) {
+  const accent = permisos?.accent ?? permisos?.color;
+  const icon = permisos?.icon;
+  if (accent && icon) return { accent: String(accent), icon: String(icon) };
+  const i = index % ROLE_ACCENTS.length;
+  return { accent: ROLE_ACCENTS[i], icon: ROLE_ICONS[i % ROLE_ICONS.length] };
+}
+function userCardLabels(username, displayName) {
+  const user = String(username ?? "").trim().toUpperCase();
+  const name = String(displayName ?? "").trim();
+  if (name) return { primary: name, secondary: user };
+  return { primary: user, secondary: null };
+}
+function matchesUserFilter(username, displayName, query) {
+  const q = String(query ?? "").trim().toUpperCase();
+  if (!q) return true;
+  const u = String(username ?? "").trim().toUpperCase();
+  const n = String(displayName ?? "").trim().toUpperCase();
+  return u.includes(q) || n && n.includes(q);
+}
+function displayNameFromUserEntry(entry) {
+  const fromMeta = entry?.permisos?.nombre ?? entry?.permisos?.namedisplay;
+  return fromMeta != null && String(fromMeta).trim() ? String(fromMeta).trim() : null;
+}
+function normalizePermisosUsername(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  return s || null;
+}
+function buildUserDirectoryFromPermisos(users) {
+  const map = {};
+  for (const e of users ?? []) {
+    const key = normalizePermisosUsername(permEntryKey(e));
+    if (!key) continue;
+    const name = displayNameFromUserEntry(e);
+    if (name) map[key] = name;
+  }
+  return map;
+}
+function resolveDisplayName(username, userEntry, userDirectory) {
+  const fromMeta = displayNameFromUserEntry(userEntry);
+  if (fromMeta) return fromMeta;
+  const key = normalizePermisosUsername(username);
+  const fromDir = key ? userDirectory?.[key] : null;
+  if (fromDir != null && String(fromDir).trim()) return String(fromDir).trim();
+  return null;
+}
+function sortPermisosColumnsByMembers(columns) {
+  return [...columns].sort((a, b) => {
+    const byCount = b.users.length - a.users.length;
+    if (byCount !== 0) return byCount;
+    return a.sortIndex - b.sortIndex;
+  });
+}
+function buildPermisosBoard(data, filters = {}) {
+  const roles = data?.roles ?? [];
+  const users = data?.users ?? [];
+  const userQuery = filters.userSearch ?? "";
+  const roleFiltersRaw = filters.roleFilters ?? filters.roleFilter ?? [];
+  const roleFilters = (Array.isArray(roleFiltersRaw) ? roleFiltersRaw : [roleFiltersRaw]).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  const roleFilterSet = roleFilters.length ? new Set(roleFilters) : null;
+  const userDirectory = filters.userDirectory ?? null;
+  const filterActive = Boolean(String(userQuery ?? "").trim()) || Boolean(roleFilterSet?.size);
+  const activeRoles = roles.filter((entry) => entry?.itipo !== "user" && entry?.bactivo !== false && roleNameFromEntry(entry));
+  const columns = activeRoles.map((entry, index) => {
+    const roleName = roleNameFromEntry(entry);
+    const theme = themeForRole(roleName, index, entry.permisos);
+    const jerarquia = getRoleJerarquia(roleName, entry.permisos);
+    return {
+      id: roleName,
+      roleName,
+      title: roleTitleFromEntry(entry),
+      jerarquia,
+      jerarquiaLabel: formatJerarquiaLabel(jerarquia),
+      descripcion: roleDescripcionFromEntry(entry),
+      entry,
+      accent: theme.accent,
+      icon: theme.icon,
+      sortIndex: index,
+      users: [],
+      roleFilteredOut: !!(roleFilterSet && !roleFilterSet.has(roleName))
+    };
+  }).filter((c) => {
+    if (!c.id || c.id === VISITANTE) return false;
+    return true;
+  });
+  const colById = new Map(columns.map((c) => [c.id, c]));
+  for (const userEntry of users) {
+    const username = permEntryKey(userEntry).toUpperCase();
+    const displayName = resolveDisplayName(username, userEntry, userDirectory);
+    if (!matchesUserFilter(username, displayName, userQuery)) continue;
+    for (const role of userRoles(userEntry.permisos)) {
+      const col = colById.get(role);
+      if (!col) continue;
+      if (roleFilterSet && !roleFilterSet.has(role)) continue;
+      if (col.users.some((u) => u.username === username)) continue;
+      const labels = userCardLabels(username, displayName);
+      col.users.push({ id: `${username}@${role}`, username, displayName, labels, userEntry });
+    }
+  }
+  for (const col of columns) {
+    col.users.sort((a, b) => a.labels.primary.localeCompare(b.labels.primary, "es"));
+  }
+  const sorted = sortPermisosColumnsByMembers(columns);
+  const hideEmpty = !!filters.hideEmptyColumns;
+  const visible = hideEmpty ? sorted.filter((c) => c.users.length > 0 || roleFilterSet?.has(c.id)) : sorted;
+  const noUsersVisible = filterActive && !columns.some((c) => c.users.length > 0);
+  return { columns: visible, filterActive, noUsersVisible, hideEmptyColumns: hideEmpty };
+}
+function columnAtPoint(columnIds, listRefs, clientX, clientY) {
+  for (const colId of columnIds) {
+    const el = listRefs.current[colId];
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
+  }
+  return null;
+}
+function buildRolePermisosIndex(roles) {
+  const out = {};
+  for (const r of roles ?? []) {
+    const key = roleNameFromEntry(r);
+    if (key) out[key] = r.permisos ?? {};
+  }
+  return out;
+}
+function canActorManageColumn(actorJerarquias, targetColumn) {
+  if (!targetColumn) return false;
+  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
+  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
+  if (!filtered.length) return false;
+  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
+}
+function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
+  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
+}
+function pointInRef(ref, clientX, clientY) {
+  const el = ref?.current;
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+}
+export {
+  VISITANTE,
+  actorJerarquiaFromRoles,
+  actorJerarquiasFromRoles,
+  buildPermisosBoard,
+  buildRolePermisosIndex,
+  buildUserDirectoryFromPermisos,
+  canActorManageColumn,
+  canActorTransferUser,
+  columnAtPoint,
+  displayNameFromUserEntry,
+  matchesUserFilter,
+  normalizePermisosUsername,
+  permEntryKey,
+  pointInRef,
+  roleDescripcionFromEntry,
+  roleNameFromEntry,
+  roleTitleFromEntry,
+  sortPermisosColumnsByMembers,
+  themeForRole,
+  userCardLabels
+};
