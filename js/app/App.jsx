@@ -5,56 +5,82 @@ import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { TodosTool } from "../tools/TodosTool.jsx";
 import { ConfigTool } from "../tools/ConfigTool.jsx";
+import { IssTargetChip } from "../components/IssTargetSwitch.jsx";
+import { ViewAsRoleMenu } from "../components/ViewAsRoleControl.jsx";
 import * as SessionApi from "../api/sessionApi.ts";
 
-const { Stack, Tooltip, IconButton, Chip, Box } = getMaterialUI();
+/** Mismo grafo que bootMeCaps — evita ViewAsRoleMenu en platform.js con cache ME vacío. */
+(function registerViewAsRoleMenu() {
+  const ui = window.ISA?.UI;
+  if (!ui) return;
+  ui.ViewAsRoleMenu = ViewAsRoleMenu;
+  try { window.dispatchEvent(new Event("patyia-apptools:caps-changed")); } catch { /* ignore */ }
+})();
+
+const { Stack } = getMaterialUI();
 
 const BRAND_HOME_EVENT = "isa:brand-home";
 
 /** ponytail: DevFlow fuera del nav hasta estabilizar kanban/SCRUM. */
 const DEVFLOW_NAV_ENABLED = false;
 
+/** Tools del nav primario — Prompts y Logs viven como sub-tabs.
+ * Nav siempre navegable; permisos restringen acciones/inputs dentro de cada panel. */
 const ALL_TOOLS = [
-  { id: "log", label: "Logs", icon: "mdi:clipboard-text-clock-outline", cap: "canViewLogs" },
-  { id: "prompts", label: "Prompts", icon: "mdi:database-export", cap: "canViewPrompts" },
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline", cap: "canViewChat" },
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column", cap: null, devflow: true },
-  { id: "config", label: "Config", icon: "mdi:cog-outline", cap: "canViewConfig" },
+  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
+  { id: "todos", label: "DevFlow", icon: "mdi:view-column", devflow: true },
+  { id: "config", label: "Config", icon: "mdi:cog-outline" },
 ];
 
-// Vista pública Scrum/DevFlow: en ese modo la pestaña "todos" es la única útil.
+/** Sub-nav de Chat: logs primero, luego conversaciones. */
+const CHAT_PANES = [
+  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
+  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" },
+];
+
+/** Sub-nav de Config: prompts, sistema, permisos. */
+const CONFIG_PANES = [
+  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
+  { id: "sistema", label: "Sistema", icon: "mdi:tune-vertical" },
+  { id: "permisos", label: "Permisos", icon: "mdi:shield-key-outline" },
+];
+
 const PUBLIC_SCRUM_TOOLS = [
   { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
 ];
+
+function navTabs(tabs) {
+  return tabs.map(({ id, label, icon }) => ({ id, label, icon }));
+}
 
 function isPublicScrumBoot(todos) {
   return !!String(todos?.publicSlug ?? "").trim();
 }
 
+function readChatPane(boot) {
+  const pane = boot?.chat?.pane;
+  if (pane === "logs" || pane === "conv") return pane;
+  return "conv";
+}
+
+function readConfigPane(boot) {
+  const pane = boot?.config?.pane;
+  if (pane === "permisos" || pane === "prompts" || pane === "sistema") return pane;
+  return "sistema";
+}
+
 function LocalIssBadge() {
-  const { Icon } = UI;
-  return (
-    <Tooltip title="ISS local (127.0.0.1:8802)">
-      <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
-        <Chip
-          size="small"
-          color="warning"
-          variant="outlined"
-          icon={<Icon icon="mdi:laptop" size={16} />}
-          label="Local"
-          sx={{ height: 28, cursor: "default", pointerEvents: "none", "& .MuiChip-label": { px: 0.75 } }}
-        />
-      </Box>
-    </Tooltip>
-  );
+  return <IssTargetChip />;
 }
 
 export function App() {
-  const { useState, useEffect } = getReact();
+  const { useState, useEffect, useMemo } = getReact();
   const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState(boot);
-  const [tool, setTool] = useState(() => boot.tool || "log");
+  const [tool, setTool] = useState(() => boot.tool || "chat");
+  const [chatPane, setChatPane] = useState(() => readChatPane(boot));
+  const [configPane, setConfigPane] = useState(() => readConfigPane(boot));
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
@@ -66,13 +92,16 @@ export function App() {
 
   useEffect(() => {
     return subscribe(() => {
-      const t = getSnapshot().tool || "log";
-      setTool(t);
+      const snap = getSnapshot();
+      setAppBoot(snap);
+      setTool(snap.tool || "chat");
+      setChatPane(readChatPane(snap));
+      setConfigPane(readConfigPane(snap));
     });
   }, []);
 
   useEffect(() => {
-    if (tool === "chat" || tool === "log") Assets.ensureChatStagingCss();
+    if (tool === "chat") Assets.ensureChatStagingCss();
     if (tool === "todos" || publicScrumView) Assets.ensureTodosCss();
   }, [tool, publicScrumView]);
 
@@ -91,31 +120,19 @@ export function App() {
     }
   }, [publicScrumView, tool]);
 
-  /** Tabs visibles: DevFlow oculto temporalmente; el resto siempre en nav (permisos en cada tool). */
-  const visibleToolTabs = ALL_TOOLS.filter((t) => {
+  const toolTabs = useMemo(() => navTabs(ALL_TOOLS.filter((t) => {
     if (t.devflow) return DEVFLOW_NAV_ENABLED;
     if (publicScrumView) return false;
     return true;
-  });
+  })), [publicScrumView]);
+  const chatPanes = useMemo(() => navTabs(CHAT_PANES), []);
+  const configPanes = useMemo(() => navTabs(CONFIG_PANES), []);
 
   useEffect(() => {
     if (publicScrumView) return;
     if (!DEVFLOW_NAV_ENABLED && tool === "todos") {
-      const fallback = visibleToolTabs[0]?.id || "log";
-      setTool(fallback);
-      mergePartial({ tool: fallback });
-    }
-  }, [publicScrumView, tool, authTick]);
-
-  /** Si la tool actual no es visible → redirigir a la primera visible. */
-  useEffect(() => {
-    if (publicScrumView) return;
-    if (!visibleToolTabs.length) return;
-    const stillVisible = visibleToolTabs.some((t) => t.id === tool);
-    if (!stillVisible) {
-      const fallback = visibleToolTabs[0].id;
-      setTool(fallback);
-      mergePartial({ tool: fallback });
+      setTool("chat");
+      mergePartial({ tool: "chat" });
     }
   }, [publicScrumView, tool, authTick]);
 
@@ -141,7 +158,8 @@ export function App() {
   useEffect(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
-      setTool("log");
+      setTool("chat");
+      setChatPane("conv");
       setHomeTick((n) => n + 1);
     }
     window.addEventListener(BRAND_HOME_EVENT, onBrandHome);
@@ -150,7 +168,28 @@ export function App() {
 
   function selectTool(id) {
     setTool(id);
-    mergePartial({ tool: id });
+    if (id === "chat") {
+      mergePartial({ tool: id, chat: { pane: chatPane || "conv" } });
+    } else if (id === "config") {
+      mergePartial({ tool: id, config: { pane: configPane || "sistema" } });
+    } else {
+      mergePartial({ tool: id });
+    }
+  }
+
+  function selectChatPane(id) {
+    const pane = id === "logs" ? "logs" : "conv";
+    setChatPane(pane);
+    setTool("chat");
+    mergePartial({ tool: "chat", chat: { pane } });
+  }
+
+  function selectConfigPane(id) {
+    const pane = id === "permisos" ? "permisos" : id === "prompts" ? "prompts" : "sistema";
+    setConfigPane(pane);
+    setTool("config");
+    mergePartial({ tool: "config", config: { pane } });
+    try { localStorage.setItem("isa-patyia:config-tab", pane); } catch { /* ignore */ }
   }
 
   const Shell = window.ISAFront?.Layout?.AppShell;
@@ -167,24 +206,38 @@ export function App() {
           window.dispatchEvent(new Event("isa-patyia:auth"));
         }}
       />
-      {Session.isLoggedIn() ? (
-        <Tooltip title="Cerrar sesión" arrow>
-          <IconButton
-            size="small"
-            color="inherit"
-            aria-label="Cerrar sesión"
-            onClick={() => {
-              SessionApi.logout();
-              setAuthTick((n) => n + 1);
-              window.dispatchEvent(new Event("isa-patyia:auth"));
-            }}
-          >
-            <UI.Icon icon="mdi:logout" size={20} />
-          </IconButton>
-        </Tooltip>
-      ) : null}
     </Stack>
   );
+
+  const navRows = publicScrumView
+    ? [
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
+      ]
+    : [
+        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
+        ...(tool === "chat"
+          ? [{
+              id: "chat-pane",
+              tier: "secondary",
+              compact: true,
+              value: chatPane,
+              onChange: selectChatPane,
+              tabs: chatPanes,
+              tabHref: (id) => hrefFor({ tool: "chat", chat: { pane: id } }),
+            }]
+          : []),
+        ...(tool === "config"
+          ? [{
+              id: "config-pane",
+              tier: "secondary",
+              compact: true,
+              value: configPane,
+              onChange: selectConfigPane,
+              tabs: configPanes,
+              tabHref: (id) => hrefFor({ tool: "config", config: { pane: id } }),
+            }]
+          : []),
+      ];
 
   return (
     <Shell
@@ -194,28 +247,26 @@ export function App() {
       mobileBreakpoint="xs"
       chromeless={publicScrumView}
       toolbarExtra={toolbarTools}
-      navRows={publicScrumView ? [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
-      ] : [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: visibleToolTabs, tabHref: (id) => hrefFor({ tool: id }) },
-      ]}
+      navRows={navRows}
     >
       {publicScrumView ? (
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
       ) : (
         <>
-          {tool === "log" && <LogViewer key={homeTick} bootLog={appBoot.log || {}} />}
-          {tool === "prompts" && (
-            <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
+          {tool === "chat" && chatPane === "logs" && (
+            <LogViewer key={`logs-${homeTick}`} bootLog={appBoot.log || getSnapshot().log || {}} />
           )}
-          {tool === "chat" && (
+          {tool === "chat" && chatPane !== "logs" && (
             <ChatTool key={homeTick} bootChat={getSnapshot().chat || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
           {tool === "todos" && DEVFLOW_NAV_ENABLED && (
             <TodosTool key={`${homeTick}-${authTick}`} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
           )}
-          {tool === "config" && (
-            <ConfigTool key={homeTick} onNeedLogin={() => setAuthOpen(true)} />
+          {tool === "config" && configPane === "prompts" && (
+            <PromptsSqlTool key={homeTick} bootPrompts={appBoot.prompts || {}} onNeedLogin={() => setAuthOpen(true)} />
+          )}
+          {tool === "config" && (configPane === "permisos" || configPane === "sistema") && (
+            <ConfigTool key={homeTick} pane={configPane} onNeedLogin={() => setAuthOpen(true)} />
           )}
         </>
       )}
