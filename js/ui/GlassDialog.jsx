@@ -43,6 +43,7 @@ export function resolveGlassDialogProps({
   onClose,
   maxWidth = "md",
   fullWidth = true,
+  fullScreen = false,
   paperMaxWidth,
   paperClassName = "",
   slotProps,
@@ -51,13 +52,28 @@ export function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (fullScreen) {
+    paper.sx = {
+      ...paper.sx,
+      m: 0,
+      margin: 0,
+      maxWidth: "100%",
+      width: "100%",
+      height: "100%",
+      maxHeight: "100dvh",
+      borderRadius: 0,
+      border: "none",
+      boxShadow: "none",
+    };
+  }
   const shared = {
     open,
     onClose,
-    maxWidth,
+    maxWidth: fullScreen ? false : maxWidth,
     fullWidth,
+    fullScreen,
     scroll: "paper",
-    className: "isa-login-dialog isa-glass-dialog",
+    className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
     slotProps: { backdrop: { sx: glassBackdropSx() }, ...(slotProps || {}) },
     PaperProps: paper,
     ...rest,
@@ -172,9 +188,9 @@ export function GlassDialogHeader({ icon = "mdi:information-outline", title, sub
   );
 }
 
-export function GlassDialog({ children, header = null, maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+export function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
   return (
     <Dialog {...props}>
       {header}

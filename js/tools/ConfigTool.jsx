@@ -4,16 +4,16 @@ import { JsonCodeEditor } from "../editors/jsonEditor.jsx";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
 import { fetchOpenAiSystemConfig, putOpenAiSystemConfig, requireAppSession } from "../api/systemConfigApi.ts";
 import { Session, toastError, toastSuccess } from "../core/platform.ts";
+import * as SessionApi from "../api/sessionApi.ts";
 import { PermisosPanel } from "./PermisosPanel.jsx";
 import { ConfigPromptsOperativosPanel } from "./ConfigPromptsOperativosPanel.jsx";
 import {
   buildDefaults, modelSelectOptions, parseAndValidateJsonText, prettyJson, toOpenAiJsonPayload, validateOpenAiConfig,
 } from "./configOpenAi.ts";
-import { readConfigToolTab, writeConfigToolTab } from "./configToolState.ts";
 import { useConfigFieldPersist } from "./configFieldPersist.ts";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
-const { Paper, Typography, TextField, Stack, Alert, Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, DialogContent, DialogActions, Button, Divider } = getMaterialUI();
+const { Paper, Typography, TextField, Stack, Alert, Box, FormControl, InputLabel, Select, MenuItem, Tooltip, DialogContent, DialogActions, Button, Divider } = getMaterialUI();
 const { Icon } = UI;
 
 /** Sección de formulario (tab Sistema) — GlassSection con acciones en cabecera. */
@@ -132,25 +132,17 @@ function OpenAiJsonModal({ open, initial, readOnly, modelOptions, onClose, onApp
   );
 }
 
-export function ConfigTool({ onNeedLogin }) {
-  const [tab, setTab] = useState(() => readConfigToolTab());
-
-  useEffect(() => { writeConfigToolTab(tab); }, [tab]);
-
+export function ConfigTool({ onNeedLogin, pane = "sistema" }) {
   return (
     <div className="tool-grid tool-grid-config isa-tool-surface">
       <Paper className="tool-panel scroll-panel config-tool-panel" elevation={0}>
-        <div className="panel-head config-tool-head">
-          <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto" className="config-tool-tabs">
-            <Tab value="sistema" label="Sistema" icon={<Icon icon="mdi:tune-vertical" size={14} />} iconPosition="start" />
-            <Tab value="permisos" label="Permisos" icon={<Icon icon="mdi:shield-key-outline" size={14} />} iconPosition="start" />
-          </Tabs>
-        </div>
-        {tab === "permisos" ? (
+        {pane === "permisos" ? (
           <div className="panel-body config-panel-body config-panel-body--permisos custom-scrollbar">
             <PermisosPanel onNeedLogin={onNeedLogin} />
           </div>
-        ) : <SistemaConfigBody onNeedLogin={onNeedLogin} />}
+        ) : (
+          <SistemaConfigBody onNeedLogin={onNeedLogin} />
+        )}
       </Paper>
     </div>
   );
@@ -190,7 +182,9 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       const next = { ...buildDefaults(), ...cfg };
       setConfig(next);
       setSaved(next);
-      setCanEdit(!!cfg.canEdit);
+      setCanEdit(SessionApi.isViewingAsRole()
+        ? SessionApi.canEditOpenAiConfig()
+        : !!cfg.canEdit);
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
@@ -203,7 +197,11 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
   useEffect(() => {
     const onAuth = () => { load(); };
     window.addEventListener(Session.EVENT, onAuth);
-    return () => window.removeEventListener(Session.EVENT, onAuth);
+    window.addEventListener("patyia-apptools:caps-changed", onAuth);
+    return () => {
+      window.removeEventListener(Session.EVENT, onAuth);
+      window.removeEventListener("patyia-apptools:caps-changed", onAuth);
+    };
   }, [load]);
 
   async function persist(snapshot, gen, fields) {
@@ -246,7 +244,6 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       className="config-form-section--openai"
       icon={<Icon icon="mdi:brain" size={20} />}
       title="OpenAI"
-      description="Modelos por defecto y fragmentos de búsqueda en archivos."
       actions={(
         <>
           <ButtonIconify icon="mdi:code-json" title="JSON" onClick={() => setJsonOpen(true)} />
@@ -254,25 +251,30 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
         </>
       )}
     >
-      <Box className="config-openai-fields-row" sx={{ display: "grid", gridTemplateColumns: "minmax(160px, 1.2fr) minmax(160px, 1.2fr) 108px", gap: "1rem 1.25rem", alignItems: "start", width: "100%", maxWidth: 640, mt: 0.5 }}>
+      <Box className="config-openai-fields-row" sx={{ display: "grid", gridTemplateColumns: "minmax(170px, 1.2fr) minmax(190px, 1.3fr) minmax(120px, 0.85fr)", gap: "0.65rem 0.85rem", alignItems: "start", width: "100%", maxWidth: 720, mt: 0.25 }}>
           <FormControl size="small" className="config-openai-fields-row__cell" disabled={fieldDisabled(canEdit, "modeloOperativo")}>
             <InputLabel id="config-openai-operativo-label" shrink>Operativo</InputLabel>
             <Select labelId="config-openai-operativo-label" label="Operativo" value={config.modeloOperativo} onChange={(e) => patch({ modeloOperativo: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
             </Select>
+            <Typography component="span" variant="caption" className="config-openai-fields-row__prop">modeloOperativo</Typography>
           </FormControl>
           <FormControl size="small" className="config-openai-fields-row__cell" disabled={fieldDisabled(canEdit, "modeloConversacion")}>
             <InputLabel id="config-openai-conversacion-label" shrink>Conversación</InputLabel>
             <Select labelId="config-openai-conversacion-label" label="Conversación" value={config.modeloConversacion} onChange={(e) => patch({ modeloConversacion: e.target.value })}>
               {modelOptions.map((id) => <MenuItem key={id} value={id}>{id}</MenuItem>)}
             </Select>
+            <Typography component="span" variant="caption" className="config-openai-fields-row__prop">modeloConversacion</Typography>
           </FormControl>
           <Box className="config-openai-fields-row__cell config-openai-fields-row__fragments">
-            <Tooltip title="Fragmentos de documentación usados por consulta (3–50)" placement="top">
-              <TextField label="Fragmentos" type="number" size="small" fullWidth
+            <Tooltip title="Máximo de fragmentos de documentación por consulta file_search (3–50)" placement="top">
+              <TextField label="Máx. resultados" type="number" size="small" fullWidth
                 value={config.max_num_results} disabled={fieldDisabled(canEdit, "max_num_results")}
                 onChange={(e) => patch({ max_num_results: Math.round(Number(e.target.value)) || buildDefaults().max_num_results })}
-                slotProps={{ htmlInput: { min: 3, max: 50, step: 1 } }} />
+                helperText="max_num_results"
+                FormHelperTextProps={{ className: "config-openai-fields-row__prop" }}
+                InputLabelProps={{ shrink: true }}
+                slotProps={{ htmlInput: { min: 3, max: 50, step: 1 }, inputLabel: { shrink: true } }} />
             </Tooltip>
           </Box>
         </Box>
