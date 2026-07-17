@@ -1,1 +1,851 @@
-import{Session as e}from"../core/platform.js";import{toastError as x,toastWarning as y}from"../core/platform.js";import{fetchPermissionsMe as I}from"./systemConfigApi.js";import{compareHierarchy as P,getRoleJerarquia as C}from"../tools/roleHierarchy.js";import{canonicalRoleMeta as _}from"../tools/roleCanonicalMeta.js";function R(n){return String(n??"").split("_").map(t=>{const o=t.toLowerCase();return o==="iss"||o==="isw"?o.toUpperCase():o?o.charAt(0).toUpperCase()+o.slice(1):""}).filter(Boolean).join(" ")}function f(n){const t=String(n??"").trim().toLowerCase();if(!t)return"";const o=_(t);return o?.namedisplay?o.namedisplay:R(t)}function V(n){const t=(n??[]).map(i=>String(i??"").trim().toLowerCase()).filter(Boolean);return t.length?(t.sort((i,g)=>P(C(i),C(g))),t.filter(i=>i!=="visitante")[0]??t[0]):""}const M="patyia.instrucciones.publish",O="infra.target.switch";let d={},s="",l=[],p="",u=0,c=null,r=null,m=null;function b(){if(!e.isLoggedIn())return"";const n=e?.current?.()?.token,t=e.username?.()||e?.current?.()?.username;return String(n||t||"").trim()}function a(){return e.isLoggedIn()?b()!==s?{}:d:{}}const T=5e3,L=1500;async function w(n=!1){if(!e.isLoggedIn())return;if(c)return c;const t=Date.now();if(!(t-u<L)&&!(!n&&t-u<T))return c=(async()=>{let o=!1;try{const i=await I({force:n});i?.capabilities&&(s=b(),l=Array.isArray(i.roles)?i.roles.map(g=>String(g??"").trim()).filter(Boolean):[],p=String(i.loginRole??"").trim(),d={canEditInstrucciones:!!i.capabilities.canEditInstrucciones,canEditOpenAiConfig:!!i.capabilities.canEditOpenAiConfig,canEditPromptsOperativos:!!i.capabilities.canEditPromptsOperativos,canEditConversacionConfig:!!i.capabilities.canEditConversacionConfig,canEditSwagger:!!i.capabilities.canEditSwagger,canOverrideSampling:!!i.capabilities.canOverrideSampling,canManagePermissions:!!i.capabilities.canManagePermissions,canImpersonate:!!i.capabilities.canImpersonate,canAssignUserRoles:!!i.capabilities.canAssignUserRoles,canAccessOthers:!!i.capabilities.canAccessOthers,canViewKanban:!!i.capabilities.canViewKanban,canEditKanbanCards:!!i.capabilities.canEditKanbanCards,canViewLogs:!!i.capabilities.canViewLogs,canViewPrompts:!!i.capabilities.canViewPrompts,canViewChat:!!i.capabilities.canViewChat,canViewConfig:!!i.capabilities.canViewConfig,canSendChat:!!i.capabilities.canSendChat},u=Date.now(),o=!0,window.dispatchEvent(new Event("patyia-apptools:caps-changed")))}catch{}!o&&!r&&e.isLoggedIn()&&(r=setTimeout(()=>{r=null,w(!0)},4e3))})().finally(()=>{c=null}),c}function U(){d={},s="",l=[],p="",u=0,m=null,r&&(clearTimeout(r),r=null)}function $(n){m=n,window.dispatchEvent(new Event("patyia-apptools:caps-changed"))}function S(){window.dispatchEvent(new Event(e.EVENT)),window.dispatchEvent(new Event("patyia-apptools:auth")),window.dispatchEvent(new Event("isa-patyia:auth"))}const k=()=>e.isLoggedIn(),K=n=>e.can(n),E=n=>e.blockReason(n);function q(){return!!a().canViewLogs}function z(){return!!a().canViewPrompts}function N(){return!!a().canViewChat}function Q(){return!!a().canViewConfig}function X(){return!!a().canViewKanban}function D(){return!!a().canEditInstrucciones||m===!0}function Z(){return!!a().canEditOpenAiConfig}function nn(){return!!a().canEditPromptsOperativos}function en(){return!!a().canEditConversacionConfig}function tn(){return!!a().canEditSwagger}function an(){return!!a().canOverrideSampling}function on(){return!!a().canManagePermissions}function rn(){return!!a().canImpersonate}function sn(){return!!a().canAssignUserRoles}function j(){return!!a().canAccessOthers}function cn(){return!!a().canEditKanbanCards}function ln(){return!!a().canSendChat}function pn(){return e.can(O)}function un(){return e.can("patyia.jwt.admin")}function gn(){return e.can("session.view_as")}function fn(){return D()?M:null}function dn(){return N()&&(e.can("patyia.chat.interact")||e.can("patyia.jwt.admin"))?"patyia.chat.interact":null}function mn(){return j()||e.can("patyia.chat.audit")?"patyia.chat.audit":null}function bn(){return e.can("patyia.jwt.admin")?"patyia.jwt.admin":null}async function G(n,t,o){const i=await e.login(n,t,o);return S(),w(!0),i}function A(){e.logout(),U(),S()}async function wn(){return w(!0)}function h(){if(!e.isLoggedIn())return"";const n=b();if(n===s&&l.length)return f(V(l));if(n===s&&p)return f(p);const t=e.current()?.role;return t?f(t):""}const v=A;function B(){const n=e.current();return n?{username:e.username(),realUsername:e.realUsername(),viewAsUsername:e.viewAsUsername(),role:h(),expiresAt:n.expiresAt,sessionToken:n.token,app:e.appId(),capabilities:e.capabilities()}:null}function En(){const n=String(e.realUsername()||e.username()||"").trim().toUpperCase(),t=String(e.viewAsUsername()||"").trim().toUpperCase();return t&&n&&t!==n?`${n} -> ${t}`:n||t||""}function Cn(n,t){return window.ISAFront.humanPermissionError(n,t,E)}function Sn(n,t){window.ISAFront.handleApiError(n,t,{blockReason:E,clearSession:v,toastWarning:y,toastError:x})}(window.ISA=window.ISA||{}).AppSession={current:()=>e.current(),isLoggedIn:k,username:()=>e.username(),capabilities:()=>e.capabilities(),can:K,blockReason:E,login:G,logout:A,refreshProfile:()=>e.refreshProfile(),clearSession:v,getSession:B,resolveDisplayRole:h};export{M as INSTRUCCIONES_WRITE_CAP,O as TARGET_SWITCH_CAP,En as auditAuthor,E as blockReason,wn as bootMeCaps,K as can,j as canAccessOthers,un as canAdminPortalJwt,sn as canAssignUserRoles,en as canEditConversacionConfig,D as canEditInstrucciones,cn as canEditKanbanCards,Z as canEditOpenAiConfig,nn as canEditPromptsOperativos,tn as canEditSwagger,rn as canImpersonate,on as canManagePermissions,an as canOverrideSampling,ln as canSendChat,pn as canSwitchTarget,gn as canViewAsUser,N as canViewChat,Q as canViewConfig,X as canViewKanban,q as canViewLogs,z as canViewPrompts,v as clearSession,B as getSession,Sn as handleApiError,Cn as humanPermissionError,fn as instruccionesPublishCap,k as isLoggedIn,G as login,A as logout,mn as patyChatAuditCap,dn as patyChatInteractCap,bn as patyJwtAdminCap,h as resolveDisplayRole,$ as setServerInstruccionesCanEdit};
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+
+// js/core/patyia.ts
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
+  try {
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
+  } catch {
+  }
+  return isDevHost() ? "local" : "staging";
+}
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
+
+// js/core/platform.ts
+function toastError(text, timeout) {
+  fb()?.toast?.error?.(text, timeout);
+}
+function toastWarning(text, timeout) {
+  fb()?.toast?.warning?.(text, timeout);
+}
+var bridge, Session, fb;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    Session = {
+      current: () => bridge().Session.current(),
+      isLoggedIn: () => bridge().Session.isLoggedIn(),
+      username: () => bridge().Session.username(),
+      realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+      auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+      authHeader: () => bridge().Session.authHeader(),
+      appHeader: () => bridge().Session.appHeader(),
+      appId: () => bridge().Session.appId(),
+      login: (u, p, opts) => bridge().Session.login(u, p, opts),
+      logout: () => bridge().Session.logout(),
+      refreshProfile: () => bridge().Session.refreshProfile(),
+      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+      setViewAs: (u) => bridge().Session.setViewAs?.(u),
+      clearViewAs: () => bridge().Session.clearViewAs?.(),
+      capabilities: () => bridge().Session.capabilities(),
+      adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+      capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+      can: (cap) => bridge().Session.can(cap),
+      blockReason: (cap) => bridge().Session.blockReason(cap),
+      get EVENT() {
+        return bridge().Session.EVENT;
+      }
+    };
+    fb = () => globalThis.ISAFront?.Feedback;
+  }
+});
+
+// js/api/systemConfigApi.ts
+function systemApiBase() {
+  return resolveIssApiBase();
+}
+function systemApiHeaders(extra = {}) {
+  const h = {
+    Accept: "application/json",
+    "X-Patyia-Auth-Mode": "w",
+    ...extra
+  };
+  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
+  return h;
+}
+function unwrapBody(data) {
+  const d = data;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
+    const e = enc;
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  let inner = d;
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    inner = d.respuesta;
+  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    inner = d.body;
+  }
+  const nested = inner;
+  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
+    inner = nested.respuesta;
+  }
+  return inner;
+}
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
+async function fetchPermissionsMe(opts) {
+  if (!Session.isLoggedIn()) return null;
+  const sessionKey = permissionsMeSessionKey();
+  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
+    return PERMISSIONS_ME_CACHE.value;
+  }
+  const f = opts?.fetchImpl ?? fetch;
+  const res = await f(`${systemApiBase()}/permissions/me`, {
+    method: "GET",
+    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    credentials: "omit"
+  });
+  if (res.status === 401) {
+    PERMISSIONS_ME_CACHE.value = null;
+    return null;
+  }
+  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+  const data = unwrapBody(await res.json());
+  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+  PERMISSIONS_ME_CACHE.value = data;
+  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
+  PERMISSIONS_ME_CACHE.key = sessionKey;
+  return data;
+}
+var PERMISSIONS_ME_CACHE;
+var init_systemConfigApi = __esm({
+  "js/api/systemConfigApi.ts"() {
+    init_platform();
+    init_patyia();
+    PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+  }
+});
+
+// js/tools/roleHierarchy.js
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_ROLE_JERARQUIA = {
+      visitante: "0",
+      dev: "0.0",
+      dev_lead: "0.0.0",
+      dev_iss: "0.0.1",
+      admn: "0.1",
+      auditador: "0.1.0",
+      admn_isapatyia: "0.1.0.0"
+    };
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
+
+// js/tools/roleCanonicalMeta.js
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      dev: {
+        namedisplay: "Desarrollador b\xE1sico",
+        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      },
+      admn: {
+        namedisplay: "Admn b\xE1sico",
+        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+      },
+      admn_isapatyia: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+      }
+    };
+  }
+});
+
+// js/core/viewAsRole.ts
+function roleKey(name) {
+  return String(name ?? "").trim().toLowerCase();
+}
+function isDevBranchRole(roleName) {
+  const key = roleKey(roleName);
+  if (!key) return false;
+  if (key === "dev" || key.startsWith("dev_")) return true;
+  const j = getRoleJerarquia(key);
+  return j === "0.0" || j.startsWith("0.0.");
+}
+function formatViewAsRoleLabel(roleName) {
+  const key = roleKey(roleName);
+  if (!key) return "";
+  const opt = VIEW_AS_ROLE_OPTIONS.find((o) => o.id === key);
+  if (opt) return opt.label;
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return key.split("_").map((p) => p === "iss" ? "ISS" : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+function readViewAsRole() {
+  try {
+    const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
+    if (!v || v === "dev_lead") return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
+    return v;
+  } catch {
+    return "";
+  }
+}
+function writeViewAsRole(roleName) {
+  const key = roleKey(roleName);
+  try {
+    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+      localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
+    } else {
+      localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
+    }
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+}
+function clearViewAsRole() {
+  writeViewAsRole("");
+}
+function capsForViewAsRole(roleName) {
+  const key = roleKey(roleName);
+  return ROLE_CAPS_PRESETS[key] ? { ...ROLE_CAPS_PRESETS[key] } : null;
+}
+function realRolesAllowViewAs(roles) {
+  return (roles ?? []).some((r) => isDevBranchRole(r));
+}
+function clampViewAsCapsToReal(preset, realCaps) {
+  const out = {};
+  const real = realCaps && typeof realCaps === "object" ? realCaps : {};
+  for (const [k, v] of Object.entries(preset ?? {})) {
+    if (typeof v !== "boolean") continue;
+    out[k] = v === true && real[k] === true;
+  }
+  return out;
+}
+var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, VIEW_AS_ROLE_OPTIONS, NONE, ROLE_CAPS_PRESETS;
+var init_viewAsRole = __esm({
+  "js/core/viewAsRole.ts"() {
+    init_roleCanonicalMeta();
+    init_roleHierarchy();
+    VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+    VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+    VIEW_AS_ROLE_OPTIONS = [
+      { id: "visitante", label: "Visitante" },
+      { id: "dev", label: "Desarrollador" },
+      { id: "dev_iss", label: "Dev ISS" },
+      { id: "auditador", label: "Auditor" },
+      { id: "admn", label: "Admn b\xE1sico" },
+      { id: "admn_isapatyia", label: "Admn ISA-Paty" }
+    ];
+    NONE = Object.freeze({
+      canEditInstrucciones: false,
+      canEditOpenAiConfig: false,
+      canEditPromptsOperativos: false,
+      canEditConversacionConfig: false,
+      canEditSwagger: false,
+      canOverrideSampling: false,
+      canManagePermissions: false,
+      canImpersonate: false,
+      canAssignUserRoles: false,
+      canAccessOthers: false,
+      canViewKanban: false,
+      canEditKanbanCards: false,
+      canViewLogs: true,
+      canViewPrompts: false,
+      canViewChat: true,
+      canViewConfig: false,
+      canSendChat: true
+    });
+    ROLE_CAPS_PRESETS = Object.freeze({
+      visitante: { ...NONE },
+      dev: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true
+      },
+      dev_iss: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditInstrucciones: true,
+        canEditPromptsOperativos: true,
+        canOverrideSampling: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canAccessOthers: true
+      },
+      auditador: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canAccessOthers: true,
+        canViewKanban: true
+      },
+      admn: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      admn_isapatyia: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditOpenAiConfig: true,
+        canEditConversacionConfig: true,
+        canEditInstrucciones: true,
+        canAssignUserRoles: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      /** Referencia: Dev Lead real (no se ofrece como simulación). */
+      dev_lead: {
+        canEditInstrucciones: true,
+        canEditOpenAiConfig: true,
+        canEditPromptsOperativos: true,
+        canEditConversacionConfig: true,
+        canEditSwagger: true,
+        canOverrideSampling: true,
+        canManagePermissions: true,
+        canImpersonate: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canViewLogs: true,
+        canViewPrompts: true,
+        canViewChat: true,
+        canViewConfig: true,
+        canSendChat: true
+      }
+    });
+  }
+});
+
+// js/api/sessionApi.ts
+function stripViewAsHeaders(headers) {
+  const out = { ...headers };
+  for (const k of Object.keys(out)) {
+    if (/^x-view-as-/i.test(k)) delete out[k];
+  }
+  return out;
+}
+function installViewAsFrontOnlyGuard() {
+  const bag = Session;
+  if (!bag || bag.__viewAsFrontOnly) return;
+  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
+  if (!origAuth) return;
+  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
+  bag.authHeader = withoutViewAs;
+  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
+  if (origRefresh) {
+    bag.refreshProfile = async () => {
+      bag.authHeader = origAuth;
+      try {
+        return await origRefresh();
+      } finally {
+        bag.authHeader = withoutViewAs;
+      }
+    };
+  }
+  bag.__viewAsFrontOnly = true;
+}
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
+function resolvePrimaryIssRoleId() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toLowerCase() : "";
+}
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
+function localMeCaps() {
+  if (!Session.isLoggedIn()) return {};
+  const key = sessionCacheKey();
+  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const viewAs = readViewAsRole();
+  if (viewAs && canViewAsRole()) {
+    const preset = capsForViewAsRole(viewAs);
+    if (preset) {
+      if (Object.keys(real).length) return clampViewAsCapsToReal(preset, real);
+      return clampViewAsCapsToReal(preset, {});
+    }
+  }
+  return real;
+}
+async function primeMeCaps(force = false) {
+  if (!Session.isLoggedIn()) return;
+  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
+  const now = Date.now();
+  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
+  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
+  ME_CAPS_INFLIGHT = (async () => {
+    let ok = false;
+    try {
+      const me = await fetchPermissionsMe({ force });
+      if (me?.capabilities) {
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        ME_CAPS = {
+          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
+          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
+          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
+          canEditSwagger: !!me.capabilities.canEditSwagger,
+          canOverrideSampling: !!me.capabilities.canOverrideSampling,
+          canManagePermissions: !!me.capabilities.canManagePermissions,
+          canImpersonate: !!me.capabilities.canImpersonate,
+          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
+          canAccessOthers: !!me.capabilities.canAccessOthers,
+          canViewKanban: !!me.capabilities.canViewKanban,
+          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
+          canViewLogs: !!me.capabilities.canViewLogs,
+          canViewPrompts: !!me.capabilities.canViewPrompts,
+          canViewChat: !!me.capabilities.canViewChat,
+          canViewConfig: !!me.capabilities.canViewConfig,
+          canSendChat: !!me.capabilities.canSendChat
+        };
+        ME_CAPS_BOOTSTRAP_TS = Date.now();
+        ok = true;
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
+        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+      }
+    } catch {
+    }
+    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
+      ME_CAPS_RETRY_TIMER = setTimeout(() => {
+        ME_CAPS_RETRY_TIMER = null;
+        void primeMeCaps(true);
+      }, 4e3);
+    }
+  })().finally(() => {
+    ME_CAPS_INFLIGHT = null;
+  });
+  return ME_CAPS_INFLIGHT;
+}
+function clearMeCaps() {
+  ME_CAPS = {};
+  ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
+  ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
+  if (ME_CAPS_RETRY_TIMER) {
+    clearTimeout(ME_CAPS_RETRY_TIMER);
+    ME_CAPS_RETRY_TIMER = null;
+  }
+}
+function setServerInstruccionesCanEdit(v) {
+  ME_SERVER_INSTRUCCIONES_EDIT = v;
+  window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+}
+function notifyAuth() {
+  window.dispatchEvent(new Event(Session.EVENT));
+  window.dispatchEvent(new Event("patyia-apptools:auth"));
+  window.dispatchEvent(new Event("isa-patyia:auth"));
+}
+function canViewLogs() {
+  return !!localMeCaps().canViewLogs;
+}
+function canViewPrompts() {
+  return !!localMeCaps().canViewPrompts;
+}
+function canViewChat() {
+  return !!localMeCaps().canViewChat;
+}
+function canViewConfig() {
+  return !!localMeCaps().canViewConfig;
+}
+function canViewKanban() {
+  return !!localMeCaps().canViewKanban;
+}
+function canEditInstrucciones() {
+  const caps = localMeCaps();
+  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
+  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+}
+function canEditOpenAiConfig() {
+  return !!localMeCaps().canEditOpenAiConfig;
+}
+function canEditPromptsOperativos() {
+  return !!localMeCaps().canEditPromptsOperativos;
+}
+function canEditConversacionConfig() {
+  return !!localMeCaps().canEditConversacionConfig;
+}
+function canEditSwagger() {
+  return !!localMeCaps().canEditSwagger;
+}
+function canOverrideSampling() {
+  return !!localMeCaps().canOverrideSampling;
+}
+function canManagePermissions() {
+  return !!localMeCaps().canManagePermissions;
+}
+function canImpersonate() {
+  return !!localMeCaps().canImpersonate;
+}
+function canAssignUserRoles() {
+  return !!localMeCaps().canAssignUserRoles;
+}
+function canAccessOthers() {
+  return !!localMeCaps().canAccessOthers;
+}
+function canEditKanbanCards() {
+  return !!localMeCaps().canEditKanbanCards;
+}
+function canSendChat() {
+  return !!localMeCaps().canSendChat;
+}
+function canSwitchTarget() {
+  return Session.can(TARGET_SWITCH_CAP);
+}
+function canAdminPortalJwt() {
+  return Session.can("patyia.jwt.admin");
+}
+function canViewAsUser() {
+  return Session.can("session.view_as");
+}
+function instruccionesPublishCap() {
+  return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
+}
+function patyChatInteractCap() {
+  return canViewChat() && (Session.can("patyia.chat.interact") || Session.can("patyia.jwt.admin")) ? "patyia.chat.interact" : null;
+}
+function patyChatAuditCap() {
+  return canAccessOthers() ? "patyia.chat.audit" : null;
+}
+function patyJwtAdminCap() {
+  return Session.can("patyia.jwt.admin") ? "patyia.jwt.admin" : null;
+}
+async function login(user, pass, opts) {
+  const session = await Session.login(user, pass, opts);
+  notifyAuth();
+  void primeMeCaps(true);
+  return session;
+}
+function logout() {
+  Session.logout();
+  clearMeCaps();
+  clearViewAsRole();
+  notifyAuth();
+}
+async function bootMeCaps() {
+  return primeMeCaps(true);
+}
+function roleLooksLikeDevBranch(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+}
+function canViewAsRole() {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  return false;
+}
+function getViewAsRole() {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
+}
+function isViewingAsRole() {
+  return !!(readViewAsRole() && canViewAsRole());
+}
+function setViewAsRole(roleName) {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
+}
+function stopViewAsRole() {
+  clearViewAsRole();
+}
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
+function auditAuthor() {
+  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
+  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
+  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
+  return real || viewAs || "";
+}
+function humanPermissionError(err, cap) {
+  return window.ISAFront.humanPermissionError(err, cap, blockReason);
+}
+function handleApiError(err, cap) {
+  window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
+}
+var INSTRUCCIONES_WRITE_CAP, TARGET_SWITCH_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var init_sessionApi = __esm({
+  "js/api/sessionApi.ts"() {
+    init_platform();
+    init_platform();
+    init_systemConfigApi();
+    init_roleHierarchy();
+    init_roleCanonicalMeta();
+    init_viewAsRole();
+    installViewAsFrontOnlyGuard();
+    try {
+      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
+      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
+    } catch {
+    }
+    INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
+    TARGET_SWITCH_CAP = "infra.target.switch";
+    ME_CAPS = {};
+    ME_CAPS_KEY = "";
+    ME_ISS_ROLES = [];
+    ME_LOGIN_ROLE = "";
+    ME_CAPS_BOOTSTRAP_TS = 0;
+    ME_CAPS_INFLIGHT = null;
+    ME_CAPS_RETRY_TIMER = null;
+    ME_SERVER_INSTRUCCIONES_EDIT = null;
+    ME_CAPS_FETCH_GUARD_MS = 5e3;
+    ME_CAPS_REENTRY_GUARD_MS = 1500;
+    isLoggedIn = () => Session.isLoggedIn();
+    can = (cap) => Session.can(cap);
+    blockReason = (cap) => Session.blockReason(cap);
+    clearSession = logout;
+    (window.ISA = window.ISA || {}).AppSession = {
+      current: () => Session.current(),
+      isLoggedIn,
+      username: () => Session.username(),
+      capabilities: () => Session.capabilities(),
+      can,
+      blockReason,
+      login,
+      logout,
+      refreshProfile: () => Session.refreshProfile(),
+      clearSession,
+      getSession,
+      resolveDisplayRole,
+      canViewAsRole,
+      getViewAsRole,
+      isViewingAsRole,
+      setViewAsRole,
+      stopViewAsRole,
+      resolvePrimaryIssRoleId
+    };
+  }
+});
+init_sessionApi();
+export {
+  INSTRUCCIONES_WRITE_CAP,
+  TARGET_SWITCH_CAP,
+  VIEW_AS_ROLE_EVENT,
+  VIEW_AS_ROLE_OPTIONS,
+  auditAuthor,
+  blockReason,
+  bootMeCaps,
+  can,
+  canAccessOthers,
+  canAdminPortalJwt,
+  canAssignUserRoles,
+  canEditConversacionConfig,
+  canEditInstrucciones,
+  canEditKanbanCards,
+  canEditOpenAiConfig,
+  canEditPromptsOperativos,
+  canEditSwagger,
+  canImpersonate,
+  canManagePermissions,
+  canOverrideSampling,
+  canSendChat,
+  canSwitchTarget,
+  canViewAsRole,
+  canViewAsUser,
+  canViewChat,
+  canViewConfig,
+  canViewKanban,
+  canViewLogs,
+  canViewPrompts,
+  clearSession,
+  formatViewAsRoleLabel,
+  getSession,
+  getViewAsRole,
+  handleApiError,
+  humanPermissionError,
+  instruccionesPublishCap,
+  isLoggedIn,
+  isViewingAsRole,
+  login,
+  logout,
+  patyChatAuditCap,
+  patyChatInteractCap,
+  patyJwtAdminCap,
+  resolveDisplayRole,
+  resolvePrimaryIssRoleId,
+  setServerInstruccionesCanEdit,
+  setViewAsRole,
+  stopViewAsRole,
+  stripViewAsHeaders
+};
