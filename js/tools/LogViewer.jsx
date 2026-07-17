@@ -9,6 +9,7 @@ import { logToMensajesVista, parseLogInput } from "../core/convLog.ts";
 import * as Api from "../api/apiClient.ts";
 import { persistLogMeta, getSnapshot, persistLogSidebarWidth } from "../core/urlState.ts";
 import { toastWarning, toastSuccess, toastError } from "../core/platform.ts";
+import { formatTs } from "../core/msgDateFormat.ts";
 import { mobileDrawerPaperProps } from "../ui/mobileDrawer.ts";
 
 const LOG_SIDEBAR_DEFAULT_W = 400;
@@ -165,7 +166,6 @@ function LogEntradaPanel({
   onConvIdChange,
   onConvIdKeyDown,
   recuperarPorId,
-  parsearPegado,
   limpiar,
   onJsonInputChange,
 }) {
@@ -227,11 +227,12 @@ function LogEntradaPanel({
           className="conv-log-action-grp"
           role="group"
           aria-label="Acciones de entrada de log"
-          sx={{ p: 1, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 1, width: "100%", flexWrap: "nowrap" }}
+          sx={{ p: 0.65, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 0.75, width: "100%", flexWrap: "nowrap" }}
         >
           <TextField
             className="conv-log-action-grp__input"
             size="small"
+            margin="none"
             type="number"
             hiddenLabel
             placeholder="iconversacion"
@@ -241,28 +242,17 @@ function LogEntradaPanel({
             onChange={onConvIdChange}
             onKeyDown={onConvIdKeyDown}
             slotProps={{ htmlInput: { min: 1 } }}
+            sx={{ m: 0, "& .MuiOutlinedInput-root": { height: 32 } }}
           />
           <Box className="conv-log-action-grp__actions">
             <Tooltip title="Recuperar por ID (Enter)" arrow>
               <span>
                 <ButtonIconify
-                  variant="primary"
                   icon="mdi:cloud-download-outline"
                   title="Recuperar por ID"
                   onClick={recuperarPorId}
                   disabled={!String(convId ?? "").trim()}
                   busy={loading}
-                />
-              </span>
-            </Tooltip>
-            <Tooltip title="Parsear JSON" arrow>
-              <span>
-                <ButtonIconify
-                  variant="primary"
-                  icon="mdi:code-json"
-                  title="Parsear JSON"
-                  onClick={parsearPegado}
-                  disabled={!jsonInput.trim()}
                 />
               </span>
             </Tooltip>
@@ -380,18 +370,20 @@ export function LogViewer({ bootLog = {} }) {
     [convId, jsonInput, logInfo, mensajes.length, error],
   );
 
-  const parsearPegado = useCallback(() => {
-    setError("");
-    try {
-      const log = parseLogInput(jsonInput);
-      aplicarLog(log);
-    } catch (err) {
-      setLogInfo(null);
-      setMensajes([]);
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      toastError(msg);
-    }
+  /** Auto-parse del JSON pegado: 2s tras la última edición (sin botón manual). */
+  useEffect(() => {
+    if (!jsonInput.trim()) return undefined;
+    const t = window.setTimeout(() => {
+      try {
+        aplicarLog(parseLogInput(jsonInput), { silent: true });
+      } catch (err) {
+        setLogInfo(null);
+        setMensajes([]);
+        setSelectedMsgId(null);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }, 2000);
+    return () => window.clearTimeout(t);
   }, [jsonInput, aplicarLog]);
 
   const recuperarPorId = useCallback(async ({ silent = false } = {}) => {
@@ -404,8 +396,18 @@ export function LogViewer({ bootLog = {} }) {
       aplicarLog(log, { silent });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      const denied = {
+        error: true,
+        acceso: "denegado",
+        iconversacion: Number(convId) || null,
+        mensaje: msg,
+      };
+      setJsonInput(JSON.stringify(denied, null, 2));
+      setLogInfo(null);
+      setMensajes([]);
+      setSelectedMsgId(null);
       setError(msg);
-      toastError(msg);
+      if (!silent) toastError(msg);
     } finally {
       setLoading(false);
     }
@@ -458,7 +460,6 @@ export function LogViewer({ bootLog = {} }) {
     onConvIdChange: (e) => setConvId(e.target.value),
     onConvIdKeyDown,
     recuperarPorId,
-    parsearPegado,
     limpiar,
     onJsonInputChange: setJsonInput,
   };
@@ -525,8 +526,8 @@ export function LogViewer({ bootLog = {} }) {
           )}
           <Box sx={{ flex: 1 }} />
           {logInfo?.createdAt && (
-            <Typography variant="caption" color="text.secondary">
-              {String(logInfo.createdAt).slice(0, 19).replace("T", " ")}
+            <Typography variant="caption" color="text.secondary" title={String(logInfo.createdAt)}>
+              {formatTs(logInfo.createdAt)}
             </Typography>
           )}
         </Stack>
@@ -536,7 +537,7 @@ export function LogViewer({ bootLog = {} }) {
           onMeta={onMeta}
           showUsageStats
           threadKey={convId || "log-paste"}
-          emptyHint="Recupera por ID o pega un log para ver el hilo."
+          emptyHint={error || "Recupera por ID o pega un log para ver el hilo."}
         />
     </Box>
   );
