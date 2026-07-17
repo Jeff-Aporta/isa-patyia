@@ -1,1 +1,1548 @@
-import{ensureIssLocalDefault as g,migrateIssLocalFromGatewayFlag as w,ORCH_ONLINE as S,GATEWAY_LS_KEY as p,PATYIA_ISS_LOCAL as I,PATYIA_ISS_LOCAL_LS_KEY as h}from"./patyia.js";const o=()=>window.ISAFront.createPlatformBridge("ISA"),C={get Icon(){return o().UI.Icon},get TargetSwitch(){return o().UI.TargetSwitch},get ThemeSwitch(){return o().UI.ThemeSwitch},get useRealtimeStatus(){return o().UI.useRealtimeStatus},get RealtimeStatusDot(){return o().UI.RealtimeStatusDot},get Loading(){return o().UI.Loading},get ErrorBox(){return o().UI.ErrorBox},get LoginGate(){return o().UI.LoginGate},get LoginButton(){return o().UI.LoginButton}},y={current:()=>o().Session.current(),isLoggedIn:()=>o().Session.isLoggedIn(),username:()=>o().Session.username(),realUsername:()=>o().Session.realUsername?.()??o().Session.username(),viewAsUsername:()=>o().Session.viewAsUsername?.()??null,isViewingAs:()=>o().Session.isViewingAs?.()??!1,auditAuthor:()=>o().Session.auditAuthor?.()??String(o().Session.username()||"").trim().toUpperCase(),authHeader:()=>o().Session.authHeader(),appHeader:()=>o().Session.appHeader(),appId:()=>o().Session.appId(),login:(t,e,n)=>o().Session.login(t,e,n),logout:()=>o().Session.logout(),refreshProfile:()=>o().Session.refreshProfile(),fetchViewAsCatalog:()=>o().Session.fetchViewAsCatalog?.(),searchSuplantacionUsers:(t,e)=>o().Session.searchSuplantacionUsers?.(t,e),setViewAs:t=>o().Session.setViewAs?.(t),clearViewAs:()=>o().Session.clearViewAs?.(),capabilities:()=>o().Session.capabilities(),adminCapabilities:()=>o().Session.adminCapabilities?.()??o().Session.capabilities(),capabilityCatalog:()=>o().Session.capabilityCatalog?.()??[],can:t=>o().Session.can(t),blockReason:t=>o().Session.blockReason(t),get EVENT(){return o().Session.EVENT}},T={show:t=>o().Toast.show(t)},E={base:()=>o().Config.base(),apiUrl:t=>o().Config.apiUrl(t),isLocal:()=>o().Config.isLocal(),setLocal:t=>o().Config.setLocal(t),get EVENT(){return o().Config.EVENT}};function _(){const t=window.ISAFront;if(!t?.ensureCodeMirrorLoaded)throw new Error("ISAFront lazy-assets no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function s(){const t=window.ISAFront;return t?.ensureCodeMirrorLoaded?t:null}const M={ensureCodeMirrorLoaded:t=>{const e=s();return e?e.ensureCodeMirrorLoaded(t):Promise.resolve()},ensureMarked:()=>{const t=s();return t?t.ensureMarked():Promise.resolve()},ensureStylesheet:t=>{const e=s();return e?e.ensureLazyStylesheet(t):Promise.resolve()},ensureChatStagingCss:()=>{const t=s();if(!t)return;const e=typeof window<"u"&&window.__ISA_DIST__?"_dist/":"";t.ensureLazyStylesheet(`${e}css/chat-staging.css`).catch(n=>{console.warn("chat-staging.css:",n)})},ensureTodosCss:()=>{const t=s();if(!t)return;const e=typeof window<"u"&&window.__ISA_DIST__?"_dist/":"";t.ensureLazyStylesheet(`${e}css/todos-staging.css`).catch(n=>{console.warn("todos-staging.css:",n)})}};function U(t){const e=s();return e?.mdToHtml?e.mdToHtml(t):String(t??"")}const R={estimatePrompt:t=>{const e=window.ISAFront?.estimatePromptTokens;if(typeof e=="function")return e(t);const n=String(t??"");return n.trim()?Math.ceil(n.length/4):0}},P=()=>window.ISAFront.getReact(),F=()=>window.ISAFront.getReactDOM(),v=()=>window.ISAFront.getMaterialUI();function O(){const t=window.ISAFront?.Layout?.IsaSplitView;if(!t)throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function Z(){const t=window.ISAFront?.Glass;if(!t?.GlassCard)throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}function r(){const t=window.ISAComponents?.LightboxZoom;if(!t?.LightboxZoomDialog)throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return t}const V={get LightboxZoomDialog(){return r().LightboxZoomDialog},get LightboxZoomImage(){return r().LightboxZoomImage},get useLightboxZoom(){return r().useLightboxZoom},get ZOOM_MIN(){return r().ZOOM_MIN},get ZOOM_MAX(){return r().ZOOM_MAX},get PAN_STEP(){return r().PAN_STEP}},k={get ImageLightboxDialog(){return r().LightboxZoomDialog},get LightboxImage(){return r().LightboxZoomImage},get useImageLightboxZoom(){return r().useLightboxZoom}};function D(t){const e=window.ISAFront?.CodeMirrorPanel;if(!e)throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");return e(t)}const a=()=>globalThis.ISAFront?.Feedback;function N(t,e){a()?.toast?.error?.(t,e)}function H(t,e){a()?.toast?.success?.(t,e)}function B(t,e){a()?.toast?.info?.(t,e)}function z(t,e){a()?.toast?.warning?.(t,e)}function G(t){return a()?.confirm?.(t)??Promise.resolve(!1)}function m(){const t=window.ISA?.Session;if(!t?.login||!t?.logout)return;const e=t.login.bind(t),n=t.logout.bind(t),i=async(c,u,l)=>{const d=await e(c,u,l);return window.dispatchEvent(new Event("isa-patyia:auth")),d};t.login=i,window.ISA?.Auth?.login&&(window.ISA.Auth.login=i),t.logout=()=>{n(),window.dispatchEvent(new Event("isa-patyia:auth"))}}function f(){g(),w();try{localStorage.setItem(h,"1")}catch{}try{localStorage.setItem(p,"0")}catch{}const t=window.ISA?.Config;if(!t)return;const e=String(t.ONLINE||S).replace(/\/$/,"");t.isLocal=()=>!0,t.setLocal=()=>{},t.base=()=>e,t.apiUrl=n=>e+(n.charAt(0)==="/"?n:`/${n}`),t.connectionHint=()=>"",t.label=()=>"Local",t.EVENT="patyia-apptools:lab-target",A()}function A(){const t=window.ISA,e=window.React,n=window.MaterialUI;if(!t?.UI||!e||!n)return;const i=t.UI.Icon;t.UI.TargetSwitch=function(){return e.createElement(n.Tooltip,{title:"ISS local (127.0.0.1:8802)"},e.createElement(n.Chip,{size:"small",color:"warning",variant:"outlined",icon:i?e.createElement(i,{icon:"mdi:laptop",size:16}):void 0,label:"Local",sx:{height:28,cursor:"default","& .MuiChip-label":{px:.75}}}))},t.UI.TargetSwitchMenu&&(t.UI.TargetSwitchMenu=function(){return e.createElement(n.Box,{sx:{display:"flex",alignItems:"center",width:"100%",pl:2,pr:1.5,minHeight:36,gap:1}},i?e.createElement(i,{icon:"mdi:laptop",size:18}):null,e.createElement(n.Typography,{variant:"body2"},"Local"))})}function L(){return I.replace(/\/$/,"")}function $(){if(g(),window.ISAFront.registerApp({ns:"ISA",app:"isa-patyia",theme:!0,widgets:{targetStyle:"chip",targetReadOnlyLocal:!0},session:!0,auth:!1,toast:!0,loginButton:{showTarget:!1,runUnitTestUrl:()=>`${L()}/api/run-unit-test`,getAuthHeaders:()=>window.ISA?.Session?.current?.()?.token?window.ISA.Session.authHeader():{},unitTestTitle:"Test unitario \u2014 ISS-AyudasCPIA"}}),f(),m(),window.ISAFront?.registerCodeMirror&&window.React&&window.MaterialUI&&window.ISAFront.registerCodeMirror(window.React,window.MaterialUI),!window.ISA?.Session)throw new Error("No se pudo iniciar la aplicaci\xF3n. Recargue sin cach\xE9 (Ctrl+Shift+R).")}export{M as Assets,D as CodeMirrorPanel,E as Config,k as Lightbox,V as LightboxZoom,y as Session,T as Toast,R as Tokens,C as UI,$ as bootstrapIsaPatyia,Z as getGlass,O as getIsaSplitView,v as getMaterialUI,P as getReact,F as getReactDOM,U as mdToHtml,G as requestConfirm,N as toastError,B as toastInfo,H as toastSuccess,z as toastWarning};
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// js/core/patyia.ts
+function isPatyiaApiPath(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/patyia") || p.startsWith("/api/patyia");
+}
+function patyiaIssBase() {
+  const t = getIssTarget();
+  if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function patyiaIssCapFetchBase() {
+  return patyiaIssBase();
+}
+function resolveIssApiBase() {
+  const base = patyiaIssBase();
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
+function getIssTarget() {
+  try {
+    const raw = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY);
+    if (raw === "production" || raw === "staging" || raw === "local") return raw;
+  } catch {
+  }
+  return isDevHost() ? "local" : "staging";
+}
+function setIssTarget(target) {
+  try {
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, target);
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } }));
+  } catch {
+  }
+}
+function isDevHost() {
+  try {
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  } catch {
+    return false;
+  }
+}
+function ensureIssLocalDefault() {
+  try {
+    if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null) return;
+    const def = isDevHost() ? "local" : "staging";
+    localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, def);
+  } catch {
+  }
+}
+function migrateIssLocalFromGatewayFlag() {
+  try {
+    const legacy = localStorage.getItem(PATYIA_ISS_LOCAL_LS_KEY);
+    const hasNew = localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) != null;
+    if (!hasNew && legacy === "1") {
+      localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, "local");
+    }
+    if (localStorage.getItem(GATEWAY_LS_KEY) === "1") {
+      if (localStorage.getItem(PATYIA_ISS_TARGET_LS_KEY) == null) {
+        localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, "local");
+      }
+      localStorage.setItem(GATEWAY_LS_KEY, "0");
+    }
+  } catch {
+  }
+}
+function isLocalMode() {
+  return getIssTarget() === "local";
+}
+function avatarBgFromName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return AVATAR_BG_PALETTE[h % AVATAR_BG_PALETTE.length];
+}
+function buildUserAvatarUrl(name, size = 72) {
+  const label = String(name ?? "").trim() || "Usuario";
+  const params = new URLSearchParams({
+    name: label,
+    size: String(size),
+    background: avatarBgFromName(label.toLowerCase()),
+    color: "ffffff",
+    bold: "true",
+    rounded: "true",
+    format: "svg"
+  });
+  return `https://ui-avatars.com/api/?${params.toString()}`;
+}
+var ORCH_ONLINE, PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, PATYIA_ISS_LOCAL_LS_KEY, GATEWAY_LS_KEY, AVATAR_BG_PALETTE;
+var init_patyia = __esm({
+  "js/core/patyia.ts"() {
+    window.ISAFront.migrateLegacyGatewayKeys?.({ "jeff:gateway-local": "", "patyia-apptools:gateway-local": "", "patyia-apptools:lab-local": "" });
+    ORCH_ONLINE = "https://main-orchestrator.jeffaporta.workers.dev";
+    PATYIA_ISS_URL = "https://ayudascp-ia-staging.azurewebsites.net";
+    PATYIA_ISS_PROD_URL = "https://ayudascp-ia.azurewebsites.net";
+    PATYIA_ISS_LOCAL = "http://127.0.0.1:8802";
+    PATYIA_ISS_LOCAL_API = `${PATYIA_ISS_LOCAL}/api`;
+    PATYIA_ISS_PROD_API = `${PATYIA_ISS_PROD_URL}/api`;
+    PATYIA_ISS_STAGING_API = `${PATYIA_ISS_URL}/api`;
+    PATYIA_ISS_TARGET_LS_KEY = "patyia-apptools:iss-target";
+    PATYIA_ISS_LOCAL_LS_KEY = "patyia-apptools:iss-local";
+    GATEWAY_LS_KEY = "jeff:gateway-local";
+    AVATAR_BG_PALETTE = [
+      "1e90ff",
+      "0ea5e9",
+      "14b8a6",
+      "22c55e",
+      "84cc16",
+      "eab308",
+      "f97316",
+      "ef4444",
+      "ec4899",
+      "a855f7",
+      "6366f1",
+      "64748b"
+    ];
+    try {
+      window.ISAFront.buildUserAvatarUrl = buildUserAvatarUrl;
+    } catch {
+    }
+  }
+});
+
+// js/api/portalJwtApi.ts
+var init_portalJwtApi = __esm({
+  "js/api/portalJwtApi.ts"() {
+    init_platform();
+    init_patyia();
+  }
+});
+
+// js/core/patyia-jwt.ts
+var init_patyia_jwt = __esm({
+  "js/core/patyia-jwt.ts"() {
+    init_portalJwtApi();
+    init_apiClient();
+    init_platform();
+  }
+});
+
+// js/api/issListFilter.ts
+var init_issListFilter = __esm({
+  "js/api/issListFilter.ts"() {
+  }
+});
+
+// js/api/patyiaTokens.ts
+var init_patyiaTokens = __esm({
+  "js/api/patyiaTokens.ts"() {
+    init_platform();
+  }
+});
+
+// js/api/patyiaChatApi.ts
+var init_patyiaChatApi = __esm({
+  "js/api/patyiaChatApi.ts"() {
+    init_issListFilter();
+    init_patyiaTokens();
+    init_patyia();
+  }
+});
+
+// js/api/systemConfigApi.ts
+function systemApiBase() {
+  return resolveIssApiBase();
+}
+function systemApiHeaders(extra = {}) {
+  const h = {
+    Accept: "application/json",
+    "X-Patyia-Auth-Mode": "w",
+    ...extra
+  };
+  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
+  for (const k of Object.keys(h)) {
+    if (/^x-view-as-/i.test(k)) delete h[k];
+  }
+  return h;
+}
+function unwrapBody(data) {
+  const d = data;
+  const enc = d?.encabezado;
+  if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
+    const e = enc;
+    const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
+    throw new Error(msg || "Error en la respuesta del servidor");
+  }
+  let inner = d;
+  if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
+    inner = d.respuesta;
+  } else if (d?.body && typeof d.body === "object" && !Array.isArray(d.body)) {
+    inner = d.body;
+  }
+  const nested = inner;
+  if (nested?.respuesta && typeof nested.respuesta === "object" && !Array.isArray(nested.respuesta)) {
+    inner = nested.respuesta;
+  }
+  return inner;
+}
+function permissionsMeSessionKey() {
+  if (!Session.isLoggedIn()) return "anon";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "anon").trim();
+}
+async function fetchPermissionsMe(opts) {
+  if (!Session.isLoggedIn()) return null;
+  const sessionKey = permissionsMeSessionKey();
+  if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
+    return PERMISSIONS_ME_CACHE.value;
+  }
+  const f = opts?.fetchImpl ?? fetch;
+  const res = await f(`${systemApiBase()}/permissions/me`, {
+    method: "GET",
+    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    credentials: "omit"
+  });
+  if (res.status === 401) {
+    PERMISSIONS_ME_CACHE.value = null;
+    return null;
+  }
+  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+  const data = unwrapBody(await res.json());
+  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+  PERMISSIONS_ME_CACHE.value = data;
+  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
+  PERMISSIONS_ME_CACHE.key = sessionKey;
+  return data;
+}
+var PERMISSIONS_ME_CACHE;
+var init_systemConfigApi = __esm({
+  "js/api/systemConfigApi.ts"() {
+    init_platform();
+    init_patyia();
+    PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+  }
+});
+
+// js/tools/roleHierarchy.js
+function compareHierarchy(a, b) {
+  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
+  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
+  const len = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < len; i++) {
+    const av = aParts[i] ?? 0;
+    const bv = bParts[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+function getRoleJerarquia(roleName, permisos) {
+  if (permisos && typeof permisos === "object") {
+    const j = permisos.jerarquia;
+    if (typeof j === "string" && j.trim()) return j.trim();
+  }
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
+}
+var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
+var init_roleHierarchy = __esm({
+  "js/tools/roleHierarchy.js"() {
+    DEFAULT_ROLE_JERARQUIA = {
+      visitante: "0",
+      dev: "0.0",
+      dev_lead: "0.0.0",
+      dev_iss: "0.0.1",
+      admn: "0.1",
+      auditador: "0.1.0",
+      admn_isapatyia: "0.1.0.0"
+    };
+    DEFAULT_FOR_UNKNOWN = "999";
+  }
+});
+
+// js/tools/roleCanonicalMeta.js
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      dev: {
+        namedisplay: "Desarrollador b\xE1sico",
+        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      },
+      admn: {
+        namedisplay: "Admn b\xE1sico",
+        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
+      },
+      admn_isapatyia: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+      }
+    };
+  }
+});
+
+// js/core/viewAsRole.ts
+function roleKey(name) {
+  return String(name ?? "").trim().toLowerCase();
+}
+function isDevBranchRole(roleName) {
+  const key = roleKey(roleName);
+  if (!key) return false;
+  if (key === "dev" || key.startsWith("dev_")) return true;
+  const j = getRoleJerarquia(key);
+  return j === "0.0" || j.startsWith("0.0.");
+}
+function readViewAsRole() {
+  try {
+    const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
+    if (!v || v === "dev_lead") return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
+    return v;
+  } catch {
+    return "";
+  }
+}
+function writeViewAsRole(roleName) {
+  const key = roleKey(roleName);
+  try {
+    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+      localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
+    } else {
+      localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
+    }
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+}
+function clearViewAsRole() {
+  writeViewAsRole("");
+}
+function realRolesAllowViewAs(roles) {
+  return (roles ?? []).some((r) => isDevBranchRole(r));
+}
+var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, NONE, ROLE_CAPS_PRESETS;
+var init_viewAsRole = __esm({
+  "js/core/viewAsRole.ts"() {
+    init_roleCanonicalMeta();
+    init_roleHierarchy();
+    VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+    VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+    NONE = Object.freeze({
+      canEditInstrucciones: false,
+      canEditOpenAiConfig: false,
+      canEditPromptsOperativos: false,
+      canEditConversacionConfig: false,
+      canEditSwagger: false,
+      canOverrideSampling: false,
+      canManagePermissions: false,
+      canImpersonate: false,
+      canAssignUserRoles: false,
+      canAccessOthers: false,
+      canViewKanban: false,
+      canEditKanbanCards: false,
+      canViewLogs: true,
+      canViewPrompts: false,
+      canViewChat: true,
+      canViewConfig: false,
+      canSendChat: true
+    });
+    ROLE_CAPS_PRESETS = Object.freeze({
+      visitante: { ...NONE },
+      dev: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true
+      },
+      dev_iss: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditInstrucciones: true,
+        canEditPromptsOperativos: true,
+        canOverrideSampling: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canAccessOthers: true
+      },
+      auditador: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canAccessOthers: true,
+        canViewKanban: true
+      },
+      admn: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      admn_isapatyia: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditOpenAiConfig: true,
+        canEditConversacionConfig: true,
+        canEditInstrucciones: true,
+        canAssignUserRoles: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      /** Referencia: Dev Lead real (no se ofrece como simulación). */
+      dev_lead: {
+        canEditInstrucciones: true,
+        canEditOpenAiConfig: true,
+        canEditPromptsOperativos: true,
+        canEditConversacionConfig: true,
+        canEditSwagger: true,
+        canOverrideSampling: true,
+        canManagePermissions: true,
+        canImpersonate: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canViewLogs: true,
+        canViewPrompts: true,
+        canViewChat: true,
+        canViewConfig: true,
+        canSendChat: true
+      }
+    });
+  }
+});
+
+// js/api/sessionApi.ts
+function stripViewAsHeaders(headers) {
+  const out = { ...headers };
+  for (const k of Object.keys(out)) {
+    if (/^x-view-as-/i.test(k)) delete out[k];
+  }
+  return out;
+}
+function installViewAsFrontOnlyGuard() {
+  const bag = Session;
+  if (!bag || bag.__viewAsFrontOnly) return;
+  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
+  if (!origAuth) return;
+  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
+  bag.authHeader = withoutViewAs;
+  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
+  if (origRefresh) {
+    bag.refreshProfile = async () => {
+      bag.authHeader = origAuth;
+      try {
+        return await origRefresh();
+      } finally {
+        bag.authHeader = withoutViewAs;
+      }
+    };
+  }
+  bag.__viewAsFrontOnly = true;
+}
+function formatRoleTitle(roleName) {
+  return String(roleName ?? "").split("_").map((part) => {
+    const p = part.toLowerCase();
+    if (p === "iss" || p === "isw") return p.toUpperCase();
+    if (!p) return "";
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  }).filter(Boolean).join(" ");
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toLowerCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return "";
+  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
+  const elevated = list.filter((r) => r !== "visitante");
+  return elevated[0] ?? list[0];
+}
+function resolvePrimaryIssRoleId() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toLowerCase() : "";
+}
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
+async function primeMeCaps(force = false) {
+  if (!Session.isLoggedIn()) return;
+  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
+  const now = Date.now();
+  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
+  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
+  ME_CAPS_INFLIGHT = (async () => {
+    let ok = false;
+    try {
+      const me = await fetchPermissionsMe({ force });
+      if (me?.capabilities) {
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        ME_CAPS = {
+          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
+          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
+          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
+          canEditSwagger: !!me.capabilities.canEditSwagger,
+          canOverrideSampling: !!me.capabilities.canOverrideSampling,
+          canManagePermissions: !!me.capabilities.canManagePermissions,
+          canImpersonate: !!me.capabilities.canImpersonate,
+          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
+          canAccessOthers: !!me.capabilities.canAccessOthers,
+          canViewKanban: !!me.capabilities.canViewKanban,
+          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
+          canViewLogs: !!me.capabilities.canViewLogs,
+          canViewPrompts: !!me.capabilities.canViewPrompts,
+          canViewChat: !!me.capabilities.canViewChat,
+          canViewConfig: !!me.capabilities.canViewConfig,
+          canSendChat: !!me.capabilities.canSendChat
+        };
+        ME_CAPS_BOOTSTRAP_TS = Date.now();
+        ok = true;
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
+        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+      }
+    } catch {
+    }
+    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
+      ME_CAPS_RETRY_TIMER = setTimeout(() => {
+        ME_CAPS_RETRY_TIMER = null;
+        void primeMeCaps(true);
+      }, 4e3);
+    }
+  })().finally(() => {
+    ME_CAPS_INFLIGHT = null;
+  });
+  return ME_CAPS_INFLIGHT;
+}
+function clearMeCaps() {
+  ME_CAPS = {};
+  ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
+  ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
+  if (ME_CAPS_RETRY_TIMER) {
+    clearTimeout(ME_CAPS_RETRY_TIMER);
+    ME_CAPS_RETRY_TIMER = null;
+  }
+}
+function notifyAuth() {
+  window.dispatchEvent(new Event(Session.EVENT));
+  window.dispatchEvent(new Event("patyia-apptools:auth"));
+  window.dispatchEvent(new Event("isa-patyia:auth"));
+}
+async function login(user, pass, opts) {
+  const session = await Session.login(user, pass, opts);
+  notifyAuth();
+  void primeMeCaps(true);
+  return session;
+}
+function logout() {
+  Session.logout();
+  clearMeCaps();
+  clearViewAsRole();
+  notifyAuth();
+}
+function roleLooksLikeDevBranch(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+}
+function canViewAsRole() {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  return false;
+}
+function getViewAsRole() {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
+}
+function isViewingAsRole() {
+  return !!(readViewAsRole() && canViewAsRole());
+}
+function setViewAsRole(roleName) {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
+}
+function stopViewAsRole() {
+  clearViewAsRole();
+}
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    viewAsUsername: Session.viewAsUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
+var ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var init_sessionApi = __esm({
+  "js/api/sessionApi.ts"() {
+    init_platform();
+    init_platform();
+    init_systemConfigApi();
+    init_roleHierarchy();
+    init_roleCanonicalMeta();
+    init_viewAsRole();
+    installViewAsFrontOnlyGuard();
+    try {
+      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
+      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
+    } catch {
+    }
+    ME_CAPS = {};
+    ME_CAPS_KEY = "";
+    ME_ISS_ROLES = [];
+    ME_LOGIN_ROLE = "";
+    ME_CAPS_BOOTSTRAP_TS = 0;
+    ME_CAPS_INFLIGHT = null;
+    ME_CAPS_RETRY_TIMER = null;
+    ME_SERVER_INSTRUCCIONES_EDIT = null;
+    ME_CAPS_FETCH_GUARD_MS = 5e3;
+    ME_CAPS_REENTRY_GUARD_MS = 1500;
+    isLoggedIn = () => Session.isLoggedIn();
+    can = (cap) => Session.can(cap);
+    blockReason = (cap) => Session.blockReason(cap);
+    clearSession = logout;
+    (window.ISA = window.ISA || {}).AppSession = {
+      current: () => Session.current(),
+      isLoggedIn,
+      username: () => Session.username(),
+      capabilities: () => Session.capabilities(),
+      can,
+      blockReason,
+      login,
+      logout,
+      refreshProfile: () => Session.refreshProfile(),
+      clearSession,
+      getSession,
+      resolveDisplayRole,
+      canViewAsRole,
+      getViewAsRole,
+      isViewingAsRole,
+      setViewAsRole,
+      stopViewAsRole,
+      resolvePrimaryIssRoleId
+    };
+  }
+});
+
+// js/api/apiClient.ts
+var bridgeHttp, capFetch, apiUrl, rowVal;
+var init_apiClient = __esm({
+  "js/api/apiClient.ts"() {
+    init_platform();
+    init_patyia();
+    init_patyia_jwt();
+    init_patyiaChatApi();
+    init_issListFilter();
+    init_sessionApi();
+    init_systemConfigApi();
+    bridgeHttp = window.ISAFront.createCapFetch({
+      Session,
+      Config,
+      getApiBase: patyiaIssCapFetchBase,
+      localDirect: [
+        { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") }
+      ],
+      orchOnline: PATYIA_ISS_URL,
+      orchOnlineInLocal: true,
+      isLocal: isLocalMode
+    });
+    capFetch = bridgeHttp.capFetch;
+    apiUrl = bridgeHttp.apiUrl;
+    rowVal = bridgeHttp.rowVal;
+  }
+});
+
+// js/api/sysValuesCopy.ts
+function prodBase() {
+  return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+}
+async function getFromCurrent(path) {
+  try {
+    const res = await capFetch(path, { method: "GET" });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ok: false, data, error: `GET ${path} \u2192 ${res.status} ${res.statusText}` };
+    }
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, data: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+async function putToProd(path, body) {
+  const url = `${prodBase()}${path.startsWith("/") ? path : `/${path}`}`;
+  try {
+    const sess = window.ISA?.Session;
+    const headers = { "Content-Type": "application/json" };
+    if (sess?.authHeader) {
+      const ah = sess.authHeader();
+      if (ah && typeof ah === "object") Object.assign(headers, ah);
+    }
+    if (sess?.appHeader) {
+      const ap = sess.appHeader();
+      if (ap && typeof ap === "object") Object.assign(headers, ap);
+    }
+    const res = await fetch(url, { method: "PUT", headers, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `PUT ${path} \u2192 ${res.status} ${res.statusText}${text ? ` (${text.slice(0, 200)})` : ""}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+function instruccionesGetToPutList(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((r) => ({
+    iinstruccion: Number(r?.iinstruccion ?? r?.IINSTRUCCION),
+    instruccion: String(r?.instruccion ?? r?.INSTRUCCION ?? ""),
+    jconfig: r?.jconfig ?? r?.JCONFIG,
+    ninstruccion: r?.ninstruccion ?? r?.NINSTRUCCION,
+    descripcion: r?.descripcion ?? r?.DESCRIPCION,
+    author: r?.author ?? r?.AUTHOR
+  })).filter((x) => Number.isInteger(x.iinstruccion) && x.iinstruccion > 0);
+}
+async function copySysValuesToProduction() {
+  const steps = [];
+  for (const ep of ENDPOINTS) {
+    toastInfo(`Copiando ${ep.key}\u2026`, 2e3);
+    const g = await getFromCurrent(ep.path);
+    if (!g.ok) {
+      steps.push({ name: ep.key, ok: false, error: g.error || "GET fall\xF3" });
+      toastError(`Fall\xF3 GET ${ep.key}: ${g.error}`);
+      return { ok: false, steps, abortedAt: ep.key };
+    }
+    let body = g.data;
+    if (ep.isInstrucciones) {
+      const rows = instruccionesGetToPutList(g.data?.rows);
+      let allOk = true;
+      for (const row of rows) {
+        const r = await putToProd(ep.path, row);
+        if (!r.ok) {
+          allOk = false;
+          steps.push({ name: `${ep.key}#${row.iinstruccion}`, ok: false, error: r.error });
+        }
+      }
+      steps.push({ name: ep.key, ok: allOk });
+      if (!allOk) {
+        toastError(`Fall\xF3 PUT ${ep.key}`);
+        return { ok: false, steps, abortedAt: ep.key };
+      }
+    } else {
+      const payload = g.data?.value !== void 0 ? g.data.value : g.data;
+      const r = await putToProd(ep.path, payload);
+      steps.push({ name: ep.key, ok: r.ok, error: r.error });
+      if (!r.ok) {
+        toastError(`Fall\xF3 PUT ${ep.key}: ${r.error}`);
+        return { ok: false, steps, abortedAt: ep.key };
+      }
+    }
+  }
+  toastSuccess("sys_values copiados a producci\xF3n", 4e3);
+  return { ok: true, steps };
+}
+var ENDPOINTS;
+var init_sysValuesCopy = __esm({
+  "js/api/sysValuesCopy.ts"() {
+    init_apiClient();
+    init_platform();
+    init_patyia();
+    ENDPOINTS = [
+      { key: "config/conversacion", path: "/api/system/config/conversacion" },
+      { key: "openai", path: "/api/system/openai" },
+      { key: "instrucciones", path: "/api/system/instrucciones", isInstrucciones: true },
+      { key: "prompts_operativos", path: "/api/system/prompts-operativos" }
+    ];
+  }
+});
+
+// js/components/CopySysValuesModal.jsx
+function openCopyModal(result) {
+  closeCopyModal();
+  const container = document.createElement("div");
+  container.id = "patyia-copy-modal-container";
+  container.style.cssText = "position:fixed;inset:0;z-index:2000;pointer-events:none";
+  document.body.appendChild(container);
+  const root = window.ISAFront?.getReactDOM?.() ?? window.ReactDOM;
+  if (!root?.createRoot) {
+    console.warn("CopySysValuesModal: no ReactDOM.createRoot");
+    return;
+  }
+  const reactRoot = root.createRoot(container);
+  const handleClose = () => closeCopyModal();
+  const node = React.createElement(Wrapper, { result, onClose: handleClose });
+  reactRoot.render(node);
+  openDialog = {
+    close: () => {
+      try {
+        reactRoot.unmount();
+      } catch {
+      }
+      try {
+        container.remove();
+      } catch {
+      }
+    }
+  };
+}
+function closeCopyModal() {
+  if (openDialog) {
+    openDialog.close();
+    openDialog = null;
+  }
+}
+function Wrapper({ result, onClose }) {
+  return React.createElement(
+    "div",
+    { style: { pointerEvents: "auto" } },
+    React.createElement(CopyModal, { result, onClose })
+  );
+}
+function CopyModal({ result, onClose }) {
+  return React.createElement(
+    MUI.Dialog,
+    { open: true, onClose, maxWidth: "sm", fullWidth: true },
+    React.createElement(
+      MUI.DialogTitle,
+      { sx: { display: "flex", alignItems: "center", gap: 1 } },
+      Icon ? React.createElement(Icon, { icon: result.ok ? "mdi:check-circle-outline" : "mdi:alert-circle-outline", size: 22, color: result.ok ? "success.main" : "error.main" }) : null,
+      result.ok ? "sys_values copiados a producci\xF3n" : "Fall\xF3 la copia a producci\xF3n"
+    ),
+    React.createElement(
+      MUI.DialogContent,
+      { dividers: true },
+      React.createElement(
+        MUI.List,
+        { dense: true },
+        result.steps.map(
+          (s) => React.createElement(
+            MUI.ListItem,
+            { key: s.name, sx: { py: 0.5 } },
+            React.createElement(
+              MUI.ListItemIcon,
+              { sx: { minWidth: 32 } },
+              Icon ? React.createElement(Icon, {
+                icon: s.ok ? "mdi:check" : "mdi:close",
+                size: 18,
+                color: s.ok ? "success.main" : "error.main"
+              }) : null
+            ),
+            React.createElement(MUI.ListItemText, {
+              primary: s.name,
+              secondary: s.error || null,
+              secondaryTypographyProps: { color: "error", variant: "caption" }
+            })
+          )
+        )
+      ),
+      result.abortedAt ? React.createElement(
+        MUI.Typography,
+        { variant: "caption", color: "text.secondary", sx: { mt: 1, display: "block" } },
+        `Abortado en: ${result.abortedAt}`
+      ) : null
+    ),
+    React.createElement(
+      MUI.DialogActions,
+      null,
+      React.createElement(MUI.Button, { onClick: onClose, variant: "contained" }, "Cerrar")
+    )
+  );
+}
+var MUI, React, Icon, openDialog;
+var init_CopySysValuesModal = __esm({
+  "js/components/CopySysValuesModal.jsx"() {
+    MUI = window.MaterialUI;
+    React = window.React;
+    Icon = window.ISA?.UI?.Icon;
+    openDialog = null;
+  }
+});
+
+// js/components/IssTargetSwitch.jsx
+var IssTargetSwitch_exports = {};
+__export(IssTargetSwitch_exports, {
+  IssTargetChip: () => IssTargetChip,
+  IssTargetMenu: () => IssTargetMenu,
+  IssTargetMenuWithAdmin: () => IssTargetMenuWithAdmin
+});
+function issUrlForTarget(id) {
+  if (id === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
+  if (id === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
+  return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function availableTargets() {
+  return isDevHost() ? TARGETS_DEV : TARGETS_WEB;
+}
+function headerClearBackdropTop() {
+  const bar = document.querySelector("header.MuiAppBar-root");
+  return bar ? Math.ceil(bar.getBoundingClientRect().bottom) : 56;
+}
+function TargetMenuItem({ t, selected, onClick, value }) {
+  const url = issUrlForTarget(t.id);
+  const item = React2.createElement(
+    MUI2.MenuItem,
+    {
+      value,
+      selected,
+      onClick,
+      title: url
+    },
+    Icon2 ? React2.createElement(MUI2.ListItemIcon, { sx: { minWidth: 32 } }, React2.createElement(Icon2, { icon: t.icon, size: 18 })) : null,
+    React2.createElement(MUI2.ListItemText, {
+      primary: t.label,
+      secondary: url,
+      secondaryTypographyProps: {
+        variant: "caption",
+        noWrap: true,
+        sx: { maxWidth: 240, opacity: 0.72, fontFamily: "ui-monospace, Consolas, monospace", fontSize: "0.65rem" }
+      }
+    })
+  );
+  return React2.createElement(
+    MUI2.Tooltip,
+    { title: url, placement: "left", enterDelay: 200, arrow: true },
+    // span: Tooltip necesita un hijo que acepte ref; MenuItem dentro de Select a veces no.
+    React2.createElement("span", { style: { display: "block" } }, item)
+  );
+}
+function IssTargetChip() {
+  const [anchor, setAnchor] = React2.useState(null);
+  const [target, setTarget] = React2.useState(
+    /** @type {IssTarget} */
+    getIssTarget()
+  );
+  const open = !!anchor;
+  const meta = availableTargets().find((x) => x.id === target) ?? availableTargets()[0];
+  const currentUrl = issUrlForTarget(target);
+  const onPick = (id) => {
+    setAnchor(null);
+    if (id === target) return;
+    setIssTarget(id);
+    setTarget(id);
+    setTimeout(() => window.location.reload(), 50);
+  };
+  return React2.createElement(
+    React2.Fragment,
+    null,
+    React2.createElement(
+      MUI2.Tooltip,
+      { title: `${meta.label}: ${currentUrl}`, arrow: true },
+      React2.createElement(
+        MUI2.Chip,
+        {
+          size: "small",
+          color: meta.color,
+          variant: "outlined",
+          icon: Icon2 ? React2.createElement(Icon2, { icon: meta.icon, size: 16 }) : void 0,
+          label: meta.label,
+          onClick: (e) => setAnchor(e.currentTarget),
+          "aria-haspopup": "true",
+          "aria-expanded": open ? "true" : "false",
+          sx: { height: 28, cursor: "pointer", "& .MuiChip-label": { px: 0.75 } }
+        }
+      )
+    ),
+    React2.createElement(
+      MUI2.Menu,
+      {
+        anchorEl: anchor,
+        open,
+        onClose: () => setAnchor(null),
+        slotProps: {
+          backdrop: {
+            sx: { top: open ? headerClearBackdropTop() : 0 }
+          }
+        }
+      },
+      availableTargets().map(
+        (t) => React2.createElement(TargetMenuItem, {
+          key: t.id,
+          t,
+          selected: t.id === target,
+          onClick: () => onPick(t.id)
+        })
+      )
+    )
+  );
+}
+function IssTargetMenu() {
+  const [target, setTarget] = React2.useState(
+    /** @type {IssTarget} */
+    getIssTarget()
+  );
+  const meta = availableTargets().find((x) => x.id === target) ?? availableTargets()[0];
+  const onChange = (e) => {
+    const id = String(e.target.value);
+    if (id === target) return;
+    setIssTarget(id);
+    setTarget(id);
+    setTimeout(() => window.location.reload(), 50);
+  };
+  return React2.createElement(
+    MUI2.Box,
+    { sx: { display: "flex", alignItems: "center", gap: 1, pl: 1, pr: 1, minHeight: 36, width: "100%" } },
+    Icon2 ? React2.createElement(Icon2, { icon: meta.icon, size: 18 }) : null,
+    React2.createElement(
+      MUI2.Select,
+      {
+        value: target,
+        onChange,
+        size: "small",
+        variant: "standard",
+        sx: { fontSize: 14, minWidth: 120, "& .MuiSelect-select": { py: 0.25 } }
+      },
+      availableTargets().map((t) => {
+        const url = issUrlForTarget(t.id);
+        return React2.createElement(
+          MUI2.MenuItem,
+          { key: t.id, value: t.id, title: url },
+          React2.createElement(MUI2.ListItemText, {
+            primary: t.label,
+            secondary: url,
+            secondaryTypographyProps: {
+              variant: "caption",
+              noWrap: true,
+              sx: { maxWidth: 240, opacity: 0.72, fontFamily: "ui-monospace, Consolas, monospace", fontSize: "0.65rem" }
+            }
+          })
+        );
+      })
+    )
+  );
+}
+function isAdminPatyia() {
+  try {
+    const sess = window.ISA?.Session?.current?.();
+    if (!sess) return false;
+    const roles = Array.isArray(sess.roles) ? sess.roles : Array.isArray(sess.role) ? [sess.role] : [];
+    const norm = roles.map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+    return norm.includes("admn_isapatyia") || norm.includes("dev_lead");
+  } catch {
+    return false;
+  }
+}
+function IssTargetMenuWithAdmin() {
+  const [target, setTarget] = React2.useState(
+    /** @type {IssTarget} */
+    getIssTarget()
+  );
+  const meta = availableTargets().find((x) => x.id === target) ?? availableTargets()[0];
+  const showCopy = isAdminPatyia() && target === "staging";
+  const onChange = (e) => {
+    const id = String(e.target.value);
+    if (id === target) return;
+    setIssTarget(id);
+    setTarget(id);
+    setTimeout(() => window.location.reload(), 50);
+  };
+  const onCopy = async () => {
+    const res = await copySysValuesToProduction();
+    openCopyModal(res);
+  };
+  return React2.createElement(
+    MUI2.Box,
+    { sx: { display: "flex", flexDirection: "column", gap: 0.25, pl: 1, pr: 1, minHeight: 36, width: "100%" } },
+    React2.createElement(
+      MUI2.Box,
+      { sx: { display: "flex", alignItems: "center", gap: 1 } },
+      Icon2 ? React2.createElement(Icon2, { icon: meta.icon, size: 18 }) : null,
+      React2.createElement(
+        MUI2.Select,
+        {
+          value: target,
+          onChange,
+          size: "small",
+          variant: "standard",
+          sx: { fontSize: 14, minWidth: 120, "& .MuiSelect-select": { py: 0.25 } }
+        },
+        availableTargets().map((t) => {
+          const url = issUrlForTarget(t.id);
+          return React2.createElement(
+            MUI2.MenuItem,
+            { key: t.id, value: t.id, title: url },
+            React2.createElement(MUI2.ListItemText, {
+              primary: t.label,
+              secondary: url,
+              secondaryTypographyProps: {
+                variant: "caption",
+                noWrap: true,
+                sx: { maxWidth: 240, opacity: 0.72, fontFamily: "ui-monospace, Consolas, monospace", fontSize: "0.65rem" }
+              }
+            })
+          );
+        })
+      )
+    ),
+    showCopy ? React2.createElement(
+      MUI2.MenuItem,
+      {
+        onClick: (e) => {
+          e.stopPropagation();
+          onCopy();
+        },
+        sx: { pl: 3, py: 0.25, fontSize: 13, color: "warning.main" }
+      },
+      Icon2 ? React2.createElement(MUI2.ListItemIcon, { sx: { minWidth: 28 } }, React2.createElement(Icon2, { icon: "mdi:cloud-upload-outline", size: 16 })) : null,
+      React2.createElement(MUI2.ListItemText, { primary: "Copiar sys_values a producci\xF3n", primaryTypographyProps: { fontSize: 13 } })
+    ) : null
+  );
+}
+var MUI2, React2, Icon2, TARGETS_DEV, TARGETS_WEB;
+var init_IssTargetSwitch = __esm({
+  "js/components/IssTargetSwitch.jsx"() {
+    init_patyia();
+    init_sysValuesCopy();
+    init_CopySysValuesModal();
+    MUI2 = window.MaterialUI;
+    React2 = window.React;
+    Icon2 = window.ISA?.UI?.Icon;
+    TARGETS_DEV = [
+      { id: "production", label: "Producci\xF3n", icon: "mdi:server", color: "success" },
+      { id: "staging", label: "Staging", icon: "mdi:test-tube", color: "primary" },
+      { id: "local", label: "Local", icon: "mdi:laptop", color: "warning" }
+    ];
+    TARGETS_WEB = [
+      { id: "production", label: "Producci\xF3n", icon: "mdi:server", color: "success" },
+      { id: "staging", label: "Staging", icon: "mdi:test-tube", color: "primary" }
+    ];
+  }
+});
+
+// js/core/platform.ts
+function frontSharedLazy() {
+  const api = window.ISAFront;
+  return api?.ensureCodeMirrorLoaded ? api : null;
+}
+function mdToHtml(src) {
+  const api = frontSharedLazy();
+  if (api?.mdToHtml) return api.mdToHtml(src);
+  return String(src ?? "");
+}
+function getIsaSplitView() {
+  const C = window.ISAFront?.Layout?.IsaSplitView;
+  if (!C) {
+    throw new Error("IsaSplitView no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return C;
+}
+function getGlass() {
+  const g = window.ISAFront?.Glass;
+  if (!g?.GlassCard) {
+    throw new Error("ISAFront.Glass no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return g;
+}
+function lightboxApi() {
+  const api = window.ISAComponents?.LightboxZoom;
+  if (!api?.LightboxZoomDialog) {
+    throw new Error("ISAComponents.LightboxZoom no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+  return api;
+}
+function CodeMirrorPanel(props) {
+  const Panel = window.ISAFront?.CodeMirrorPanel;
+  if (!Panel) throw new Error("CodeMirrorPanel no cargado \u2014 recargue sin cach\xE9 (Ctrl+Shift+R).");
+  return Panel(props);
+}
+function toastError(text, timeout) {
+  fb()?.toast?.error?.(text, timeout);
+}
+function toastSuccess(text, timeout) {
+  fb()?.toast?.success?.(text, timeout);
+}
+function toastInfo(text, timeout) {
+  fb()?.toast?.info?.(text, timeout);
+}
+function toastWarning(text, timeout) {
+  fb()?.toast?.warning?.(text, timeout);
+}
+function requestConfirm(opts) {
+  return fb()?.confirm?.(opts) ?? Promise.resolve(false);
+}
+function patchIsaPatyiaAuthEvents() {
+  const Session2 = window.ISA?.Session;
+  if (!Session2?.login || !Session2?.logout) return;
+  const origLogin = Session2.login.bind(Session2);
+  const origLogout = Session2.logout.bind(Session2);
+  const wrapLogin = async (u, p, opts) => {
+    const session = await origLogin(u, p, opts);
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+    return session;
+  };
+  Session2.login = wrapLogin;
+  if (window.ISA?.Auth?.login) window.ISA.Auth.login = wrapLogin;
+  Session2.logout = () => {
+    origLogout();
+    window.dispatchEvent(new Event("isa-patyia:auth"));
+  };
+}
+function patchIssOnlyLocalConfig() {
+  ensureIssLocalDefault();
+  migrateIssLocalFromGatewayFlag();
+  try {
+    localStorage.setItem(GATEWAY_LS_KEY, "0");
+  } catch {
+  }
+  const cfg = window.ISA?.Config;
+  if (!cfg) return;
+  const online = String(cfg.ONLINE || ORCH_ONLINE).replace(/\/$/, "");
+  const recompute = () => {
+    const t = getIssTarget();
+    cfg.isLocal = () => t === "local";
+    cfg.setLocal = (on) => {
+      setIssTarget(on ? "local" : isDevHost() ? "local" : "staging");
+      return true;
+    };
+    const base = t === "local" ? PATYIA_ISS_LOCAL.replace(/\/$/, "") : t === "production" ? PATYIA_ISS_PROD_URL.replace(/\/$/, "") : PATYIA_ISS_URL.replace(/\/$/, "");
+    cfg.base = () => base;
+    cfg.apiUrl = (path) => base + (path.charAt(0) === "/" ? path : `/${path}`);
+    cfg.label = () => t === "local" ? "Local" : t === "production" ? "Producci\xF3n" : "Staging";
+    cfg.connectionHint = () => "";
+  };
+  recompute();
+  cfg.EVENT = "patyia-apptools:iss-target-changed";
+  try {
+    window.addEventListener("patyia-apptools:iss-target-changed", recompute);
+  } catch {
+  }
+}
+function patchIsaPatyiaTargetSwitchReadOnly() {
+  const bag = window.ISA;
+  if (!bag?.UI) return;
+  Promise.resolve().then(() => (init_IssTargetSwitch(), IssTargetSwitch_exports)).then((mod) => {
+    if (mod?.IssTargetChip) bag.UI.TargetSwitch = mod.IssTargetChip;
+    if (mod?.IssTargetMenuWithAdmin) bag.UI.TargetSwitchMenu = mod.IssTargetMenuWithAdmin;
+    else if (mod?.IssTargetMenu) bag.UI.TargetSwitchMenu = mod.IssTargetMenu;
+  }).catch((e) => console.warn("IssTargetSwitch load:", e));
+}
+function patyiaIssBaseForLogin() {
+  return patyiaIssBase();
+}
+function patchCompactFormThemeDefaults() {
+  const Theme = window.ISA?.Theme;
+  const MUI3 = window.MaterialUI;
+  if (!Theme?.useThemeMode || !MUI3?.createTheme) return;
+  const lightContained = {
+    boxShadow: "0 1px 2px rgba(15,23,42,0.08)",
+    "&:hover": { boxShadow: "0 2px 6px rgba(15,23,42,0.12)" }
+  };
+  const darkContained = {
+    boxShadow: "0 0 20px rgba(30,144,255,0.35)",
+    "&:hover": { boxShadow: "0 0 28px rgba(30,144,255,0.55)" }
+  };
+  const buttonPatch = (mode) => ({
+    MuiButton: {
+      styleOverrides: {
+        containedPrimary: mode === "light" ? lightContained : darkContained
+      }
+    }
+  });
+  const formDefaults = {
+    MuiTextField: { defaultProps: { size: "small", margin: "dense" } },
+    MuiFormControl: { defaultProps: { size: "small", margin: "dense" } },
+    MuiAutocomplete: { defaultProps: { size: "small" } },
+    MuiSelect: { defaultProps: { size: "small" } },
+    MuiInputBase: { defaultProps: { size: "small" } }
+  };
+  const orig = Theme.useThemeMode.bind(Theme);
+  Theme.useThemeMode = () => {
+    const tm = orig();
+    const mode = String(tm?.mode ?? tm?.theme?.palette?.mode ?? "dark");
+    const theme = MUI3.createTheme(tm.theme, {
+      components: { ...formDefaults, ...buttonPatch(mode) }
+    });
+    return { ...tm, theme };
+  };
+  if (typeof Theme.makeTheme === "function") {
+    const origMake = Theme.makeTheme.bind(Theme);
+    Theme.makeTheme = (mode) => MUI3.createTheme(origMake(mode), {
+      components: { ...formDefaults, ...buttonPatch(mode) }
+    });
+  }
+}
+function bootstrapIsaPatyia() {
+  ensureIssLocalDefault();
+  window.ISAFront.registerApp({
+    ns: "ISA",
+    app: "isa-patyia",
+    theme: true,
+    widgets: { targetStyle: "chip", targetReadOnlyLocal: false },
+    session: true,
+    auth: false,
+    toast: true,
+    loginButton: {
+      showTarget: false,
+      runUnitTestUrl: () => `${patyiaIssBaseForLogin()}/api/run-unit-test`,
+      getAuthHeaders: () => {
+        const tok = window.ISA?.Session?.current?.()?.token;
+        return tok ? window.ISA.Session.authHeader() : {};
+      },
+      unitTestTitle: "Test unitario \u2014 ISS-AyudasCPIA"
+    }
+  });
+  patchIssOnlyLocalConfig();
+  patchIsaPatyiaTargetSwitchReadOnly();
+  patchIsaPatyiaAuthEvents();
+  patchCompactFormThemeDefaults();
+  if (window.ISAFront?.registerCodeMirror && window.React && window.MaterialUI) {
+    window.ISAFront.registerCodeMirror(window.React, window.MaterialUI);
+  }
+  if (!window.ISA?.Session) {
+    throw new Error("No se pudo iniciar la aplicaci\xF3n. Recargue sin cach\xE9 (Ctrl+Shift+R).");
+  }
+}
+var bridge, UI, Session, Toast, Config, Assets, Tokens, getReact, getReactDOM, getMaterialUI, LightboxZoom, Lightbox, fb;
+var init_platform = __esm({
+  "js/core/platform.ts"() {
+    init_patyia();
+    bridge = () => window.ISAFront.createPlatformBridge("ISA");
+    UI = {
+      get Icon() {
+        return bridge().UI.Icon;
+      },
+      get TargetSwitch() {
+        return bridge().UI.TargetSwitch;
+      },
+      get ThemeSwitch() {
+        return bridge().UI.ThemeSwitch;
+      },
+      get useRealtimeStatus() {
+        return bridge().UI.useRealtimeStatus;
+      },
+      get RealtimeStatusDot() {
+        return bridge().UI.RealtimeStatusDot;
+      },
+      get Loading() {
+        return bridge().UI.Loading;
+      },
+      get ErrorBox() {
+        return bridge().UI.ErrorBox;
+      },
+      get LoginGate() {
+        return bridge().UI.LoginGate;
+      },
+      get LoginButton() {
+        return bridge().UI.LoginButton;
+      }
+    };
+    Session = {
+      current: () => bridge().Session.current(),
+      isLoggedIn: () => bridge().Session.isLoggedIn(),
+      username: () => bridge().Session.username(),
+      realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
+      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
+      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
+      auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
+      authHeader: () => bridge().Session.authHeader(),
+      appHeader: () => bridge().Session.appHeader(),
+      appId: () => bridge().Session.appId(),
+      login: (u, p, opts) => bridge().Session.login(u, p, opts),
+      logout: () => bridge().Session.logout(),
+      refreshProfile: () => bridge().Session.refreshProfile(),
+      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
+      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
+      setViewAs: (u) => bridge().Session.setViewAs?.(u),
+      clearViewAs: () => bridge().Session.clearViewAs?.(),
+      capabilities: () => bridge().Session.capabilities(),
+      adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
+      capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
+      can: (cap) => bridge().Session.can(cap),
+      blockReason: (cap) => bridge().Session.blockReason(cap),
+      get EVENT() {
+        return bridge().Session.EVENT;
+      }
+    };
+    Toast = {
+      show: (opts) => bridge().Toast.show(opts)
+    };
+    Config = {
+      base: () => bridge().Config.base(),
+      apiUrl: (path) => bridge().Config.apiUrl(path),
+      isLocal: () => bridge().Config.isLocal(),
+      setLocal: (on) => bridge().Config.setLocal(on),
+      get EVENT() {
+        return bridge().Config.EVENT;
+      }
+    };
+    Assets = {
+      ensureCodeMirrorLoaded: (opts) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureCodeMirrorLoaded(opts) : Promise.resolve();
+      },
+      ensureMarked: () => {
+        const api = frontSharedLazy();
+        return api ? api.ensureMarked() : Promise.resolve();
+      },
+      ensureStylesheet: (href) => {
+        const api = frontSharedLazy();
+        return api ? api.ensureLazyStylesheet(href) : Promise.resolve();
+      },
+      ensureChatStagingCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/chat-staging.css`).catch((err) => {
+          console.warn("chat-staging.css:", err);
+        });
+      },
+      ensureTodosCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
+          console.warn("todos-staging.css:", err);
+        });
+      }
+    };
+    Tokens = {
+      estimatePrompt: (text) => {
+        const fn = window.ISAFront?.estimatePromptTokens;
+        if (typeof fn === "function") return fn(text);
+        const s = String(text ?? "");
+        return s.trim() ? Math.ceil(s.length / 4) : 0;
+      }
+    };
+    getReact = () => window.ISAFront.getReact();
+    getReactDOM = () => window.ISAFront.getReactDOM();
+    getMaterialUI = () => window.ISAFront.getMaterialUI();
+    LightboxZoom = {
+      get LightboxZoomDialog() {
+        return lightboxApi().LightboxZoomDialog;
+      },
+      get LightboxZoomImage() {
+        return lightboxApi().LightboxZoomImage;
+      },
+      get useLightboxZoom() {
+        return lightboxApi().useLightboxZoom;
+      },
+      get ZOOM_MIN() {
+        return lightboxApi().ZOOM_MIN;
+      },
+      get ZOOM_MAX() {
+        return lightboxApi().ZOOM_MAX;
+      },
+      get PAN_STEP() {
+        return lightboxApi().PAN_STEP;
+      }
+    };
+    Lightbox = {
+      get ImageLightboxDialog() {
+        return lightboxApi().LightboxZoomDialog;
+      },
+      get LightboxImage() {
+        return lightboxApi().LightboxZoomImage;
+      },
+      get useImageLightboxZoom() {
+        return lightboxApi().useLightboxZoom;
+      }
+    };
+    fb = () => globalThis.ISAFront?.Feedback;
+  }
+});
+init_platform();
+export {
+  Assets,
+  CodeMirrorPanel,
+  Config,
+  Lightbox,
+  LightboxZoom,
+  Session,
+  Toast,
+  Tokens,
+  UI,
+  bootstrapIsaPatyia,
+  getGlass,
+  getIsaSplitView,
+  getMaterialUI,
+  getReact,
+  getReactDOM,
+  mdToHtml,
+  requestConfirm,
+  toastError,
+  toastInfo,
+  toastSuccess,
+  toastWarning
+};
