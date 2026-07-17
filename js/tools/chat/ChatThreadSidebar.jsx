@@ -8,7 +8,7 @@ import { resolveOwnerDisplayName } from "./auditScope.ts";
 
 const {
   Box, Typography, Button, IconButton, List, ListItemButton, ListItemText,
-  CircularProgress, Tooltip, Stack, Divider, Chip, Select, MenuItem, FormControl,
+  CircularProgress, Tooltip, Stack, Divider, Select, MenuItem, FormControl,
 } = getMaterialUI();
 const { Icon } = UI;
 
@@ -100,6 +100,7 @@ function ChatSidebarBody({
   displayScope,
   sessionUser,
   canSend,
+  canAuditChat = false,
   jwtLoading,
   needsJwt,
   listScope,
@@ -107,7 +108,6 @@ function ChatSidebarBody({
   viewingAuditOther,
   convListOwnerLabel,
   convListHeader,
-  showJwtBadge,
   loadingList,
   rows,
   selectedId,
@@ -136,6 +136,7 @@ function ChatSidebarBody({
           ownerDisplayName={resolveOwnerDisplayName(jwt, displayScope)}
           canSend={canSend}
           jwtLoading={jwtLoading}
+          canAudit={canAuditChat}
           onOpenAudit={onOpenAudit}
         />
       </Box>
@@ -143,47 +144,30 @@ function ChatSidebarBody({
       <Divider sx={{ my: 1 }} />
 
       <Box className="conv-log-sidebar-block paty-chat-sidebar-list-head" sx={{ flexShrink: 0, pb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 600, mb: 0.5 }}>
-          Conversaciones
-          {(jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? (
-            <Stack
-              direction="row"
-              spacing={0.5}
-              alignItems="center"
-              useFlexGap
-              flexWrap="wrap"
-              sx={{ mt: 0.25 }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 500, color: "text.primary" }}>
-                {convListHeader || convListOwnerLabel}
+        <Stack direction="row" alignItems="flex-start" spacing={0.75} sx={{ mb: 0.5, minWidth: 0 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0, fontWeight: 600 }}>
+            Conversaciones
+            {(jwt?.token || listScope) && (convListHeader || convListOwnerLabel) ? (
+              <Stack direction="row" spacing={0.5} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+                <Typography variant="caption" sx={{ fontWeight: 500, color: "text.primary" }}>
+                  {convListHeader || convListOwnerLabel}
+                </Typography>
+              </Stack>
+            ) : null}
+            {needsJwt ? (
+              <Typography component="span" variant="caption" sx={{ display: "block", color: "info.main", mt: 0.25 }}>
+                {listScope?.nombre
+                  ? `${listScope.nombre} · modo lectura`
+                  : sessionScopeLoading
+                    ? "Buscando tus conversaciones…"
+                    : "Sin contacto identificado · filtra por usuario"}
               </Typography>
-              {showJwtBadge ? (
-                <Chip
-                  size="small"
-                  label="JWT"
-                  sx={{
-                    height: 18,
-                    fontSize: "0.62rem",
-                    fontWeight: 700,
-                    bgcolor: "rgba(124,58,237,0.14)",
-                    color: "#6d28d9",
-                    border: "1px solid rgba(124,58,237,0.35)",
-                    "& .MuiChip-label": { px: 0.6, py: 0 },
-                  }}
-                />
-              ) : null}
-            </Stack>
-          ) : null}
-          {needsJwt ? (
-            <Typography component="span" variant="caption" sx={{ display: "block", color: "info.main", mt: 0.25 }}>
-              {listScope?.nombre
-                ? `${listScope.nombre} · modo lectura`
-                : sessionScopeLoading
-                  ? "Buscando tus conversaciones…"
-                  : "Sin contacto identificado · filtra por usuario"}
-            </Typography>
-          ) : null}
-        </Typography>
+            ) : null}
+          </Typography>
+          <Box sx={{ flexShrink: 0, pt: 0.1 }}>
+            <ChatNewConversationButton canSend={canSend} onNewChat={onNewChat} onClose={onClose} />
+          </Box>
+        </Stack>
         <ConvSearchAutocomplete
           rows={rows}
           loading={loadingList}
@@ -345,6 +329,7 @@ export function ChatThreadSidebar({
   viewOnly,
   jwtLoading,
   canSend,
+  canAuditChat = false,
   needsJwt,
   listScope,
   sessionScopeLoading,
@@ -352,7 +337,6 @@ export function ChatThreadSidebar({
   auditScope,
   convListOwnerLabel,
   convListHeader,
-  showJwtBadge,
   loadingList,
   rows,
   selectedId,
@@ -381,6 +365,7 @@ export function ChatThreadSidebar({
     displayScope,
     sessionUser,
     canSend,
+    canAuditChat,
     jwtLoading,
     needsJwt,
     listScope,
@@ -388,7 +373,6 @@ export function ChatThreadSidebar({
     viewingAuditOther,
     convListOwnerLabel,
     convListHeader,
-    showJwtBadge,
     loadingList,
     rows,
     selectedId,
@@ -437,24 +421,24 @@ export function ChatThreadSidebar({
         boxSizing: "border-box",
       }}
     >
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        className="conv-log-sidebar-block"
-        sx={{ py: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
-      >
-        <Icon icon="mdi:chat-outline" size={20} />
-        <Box sx={{ flex: 1 }} />
-        <ChatNewConversationButton canSend={canSend} onNewChat={onNewChat} onClose={onClose} />
-        <ChatSidebarHeaderActions
-          onClose={onClose}
-          messageSource={messageSource}
-          mode={mode}
-          onMessageSourceChange={onMessageSourceChange}
-          onChatModeChange={onChatModeChange}
-        />
-      </Stack>
+      {(onClose || onMessageSourceChange || onChatModeChange) ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          justifyContent="flex-end"
+          className="conv-log-sidebar-block"
+          sx={{ py: 0.5, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
+        >
+          <ChatSidebarHeaderActions
+            onClose={onClose}
+            messageSource={messageSource}
+            mode={mode}
+            onMessageSourceChange={onMessageSourceChange}
+            onChatModeChange={onChatModeChange}
+          />
+        </Stack>
+      ) : null}
       <ChatSidebarBody {...bodyProps} />
     </Box>
   );
