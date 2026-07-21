@@ -1,20 +1,24 @@
-/** Etiquetas oficiales — espejo de ISS role-canonical-meta.ts */
+/** Etiquetas oficiales — solo front. Roles planos ClientesIS: AUDITOR|ADMN|DEVISS|USR. */
 export const CANONICAL_ROLE_META = {
-  dev: {
-    namedisplay: "Desarrollador básico",
-    descripcion: "Desarrollador básico — rama desarrollo (hereda visitante)",
+  AUDITOR: {
+    namedisplay: "Auditor",
+    descripcion: "Ve conversaciones de todos; chatea solo en las propias",
   },
-  admn: {
-    namedisplay: "Admn básico",
-    descripcion: "Admn básico — permisos administrativos globales (hereda visitante)",
-  },
-  admn_isapatyia: {
+  ADMN: {
     namedisplay: "Admn ISA-Paty",
-    descripcion: "Admn ISA-Paty — permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)",
+    descripcion: "Administración PatyIA — sin acceso total de desarrollo",
+  },
+  DEVISS: {
+    namedisplay: "Dev Lead ISS",
+    descripcion: "Líder de desarrollo — acceso total",
+  },
+  USR: {
+    namedisplay: "Usuario",
+    descripcion: "Acceso básico de sesión",
   },
 };
 
 export function canonicalRoleMeta(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
+  const key = String(roleName ?? "").trim().toUpperCase();
   return CANONICAL_ROLE_META[key] ?? null;
 }
