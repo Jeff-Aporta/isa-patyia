@@ -178,18 +178,221 @@ export function toastInfo(text: string, timeout?: number) { fb()?.toast?.info?.(
 export function toastWarning(text: string, timeout?: number) { fb()?.toast?.warning?.(text, timeout); }
 export function requestConfirm(opts: Record<string, unknown>) { return fb()?.confirm?.(opts) ?? Promise.resolve(false); }
 
+/** Login portal ContaPyme (DataSnap vía ISS). Reemplaza el legacy /api/auth/token (eliminado de los workers). */
+const PORTAL_LOGIN_PATH = "/api/auth/portal-login";
+
+function normalizeLoginEmail(user: string): string {
+  const s = String(user ?? "").trim();
+  if (!s) return "";
+  return s.includes("@") ? s.toLowerCase() : `${s.toLowerCase()}@contapyme.com`;
+}
+
+type PortalLoginData = {
+  ok?: boolean;
+  token?: string;
+  username?: string;
+  displayName?: string;
+  expiresAt?: string | null;
+  error?: string;
+  code?: string;
+  terceros?: unknown[];
+};
+
+type PortalLoginError = Error & { code?: string; terceros?: unknown[]; status?: number; retryable?: boolean };
+
+async function portalLoginRequest(base: string, body: Record<string, unknown>, fetchImpl: typeof fetch = fetch): Promise<PortalLoginData> {
+  const res = await fetchImpl(base.replace(/\/$/, "") + PORTAL_LOGIN_PATH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "X-App-Id": "isa-patyia" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as PortalLoginData;
+  if (data?.code === "MULTI_EMPRESA" || (res.status === 409 && Array.isArray(data?.terceros))) {
+    const e = new Error(String(data?.error || "Elija la empresa para continuar.")) as PortalLoginError;
+    e.code = "MULTI_EMPRESA";
+    e.terceros = Array.isArray(data?.terceros) ? data.terceros : [];
+    throw e;
+  }
+  if (!res.ok || !data?.ok || !data?.token) {
+    const e = new Error(String(data?.error || `Server error (HTTP status ${res.status})`)) as PortalLoginError;
+    e.status = res.status;
+    // 402 (quota Neon), 404 (endpoint eliminado) y 5xx justifican el fallback directo a DataSnap.
+    e.retryable = res.status === 402 || res.status === 404 || res.status >= 500;
+    throw e;
+  }
+  return data;
+}
+
 function patchIsaPatyiaAuthEvents(): void {
   const Session = window.ISA?.Session;
   if (!Session?.login || !Session?.logout) return;
-  const origLogin = Session.login.bind(Session);
+
+  const AUTH_DOWN_PATTERNS = [
+    /compute time quota/i,
+    /HTTP status 402/,
+    /Server error \(HTTP status (5\d\d|402)\)/,
+    /Failed to fetch/i,
+    /NetworkError when attempting to fetch/i,
+    /Load failed/i,
+    /getaddrinfo ENOTFOUND/i,
+    /ECONNREFUSED/i,
+    /status 502/,
+    /status 503/,
+    /status 504/,
+    /server unavailable/i,
+    /server is down/i,
+    /servicio de acceso no/i,
+  ];
+
+  const isAuthServerDown = (raw: unknown): boolean => {
+    const msg = String(raw ?? "");
+    return AUTH_DOWN_PATTERNS.some((re) => re.test(msg));
+  };
+
+  const resolveAuthTarget = (): string => {
+    try {
+      const orch = String(ORCH_ONLINE).replace(/\/$/, "");
+      return `${orch}${PORTAL_LOGIN_PATH} → ${patyiaIssBase()}${PORTAL_LOGIN_PATH} (DataSnap ContaPyme)`;
+    } catch {
+      return "https://main-orchestrator.jeffaporta.workers.dev/api/auth/portal-login → DataSnap ContaPyme";
+    }
+  };
+
+  const announceAuthServerDown = (reason: string, source: "login" | "fetch", target?: string): void => {
+    const targetUrl = target || resolveAuthTarget();
+    try {
+      window.dispatchEvent(new CustomEvent("isa-patyia:auth-server-down", { detail: { reason, source, target: targetUrl, at: Date.now() } }));
+    } catch { /* ignore */ }
+    try { toastError(`Servidor de autenticación caído: ${targetUrl}`, 8000); } catch { /* ignore */ }
+  };
+
+  const announceAuthServerUp = (): void => {
+    try {
+      window.dispatchEvent(new CustomEvent("isa-patyia:auth-server-up", { detail: { at: Date.now() } }));
+    } catch { /* ignore */ }
+  };
+
+  const origFetch = window.fetch.bind(window);
   const origLogout = Session.logout.bind(Session);
-  const wrapLogin = async (u: string, p: string, opts?: Record<string, unknown>) => {
-    const session = await origLogin(u, p, opts);
-    window.dispatchEvent(new Event("isa-patyia:auth"));
+
+  /** Guarda el token portal (firma ISS/InSoft) también como JWT Paty para el chat — verify directo al DataSnap. */
+  const cachePortalTokenAsPatyJwt = (token: string, savedBy: string, expiresAt: string | null): void => {
+    try {
+      const part = String(token || "").split(".")[1];
+      const raw = part ? (JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))) as Record<string, unknown>) : {};
+      if (raw.itercero == null) return;
+      const claims = {
+        itercero: String(raw.itercero),
+        icontacto: raw.icontacto != null ? String(raw.icontacto) : undefined,
+        nombres: raw.nombres != null ? String(raw.nombres) : undefined,
+        apellidos: raw.apellidos != null ? String(raw.apellidos) : undefined,
+        controlkey: raw.controlkey != null ? String(raw.controlkey) : undefined,
+        iapp: typeof raw.iapp === "number" ? raw.iapp : undefined,
+        idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : undefined,
+      };
+      const exp = typeof raw.exp === "number" ? new Date(raw.exp * 1000).toISOString() : null;
+      const rec = {
+        token: token.trim(),
+        savedBy: String(savedBy || "").trim().toUpperCase(),
+        savedAt: new Date().toISOString(),
+        expiresAt: expiresAt ?? exp,
+        claims,
+      };
+      sessionStorage.setItem("isa-patyia:paty-jwt", JSON.stringify(rec));
+      window.dispatchEvent(new Event("isa-patyia:paty-jwt"));
+    } catch { /* best-effort */ }
+  };
+
+  /** Login portal ContaPyme: orchestrator primero; si el worker falla (quota/404/red), DataSnap directo vía ISS. */
+  const portalLogin = async (u: string, p: string, opts?: Record<string, unknown>) => {
+    const semail = normalizeLoginEmail(u);
+    if (!semail || !p) throw new Error("Usuario y contraseña requeridos");
+    const body: Record<string, unknown> = { semail, password: p };
+    const itercero = String((opts as { itercero?: unknown } | undefined)?.itercero ?? "").trim();
+    if (itercero) body.itercero = itercero;
+
+    let data: PortalLoginData | null = null;
+    try {
+      data = await portalLoginRequest(ORCH_ONLINE, body, origFetch);
+    } catch (err) {
+      const e = err as PortalLoginError;
+      if (e?.code === "MULTI_EMPRESA") throw e;
+      const msg = e instanceof Error ? e.message : String(e);
+      const workerDown = e?.retryable || isAuthServerDown(msg) || !(e instanceof Error && "status" in e);
+      if (!workerDown) throw e;
+      // Fallback 1: ISS según target actual (local/staging/prod) — habla directo con el DataSnap.
+      const directBase = patyiaIssBase();
+      try {
+        data = await portalLoginRequest(directBase, body, origFetch);
+      } catch (err2) {
+        const e2 = err2 as PortalLoginError;
+        if (e2?.code === "MULTI_EMPRESA") throw e2;
+        // Fallback 2: staging Azure si el target era otro (p. ej. local apagado).
+        const staging = PATYIA_ISS_URL.replace(/\/$/, "");
+        if (directBase.replace(/\/$/, "") !== staging && (e2?.retryable || isAuthServerDown(e2 instanceof Error ? e2.message : String(e2)))) {
+          data = await portalLoginRequest(staging, body, origFetch);
+        } else {
+          throw e2;
+        }
+      }
+    }
+
+    const username = String(data.username || semail);
+    const session = {
+      username,
+      displayName: data.displayName || null,
+      viewAsUsername: null,
+      role: null,
+      token: String(data.token),
+      expiresAt: data.expiresAt ?? null,
+      capabilities: [],
+      adminCapabilities: [],
+      capabilityCatalog: [],
+    };
+    window.ISA?.AuthApi?.saveSession?.(session);
+    cachePortalTokenAsPatyJwt(String(data.token), username, data.expiresAt ?? null);
     return session;
   };
+
+  const wrapLogin = async (u: string, p: string, opts?: Record<string, unknown>) => {
+    try {
+      const session = await portalLogin(u, p, opts);
+      announceAuthServerUp();
+      window.dispatchEvent(new Event("isa-patyia:auth"));
+      return session;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code;
+      if (code !== "MULTI_EMPRESA" && isAuthServerDown(msg)) announceAuthServerDown(msg, "login", resolveAuthTarget());
+      throw err;
+    }
+  };
+
+  const wrapFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    try {
+      const res = await origFetch(input, init);
+      if (res.status === 401 || res.status === 403) return res;
+      if (res.status === 402 || res.status >= 500) {
+        try {
+          const body = await res.clone().text();
+          if (isAuthServerDown(body) || isAuthServerDown(res.statusText)) {
+            const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request).url || "");
+            announceAuthServerDown(`HTTP ${res.status} ${res.statusText || ""}`.trim(), "fetch", url || resolveAuthTarget());
+          }
+        } catch { /* ignore */ }
+      }
+      return res;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (isAuthServerDown(msg)) announceAuthServerDown(msg, "fetch");
+      throw err;
+    }
+  };
+
   Session.login = wrapLogin;
   if (window.ISA?.Auth?.login) window.ISA.Auth.login = wrapLogin;
+  try { window.fetch = wrapFetch.bind(window); } catch { /* ignore */ }
+
   Session.logout = () => {
     origLogout();
     window.dispatchEvent(new Event("isa-patyia:auth"));
