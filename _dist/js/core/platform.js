@@ -90,16 +90,12 @@ function avatarBgFromName(name) {
 }
 function buildUserAvatarUrl(name, size = 72) {
   const label = String(name ?? "").trim() || "Usuario";
-  const params = new URLSearchParams({
-    name: label,
-    size: String(size),
-    background: avatarBgFromName(label.toLowerCase()),
-    color: "ffffff",
-    bold: "true",
-    rounded: "true",
-    format: "svg"
-  });
-  return `https://ui-avatars.com/api/?${params.toString()}`;
+  const initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "U";
+  const bg = avatarBgFromName(label.toLowerCase());
+  const half = size / 2;
+  const fontSize = Math.round(size * 0.42);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${half}" cy="${half}" r="${half}" fill="#${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff">${initials}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 var ORCH_ONLINE, PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, PATYIA_ISS_LOCAL_LS_KEY, GATEWAY_LS_KEY, AVATAR_BG_PALETTE;
 var init_patyia = __esm({
@@ -369,26 +365,44 @@ async function fetchPermissionsMe(opts) {
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
+  if (!opts?.force && PERMISSIONS_ME_INFLIGHT) return PERMISSIONS_ME_INFLIGHT;
   const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...headers, Accept: "application/json" },
-    credentials: "omit"
+  const req = (async () => {
+    const res = await f(`${systemApiBase()}/permissions/me`, {
+      method: "GET",
+      headers: { ...headers, Accept: "application/json" },
+      credentials: "omit"
+    });
+    if (res.status === 401) {
+      PERMISSIONS_ME_CACHE.value = null;
+      return null;
+    }
+    if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+    const data = unwrapBody(await res.json());
+    if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+    PERMISSIONS_ME_CACHE.value = data;
+    PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+    PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 8 * 60 * 60 * 1e3;
+    PERMISSIONS_ME_CACHE.key = sessionKey;
+    return data;
+  })().finally(() => {
+    if (PERMISSIONS_ME_INFLIGHT === req) PERMISSIONS_ME_INFLIGHT = null;
   });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
+  PERMISSIONS_ME_INFLIGHT = req;
+  return req;
 }
-var PERMISSIONS_ME_CACHE;
+function clearPermissionsMeCache() {
+  PERMISSIONS_ME_CACHE.value = null;
+  PERMISSIONS_ME_CACHE.iat = 0;
+  PERMISSIONS_ME_CACHE.ttlMs = 0;
+  PERMISSIONS_ME_CACHE.key = "";
+}
+function invalidatePermisosCache() {
+  PERMISOS_LIST_CACHE.clear();
+  PERMISOS_LIST_INFLIGHT.clear();
+  clearPermissionsMeCache();
+}
+var PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
 var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
@@ -396,6 +410,9 @@ var init_systemConfigApi = __esm({
     init_patyia_jwt();
     init_permAccessFromMap();
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+    PERMISSIONS_ME_INFLIGHT = null;
+    PERMISOS_LIST_CACHE = /* @__PURE__ */ new Map();
+    PERMISOS_LIST_INFLIGHT = /* @__PURE__ */ new Map();
   }
 });
 
@@ -586,7 +603,7 @@ async function primeMeCaps(force = false) {
   ME_CAPS_INFLIGHT = (async () => {
     let ok = false;
     try {
-      const me = await fetchPermissionsMe({ force });
+      const me = await fetchPermissionsMe();
       if (me?.permisosEfectivos) {
         ME_CAPS_KEY = sessionCacheKey();
         ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
@@ -654,6 +671,7 @@ async function login(user, pass, opts) {
 function logout() {
   Session.logout();
   clearMeCaps();
+  invalidatePermisosCache();
   clearViewAsRole();
   notifyAuth();
 }

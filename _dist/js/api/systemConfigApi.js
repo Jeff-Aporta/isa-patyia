@@ -51,16 +51,12 @@ function avatarBgFromName(name) {
 }
 function buildUserAvatarUrl(name, size = 72) {
   const label = String(name ?? "").trim() || "Usuario";
-  const params = new URLSearchParams({
-    name: label,
-    size: String(size),
-    background: avatarBgFromName(label.toLowerCase()),
-    color: "ffffff",
-    bold: "true",
-    rounded: "true",
-    format: "svg"
-  });
-  return `https://ui-avatars.com/api/?${params.toString()}`;
+  const initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "U";
+  const bg = avatarBgFromName(label.toLowerCase());
+  const half = size / 2;
+  const fontSize = Math.round(size * 0.42);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${half}" cy="${half}" r="${half}" fill="#${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff">${initials}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
 var init_patyia = __esm({
@@ -428,7 +424,7 @@ async function primeMeCaps(force = false) {
   ME_CAPS_INFLIGHT = (async () => {
     let ok = false;
     try {
-      const me = await fetchPermissionsMe({ force });
+      const me = await fetchPermissionsMe();
       if (me?.permisosEfectivos) {
         ME_CAPS_KEY = sessionCacheKey();
         ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
@@ -496,6 +492,7 @@ async function login(user, pass, opts) {
 function logout() {
   Session.logout();
   clearMeCaps();
+  invalidatePermisosCache();
   clearViewAsRole();
   notifyAuth();
 }
@@ -856,24 +853,31 @@ async function fetchPermissionsMe(opts) {
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
+  if (!opts?.force && PERMISSIONS_ME_INFLIGHT) return PERMISSIONS_ME_INFLIGHT;
   const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...headers, Accept: "application/json" },
-    credentials: "omit"
+  const req = (async () => {
+    const res = await f(`${systemApiBase()}/permissions/me`, {
+      method: "GET",
+      headers: { ...headers, Accept: "application/json" },
+      credentials: "omit"
+    });
+    if (res.status === 401) {
+      PERMISSIONS_ME_CACHE.value = null;
+      return null;
+    }
+    if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+    const data = unwrapBody(await res.json());
+    if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+    PERMISSIONS_ME_CACHE.value = data;
+    PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+    PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 8 * 60 * 60 * 1e3;
+    PERMISSIONS_ME_CACHE.key = sessionKey;
+    return data;
+  })().finally(() => {
+    if (PERMISSIONS_ME_INFLIGHT === req) PERMISSIONS_ME_INFLIGHT = null;
   });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
+  PERMISSIONS_ME_INFLIGHT = req;
+  return req;
 }
 function clearPermissionsMeCache() {
   PERMISSIONS_ME_CACHE.value = null;
@@ -913,6 +917,31 @@ async function removePatyiaRolContacto({ irol, icontacto }) {
     body: JSON.stringify({ icontacto, op: "remove" })
   });
 }
+function invalidatePermisosCache() {
+  PERMISOS_LIST_CACHE.clear();
+  PERMISOS_LIST_INFLIGHT.clear();
+  clearPermissionsMeCache();
+}
+async function permisosMutation(p) {
+  const data = await p;
+  PERMISOS_LIST_CACHE.clear();
+  clearPermissionsMeCache();
+  return data;
+}
+function fetchPermisosListRaw(q) {
+  const cached = PERMISOS_LIST_CACHE.get(q);
+  if (cached && Date.now() - cached.iat < PERMISOS_LIST_TTL_MS) return Promise.resolve(cached.raw);
+  const inflight = PERMISOS_LIST_INFLIGHT.get(q);
+  if (inflight) return inflight;
+  const req = jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }).then((raw) => {
+    PERMISOS_LIST_CACHE.set(q, { raw, iat: Date.now() });
+    return raw;
+  }).finally(() => {
+    PERMISOS_LIST_INFLIGHT.delete(q);
+  });
+  PERMISOS_LIST_INFLIGHT.set(q, req);
+  return req;
+}
 async function fetchPermisos(opts) {
   const qs = new URLSearchParams();
   const search = String(opts?.search ?? "").trim();
@@ -923,7 +952,7 @@ async function fetchPermisos(opts) {
   if (limit != null) qs.set("limit", String(limit));
   const q = qs.toString();
   const [raw, me] = await Promise.all([
-    jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermisosListRaw(q),
     fetchPermissionsMe().catch(() => null)
   ]);
   return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
@@ -946,39 +975,39 @@ async function searchPermisosUsers(query = "", opts) {
   })).filter((u) => u.username).slice(0, limit);
 }
 async function putPermisoRole(name, permisos) {
-  return jsonFetch("/system/permisos", {
+  return permisosMutation(jsonFetch("/system/permisos", {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ kind: "role", name, permisos })
-  });
+  }));
 }
 async function putPermisoRolePath(name, permisos, bactivo) {
   const role = encodeURIComponent(String(name).trim().toUpperCase().replace(/^ROLE:/i, ""));
   const body = { permisos };
   if (bactivo !== void 0) body.bactivo = bactivo;
-  return jsonFetch(`/system/permisos/roles/${role}`, {
+  return permisosMutation(jsonFetch(`/system/permisos/roles/${role}`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  });
+  }));
 }
 async function createPermisoRole(name) {
   return putPermisoRolePath(name, {});
 }
 async function putPermisoUser(username, permisos) {
-  return jsonFetch("/system/permisos", {
+  return permisosMutation(jsonFetch("/system/permisos", {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ kind: "user", username, permisos })
-  });
+  }));
 }
 async function putPermisoUserPath(username, permisos) {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch(`/system/permisos/usuarios/${u}`, {
+  return permisosMutation(jsonFetch(`/system/permisos/usuarios/${u}`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ permisos })
-  });
+  }));
 }
 async function putUsuarioRoles(username, body) {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
@@ -987,48 +1016,48 @@ async function putUsuarioRoles(username, body) {
     fromRole: String(body.fromRole ?? "").trim().toUpperCase(),
     toRole: String(body.toRole ?? "").trim().toUpperCase()
   };
-  return jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(payload)
-  });
+  }));
 }
 async function addUsuarioRole(username, role) {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ toRole: String(role).trim().toUpperCase(), mode: "add" })
-  });
+  }));
 }
 async function removeUsuarioRole(username, role) {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ fromRole: String(role).trim().toUpperCase(), mode: "remove" })
-  });
+  }));
 }
 async function deletePermisoUser(username) {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch(`/system/permisos/usuarios/${u}`, {
+  return permisosMutation(jsonFetch(`/system/permisos/usuarios/${u}`, {
     method: "DELETE",
     headers: systemApiHeaders()
-  });
+  }));
 }
 async function deletePermiso(iusuario) {
-  return jsonFetch("/system/permisos", {
+  return permisosMutation(jsonFetch("/system/permisos", {
     method: "DELETE",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ iusuario })
-  });
+  }));
 }
 function requireAppSession(onNeedLogin) {
   if (Session.isLoggedIn()) return true;
   onNeedLogin?.();
   return false;
 }
-var OPENAI_DEFAULTS, PERMISSIONS_ME_CACHE;
+var OPENAI_DEFAULTS, PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_TTL_MS, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
 var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
@@ -1041,6 +1070,10 @@ var init_systemConfigApi = __esm({
       modeloConversacion: "gpt-5-nano"
     };
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+    PERMISSIONS_ME_INFLIGHT = null;
+    PERMISOS_LIST_TTL_MS = 6e4;
+    PERMISOS_LIST_CACHE = /* @__PURE__ */ new Map();
+    PERMISOS_LIST_INFLIGHT = /* @__PURE__ */ new Map();
   }
 });
 init_systemConfigApi();
@@ -1058,6 +1091,7 @@ export {
   fetchPermisos,
   fetchPermissionsMe,
   fetchPromptsOperativosConfig,
+  invalidatePermisosCache,
   putInstruccionUpsert,
   putInstruccionesPublish,
   putOpenAiSystemConfig,

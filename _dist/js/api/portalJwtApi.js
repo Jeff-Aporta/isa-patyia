@@ -16,16 +16,12 @@ function avatarBgFromName(name) {
 }
 function buildUserAvatarUrl(name, size = 72) {
   const label = String(name ?? "").trim() || "Usuario";
-  const params = new URLSearchParams({
-    name: label,
-    size: String(size),
-    background: avatarBgFromName(label.toLowerCase()),
-    color: "ffffff",
-    bold: "true",
-    rounded: "true",
-    format: "svg"
-  });
-  return `https://ui-avatars.com/api/?${params.toString()}`;
+  const initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "U";
+  const bg = avatarBgFromName(label.toLowerCase());
+  const half = size / 2;
+  const fontSize = Math.round(size * 0.42);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${half}" cy="${half}" r="${half}" fill="#${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff">${initials}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 var ORCH_ONLINE, PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, AVATAR_BG_PALETTE;
 var init_patyia = __esm({
@@ -70,8 +66,6 @@ var init_platform = __esm({
       isLoggedIn: () => bridge().Session.isLoggedIn(),
       username: () => bridge().Session.username(),
       realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
       auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
       authHeader: () => bridge().Session.authHeader(),
       appHeader: () => bridge().Session.appHeader(),
@@ -79,10 +73,6 @@ var init_platform = __esm({
       login: (u, p, opts) => bridge().Session.login(u, p, opts),
       logout: () => bridge().Session.logout(),
       refreshProfile: () => bridge().Session.refreshProfile(),
-      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-      setViewAs: (u) => bridge().Session.setViewAs?.(u),
-      clearViewAs: () => bridge().Session.clearViewAs?.(),
       capabilities: () => bridge().Session.capabilities(),
       adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
       capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
