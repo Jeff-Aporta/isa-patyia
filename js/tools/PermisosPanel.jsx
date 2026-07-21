@@ -1,20 +1,16 @@
 import { getMaterialUI, getReact, Session, toastError, toastInfo, toastSuccess, Assets, getGlass } from "../core/platform.ts";
 import { ButtonIconify } from "../ui/shared.jsx";
 import {
-  fetchPermisos, putPermisoRolePath, patchUsuarioRoles, removeUsuarioRole, addUsuarioRole, requireAppSession,
-  fetchHierarchy, createHierarchyRole, updateHierarchyRole, deleteHierarchyRole,
+  fetchPermisos, putPermisoRolePath, putUsuarioRoles, removeUsuarioRole, addUsuarioRole, requireAppSession,
+  fetchPatyiaAdminRoles, assignPatyiaRolContacto, removePatyiaRolContacto,
 } from "../api/systemConfigApi.ts";
-import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, VISITANTE, actorJerarquiasFromRoles, actorJerarquiaFromRoles, buildRolePermisosIndex, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
-import { isBranchZero, actorIsDevLead } from "./roleHierarchy.js";
+import { buildPermisosBoard, roleNameFromEntry, roleTitleFromEntry, USR_ROLE, buildUserDirectoryFromPermisos } from "./permisosKanbanShared.js";
 import { PermisosKanban } from "./PermisosKanban.jsx";
 import { PermisosRoleFilterAutocomplete } from "./PermisosRoleFilterAutocomplete.jsx";
 import { PermisosUserAutocomplete } from "./PermisosUserAutocomplete.jsx";
-import { RoleHierarchyView } from "./roleHierarchyTree/index.ts";
-import { hierarchyNodesFromRoleEntries } from "./roleHierarchyTree/hierarchyFromRoles.ts";
 import { GlassDialog, GlassDialogHeader, glassDialogContentSx, glassDialogActionsSx } from "../ui/GlassDialog.jsx";
 import { UserPermissionsSummaryDialog } from "./UserPermissionsSummaryDialog.jsx";
 import { readPermisosHideEmptyFromUrl, persistPermisosHideEmpty, subscribe } from "../core/urlState.ts";
-import * as SessionApi from "../api/sessionApi.ts";
 
 const { useState, useEffect, useCallback, useMemo, useRef } = getReact();
 const { Typography, Stack, Alert, CircularProgress, Box, Chip, DialogContent, DialogActions, Button, FormControlLabel, Switch } = getMaterialUI();
@@ -29,27 +25,23 @@ export function PermisosPanel({ onNeedLogin }) {
   const loggedIn = useMemo(() => !!Session?.isLoggedIn?.(), [authTick]);
   const sessionUsername = useMemo(() => String(Session.username?.() ?? "").trim().toUpperCase(), [authTick]);
   const [err, setErr] = useState("");
-  const [data, setData] = useState({ roles: [], users: [] });
+  const [data, setData] = useState({ roles: [], users: [], contactos: {} });
   const [userSearch, setUserSearch] = useState("");
   const [roleFilters, setRoleFilters] = useState([]);
   const [hideEmptyStacks, setHideEmptyStacks] = useState(readPermisosHideEmptyFromUrl);
   const [filterBusy, setFilterBusy] = useState(false);
   const [dragOverFilter, setDragOverFilter] = useState(false);
 
-  const [actorJerarquia, setActorJerarquia] = useState(null);
-  const [actorJerarquias, setActorJerarquias] = useState([]);
   const [actorRoles, setActorRoles] = useState([]);
-  const [hierarchyOpen, setHierarchyOpen] = useState(false);
-  const [hierarchyFocusRole, setHierarchyFocusRole] = useState(null);
-  const [hierarchyNodes, setHierarchyNodes] = useState([]);
-  const [hierarchyBusy, setHierarchyBusy] = useState(false);
+  const [patyiaRoles, setPatyiaRoles] = useState([]);
+  const [patyiaContactos, setPatyiaContactos] = useState([]);
+  const [patyiaBusy, setPatyiaBusy] = useState(false);
   const [summaryUsername, setSummaryUsername] = useState(null);
   const filterToolbarRef = useRef(null);
   const filterFetchSkipRef = useRef(true);
   const filterDropFetchRef = useRef(false);
   const rolesRef = useRef(data.roles);
   const usersRef = useRef(data.users);
-  const hierarchyLoadRef = useRef(null);
   rolesRef.current = data.roles;
   usersRef.current = data.users;
   const usersPaginated = !!data.usersTruncated;
@@ -58,13 +50,10 @@ export function PermisosPanel({ onNeedLogin }) {
     setCanManage(!!result.canManage);
     setCanAssignUserRoles(!!result.canAssignUserRoles);
     setCanEditRoleDescriptions(!!result.canEditRoleDescriptions);
-    const actorRoles = Array.isArray(result.actorRoles)
+    const roles = Array.isArray(result.actorRoles)
       ? result.actorRoles
       : (Array.isArray(Session?.roles) ? Session.roles : []);
-    const rolePermisosIdx = buildRolePermisosIndex(Array.isArray(result.roles) ? result.roles : []);
-    setActorRoles(actorRoles.map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean));
-    setActorJerarquias(actorJerarquiasFromRoles(actorRoles, rolePermisosIdx));
-    setActorJerarquia(actorJerarquiaFromRoles(actorRoles, rolePermisosIdx));
+    setActorRoles(roles.map((r) => String(r ?? "").trim().toUpperCase()).filter(Boolean));
   }, []);
 
   const load = useCallback(async () => {
@@ -93,124 +82,42 @@ export function PermisosPanel({ onNeedLogin }) {
     return result;
   }, [applyFlags]);
 
-  const loadHierarchy = useCallback(async (fallbackRoles = rolesRef.current) => {
-    if (hierarchyLoadRef.current) return hierarchyLoadRef.current;
-    setHierarchyBusy(true);
-    const task = (async () => {
-      try {
-        const r = await fetchHierarchy();
-        let nodes = Array.isArray(r.roles) ? r.roles : [];
-        if (!nodes.length) nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        if (nodes.length) setHierarchyNodes(nodes);
-      } catch (e) {
-        const nodes = hierarchyNodesFromRoleEntries(fallbackRoles);
-        if (nodes.length) setHierarchyNodes(nodes);
-        if (!nodes.length) {
-          toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando jerarquía");
-        }
-      } finally {
-        setHierarchyBusy(false);
-        hierarchyLoadRef.current = null;
+  const loadPatyia = useCallback(async () => {
+    setPatyiaBusy(true);
+    try {
+      const r = await fetchPatyiaAdminRoles();
+      setPatyiaRoles(Array.isArray(r?.roles) ? r.roles : []);
+      setPatyiaContactos(Array.isArray(r?.contactos) ? r.contactos : []);
+    } catch (e) {
+      toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error cargando roles PatyIA");
+    } finally {
+      setPatyiaBusy(false);
+    }
+  }, []);
+
+  const handlePatyiaAssign = useCallback(async ({ irol, icontacto, op, bprincipal }) => {
+    if (!requireAppSession(onNeedLogin)) return;
+    setPatyiaBusy(true);
+    try {
+      if (op === "remove") {
+        await removePatyiaRolContacto({ irol, icontacto });
+      } else {
+        await assignPatyiaRolContacto({ irol, icontacto, bprincipal });
       }
-    })();
-    hierarchyLoadRef.current = task;
-    return task;
-  }, []);
-
-  const openHierarchyDialog = useCallback(() => {
-    hierarchyLoadRef.current = null;
-    setHierarchyFocusRole(null);
-    const roles = rolesRef.current;
-    if (Array.isArray(roles) && roles.length) {
-      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
-    }
-    setHierarchyOpen(true);
-  }, []);
-
-  const openHierarchyForRole = useCallback((roleName) => {
-    const id = String(roleName ?? "").trim().toLowerCase();
-    if (!id) return;
-    hierarchyLoadRef.current = null;
-    const roles = rolesRef.current;
-    if (Array.isArray(roles) && roles.length) {
-      setHierarchyNodes(hierarchyNodesFromRoleEntries(roles));
-    }
-    setHierarchyFocusRole(id);
-    setHierarchyOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hierarchyOpen) return undefined;
-    const roles = rolesRef.current;
-    if (!Array.isArray(roles) || !roles.length) return undefined;
-    void loadHierarchy(roles);
-    return undefined;
-  }, [hierarchyOpen, data.roles, loadHierarchy]);
-
-  const handleHierarchySave = useCallback(async (name, jerarquia) => {
-    setHierarchyBusy(true);
-    try {
-      await updateHierarchyRole(name, { jerarquia });
-      await loadHierarchy(rolesRef.current);
-      await refreshPermisos();
-      toastSuccess?.(`Rol ${name} actualizado`);
+      await loadPatyia();
+      toastSuccess?.(`${icontacto} → ${irol}`);
+    } catch (e) {
+      toastError?.((e instanceof Error ? e.message : String(e)) ?? "Error PatyIA");
     } finally {
-      setHierarchyBusy(false);
+      setPatyiaBusy(false);
     }
-  }, [loadHierarchy, refreshPermisos]);
-
-  const handleHierarchyCreate = useCallback(async (name, jerarquia) => {
-    setHierarchyBusy(true);
-    try {
-      await createHierarchyRole({ name, jerarquia });
-      await loadHierarchy(rolesRef.current);
-      await refreshPermisos();
-      toastSuccess?.(`Rol ${name} creado`);
-    } finally {
-      setHierarchyBusy(false);
-    }
-  }, [loadHierarchy, refreshPermisos]);
-
-  // Promover un permiso de su ownerJer actual al ancestro targetJer:
-  // eliminamos el permiso del owner y lo añadimos al target.
-  const handleHierarchyPromote = useCallback(async (key, value, fromJer, toJer) => {
-    setHierarchyBusy(true);
-    try {
-      // Aquí necesitaríamos un endpoint de update per-perm. Como hoy no existe,
-      // mostramos error claro al usuario (el endpoint se diseñará en iteración futura).
-      throw new Error(`Promover permisos entre roles aún no soportado en backend (${fromJer} → ${toJer})`);
-    } finally {
-      setHierarchyBusy(false);
-    }
-  }, []);
-
-  // Editar permiso local del nodo actual
-  const handleHierarchyLocalPerm = useCallback(async (nodeJer, key, value) => {
-    setHierarchyBusy(true);
-    try {
-      // El backend actual no expone edit-per-perm por rol. Marcamos como pendiente.
-      throw new Error(`Edición de permisos individuales aún no soportada en backend (${nodeJer}: ${key})`);
-    } finally {
-      setHierarchyBusy(false);
-    }
-  }, []);
-
-  const handleHierarchyDelete = useCallback(async (name) => {
-    setHierarchyBusy(true);
-    try {
-      await deleteHierarchyRole(name);
-      await loadHierarchy(rolesRef.current);
-      await refreshPermisos();
-      toastSuccess?.(`Rol ${name} eliminado`);
-    } finally {
-      setHierarchyBusy(false);
-    }
-  }, [loadHierarchy, refreshPermisos]);
+  }, [loadPatyia, onNeedLogin]);
 
   const loadRef = useRef(load);
   loadRef.current = load;
 
   useEffect(() => { loadRef.current(); }, []);
+  useEffect(() => { void loadPatyia(); }, [loadPatyia]);
 
   useEffect(() => subscribe((snap) => {
     const hide = readPermisosHideEmptyFromUrl(snap);
@@ -254,56 +161,27 @@ export function PermisosPanel({ onNeedLogin }) {
     } finally { setBusy(false); }
   }
 
-  const handleRoleRemove = useCallback(async ({ username, role, roleTitle }) => {
+  // Kanban SYS_USR_PERMISSIONS: username string → PUT /permisos/usuarios/{u}/roles (no icontacto SEG).
+  const handleRoleRemove = useCallback(async ({ username, role }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
-    setErr("");
-    try {
-      const result = await removeUsuarioRole(username, role);
-      setData(result);
-      applyFlags(result);
-      toastSuccess(`${username} quitó ${roleTitle || role}`);
-      return result;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg); toastError(msg);
-      throw e;
-    }
-  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
+    await removeUsuarioRole(String(username).trim().toUpperCase(), role);
+    await refreshPermisos();
+  }, [onNeedLogin, canAssignUserRoles, refreshPermisos]);
 
-  const handleRoleAdd = useCallback(async ({ username, role, roleTitle }) => {
+  const handleRoleAdd = useCallback(async ({ username, role }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
-    setErr("");
-    try {
-      const result = await addUsuarioRole(username, role);
-      setData(result);
-      applyFlags(result);
-      toastSuccess(`${username} → ${roleTitle || role}`);
-      return result;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg); toastError(msg);
-      throw e;
-    }
-  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
+    await addUsuarioRole(String(username).trim().toUpperCase(), role);
+    await refreshPermisos();
+  }, [onNeedLogin, canAssignUserRoles, refreshPermisos]);
 
-  const handleRoleDrag = useCallback(async ({ username, fromRole, toRole, mode }) => {
+  const handleRoleDrag = useCallback(async ({ username, fromRole, toRole }) => {
     if (!requireAppSession(onNeedLogin)) throw new Error("Sesión requerida");
     if (!canAssignUserRoles) throw new Error("Sin permiso para mover usuarios entre roles");
-    setErr("");
-    try {
-      const result = await patchUsuarioRoles(username, { fromRole, toRole, mode });
-      setData(result);
-      applyFlags(result);
-      toastSuccess(`${username} → ${toRole}`);
-      return result;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setErr(msg); toastError(msg);
-      throw e;
-    }
-  }, [onNeedLogin, applyFlags, canAssignUserRoles]);
+    await putUsuarioRoles(String(username).trim().toUpperCase(), { fromRole, toRole, mode: "move" });
+    await refreshPermisos();
+  }, [onNeedLogin, canAssignUserRoles, refreshPermisos]);
 
   const fetchPermisosWithSearch = useCallback(async (search) => {
     const q = String(search ?? "").trim();
@@ -328,7 +206,7 @@ export function PermisosPanel({ onNeedLogin }) {
   }, [usersPaginated, fetchPermisosWithSearch, applyFlags]);
 
   const handleRoleFilterDrop = useCallback((roleId) => {
-    const id = String(roleId ?? "").trim().toLowerCase();
+    const id = String(roleId ?? "").trim().toUpperCase();
     if (!id) return;
     setRoleFilters((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }, []);
@@ -369,11 +247,11 @@ export function PermisosPanel({ onNeedLogin }) {
   const roleOptions = useMemo(
     () => (data.roles || [])
       .map((r) => ({ id: roleNameFromEntry(r), label: roleTitleFromEntry(r) }))
-      .filter((r) => r.id && r.id !== VISITANTE),
+      .filter((r) => r.id && r.id !== USR_ROLE),
     [data.roles],
   );
   const boardData = useMemo(
-    () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory, hideEmptyColumns: hideEmptyStacks }),
+    () => buildPermisosBoard(data, { userSearch, roleFilters, userDirectory, hideEmptyColumns: hideEmptyStacks, contactos: data.contactos }),
     [data, userSearch, roleFilters, userDirectory, hideEmptyStacks],
   );
   const readOnly = !canAssignUserRoles;
@@ -387,7 +265,6 @@ export function PermisosPanel({ onNeedLogin }) {
     setBusy(true); setErr("");
     try {
       const result = await putPermisoRolePath(name, permisos, managePermisos ? bactivo : undefined);
-      await loadHierarchy(rolesRef.current);
       setData(result);
       applyFlags(result);
       toastSuccess(`Rol ${name} guardado`);
@@ -397,9 +274,9 @@ export function PermisosPanel({ onNeedLogin }) {
       setErr(msg); toastError(msg);
       throw e;
     } finally { setBusy(false); }
-  }, [editRoleMeta, onNeedLogin, managePermisos, applyFlags, loadHierarchy]);
+  }, [editRoleMeta, onNeedLogin, managePermisos, applyFlags]);
 
-  if (loading && !hierarchyOpen) {
+  if (loading) {
     return (
       <Box className="config-permisos-loading">
         <CircularProgress size={26} />
@@ -436,7 +313,7 @@ export function PermisosPanel({ onNeedLogin }) {
         />
         <Box sx={{ flex: 1, minWidth: 8 }} />
         <Stack direction="row" spacing={0.5} alignItems="center" className="config-form-section__actions config-permisos-toolbar__actions">
-          <ButtonIconify icon="mdi:family-tree" title="Jerarquía y rol visitante" onClick={openHierarchyDialog} disabled={busy || filterBusy} />
+          <ButtonIconify icon="mdi:shield-account" title="Roles planos PatyIA" onClick={() => void loadPatyia()} disabled={busy || filterBusy || patyiaBusy} />
           <ButtonIconify icon="mdi:refresh" title="Recargar" onClick={load} disabled={busy || filterBusy} />
         </Stack>
       </GlassToolbar>
@@ -445,44 +322,12 @@ export function PermisosPanel({ onNeedLogin }) {
       {err ? <Alert severity="warning" className="config-form-alert config-permisos-alert">{err}</Alert> : null}
 
       <PermisosKanban boardData={boardData} loggedIn={loggedIn} sessionUsername={sessionUsername} canAssignRoles={canAssignUserRoles} readOnly={readOnly} canManage={managePermisos} canEditRoleDescriptions={editRoleMeta} busy={busy || filterBusy}
-        actorJerarquia={actorJerarquia}
-        actorJerarquias={actorJerarquias}
-        onJerarquiaToast={(t) => toastInfo?.(t.message) ?? alert(t.message)}
-        onOpenRoleHierarchy={openHierarchyForRole}
+        patyiaRoles={patyiaRoles}
+        patyiaContactos={patyiaContactos}
+        onPatyiaAssign={handlePatyiaAssign}
         onUserSummary={(username) => setSummaryUsername(username)}
         filterToolbarRef={filterToolbarRef} onUserFilterDrop={handleUserFilterDrop} onRoleFilterDrop={handleRoleFilterDrop} onDragOverFilterChange={setDragOverFilter}
-        onRoleSave={({ name, permisos, bactivo }) => run(() => putPermisoRolePath(name, permisos, bactivo), `Rol ${name} guardado`)}
         onRoleDrag={handleRoleDrag} onRoleRemove={handleRoleRemove} onRoleAdd={handleRoleAdd} />
-
-      <GlassDialog open={hierarchyOpen} onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} fullScreen fullWidth maxWidth={false}
-        paperClassName="isa-glass-dialog--fullscreen permisos-hierarchy-dialog"
-        header={<GlassDialogHeader icon="mdi:family-tree" title="Jerarquía de roles" subtitle="Zoom/pan · hover ± · doble clic edita" accent="#10b981" onClose={() => { setHierarchyOpen(false); setHierarchyFocusRole(null); }} />}>
-        <DialogContent dividers sx={Object.assign({}, glassDialogContentSx({ p: 0, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }), { height: "100%" })}>
-          <RoleHierarchyView
-            nodes={hierarchyNodes}
-            roleEntries={data.roles}
-            initialSelectedRole={hierarchyFocusRole}
-            canManagePermisos={managePermisos}
-            canEditRoleDescriptions={editRoleMeta}
-            onSaveRolePermisos={editRoleMeta ? handleSaveRolePermisos : undefined}
-            canMutate={isBranchZero(actorJerarquia ?? "")}
-            canCreateRoles={
-              SessionApi.isViewingAsRole()
-                ? String(SessionApi.getViewAsRole() || "").toLowerCase() === "dev_lead"
-                : actorIsDevLead(actorRoles)
-            }
-            busy={hierarchyBusy}
-            onSave={handleHierarchySave}
-            onCreate={handleHierarchyCreate}
-            onDelete={handleHierarchyDelete}
-            onSaveLocalPerm={handleHierarchyLocalPerm}
-            onPromote={handleHierarchyPromote}
-          />
-        </DialogContent>
-        <DialogActions sx={glassDialogActionsSx()}>
-          <Button onClick={() => setHierarchyOpen(false)} sx={{ textTransform: "none", fontWeight: 600 }}>Cerrar</Button>
-        </DialogActions>
-      </GlassDialog>
 
       <UserPermissionsSummaryDialog
         open={!!summaryUsername}

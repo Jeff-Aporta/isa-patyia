@@ -84,7 +84,24 @@ export function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTick, setAuthTick] = useState(0);
   const [homeTick, setHomeTick] = useState(0);
+  const [authDownReason, setAuthDownReason] = useState(null);
+  const [authDownTarget, setAuthDownTarget] = useState(null);
   const publicScrumView = isPublicScrumBoot(appBoot.todos);
+
+  useEffect(() => {
+    const onDown = (ev) => {
+      setAuthDownReason(String(ev?.detail?.reason || "Servidor de autenticación caído"));
+      setAuthDownTarget(String(ev?.detail?.target || "main-orchestrator (system-login)"));
+      setAuthOpen(false);
+    };
+    const onUp = () => { setAuthDownReason(null); setAuthDownTarget(null); };
+    window.addEventListener("isa-patyia:auth-server-down", onDown);
+    window.addEventListener("isa-patyia:auth-server-up", onUp);
+    return () => {
+      window.removeEventListener("isa-patyia:auth-server-down", onDown);
+      window.removeEventListener("isa-patyia:auth-server-up", onUp);
+    };
+  }, []);
 
   useEffect(() => {
     Assets.ensureMarked().catch(() => { /* fallback plaintext en mdToHtml */ });
@@ -249,7 +266,30 @@ export function App() {
       toolbarExtra={toolbarTools}
       navRows={navRows}
     >
-      {publicScrumView ? (
+      {authDownReason && !publicScrumView ? (
+        <div className="isa-auth-down-overlay" role="alert" aria-live="assertive">
+          <div className="isa-auth-down-card">
+            <div className="isa-auth-down-icon" aria-hidden="true">⚠</div>
+            <h2 className="isa-auth-down-title">Servidor de autenticación no disponible</h2>
+            <p className="isa-auth-down-reason">{authDownReason}</p>
+            <p className="isa-auth-down-target">
+              <span className="isa-auth-down-target-label">Servidor intentado:</span>
+              <code className="isa-auth-down-target-url">{authDownTarget}</code>
+            </p>
+            <p className="isa-auth-down-hint">
+              PatyIA requiere conexión con el servidor de autenticación para operar. Reintente automáticamente
+              o haga una recarga manual cuando el servicio se haya recuperado.
+            </p>
+            <div className="isa-auth-down-actions">
+              <button
+                type="button"
+                className="isa-auth-down-retry"
+                onClick={() => window.location.reload()}
+              >Reintentar ahora</button>
+            </div>
+          </div>
+        </div>
+      ) : publicScrumView ? (
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
       ) : (
         <>
