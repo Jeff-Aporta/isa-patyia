@@ -251,6 +251,9 @@ export type PermissionsMe = {
 
 const PERMISSIONS_ME_CACHE: { value: PermissionsMe | null; iat: number; ttlMs: number; key: string } = { value: null, iat: 0, ttlMs: 0, key: "" };
 
+/** Dedupe de llamadas concurrentes: la SPA hace UN solo GET /permissions/me y todos capturan de ahí. */
+let PERMISSIONS_ME_INFLIGHT: Promise<PermissionsMe | null> | null = null;
+
 function permissionsMeSessionKey(): string {
   if (!Session.isLoggedIn()) return "anon";
   const tok = Session?.current?.()?.token;
@@ -270,24 +273,32 @@ export async function fetchPermissionsMe(opts?: { force?: boolean; fetchImpl?: t
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
+  if (!opts?.force && PERMISSIONS_ME_INFLIGHT) return PERMISSIONS_ME_INFLIGHT;
   const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...headers, Accept: "application/json" },
-    credentials: "omit",
+  const req = (async (): Promise<PermissionsMe | null> => {
+    const res = await f(`${systemApiBase()}/permissions/me`, {
+      method: "GET",
+      headers: { ...headers, Accept: "application/json" },
+      credentials: "omit",
+    });
+    if (res.status === 401) {
+      PERMISSIONS_ME_CACHE.value = null;
+      return null;
+    }
+    if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+    const data = unwrapBody<PermissionsMe>(await res.json());
+    if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+    PERMISSIONS_ME_CACHE.value = data;
+    PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+    // El ISS devuelve TODAS las acciones del usuario → captura única por sesión (ttl del server, default 8h).
+    PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 8 * 60 * 60 * 1000;
+    PERMISSIONS_ME_CACHE.key = sessionKey;
+    return data;
+  })().finally(() => {
+    if (PERMISSIONS_ME_INFLIGHT === req) PERMISSIONS_ME_INFLIGHT = null;
   });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody<PermissionsMe>(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 60_000;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
+  PERMISSIONS_ME_INFLIGHT = req;
+  return req;
 }
 
 export function clearPermissionsMeCache(): void {
@@ -337,6 +348,42 @@ export async function removePatyiaRolContacto({ irol, icontacto }: { irol: strin
   });
 }
 
+// ─── Cache SPA del listado /system/permisos ───
+// Un GET por query (dedupe de concurrentes) + TTL corto; cualquier mutación de permisos lo invalida.
+const PERMISOS_LIST_TTL_MS = 60_000;
+const PERMISOS_LIST_CACHE = new Map<string, { raw: PermissionsData; iat: number }>();
+const PERMISOS_LIST_INFLIGHT = new Map<string, Promise<PermissionsData>>();
+
+/** Invalida los caches de permisos (listado + me). Llamar tras cualquier mutación de permisos. */
+export function invalidatePermisosCache(): void {
+  PERMISOS_LIST_CACHE.clear();
+  PERMISOS_LIST_INFLIGHT.clear();
+  clearPermissionsMeCache();
+}
+
+/** Marca el resultado de una mutación de permisos: invalida caches y devuelve el payload fresco. */
+async function permisosMutation(p: Promise<PermissionsData>): Promise<PermissionsData> {
+  const data = await p;
+  PERMISOS_LIST_CACHE.clear();
+  clearPermissionsMeCache();
+  return data;
+}
+
+function fetchPermisosListRaw(q: string): Promise<PermissionsData> {
+  const cached = PERMISOS_LIST_CACHE.get(q);
+  if (cached && Date.now() - cached.iat < PERMISOS_LIST_TTL_MS) return Promise.resolve(cached.raw);
+  const inflight = PERMISOS_LIST_INFLIGHT.get(q);
+  if (inflight) return inflight;
+  const req = jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() })
+    .then((raw) => {
+      PERMISOS_LIST_CACHE.set(q, { raw, iat: Date.now() });
+      return raw;
+    })
+    .finally(() => { PERMISOS_LIST_INFLIGHT.delete(q); });
+  PERMISOS_LIST_INFLIGHT.set(q, req);
+  return req;
+}
+
 export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<PermissionsData> {
   const qs = new URLSearchParams();
   const search = String(opts?.search ?? "").trim();
@@ -349,9 +396,9 @@ export async function fetchPermisos(opts?: PermisosFetchOpts): Promise<Permissio
   if (limit != null) qs.set("limit", String(limit));
   const q = qs.toString();
   // Fuente de verdad: /permissions/me (permisosEfectivos SEG).
-  // Se llama en paralelo al listado y sus flags sobrescriben los del listado.
+  // Ambos vienen de cache SPA: tras la primera captura no hay más red hasta invalidación/TTL.
   const [raw, me] = await Promise.all([
-    jsonFetch<PermissionsData>(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermisosListRaw(q),
     fetchPermissionsMe().catch(() => null),
   ]);
   return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
@@ -381,22 +428,22 @@ export async function searchPermisosUsers(query = "", opts?: { role?: string; li
 }
 
 export async function putPermisoRole(name: string, permisos: Record<string, unknown>): Promise<PermissionsData> {
-  return jsonFetch<PermissionsData>("/system/permisos", {
+  return permisosMutation(jsonFetch<PermissionsData>("/system/permisos", {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ kind: "role", name, permisos }),
-  });
+  }));
 }
 
 export async function putPermisoRolePath(name: string, permisos: Record<string, unknown>, bactivo?: boolean): Promise<PermissionsData> {
   const role = encodeURIComponent(String(name).trim().toUpperCase().replace(/^ROLE:/i, ""));
   const body: Record<string, unknown> = { permisos };
   if (bactivo !== undefined) body.bactivo = bactivo;
-  return jsonFetch<PermissionsData>(`/system/permisos/roles/${role}`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/roles/${role}`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }));
 }
 
 export async function createPermisoRole(name: string): Promise<PermissionsData> {
@@ -404,20 +451,20 @@ export async function createPermisoRole(name: string): Promise<PermissionsData> 
 }
 
 export async function putPermisoUser(username: string, permisos: Record<string, unknown>): Promise<PermissionsData> {
-  return jsonFetch<PermissionsData>("/system/permisos", {
+  return permisosMutation(jsonFetch<PermissionsData>("/system/permisos", {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ kind: "user", username, permisos }),
-  });
+  }));
 }
 
 export async function putPermisoUserPath(username: string, permisos: Record<string, unknown>): Promise<PermissionsData> {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ permisos }),
-  });
+  }));
 }
 
 // PUT /api/system/permisos/usuarios/{username}/roles (era PATCH; migrado 18-jul-2026).
@@ -429,45 +476,45 @@ export async function putUsuarioRoles(username: string, body: { fromRole: string
     fromRole: String(body.fromRole ?? "").trim().toUpperCase(),
     toRole: String(body.toRole ?? "").trim().toUpperCase(),
   };
-  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
+  }));
 }
 
 export async function addUsuarioRole(username: string, role: string): Promise<PermissionsData> {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ toRole: String(role).trim().toUpperCase(), mode: "add" }),
-  });
+  }));
 }
 
 export async function removeUsuarioRole(username: string, role: string): Promise<PermissionsData> {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}/roles`, {
     method: "PUT",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ fromRole: String(role).trim().toUpperCase(), mode: "remove" }),
-  });
+  }));
 }
 
 export async function deletePermisoUser(username: string): Promise<PermissionsData> {
   const u = encodeURIComponent(String(username).trim().toUpperCase());
-  return jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
+  return permisosMutation(jsonFetch<PermissionsData>(`/system/permisos/usuarios/${u}`, {
     method: "DELETE",
     headers: systemApiHeaders(),
-  });
+  }));
 }
 
 export async function deletePermiso(iusuario: string): Promise<PermissionsData> {
-  return jsonFetch<PermissionsData>("/system/permisos", {
+  return permisosMutation(jsonFetch<PermissionsData>("/system/permisos", {
     method: "DELETE",
     headers: { ...systemApiHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ iusuario }),
-  });
+  }));
 }
 
 export function requireAppSession(onNeedLogin?: () => void): boolean {
