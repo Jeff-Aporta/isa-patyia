@@ -5,7 +5,10 @@ const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
 const isDevHost = /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
 
-const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
+/** Fork `jeff-aporta/front-shared` (legacy-jwt-guard) — hasta que el upstream
+ * acepte el fix de `isTokenValid` (rechazo de JWT LAB/system-login). */
+const CDN_OWNER = "jeff-aporta";
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/${CDN_OWNER}/front-shared@${PIN}/cdn/`;
 const BOOT_LOADER_URL = `${CDN}boot-loader.mjs?v=${PIN}`;
 
 function vendorFrontSharedBase() {
