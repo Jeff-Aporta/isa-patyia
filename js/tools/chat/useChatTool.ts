@@ -888,10 +888,24 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
           setSelectedId(newId);
           persistChatConvId(newId);
         }
-        void reloadList();
+        // El ISS persiste el título nuevo DESPUÉS de cerrar el stream (tryUpdate en onComplete),
+        // así que la lista recargada puede traer el título viejo y pisar el patch. Re-aplicar
+        // el patch del stream (fuente más fresca) cuando la recarga termine.
+        void reloadList().then(() => {
+          setRows((prev) => {
+            const exists = prev.some((r) => convIdsEqual(r.iconversacion, newId));
+            if (exists) return prev.map((r) => (convIdsEqual(r.iconversacion, newId) ? { ...r, ...rowPatch } : r));
+            return [rowPatch, ...prev];
+          });
+        });
         void patchThreadAfterSend(newId, {
           minLogMensajes: logCountBefore + 2,
           ownerLabel: userName,
+        }).then(() => {
+          // El detail refetcheado puede traer el título viejo (BD aún sin tryUpdate) — el del stream manda.
+          if (!tituloStream) return;
+          setDetail((d) => (d && convIdsEqual(d.iconversacion, newId) && d.titulo !== tituloStream ? { ...d, titulo: tituloStream } : d));
+          setRows((prev) => prev.map((r) => (convIdsEqual(r.iconversacion, newId) && r.titulo !== tituloStream ? { ...r, titulo: tituloStream } : r)));
         });
       } else if (result?.mensajesOpenAI?.length) {
         applyThreadFromDetail(result, null, userName);

@@ -54,13 +54,18 @@ export function resolveOwnerDisplayName(
   return jwtUserDisplayName(jwt?.claims) || jwtUserShortName(jwt?.claims) || "";
 }
 
+/** Nick visible: si el username es un correo, solo la parte local (sin @dominio). */
+function displayNick(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase().split("@")[0];
+}
+
 /** Nick ISA / AUTH (username): dueño del JWT o sesión activa. */
 export function resolveOwnerNickname(jwt: PatyJwtRecord | null | undefined, sessionUser: string | null | undefined): string {
-  const acting = String(jwt?.actingAsUsername ?? "").trim().toUpperCase();
+  const acting = displayNick(jwt?.actingAsUsername);
   if (acting) return acting;
-  const saved = String(jwt?.savedBy ?? "").trim().toUpperCase();
+  const saved = displayNick(jwt?.savedBy);
   if (saved) return saved;
-  return String(sessionUser ?? "").trim().toUpperCase();
+  return displayNick(sessionUser);
 }
 
 /** Solo códigos tercero y contacto (sin nombre legible). */

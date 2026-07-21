@@ -1,22 +1,19 @@
 /**
- * Ver como rol — simulación SOLO front para roles de la rama `dev` (jerarquía 0.0.x).
+ * Ver como rol — simulación SOLO front para DEVISS.
  * No altera JWT, no envía headers al ISS, no cambia loadEffectivePermisos del servidor.
  * Solo capabilities locales de UI (localMeCaps). Nunca eleva: preset ∩ caps reales del login.
  */
 import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
-import { getRoleJerarquia } from "../tools/roleHierarchy.js";
 
 export const VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
 export const VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
 
-/** Roles que se pueden simular desde el menú. */
+/** Roles que se pueden simular desde el menú (nombres SEG exactos). */
 export const VIEW_AS_ROLE_OPTIONS = [
-  { id: "visitante", label: "Visitante" },
-  { id: "dev", label: "Desarrollador" },
-  { id: "dev_iss", label: "Dev ISS" },
-  { id: "auditador", label: "Auditor" },
-  { id: "admn", label: "Admn básico" },
-  { id: "admn_isapatyia", label: "Admn ISA-Paty" },
+  { id: "USR", label: "Usuario" },
+  { id: "AUDITOR", label: "Auditor" },
+  { id: "ADMN", label: "Admn" },
+  { id: "DEVISS", label: "Dev ISS" },
 ];
 
 const NONE = Object.freeze({
@@ -27,7 +24,6 @@ const NONE = Object.freeze({
   canEditSwagger: false,
   canOverrideSampling: false,
   canManagePermissions: false,
-  canImpersonate: false,
   canAssignUserRoles: false,
   canAccessOthers: false,
   canViewKanban: false,
@@ -41,39 +37,15 @@ const NONE = Object.freeze({
 
 /** Presets aproximados al outcome típico de GET /api/permissions/me por rol. */
 export const ROLE_CAPS_PRESETS = Object.freeze({
-  visitante: { ...NONE },
-  dev: {
-    ...NONE,
-    canViewPrompts: true,
-    canViewConfig: true,
-    canViewKanban: true,
-  },
-  dev_iss: {
-    ...NONE,
-    canViewPrompts: true,
-    canViewConfig: true,
-    canEditInstrucciones: true,
-    canEditPromptsOperativos: true,
-    canOverrideSampling: true,
-    canViewKanban: true,
-    canEditKanbanCards: true,
-    canAccessOthers: true,
-  },
-  auditador: {
+  USR: { ...NONE },
+  AUDITOR: {
     ...NONE,
     canViewPrompts: true,
     canViewConfig: true,
     canAccessOthers: true,
     canViewKanban: true,
   },
-  admn: {
-    ...NONE,
-    canViewPrompts: true,
-    canViewConfig: true,
-    canViewKanban: true,
-    canEditKanbanCards: true,
-  },
-  admn_isapatyia: {
+  ADMN: {
     ...NONE,
     canViewPrompts: true,
     canViewConfig: true,
@@ -81,11 +53,11 @@ export const ROLE_CAPS_PRESETS = Object.freeze({
     canEditConversacionConfig: true,
     canEditInstrucciones: true,
     canAssignUserRoles: true,
+    canAccessOthers: true,
     canViewKanban: true,
     canEditKanbanCards: true,
   },
-  /** Referencia: Dev Lead real (no se ofrece como simulación). */
-  dev_lead: {
+  DEVISS: {
     canEditInstrucciones: true,
     canEditOpenAiConfig: true,
     canEditPromptsOperativos: true,
@@ -93,7 +65,6 @@ export const ROLE_CAPS_PRESETS = Object.freeze({
     canEditSwagger: true,
     canOverrideSampling: true,
     canManagePermissions: true,
-    canImpersonate: true,
     canAssignUserRoles: true,
     canAccessOthers: true,
     canViewKanban: true,
@@ -106,44 +77,40 @@ export const ROLE_CAPS_PRESETS = Object.freeze({
   },
 });
 
-function roleKey(name) {
-  return String(name ?? "").trim().toLowerCase();
+function roleKey(name: unknown): string {
+  return String(name ?? "").trim().toUpperCase();
 }
 
-/** Rama desarrolladores: `dev` / `dev_*` o jerarquía 0.0 / 0.0.x (no visitante=0, no admn=0.1). */
-export function isDevBranchRole(roleName) {
-  const key = roleKey(roleName);
-  if (!key) return false;
-  if (key === "dev" || key.startsWith("dev_")) return true;
-  const j = getRoleJerarquia(key);
-  return j === "0.0" || j.startsWith("0.0.");
+/** Solo DEVISS puede abrir el simulador «Ver como». */
+export function isDevBranchRole(roleName: unknown): boolean {
+  return roleKey(roleName) === "DEVISS";
 }
 
-export function formatViewAsRoleLabel(roleName) {
+export function formatViewAsRoleLabel(roleName: unknown): string {
   const key = roleKey(roleName);
   if (!key) return "";
   const opt = VIEW_AS_ROLE_OPTIONS.find((o) => o.id === key);
   if (opt) return opt.label;
   const canon = canonicalRoleMeta(key);
   if (canon?.namedisplay) return canon.namedisplay;
-  return key.split("_").map((p) => (p === "iss" ? "ISS" : p.charAt(0).toUpperCase() + p.slice(1))).join(" ");
+  return key;
 }
 
-export function readViewAsRole() {
+export function readViewAsRole(): string {
   try {
     const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
-    if (!v || v === "dev_lead") return "";
-    if (!ROLE_CAPS_PRESETS[v]) return "";
+    if (!v || v === "DEVISS") return "";
+    if (!ROLE_CAPS_PRESETS[v as keyof typeof ROLE_CAPS_PRESETS]) return "";
     return v;
   } catch {
     return "";
   }
 }
 
-export function writeViewAsRole(roleName) {
+export function writeViewAsRole(roleName: unknown): void {
   const key = roleKey(roleName);
   try {
-    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+    if (!key || key === "DEVISS" || !ROLE_CAPS_PRESETS[key as keyof typeof ROLE_CAPS_PRESETS]) {
       localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
     } else {
       localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
@@ -155,20 +122,18 @@ export function writeViewAsRole(roleName) {
   } catch { /* ignore */ }
 }
 
-export function clearViewAsRole() {
+export function clearViewAsRole(): void {
   writeViewAsRole("");
 }
 
-export function capsForViewAsRole(roleName) {
+export function capsForViewAsRole(roleName: unknown): Record<string, boolean> | null {
   const key = roleKey(roleName);
-  return ROLE_CAPS_PRESETS[key] ? { ...ROLE_CAPS_PRESETS[key] } : null;
+  const preset = ROLE_CAPS_PRESETS[key as keyof typeof ROLE_CAPS_PRESETS];
+  return preset ? { ...preset } : null;
 }
 
-/**
- * Solo roles de la rama `dev` (0.0.x) pueden abrir el simulador.
- * Auditador / admn / visitante: no.
- */
-export function realRolesAllowViewAs(roles) {
+/** Solo DEVISS puede abrir el simulador. */
+export function realRolesAllowViewAs(roles: unknown[]): boolean {
   return (roles ?? []).some((r) => isDevBranchRole(r));
 }
 
@@ -176,8 +141,11 @@ export function realRolesAllowViewAs(roles) {
  * Nunca elevar: cada cap del preset solo queda true si el login real también la tiene.
  * Si el rol base no tiene una función, «ver como» no la enciende.
  */
-export function clampViewAsCapsToReal(preset, realCaps) {
-  const out = {};
+export function clampViewAsCapsToReal(
+  preset: Record<string, boolean> | null | undefined,
+  realCaps: Record<string, boolean> | null | undefined,
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
   const real = realCaps && typeof realCaps === "object" ? realCaps : {};
   for (const [k, v] of Object.entries(preset ?? {})) {
     if (typeof v !== "boolean") continue;
@@ -185,4 +153,3 @@ export function clampViewAsCapsToReal(preset, realCaps) {
   }
   return out;
 }
-
