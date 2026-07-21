@@ -22,17 +22,13 @@
   function buildAvatarUrl(name, size) {
     var shared = window.ISAFront && window.ISAFront.buildUserAvatarUrl;
     if (typeof shared === "function") return shared(name, size || 64);
+    // Fallback local: SVG inline (data URL) — sin ui-avatars.com ni red externa.
     var label = String(name || "").trim() || "Usuario";
-    var params = new URLSearchParams({
-      name: label,
-      size: String(size || 64),
-      background: avatarBgFromName(label.toLowerCase()),
-      color: "ffffff",
-      bold: "true",
-      rounded: "true",
-      format: "svg",
-    });
-    return "https://ui-avatars.com/api/?" + params.toString();
+    var initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join("").toUpperCase() || "U";
+    var s = size || 64;
+    var half = s / 2;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + " " + s + '"><circle cx="' + half + '" cy="' + half + '" r="' + half + '" fill="#' + avatarBgFromName(label.toLowerCase()) + '"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="' + Math.round(s * 0.42) + '" font-weight="bold" fill="#ffffff">' + initials + "</text></svg>";
+    return "data:image/svg+xml," + encodeURIComponent(svg);
   }
 
   function isLocalHost() {
