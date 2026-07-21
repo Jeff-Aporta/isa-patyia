@@ -1,5 +1,5 @@
 /** Catálogo de rutas JWT protegidas — orden y etiquetas para el editor de roles. */
-import { fixFilterFromRestriction } from "./permFixFilter.js";
+import { filterFromRestriction } from "./permFilter.js";
 export const ROUTE_GROUPS = [
   {
     id: "conversaciones",
@@ -27,7 +27,8 @@ export const ROUTE_GROUPS = [
       { key: "PUT:/api/system/permisos", label: "Actualizar permisos" },
       { key: "PUT:/api/system/permisos/roles/*", label: "Editar rol" },
       { key: "PUT:/api/system/permisos/usuarios/*", label: "Editar usuario" },
-      { key: "PATCH:/api/system/permisos/usuarios/*/roles", label: "Asignar roles a usuario" },
+      // Decisión 18-jul-2026: en InSoft NO usamos PATCH; el endpoint pasó a PUT.
+      { key: "PUT:/api/system/permisos/usuarios/*/roles", label: "Asignar roles a usuario" },
       { key: "POST:/api/system/*", label: "POST sistema (wildcard)" },
       { key: "PUT:/api/system/*", label: "PUT sistema (wildcard)" },
     ],
@@ -61,15 +62,15 @@ export function isWildcardRole(permisos) {
 export function routesForRoleEditor(permisos, { includeInactive = false } = {}) {
   const wildcard = isWildcardRole(permisos);
   const modeByKey = new Map();
-  const fixByKey = new Map();
+  const filterByKey = new Map();
   for (const [key, value] of Object.entries(permisos ?? {})) {
     if (key === "*" || key === "descripcion" || key === "namedisplay" || key === "roles"
       || key === "impersonate" || key === "manage_permissions") continue;
-    const hasFix = !!(value && typeof value === "object" && value.fixFilter && typeof value.fixFilter === "object" && !Array.isArray(value.fixFilter) && Object.keys(value.fixFilter).length);
-    const mode = value === true ? "allow" : hasFix ? "filtered" : value && typeof value === "object" ? "allow" : "off";
+    const hasFilter = !!(value && typeof value === "object" && value.filter && typeof value.filter === "object" && !Array.isArray(value.filter) && Object.keys(value.filter).length);
+    const mode = value === true ? "allow" : hasFilter ? "filtered" : value && typeof value === "object" ? "allow" : "off";
     if (mode !== "off") modeByKey.set(key, mode);
-    const ff = fixFilterFromRestriction(value);
-    if (ff) fixByKey.set(key, ff);
+    const f = filterFromRestriction(value);
+    if (f) filterByKey.set(key, f);
   }
 
   const groups = ROUTE_GROUPS.map((g) => ({
@@ -79,14 +80,14 @@ export function routesForRoleEditor(permisos, { includeInactive = false } = {}) 
       let mode = "off";
       if (wildcard) mode = def.scoped ? "filtered" : "allow";
       else if (modeByKey.has(def.key)) mode = modeByKey.get(def.key);
-      return { ...def, mode, fixFilter: fixByKey.get(def.key), active: mode !== "off" };
+      return { ...def, mode, filter: filterByKey.get(def.key), active: mode !== "off" };
     }).filter((r) => includeInactive || r.active),
   })).filter((g) => g.routes.length > 0);
 
   const extras = [...modeByKey.entries()]
     .filter(([key]) => !CATALOG_KEYS.has(key))
     .map(([key, mode]) => ({
-      key, label: key, mode, fixFilter: fixByKey.get(key), active: true, scoped: mode === "filtered",
+      key, label: key, mode, filter: filterByKey.get(key), active: true, scoped: mode === "filtered",
     }))
     .sort((a, b) => a.key.localeCompare(b.key));
 
@@ -97,9 +98,9 @@ export function routesArrayFromPermisos(permisos, includeInactive) {
   const { groups, extras } = routesForRoleEditor(permisos, { includeInactive });
   const rows = [];
   for (const g of groups) {
-    for (const r of g.routes) rows.push({ key: r.key, mode: r.mode, ...(r.fixFilter ? { fixFilter: r.fixFilter } : {}) });
+    for (const r of g.routes) rows.push({ key: r.key, mode: r.mode, ...(r.filter ? { filter: r.filter } : {}) });
   }
-  for (const r of extras) rows.push({ key: r.key, mode: r.mode, ...(r.fixFilter ? { fixFilter: r.fixFilter } : {}) });
+  for (const r of extras) rows.push({ key: r.key, mode: r.mode, ...(r.filter ? { filter: r.filter } : {}) });
   return rows;
 }
 
@@ -109,7 +110,7 @@ export function groupsFromRouteRows(routes, flags, { includeInactive = false } =
   for (const r of routes ?? []) {
     if (!r?.key || r.mode === "off") continue;
     if (r.mode === "allow") permisos[r.key] = true;
-    else if (r.mode === "filtered") permisos[r.key] = r.fixFilter ? { fixFilter: r.fixFilter } : true;
+    else if (r.mode === "filtered") permisos[r.key] = r.filter ? { filter: r.filter } : true;
   }
   return routesForRoleEditor(permisos, { includeInactive });
 }

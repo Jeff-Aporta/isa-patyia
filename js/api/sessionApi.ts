@@ -4,13 +4,13 @@
  * visibilidad/habilitación de tools. Solo el chat mantiene checks legacy (infra.target.switch,
  * patyia.chat.*) hasta que ISS los exponga como caps.
  *
- * «Ver como» (rol) y suplantoación (usuario) son SOLO front / system-login:
- * nunca deben cambiar la autorización del ISS. Ver installViewAsFrontOnlyGuard().
+ * «Ver como rol» es SOLO front (simulación UI): nunca cambia la autorización del ISS.
+ * Suplantación de usuario erradicada (21-jul-2026) de todos los workers y fronts.
  */
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../core/platform.ts";
-import { fetchPermissionsMe } from "./systemConfigApi.ts";
-import { compareHierarchy, getRoleJerarquia } from "../tools/roleHierarchy.js";
+import { fetchPermissionsMe, invalidatePermisosCache } from "./systemConfigApi.ts";
+import { capsFromPermisosEfectivos } from "../tools/permAccessFromMap.js";
 import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
 import {
   readViewAsRole,
@@ -25,79 +25,40 @@ import {
   VIEW_AS_ROLE_EVENT,
 } from "../core/viewAsRole.ts";
 
-/** Quita X-View-As-* para que ISS/capFetch vean siempre al Bearer real. */
-export function stripViewAsHeaders(headers: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = { ...headers };
-  for (const k of Object.keys(out)) {
-    if (/^x-view-as-/i.test(k)) delete out[k];
-  }
-  return out;
-}
-
-/**
- * authHeader del Session (CDN) metía X-View-As-User en TODAS las APIs.
- * Lo limitamos: default sin view-as; refreshProfile de system-login sí lo conserva.
- */
-function installViewAsFrontOnlyGuard(): void {
-  const bag = Session as unknown as {
-    authHeader?: () => Record<string, string>;
-    refreshProfile?: () => Promise<unknown>;
-    __viewAsFrontOnly?: boolean;
-  };
-  if (!bag || bag.__viewAsFrontOnly) return;
-  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
-  if (!origAuth) return;
-
-  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
-  bag.authHeader = withoutViewAs;
-
-  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
-  if (origRefresh) {
-    bag.refreshProfile = async () => {
-      bag.authHeader = origAuth;
-      try {
-        return await origRefresh();
-      } finally {
-        bag.authHeader = withoutViewAs;
-      }
-    };
-  }
-  bag.__viewAsFrontOnly = true;
-}
-
-installViewAsFrontOnlyGuard();
-try {
-  window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
-  window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
-} catch { /* ignore */ }
+/* Suplantación (view-as de usuario) erradicada (21-jul-2026): el authHeader del Session
+ * ya no envía X-View-As-User en ningún caso. */
 
 function formatRoleTitle(roleName) {
-  return String(roleName ?? "")
-    .split("_")
-    .map((part) => {
-      const p = part.toLowerCase();
-      if (p === "iss" || p === "isw") return p.toUpperCase();
-      if (!p) return "";
-      return p.charAt(0).toUpperCase() + p.slice(1);
-    })
-    .filter(Boolean)
-    .join(" ");
+  const key = String(roleName ?? "").trim().toUpperCase();
+  if (!key) return "";
+  if (key === "USR") return "Usuario";
+  if (key === "ADMN") return "Admn";
+  if (key === "DEVISS") return "Dev ISS";
+  if (key === "AUDITOR") return "Auditor";
+  return key;
 }
 
 function roleLabel(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
+  const key = String(roleName ?? "").trim().toUpperCase();
   if (!key) return "";
   const canon = canonicalRoleMeta(key);
   if (canon?.namedisplay) return canon.namedisplay;
   return formatRoleTitle(key);
 }
 
+const ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
+
 function pickPrimaryIssRole(roles) {
-  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toUpperCase()).filter(Boolean);
   if (!list.length) return "";
-  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
-  const elevated = list.filter((r) => r !== "visitante");
-  return elevated[0] ?? list[0];
+  const elevated = list.filter((r) => r !== "USR");
+  const pool = elevated.length ? elevated : list;
+  pool.sort((a, b) => {
+    const ia = ROLE_PRIORITY.indexOf(a);
+    const ib = ROLE_PRIORITY.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return pool[0];
 }
 
 /** Id canónico del rol ISS primario (para UI «Ver como»). */
@@ -105,9 +66,9 @@ export function resolvePrimaryIssRoleId(): string {
   if (!Session.isLoggedIn()) return "";
   const key = sessionCacheKey();
   if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
-  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toUpperCase();
   const sl = Session.current()?.role;
-  return sl ? String(sl).trim().toLowerCase() : "";
+  return sl ? String(sl).trim().toUpperCase() : "";
 }
 
 /** Cap legacy que se conserva solo para chat (auditoría + admin JWT). */
@@ -124,7 +85,6 @@ type MeCapabilities = {
   canEditSwagger?: boolean;
   canOverrideSampling?: boolean;
   canManagePermissions?: boolean;
-  canImpersonate?: boolean;
   canAssignUserRoles?: boolean;
   canAccessOthers?: boolean;
   canViewKanban?: boolean;
@@ -180,29 +140,31 @@ async function primeMeCaps(force = false): Promise<void> {
   ME_CAPS_INFLIGHT = (async () => {
     let ok = false;
     try {
-      const me = await fetchPermissionsMe({ force });
-      if (me?.capabilities) {
+      // SPA: un solo GET /permissions/me por sesión. El cache subyacente se invalida en
+      // logout/mutaciones (invalidatePermisosCache), así que no hay que forzar red aquí.
+      const me = await fetchPermissionsMe();
+      if (me?.permisosEfectivos) {
         ME_CAPS_KEY = sessionCacheKey();
         ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
         ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
         ME_CAPS = {
-          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
-          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
-          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
-          canEditSwagger: !!me.capabilities.canEditSwagger,
-          canOverrideSampling: !!me.capabilities.canOverrideSampling,
-          canManagePermissions: !!me.capabilities.canManagePermissions,
-          canImpersonate: !!me.capabilities.canImpersonate,
-          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
-          canAccessOthers: !!me.capabilities.canAccessOthers,
-          canViewKanban: !!me.capabilities.canViewKanban,
-          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
-          canViewLogs: !!me.capabilities.canViewLogs,
-          canViewPrompts: !!me.capabilities.canViewPrompts,
-          canViewChat: !!me.capabilities.canViewChat,
-          canViewConfig: !!me.capabilities.canViewConfig,
-          canSendChat: !!me.capabilities.canSendChat,
+          canEditInstrucciones: !!caps.canEditInstrucciones,
+          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
+          canEditConversacionConfig: !!caps.canEditConversacionConfig,
+          canEditSwagger: !!caps.canEditSwagger,
+          canOverrideSampling: !!caps.canOverrideSampling,
+          canManagePermissions: !!caps.canManagePermissions,
+          canAssignUserRoles: !!caps.canAssignUserRoles,
+          canAccessOthers: !!caps.canAccessOthers,
+          canViewKanban: !!caps.canViewKanban,
+          canEditKanbanCards: !!caps.canEditKanbanCards,
+          canViewLogs: !!caps.canViewLogs,
+          canViewPrompts: !!caps.canViewPrompts,
+          canViewChat: !!caps.canViewChat,
+          canViewConfig: !!caps.canViewConfig,
+          canSendChat: !!caps.canSendChat,
         };
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
@@ -266,7 +228,6 @@ export function canEditConversacionConfig(): boolean { return !!localMeCaps().ca
 export function canEditSwagger(): boolean { return !!localMeCaps().canEditSwagger; }
 export function canOverrideSampling(): boolean { return !!localMeCaps().canOverrideSampling; }
 export function canManagePermissions(): boolean { return !!localMeCaps().canManagePermissions; }
-export function canImpersonate(): boolean { return !!localMeCaps().canImpersonate; }
 export function canAssignUserRoles(): boolean { return !!localMeCaps().canAssignUserRoles; }
 export function canAccessOthers(): boolean { return !!localMeCaps().canAccessOthers; }
 export function canEditKanbanCards(): boolean { return !!localMeCaps().canEditKanbanCards; }
@@ -275,7 +236,6 @@ export function canSendChat(): boolean { return !!localMeCaps().canSendChat; }
 // ─── Legacy: solo chat mantiene checks ISAFront hasta que ISS los exponga. ───
 export function canSwitchTarget(): boolean { return Session.can(TARGET_SWITCH_CAP); }
 export function canAdminPortalJwt(): boolean { return Session.can("patyia.jwt.admin"); }
-export function canViewAsUser(): boolean { return Session.can("session.view_as"); }
 
 export function instruccionesPublishCap(): string | null {
   return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
@@ -285,7 +245,7 @@ export function patyChatInteractCap(): string | null {
   return canViewChat() && (Session.can("patyia.chat.interact") || Session.can("patyia.jwt.admin")) ? "patyia.chat.interact" : null;
 }
 export function patyChatAuditCap(): string | null {
-  // Solo ME/view-as (canAccessOthers). No Session.can: Dev Lead “ver como Visitante” no debe auditar.
+  // Solo ME/view-as (canAccessOthers). No Session.can: Dev Lead “ver como USR” no debe auditar.
   return canAccessOthers() ? "patyia.chat.audit" : null;
 }
 export function patyJwtAdminCap(): string | null {
@@ -302,6 +262,7 @@ export async function login(user: string, pass: string, opts?: Record<string, un
 export function logout() {
   Session.logout();
   clearMeCaps();
+  invalidatePermisosCache();
   clearViewAsRole();
   notifyAuth();
 }
@@ -312,14 +273,13 @@ export async function bootMeCaps(): Promise<void> {
 }
 
 function roleLooksLikeDevBranch(raw: unknown): boolean {
-  const s = String(raw ?? "").trim().toLowerCase();
+  const s = String(raw ?? "").trim().toUpperCase();
   if (!s) return false;
   if (isDevBranchRole(s)) return true;
-  // Chip «Desarrollador» / «Dev ISS» / «Dev Lead»
-  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
 }
 
-/** ¿Este login real puede usar «Ver como rol»? Solo rama `dev` (0.0.x). */
+/** ¿Este login real puede usar «Ver como rol»? Solo DEVISS. */
 export function canViewAsRole(): boolean {
   if (!Session.isLoggedIn()) return false;
   const key = sessionCacheKey();
@@ -379,7 +339,6 @@ export function getSession() {
   return {
     username: Session.username(),
     realUsername: Session.realUsername(),
-    viewAsUsername: Session.viewAsUsername(),
     role: resolveDisplayRole(),
     expiresAt: s.expiresAt,
     sessionToken: s.token,
@@ -389,10 +348,7 @@ export function getSession() {
 }
 
 export function auditAuthor(): string {
-  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
-  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
-  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
-  return real || viewAs || "";
+  return String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
 }
 
 export function humanPermissionError(err: unknown, cap: string) {

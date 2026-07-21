@@ -1,5 +1,6 @@
 /**
  * Chip de usuario con menú: entorno (TargetSwitchMenu), test unitario, cerrar sesión.
+ * Suplantación (view-as de usuario) erradicada (21-jul-2026) de todos los workers y fronts.
  */
 (function () {
   "use strict";
@@ -21,17 +22,13 @@
   function buildAvatarUrl(name, size) {
     var shared = window.ISAFront && window.ISAFront.buildUserAvatarUrl;
     if (typeof shared === "function") return shared(name, size || 64);
+    // Fallback local: SVG inline (data URL) — sin ui-avatars.com ni red externa.
     var label = String(name || "").trim() || "Usuario";
-    var params = new URLSearchParams({
-      name: label,
-      size: String(size || 64),
-      background: avatarBgFromName(label.toLowerCase()),
-      color: "ffffff",
-      bold: "true",
-      rounded: "true",
-      format: "svg",
-    });
-    return "https://ui-avatars.com/api/?" + params.toString();
+    var initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join("").toUpperCase() || "U";
+    var s = size || 64;
+    var half = s / 2;
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + " " + s + '"><circle cx="' + half + '" cy="' + half + '" r="' + half + '" fill="#' + avatarBgFromName(label.toLowerCase()) + '"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="' + Math.round(s * 0.42) + '" font-weight="bold" fill="#ffffff">' + initials + "</text></svg>";
+    return "data:image/svg+xml," + encodeURIComponent(svg);
   }
 
   function isLocalHost() {
@@ -48,11 +45,8 @@
     const TargetSwitchMenu = UI.TargetSwitchMenu;
     const ViewAsRoleMenu = UI.ViewAsRoleMenu;
     const UnitTestModal = UI.UnitTestStreamModal;
-    const ViewAsDialog = UI.ViewAsDialog || window.ISAFront?.UI?.ViewAsDialog;
     const [anchor, setAnchor] = React.useState(null);
     const [testOpen, setTestOpen] = React.useState(false);
-    const [viewAsOpen, setViewAsOpen] = React.useState(false);
-    const viewAsPendingRef = React.useRef(false);
     const [, authRev] = React.useState(0);
     const open = Boolean(anchor);
 
@@ -81,10 +75,6 @@
     const sessionDisplayName = props.displayName !== undefined
       ? (props.displayName || "")
       : (Session?.displayName?.() || "");
-    const realUsername = props.realUsername || Session?.realUsername?.() || username;
-    const viewAsUsername = props.viewAsUsername !== undefined
-      ? (props.viewAsUsername || "")
-      : (Session?.viewAsUsername?.() || "");
     const viewAsRole = String(bag.AppSession?.getViewAsRole?.() || "").trim();
     const viewingAsRole = !!viewAsRole;
     const sessionRole = String(
@@ -94,20 +84,10 @@
       || Session?.current?.()?.role
       || "",
     ).trim();
-    const canViewAs = props.canViewAs !== undefined
-      ? props.canViewAs
-      : !!(Session?.can && Session.can("session.view_as"))
-        || sessionRole.toLowerCase() === "admin";
-    const headerLabel = viewAsUsername
-      ? headerLabelFn("", realUsername, realUsername) + " → " + headerLabelFn("", viewAsUsername, viewAsUsername)
-      : headerLabelFn(sessionDisplayName, username, username || "Usuario");
-    const tooltipLabel = viewAsUsername
-      ? displayNameFmt(sessionDisplayName || realUsername) + " → " + displayNameFmt(viewAsUsername)
-      : displayNameFmt(sessionDisplayName || username);
+    const headerLabel = headerLabelFn(sessionDisplayName, username, username || "Usuario");
+    const tooltipLabel = displayNameFmt(sessionDisplayName || username);
     const chipSx = props.chipSx || {};
-    const avatarName = viewAsUsername
-      ? (displayNameFmt(viewAsUsername) || viewAsUsername)
-      : (sessionDisplayName || username);
+    const avatarName = sessionDisplayName || username;
     const avatarUrl = props.buildAvatarUrl
       ? props.buildAvatarUrl(avatarName, 64)
       : buildAvatarUrl(avatarName, 64);
@@ -115,69 +95,6 @@
     const useChipFallback = !Icon && !String(sessionDisplayName || "").trim();
 
     function closeMenu() { setAnchor(null); }
-
-    function flushViewAsOpen() {
-      if (!viewAsPendingRef.current) return;
-      viewAsPendingRef.current = false;
-      setViewAsOpen(true);
-    }
-
-    function openViewAsDialog() {
-      if (!ViewAsDialog) {
-        toast("error", "Suplantación no disponible. Recarga la página (Ctrl+F5).");
-        return;
-      }
-      viewAsPendingRef.current = true;
-      closeMenu();
-      window.setTimeout(flushViewAsOpen, 160);
-    }
-
-    function handleMenuExited() {
-      flushViewAsOpen();
-    }
-
-    function toast(kind, message) {
-      const fb = bag.Feedback?.toast;
-      if (fb?.[kind]) {
-        fb[kind](message);
-        return;
-      }
-      const fn = window.ISAFront?.["toast" + kind.charAt(0).toUpperCase() + kind.slice(1)];
-      if (typeof fn === "function") fn(message);
-    }
-
-    function handleViewAsSelected(uname) {
-      if (props.onViewAsSelected) {
-        props.onViewAsSelected(uname);
-        return;
-      }
-      window.dispatchEvent(new Event(Session.EVENT));
-      toast("success", "Suplantando · " + (uname || Session?.username?.() || ""));
-    }
-
-    function handleViewAsCleared() {
-      if (props.onViewAsCleared) {
-        props.onViewAsCleared();
-        return;
-      }
-      window.dispatchEvent(new Event(Session.EVENT));
-      toast("info", "Suplantación finalizada");
-    }
-
-    async function handleViewAsClear() {
-      closeMenu();
-      if (props.onViewAsClear) {
-        props.onViewAsClear();
-        return;
-      }
-      if (!Session?.clearViewAs) return;
-      try {
-        await Session.clearViewAs();
-        handleViewAsCleared();
-      } catch (e) {
-        toast("error", e instanceof Error ? e.message : String(e));
-      }
-    }
 
     function envSwitchAllowed() {
       if (props.showTarget === false) return false;
@@ -212,10 +129,7 @@
                 clickable: true,
                 label: headerLabel,
                 onClick: function (e) { setAnchor(e.currentTarget); },
-                sx: Object.assign({ cursor: "pointer" }, chipSx, viewAsUsername ? {
-                  bgcolor: "rgba(245, 158, 11, 0.18)",
-                  border: "1px solid rgba(245, 158, 11, 0.45)",
-                } : {}),
+                sx: Object.assign({ cursor: "pointer" }, chipSx),
                 "aria-label": ariaLabel,
                 "aria-haspopup": "true",
                 "aria-expanded": open ? "true" : "false",
@@ -225,8 +139,8 @@
                 variant: "filled",
                 className: "header-session-chip",
                 clickable: true,
-                /* Rol original → avatar UI Avatars; simulación → ojo */
-                avatar: (viewAsUsername || viewingAsRole)
+                /* Rol original → avatar UI Avatars; simulación de rol → ojo */
+                avatar: viewingAsRole
                   ? undefined
                   : React.createElement(MUI.Avatar, {
                     className: "header-session-avatar",
@@ -234,7 +148,7 @@
                     alt: "",
                     sx: { width: 22, height: 22, fontSize: 11 },
                   }),
-                icon: (viewAsUsername || viewingAsRole) && Icon
+                icon: viewingAsRole && Icon
                   ? React.createElement(Icon, { icon: "mdi:eye-outline", size: 18 })
                   : undefined,
                 label: headerLabel,
@@ -247,7 +161,7 @@
                   px: 1.25,
                   "& .MuiChip-label": { px: 0.25, py: 0.25 },
                   "& .MuiChip-avatar": { width: 22, height: 22, marginLeft: "4px", marginRight: "-2px" },
-                }, chipSx, (viewAsUsername || viewingAsRole) ? {
+                }, chipSx, viewingAsRole ? {
                   bgcolor: "rgba(245, 158, 11, 0.18)",
                   border: "1px solid rgba(245, 158, 11, 0.45)",
                 } : {}),
@@ -267,13 +181,11 @@
           disableScrollLock: true,
           anchorOrigin: { vertical: "bottom", horizontal: "right" },
           transformOrigin: { vertical: "top", horizontal: "right" },
-          TransitionProps: { onExited: handleMenuExited },
           slotProps: {
             paper: {
               className: "isa-user-session-menu-paper",
               sx: { minWidth: 240, maxWidth: 280, mt: 0.5, overflow: "hidden" },
             },
-            transition: { onExited: handleMenuExited },
             root: { className: "isa-user-session-menu" },
             backdrop: {
               className: "isa-user-session-menu-backdrop",
@@ -292,59 +204,12 @@
           sessionRole
             ? React.createElement(MUI.Typography, { variant: "caption", color: "text.secondary" }, "Rol: " + sessionRole)
             : null,
-          viewAsUsername
-            ? React.createElement(
-              MUI.Chip,
-              {
-                size: "small",
-                color: "warning",
-                label: "Suplantando · " + viewAsUsername,
-                sx: { mt: 0.75, height: 22, fontSize: "0.68rem" },
-              },
-            )
-            : null,
         ),
         React.createElement(MUI.Divider, null),
         // «Ver como rol» — Select embebido (UI.ViewAsRoleMenu; re-render vía caps-changed)
         (typeof (UI.ViewAsRoleMenu || ViewAsRoleMenu) === "function"
           ? React.createElement(UI.ViewAsRoleMenu || ViewAsRoleMenu, { onPicked: closeMenu, key: "view-as-role" })
           : null),
-        canViewAs
-          ? React.createElement(
-            MUI.MenuItem,
-            {
-              onClick: openViewAsDialog,
-            },
-            Icon
-              ? React.createElement(
-                MUI.ListItemIcon,
-                { sx: { minWidth: 32 } },
-                React.createElement(Icon, { icon: "mdi:account-switch-outline", size: 18 }),
-              )
-              : null,
-            React.createElement(MUI.ListItemText, {
-              primary: "Suplantación…",
-              secondary: "Cambiar usuario (servidor)",
-            }),
-          )
-          : null,
-        viewAsUsername && (props.onViewAsClear || Session?.clearViewAs)
-          ? React.createElement(
-            MUI.MenuItem,
-            {
-              onClick: handleViewAsClear,
-            },
-            Icon
-              ? React.createElement(
-                MUI.ListItemIcon,
-                { sx: { minWidth: 32 } },
-                React.createElement(Icon, { icon: "mdi:account-revert-outline", size: 18 }),
-              )
-              : null,
-            React.createElement(MUI.ListItemText, { primary: "Dejar de suplantar" }),
-          )
-          : null,
-        (canViewAs || viewAsUsername) ? React.createElement(MUI.Divider, null) : null,
         envSwitchAllowed() && TargetSwitchMenu
           ? React.createElement(
               MUI.MenuItem,
@@ -416,16 +281,6 @@
             getAuthHeaders: props.getAuthHeaders,
             title: props.unitTestTitle || "Test unitario",
           })
-        : null,
-      canViewAs && ViewAsDialog
-        ? React.createElement(ViewAsDialog, {
-          ns: ns,
-          open: viewAsOpen,
-          onClose: function () { setViewAsOpen(false); },
-          currentViewAs: viewAsUsername || null,
-          onSelected: handleViewAsSelected,
-          onCleared: handleViewAsCleared,
-        })
         : null,
     );
   }

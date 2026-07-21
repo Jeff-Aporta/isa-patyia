@@ -83,10 +83,8 @@ export function createLoginPasswordField(React, MUI, UI, opts = {}) {
   );
   return React.createElement(TextField, {
     ...field,
-    slotProps: {
-      htmlInput,
-      input: { endAdornment },
-    },
+    InputProps: { endAdornment },
+    inputProps: htmlInput,
   });
 }
 

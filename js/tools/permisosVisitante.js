@@ -1,21 +1,21 @@
 import { roleDescripcion } from "./permisosForm.js";
-import { roleNameFromEntry, roleTitleFromEntry } from "./permisosKanbanShared.js";
-import { SESSION_OWNER_FIX_FILTER, withSessionOwnerFixFilter } from "./permFixFilter.js";
+import { roleNameFromEntry, roleTitleFromEntry, USR_ROLE } from "./permisosKanbanShared.js";
+import { SESSION_OWNER_FILTER, withSessionOwnerFilter } from "./permFilter.js";
 
-export const VISITANTE_ROLE = "visitante";
+export const VISITANTE_ROLE = USR_ROLE;
 
 export const VISITANTE_DEFAULT_PERMISOS = {
-  namedisplay: "Visitante",
-  descripcion: "Visitante — solo sus propias conversaciones; logs abiertos; resto lectura",
-  "GET:/api/conversaciones": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "GET:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  namedisplay: "Usuario",
+  descripcion: "Usuario — solo sus propias conversaciones; logs abiertos; resto lectura",
+  "GET:/api/conversaciones": { filter: { ...SESSION_OWNER_FILTER } },
+  "GET:/api/conversacion/*": { filter: { ...SESSION_OWNER_FILTER } },
   "GET:/api/conversacion/logs/*": true,
-  "POST:/api/conversacion": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "POST:/api/mensaje": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  "POST:/api/conversacion": { filter: { ...SESSION_OWNER_FILTER } },
+  "POST:/api/mensaje": { filter: { ...SESSION_OWNER_FILTER } },
+  "DELETE:/api/conversacion/*": { filter: { ...SESSION_OWNER_FILTER } },
 };
 
-/** Rutas de conversación con fixFilter fijo «dueño de sesión» (no editable). */
+/** Rutas de conversación con filter fijo «dueño de sesión» (no editable). */
 export const VISITANTE_LOCKED_OWN_KEYS = new Set([
   "GET:/api/conversaciones",
   "GET:/api/conversacion/*",
@@ -30,7 +30,7 @@ export const VISITANTE_REQUIRED_OWN_KEYS = new Set([
 ]);
 
 export function isVisitanteRole(roleName) {
-  return String(roleName ?? "").trim().toLowerCase() === VISITANTE_ROLE;
+  return String(roleName ?? "").trim().toUpperCase() === VISITANTE_ROLE;
 }
 
 export function enforceVisitantePermisos(permisos) {
@@ -39,13 +39,13 @@ export function enforceVisitantePermisos(permisos) {
   delete out.impersonate;
   delete out.manage_permissions;
   for (const key of VISITANTE_REQUIRED_OWN_KEYS) {
-    out[key] = withSessionOwnerFixFilter({ fixFilter: { ...SESSION_OWNER_FIX_FILTER } });
+    out[key] = withSessionOwnerFilter({ filter: { ...SESSION_OWNER_FILTER } });
   }
   for (const key of VISITANTE_LOCKED_OWN_KEYS) {
     const v = out[key];
     if (v == null || v === false) continue;
-    if (v === true) out[key] = withSessionOwnerFixFilter(v);
-    else if (typeof v === "object") out[key] = withSessionOwnerFixFilter(v);
+    if (v === true) out[key] = withSessionOwnerFilter(v);
+    else if (typeof v === "object") out[key] = withSessionOwnerFilter(v);
   }
   return out;
 }

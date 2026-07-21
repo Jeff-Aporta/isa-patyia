@@ -9,11 +9,18 @@ var __esm = (fn, res, err) => function __init() {
 };
 
 // js/core/patyia.ts
+function isPatyiaApiPath(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/patyia") || p.startsWith("/api/patyia");
+}
 function patyiaIssBase() {
   const t = getIssTarget();
   if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
   if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
   return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function patyiaIssCapFetchBase() {
+  return patyiaIssBase();
 }
 function resolveIssApiBase() {
   const base = patyiaIssBase();
@@ -34,6 +41,9 @@ function isDevHost() {
     return false;
   }
 }
+function isLocalMode() {
+  return getIssTarget() === "local";
+}
 function avatarBgFromName(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
@@ -41,16 +51,12 @@ function avatarBgFromName(name) {
 }
 function buildUserAvatarUrl(name, size = 72) {
   const label = String(name ?? "").trim() || "Usuario";
-  const params = new URLSearchParams({
-    name: label,
-    size: String(size),
-    background: avatarBgFromName(label.toLowerCase()),
-    color: "ffffff",
-    bold: "true",
-    rounded: "true",
-    format: "svg"
-  });
-  return `https://ui-avatars.com/api/?${params.toString()}`;
+  const initials = label.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "U";
+  const bg = avatarBgFromName(label.toLowerCase());
+  const half = size / 2;
+  const fontSize = Math.round(size * 0.42);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${half}" cy="${half}" r="${half}" fill="#${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ffffff">${initials}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 var PATYIA_ISS_URL, PATYIA_ISS_PROD_URL, PATYIA_ISS_LOCAL, PATYIA_ISS_LOCAL_API, PATYIA_ISS_PROD_API, PATYIA_ISS_STAGING_API, PATYIA_ISS_TARGET_LS_KEY, AVATAR_BG_PALETTE;
 var init_patyia = __esm({
@@ -85,7 +91,7 @@ var init_patyia = __esm({
 });
 
 // js/core/platform.ts
-var bridge, UI, Session, getReact, getReactDOM, getMaterialUI;
+var bridge, UI, Session, Config, getReact, getReactDOM, getMaterialUI;
 var init_platform = __esm({
   "js/core/platform.ts"() {
     init_patyia();
@@ -124,8 +130,6 @@ var init_platform = __esm({
       isLoggedIn: () => bridge().Session.isLoggedIn(),
       username: () => bridge().Session.username(),
       realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
       auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
       authHeader: () => bridge().Session.authHeader(),
       appHeader: () => bridge().Session.appHeader(),
@@ -133,10 +137,6 @@ var init_platform = __esm({
       login: (u, p, opts) => bridge().Session.login(u, p, opts),
       logout: () => bridge().Session.logout(),
       refreshProfile: () => bridge().Session.refreshProfile(),
-      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-      setViewAs: (u) => bridge().Session.setViewAs?.(u),
-      clearViewAs: () => bridge().Session.clearViewAs?.(),
       capabilities: () => bridge().Session.capabilities(),
       adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
       capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
@@ -146,41 +146,575 @@ var init_platform = __esm({
         return bridge().Session.EVENT;
       }
     };
+    Config = {
+      base: () => bridge().Config.base(),
+      apiUrl: (path) => bridge().Config.apiUrl(path),
+      isLocal: () => bridge().Config.isLocal(),
+      setLocal: (on) => bridge().Config.setLocal(on),
+      get EVENT() {
+        return bridge().Config.EVENT;
+      }
+    };
     getReact = () => window.ISAFront.getReact();
     getReactDOM = () => window.ISAFront.getReactDOM();
     getMaterialUI = () => window.ISAFront.getMaterialUI();
   }
 });
 
-// js/tools/roleHierarchy.js
-function isSameInheritanceLine(a, b) {
-  const x = String(a ?? "").trim();
-  const y = String(b ?? "").trim();
-  if (!x || !y) return false;
-  if (x === y) return true;
-  return x.startsWith(`${y}.`) || y.startsWith(`${x}.`);
+// js/tools/roleCanonicalMeta.js
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toUpperCase();
+  return CANONICAL_ROLE_META[key] ?? null;
 }
-function canManageRole(actorJerarquia, targetJerarquia) {
-  const target = String(targetJerarquia ?? "").trim();
-  if (!target || target === DEFAULT_FOR_UNKNOWN) return false;
-  return isSameInheritanceLine(actorJerarquia, target);
-}
-function actorCanManageTarget(actorJerarquias, targetJerarquia) {
-  for (const j of actorJerarquias ?? []) {
-    if (canManageRole(j, targetJerarquia)) return true;
-  }
-  return false;
-}
-var DEFAULT_FOR_UNKNOWN;
-var init_roleHierarchy = __esm({
-  "js/tools/roleHierarchy.js"() {
-    DEFAULT_FOR_UNKNOWN = "999";
+var CANONICAL_ROLE_META;
+var init_roleCanonicalMeta = __esm({
+  "js/tools/roleCanonicalMeta.js"() {
+    CANONICAL_ROLE_META = {
+      AUDITOR: {
+        namedisplay: "Auditor",
+        descripcion: "Ve conversaciones de todos; chatea solo en las propias"
+      },
+      ADMN: {
+        namedisplay: "Admn ISA-Paty",
+        descripcion: "Administraci\xF3n PatyIA \u2014 sin acceso total de desarrollo"
+      },
+      DEVISS: {
+        namedisplay: "Dev Lead ISS",
+        descripcion: "L\xEDder de desarrollo \u2014 acceso total"
+      },
+      USR: {
+        namedisplay: "Usuario",
+        descripcion: "Acceso b\xE1sico de sesi\xF3n"
+      }
+    };
   }
 });
 
-// js/tools/roleCanonicalMeta.js
-var init_roleCanonicalMeta = __esm({
-  "js/tools/roleCanonicalMeta.js"() {
+// js/api/portalJwtApi.ts
+var init_portalJwtApi = __esm({
+  "js/api/portalJwtApi.ts"() {
+    init_platform();
+    init_patyia();
+  }
+});
+
+// js/api/issListFilter.ts
+var init_issListFilter = __esm({
+  "js/api/issListFilter.ts"() {
+  }
+});
+
+// js/api/patyiaTokens.ts
+var init_patyiaTokens = __esm({
+  "js/api/patyiaTokens.ts"() {
+    init_platform();
+  }
+});
+
+// js/api/patyiaChatApi.ts
+var init_patyiaChatApi = __esm({
+  "js/api/patyiaChatApi.ts"() {
+    init_issListFilter();
+    init_patyiaTokens();
+    init_patyia();
+  }
+});
+
+// js/tools/permAccessFromMap.js
+function normalizePath(path) {
+  let p = String(path ?? "").trim();
+  try {
+    if (/^https?:\/\//i.test(p)) p = new URL(p).pathname;
+  } catch {
+  }
+  if (!p.startsWith("/")) p = `/${p}`;
+  return p.replace(/\/+$/, "") || "/";
+}
+function patternMatch(pattern, key) {
+  if (pattern === key) return true;
+  if (!pattern.includes("{") && !pattern.includes("*")) return false;
+  const escLit = (s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  const reBody = pattern.split(/(\{[^}]+\})/).map((seg) => /^\{[^}]+\}$/.test(seg) ? ".+" : seg.split("*").map(escLit).join("[^/]+")).join("");
+  return new RegExp(`^${reBody}$`).test(key);
+}
+function resolveAccess(perms, method, path) {
+  const map = perms && typeof perms === "object" ? perms : {};
+  const key = `${String(method ?? "GET").toUpperCase()}:${normalizePath(path)}`;
+  if (key in map) return map[key];
+  let bestPat = "";
+  let best = null;
+  for (const [pat, restr] of Object.entries(map)) {
+    if (!String(pat).includes(":")) continue;
+    if (!patternMatch(pat, key)) continue;
+    if (pat.length >= bestPat.length) {
+      bestPat = pat;
+      best = restr;
+    }
+  }
+  return best;
+}
+function hasAccess(perms, method, path) {
+  return resolveAccess(perms, method, path) != null && resolveAccess(perms, method, path) !== false;
+}
+function canAccessOthers(perms, method, path) {
+  const r = resolveAccess(perms, method, path);
+  if (r == null || r === false) return false;
+  if (r === true) return true;
+  if (typeof r === "object") {
+    const f = r.filter;
+    return !(f && typeof f === "object" && !Array.isArray(f) && Object.keys(f).length);
+  }
+  return false;
+}
+function capsFromPermisosEfectivos(perms) {
+  const p = perms ?? {};
+  const manage = hasAccess(p, "PUT", API_PERMISOS) || hasAccess(p, "DELETE", API_PERMISOS);
+  const assign = hasAccess(p, "PUT", API_ROLES);
+  return {
+    canEditOpenAiConfig: hasAccess(p, "PUT", "/api/system/openai"),
+    canEditSwagger: hasAccess(p, "PUT", "/api/system/swagger.json"),
+    canEditInstrucciones: hasAccess(p, "PUT", "/api/system/instrucciones") || hasAccess(p, "POST", "/api/patyia/instrucciones/publish"),
+    canEditPromptsOperativos: hasAccess(p, "PUT", "/api/system/prompts-operativos"),
+    canEditConversacionConfig: hasAccess(p, "PUT", "/api/system/config/conversacion"),
+    canOverrideSampling: canAccessOthers(p, "POST", "/api/conversacion"),
+    canManagePermissions: manage,
+    canAssignUserRoles: assign,
+    canEditRoleDescriptions: manage,
+    canAccessOthers: canAccessOthers(p, "GET", "/api/conversaciones"),
+    canViewKanban: hasAccess(p, "GET", "/api/permisos/usuarios") || hasAccess(p, "GET", API_PERMISOS),
+    canEditKanbanCards: assign || hasAccess(p, "POST", "/api/system/permisos/usuarios"),
+    canViewLogs: hasAccess(p, "GET", "/api/conversacion/logs/{id}") || hasAccess(p, "GET", "/api/conversacion/logs/*"),
+    canViewPrompts: hasAccess(p, "GET", "/api/system/instrucciones"),
+    canViewChat: hasAccess(p, "POST", "/api/conversacion") || hasAccess(p, "POST", "/api/mensaje") || hasAccess(p, "GET", "/api/conversaciones"),
+    canViewConfig: hasAccess(p, "GET", "/api/system/openai") || hasAccess(p, "GET", "/api/system/prompts-operativos") || hasAccess(p, "GET", "/api/system/instrucciones") || hasAccess(p, "GET", "/api/system/config/conversacion") || hasAccess(p, "GET", "/api/system/swagger.json") || hasAccess(p, "GET", API_PERMISOS),
+    canSendChat: hasAccess(p, "POST", "/api/conversacion") && hasAccess(p, "POST", "/api/mensaje")
+  };
+}
+var API_PERMISOS, API_ROLES;
+var init_permAccessFromMap = __esm({
+  "js/tools/permAccessFromMap.js"() {
+    API_PERMISOS = "/api/system/permisos";
+    API_ROLES = "/api/system/permisos/usuarios/*/roles";
+  }
+});
+
+// js/core/viewAsRole.ts
+function roleKey(name) {
+  return String(name ?? "").trim().toUpperCase();
+}
+function isDevBranchRole(roleName) {
+  return roleKey(roleName) === "DEVISS";
+}
+function readViewAsRole() {
+  try {
+    const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
+    if (!v || v === "DEVISS") return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
+    return v;
+  } catch {
+    return "";
+  }
+}
+function writeViewAsRole(roleName) {
+  const key = roleKey(roleName);
+  try {
+    if (!key || key === "DEVISS" || !ROLE_CAPS_PRESETS[key]) {
+      localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
+    } else {
+      localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
+    }
+  } catch {
+  }
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
+}
+function clearViewAsRole() {
+  writeViewAsRole("");
+}
+function realRolesAllowViewAs(roles) {
+  return (roles ?? []).some((r) => isDevBranchRole(r));
+}
+var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, NONE, ROLE_CAPS_PRESETS;
+var init_viewAsRole = __esm({
+  "js/core/viewAsRole.ts"() {
+    init_roleCanonicalMeta();
+    VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+    VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+    NONE = Object.freeze({
+      canEditInstrucciones: false,
+      canEditOpenAiConfig: false,
+      canEditPromptsOperativos: false,
+      canEditConversacionConfig: false,
+      canEditSwagger: false,
+      canOverrideSampling: false,
+      canManagePermissions: false,
+      canAssignUserRoles: false,
+      canAccessOthers: false,
+      canViewKanban: false,
+      canEditKanbanCards: false,
+      canViewLogs: true,
+      canViewPrompts: false,
+      canViewChat: true,
+      canViewConfig: false,
+      canSendChat: true
+    });
+    ROLE_CAPS_PRESETS = Object.freeze({
+      USR: { ...NONE },
+      AUDITOR: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canAccessOthers: true,
+        canViewKanban: true
+      },
+      ADMN: {
+        ...NONE,
+        canViewPrompts: true,
+        canViewConfig: true,
+        canEditOpenAiConfig: true,
+        canEditConversacionConfig: true,
+        canEditInstrucciones: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true
+      },
+      DEVISS: {
+        canEditInstrucciones: true,
+        canEditOpenAiConfig: true,
+        canEditPromptsOperativos: true,
+        canEditConversacionConfig: true,
+        canEditSwagger: true,
+        canOverrideSampling: true,
+        canManagePermissions: true,
+        canAssignUserRoles: true,
+        canAccessOthers: true,
+        canViewKanban: true,
+        canEditKanbanCards: true,
+        canViewLogs: true,
+        canViewPrompts: true,
+        canViewChat: true,
+        canViewConfig: true,
+        canSendChat: true
+      }
+    });
+  }
+});
+
+// js/api/sessionApi.ts
+function formatRoleTitle(roleName) {
+  const key = String(roleName ?? "").trim().toUpperCase();
+  if (!key) return "";
+  if (key === "USR") return "Usuario";
+  if (key === "ADMN") return "Admn";
+  if (key === "DEVISS") return "Dev ISS";
+  if (key === "AUDITOR") return "Auditor";
+  return key;
+}
+function roleLabel(roleName) {
+  const key = String(roleName ?? "").trim().toUpperCase();
+  if (!key) return "";
+  const canon = canonicalRoleMeta(key);
+  if (canon?.namedisplay) return canon.namedisplay;
+  return formatRoleTitle(key);
+}
+function pickPrimaryIssRole(roles) {
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toUpperCase()).filter(Boolean);
+  if (!list.length) return "";
+  const elevated = list.filter((r) => r !== "USR");
+  const pool = elevated.length ? elevated : list;
+  pool.sort((a, b) => {
+    const ia = ROLE_PRIORITY.indexOf(a);
+    const ib = ROLE_PRIORITY.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return pool[0];
+}
+function resolvePrimaryIssRoleId() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toUpperCase();
+  const sl = Session.current()?.role;
+  return sl ? String(sl).trim().toUpperCase() : "";
+}
+function sessionCacheKey() {
+  if (!Session.isLoggedIn()) return "";
+  const tok = Session?.current?.()?.token;
+  const user = Session.username?.() || Session?.current?.()?.username;
+  return String(tok || user || "").trim();
+}
+async function primeMeCaps(force = false) {
+  if (!Session.isLoggedIn()) return;
+  if (ME_CAPS_INFLIGHT) return ME_CAPS_INFLIGHT;
+  const now = Date.now();
+  if (now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_REENTRY_GUARD_MS) return;
+  if (!force && now - ME_CAPS_BOOTSTRAP_TS < ME_CAPS_FETCH_GUARD_MS) return;
+  ME_CAPS_INFLIGHT = (async () => {
+    let ok = false;
+    try {
+      const me = await fetchPermissionsMe();
+      if (me?.permisosEfectivos) {
+        ME_CAPS_KEY = sessionCacheKey();
+        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
+        ME_CAPS = {
+          canEditInstrucciones: !!caps.canEditInstrucciones,
+          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
+          canEditConversacionConfig: !!caps.canEditConversacionConfig,
+          canEditSwagger: !!caps.canEditSwagger,
+          canOverrideSampling: !!caps.canOverrideSampling,
+          canManagePermissions: !!caps.canManagePermissions,
+          canAssignUserRoles: !!caps.canAssignUserRoles,
+          canAccessOthers: !!caps.canAccessOthers,
+          canViewKanban: !!caps.canViewKanban,
+          canEditKanbanCards: !!caps.canEditKanbanCards,
+          canViewLogs: !!caps.canViewLogs,
+          canViewPrompts: !!caps.canViewPrompts,
+          canViewChat: !!caps.canViewChat,
+          canViewConfig: !!caps.canViewConfig,
+          canSendChat: !!caps.canSendChat
+        };
+        ME_CAPS_BOOTSTRAP_TS = Date.now();
+        ok = true;
+        if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
+        window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+      }
+    } catch {
+    }
+    if (!ok && !ME_CAPS_RETRY_TIMER && Session.isLoggedIn()) {
+      ME_CAPS_RETRY_TIMER = setTimeout(() => {
+        ME_CAPS_RETRY_TIMER = null;
+        void primeMeCaps(true);
+      }, 4e3);
+    }
+  })().finally(() => {
+    ME_CAPS_INFLIGHT = null;
+  });
+  return ME_CAPS_INFLIGHT;
+}
+function clearMeCaps() {
+  ME_CAPS = {};
+  ME_CAPS_KEY = "";
+  ME_ISS_ROLES = [];
+  ME_LOGIN_ROLE = "";
+  ME_CAPS_BOOTSTRAP_TS = 0;
+  ME_SERVER_INSTRUCCIONES_EDIT = null;
+  if (ME_CAPS_RETRY_TIMER) {
+    clearTimeout(ME_CAPS_RETRY_TIMER);
+    ME_CAPS_RETRY_TIMER = null;
+  }
+}
+function notifyAuth() {
+  window.dispatchEvent(new Event(Session.EVENT));
+  window.dispatchEvent(new Event("patyia-apptools:auth"));
+  window.dispatchEvent(new Event("isa-patyia:auth"));
+}
+async function login(user, pass, opts) {
+  const session = await Session.login(user, pass, opts);
+  notifyAuth();
+  void primeMeCaps(true);
+  return session;
+}
+function logout() {
+  Session.logout();
+  clearMeCaps();
+  invalidatePermisosCache();
+  clearViewAsRole();
+  notifyAuth();
+}
+function roleLooksLikeDevBranch(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  if (!s) return false;
+  if (isDevBranchRole(s)) return true;
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
+}
+function canViewAsRole() {
+  if (!Session.isLoggedIn()) return false;
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (ME_ISS_ROLES.length && realRolesAllowViewAs(ME_ISS_ROLES)) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  return false;
+}
+function getViewAsRole() {
+  if (!canViewAsRole() && !readViewAsRole()) return "";
+  return readViewAsRole();
+}
+function isViewingAsRole() {
+  return !!(readViewAsRole() && canViewAsRole());
+}
+function setViewAsRole(roleName) {
+  if (!roleName) {
+    clearViewAsRole();
+    return;
+  }
+  if (!canViewAsRole()) return;
+  writeViewAsRole(roleName);
+}
+function stopViewAsRole() {
+  clearViewAsRole();
+}
+function resolveDisplayRole() {
+  if (!Session.isLoggedIn()) return "";
+  const key = sessionCacheKey();
+  if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) {
+    return roleLabel(pickPrimaryIssRole(ME_ISS_ROLES));
+  }
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) {
+    return roleLabel(ME_LOGIN_ROLE);
+  }
+  const sl = Session.current()?.role;
+  return sl ? roleLabel(sl) : "";
+}
+function getSession() {
+  const s = Session.current();
+  if (!s) return null;
+  return {
+    username: Session.username(),
+    realUsername: Session.realUsername(),
+    role: resolveDisplayRole(),
+    expiresAt: s.expiresAt,
+    sessionToken: s.token,
+    app: Session.appId(),
+    capabilities: Session.capabilities()
+  };
+}
+var ROLE_PRIORITY, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var init_sessionApi = __esm({
+  "js/api/sessionApi.ts"() {
+    init_platform();
+    init_platform();
+    init_systemConfigApi();
+    init_permAccessFromMap();
+    init_roleCanonicalMeta();
+    init_viewAsRole();
+    ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
+    ME_CAPS = {};
+    ME_CAPS_KEY = "";
+    ME_ISS_ROLES = [];
+    ME_LOGIN_ROLE = "";
+    ME_CAPS_BOOTSTRAP_TS = 0;
+    ME_CAPS_INFLIGHT = null;
+    ME_CAPS_RETRY_TIMER = null;
+    ME_SERVER_INSTRUCCIONES_EDIT = null;
+    ME_CAPS_FETCH_GUARD_MS = 5e3;
+    ME_CAPS_REENTRY_GUARD_MS = 1500;
+    isLoggedIn = () => Session.isLoggedIn();
+    can = (cap) => Session.can(cap);
+    blockReason = (cap) => Session.blockReason(cap);
+    clearSession = logout;
+    (window.ISA = window.ISA || {}).AppSession = {
+      current: () => Session.current(),
+      isLoggedIn,
+      username: () => Session.username(),
+      capabilities: () => Session.capabilities(),
+      can,
+      blockReason,
+      login,
+      logout,
+      refreshProfile: () => Session.refreshProfile(),
+      clearSession,
+      getSession,
+      resolveDisplayRole,
+      canViewAsRole,
+      getViewAsRole,
+      isViewingAsRole,
+      setViewAsRole,
+      stopViewAsRole,
+      resolvePrimaryIssRoleId
+    };
+  }
+});
+
+// js/api/apiClient.ts
+var bridgeHttp, capFetch, apiUrl, rowVal;
+var init_apiClient = __esm({
+  "js/api/apiClient.ts"() {
+    init_platform();
+    init_patyia();
+    init_patyia_jwt();
+    init_patyiaChatApi();
+    init_issListFilter();
+    init_sessionApi();
+    init_systemConfigApi();
+    bridgeHttp = window.ISAFront.createCapFetch({
+      Session,
+      Config,
+      getApiBase: patyiaIssCapFetchBase,
+      localDirect: [
+        { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") }
+      ],
+      orchOnline: PATYIA_ISS_URL,
+      orchOnlineInLocal: true,
+      isLocal: isLocalMode
+    });
+    capFetch = bridgeHttp.capFetch;
+    apiUrl = bridgeHttp.apiUrl;
+    rowVal = bridgeHttp.rowVal;
+  }
+});
+
+// js/core/patyia-jwt.ts
+function parseJwtExp(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return typeof raw.exp === "number" ? raw.exp : null;
+  } catch {
+    return null;
+  }
+}
+function isPatyJwtExpired(token, skewSec = 60) {
+  const exp = parseJwtExp(token);
+  if (!exp) return false;
+  return Date.now() / 1e3 >= exp - skewSec;
+}
+function parseJwtClaims(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return { itercero: raw.itercero != null ? String(raw.itercero) : void 0, icontacto: raw.icontacto != null ? String(raw.icontacto) : void 0, nombres: raw.nombres != null ? String(raw.nombres) : void 0, apellidos: raw.apellidos != null ? String(raw.apellidos) : void 0, controlkey: raw.controlkey != null ? String(raw.controlkey) : void 0, iapp: typeof raw.iapp === "number" ? raw.iapp : void 0, idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : void 0 };
+  } catch {
+    return null;
+  }
+}
+function loadPatyJwt() {
+  try {
+    const raw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || typeof parsed.token !== "string") return null;
+    if (isPatyJwtExpired(parsed.token)) {
+      sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+      return null;
+    }
+    parsed.claims = parseJwtClaims(parsed.token) || parsed.claims || {};
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+var PATYIA_JWT_STORAGE_KEY;
+var init_patyia_jwt = __esm({
+  "js/core/patyia-jwt.ts"() {
+    init_portalJwtApi();
+    init_apiClient();
+    init_platform();
+    PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
   }
 });
 
@@ -188,15 +722,34 @@ var init_roleCanonicalMeta = __esm({
 function systemApiBase() {
   return resolveIssApiBase();
 }
+function resolveIssAuthMode() {
+  const base = systemApiBase();
+  if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
+  return "w";
+}
 function systemApiHeaders(extra = {}) {
+  const mode = resolveIssAuthMode();
   const h = {
     Accept: "application/json",
-    "X-Patyia-Auth-Mode": "w",
+    "X-Patyia-Auth-Mode": mode,
     ...extra
   };
-  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
-  for (const k of Object.keys(h)) {
-    if (/^x-view-as-/i.test(k)) delete h[k];
+  if (mode === "is") {
+    const paty = loadPatyJwt();
+    if (paty?.token && !isPatyJwtExpired(paty.token)) {
+      h.Authorization = `Bearer ${paty.token}`;
+      if (Session.isLoggedIn()) {
+        const app = { ...Session.appHeader() };
+        for (const k of Object.keys(app)) {
+          if (/^authorization$/i.test(k)) delete app[k];
+        }
+        Object.assign(h, app);
+      }
+    } else if (Session.isLoggedIn()) {
+      Object.assign(h, Session.authHeader(), Session.appHeader());
+    }
+  } else if (Session.isLoggedIn()) {
+    Object.assign(h, Session.authHeader(), Session.appHeader());
   }
   return h;
 }
@@ -261,7 +814,8 @@ function normalizePermEntry(entry) {
 function normalizePermissionsPayload(raw) {
   const roles = (Array.isArray(raw?.roles) ? raw.roles : []).map((e) => normalizePermEntry(e));
   const users = (Array.isArray(raw?.users) ? raw.users : []).map((e) => normalizePermEntry(e));
-  return { ...raw, roles, users };
+  const contactos = raw?.contactos && typeof raw.contactos === "object" && !Array.isArray(raw.contactos) ? raw.contactos : {};
+  return { ...raw, roles, users, contactos };
 }
 function permissionsMeSessionKey() {
   if (!Session.isLoggedIn()) return "anon";
@@ -270,52 +824,89 @@ function permissionsMeSessionKey() {
   return String(tok || user || "anon").trim();
 }
 async function fetchPermissionsMe(opts) {
-  if (!Session.isLoggedIn()) return null;
+  if (!Session.isLoggedIn() && !loadPatyJwt()?.token) return null;
+  const headers = systemApiHeaders();
+  if (!headers.Authorization && !headers.authorization) {
+    return null;
+  }
   const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
   }
+  if (!opts?.force && PERMISSIONS_ME_INFLIGHT) return PERMISSIONS_ME_INFLIGHT;
   const f = opts?.fetchImpl ?? fetch;
-  const res = await f(`${systemApiBase()}/permissions/me`, {
-    method: "GET",
-    headers: { ...systemApiHeaders(), Accept: "application/json" },
-    credentials: "omit"
+  const req = (async () => {
+    const res = await f(`${systemApiBase()}/permissions/me`, {
+      method: "GET",
+      headers: { ...headers, Accept: "application/json" },
+      credentials: "omit"
+    });
+    if (res.status === 401) {
+      PERMISSIONS_ME_CACHE.value = null;
+      return null;
+    }
+    if (!res.ok) return PERMISSIONS_ME_CACHE.value;
+    const data = unwrapBody(await res.json());
+    if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
+    PERMISSIONS_ME_CACHE.value = data;
+    PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
+    PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 8 * 60 * 60 * 1e3;
+    PERMISSIONS_ME_CACHE.key = sessionKey;
+    return data;
+  })().finally(() => {
+    if (PERMISSIONS_ME_INFLIGHT === req) PERMISSIONS_ME_INFLIGHT = null;
   });
-  if (res.status === 401) {
-    PERMISSIONS_ME_CACHE.value = null;
-    return null;
-  }
-  if (!res.ok) return PERMISSIONS_ME_CACHE.value;
-  const data = unwrapBody(await res.json());
-  if (!data || data.kind !== "insoft.permissions-me") return PERMISSIONS_ME_CACHE.value;
-  PERMISSIONS_ME_CACHE.value = data;
-  PERMISSIONS_ME_CACHE.iat = data.iat || Date.now();
-  PERMISSIONS_ME_CACHE.ttlMs = data.ttlMs || 6e4;
-  PERMISSIONS_ME_CACHE.key = sessionKey;
-  return data;
+  PERMISSIONS_ME_INFLIGHT = req;
+  return req;
+}
+function clearPermissionsMeCache() {
+  PERMISSIONS_ME_CACHE.value = null;
+  PERMISSIONS_ME_CACHE.iat = 0;
+  PERMISSIONS_ME_CACHE.ttlMs = 0;
+  PERMISSIONS_ME_CACHE.key = "";
 }
 function applyPermissionsMeToKanban(data, me) {
   if (!me) return data;
+  const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
   return {
     ...data,
-    canManage: me.capabilities.canManagePermissions,
-    canAssignUserRoles: me.capabilities.canAssignUserRoles,
-    canEditRoleDescriptions: me.capabilities.canEditRoleDescriptions || me.capabilities.canManagePermissions,
+    canManage: caps.canManagePermissions,
+    canAssignUserRoles: caps.canAssignUserRoles,
+    canEditRoleDescriptions: caps.canEditRoleDescriptions || caps.canManagePermissions,
     actorRoles: me.roles,
     _permissionsMe: me
   };
 }
+function invalidatePermisosCache() {
+  PERMISOS_LIST_CACHE.clear();
+  PERMISOS_LIST_INFLIGHT.clear();
+  clearPermissionsMeCache();
+}
+function fetchPermisosListRaw(q) {
+  const cached = PERMISOS_LIST_CACHE.get(q);
+  if (cached && Date.now() - cached.iat < PERMISOS_LIST_TTL_MS) return Promise.resolve(cached.raw);
+  const inflight = PERMISOS_LIST_INFLIGHT.get(q);
+  if (inflight) return inflight;
+  const req = jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }).then((raw) => {
+    PERMISOS_LIST_CACHE.set(q, { raw, iat: Date.now() });
+    return raw;
+  }).finally(() => {
+    PERMISOS_LIST_INFLIGHT.delete(q);
+  });
+  PERMISOS_LIST_INFLIGHT.set(q, req);
+  return req;
+}
 async function fetchPermisos(opts) {
   const qs = new URLSearchParams();
   const search = String(opts?.search ?? "").trim();
-  const role = String(opts?.role ?? "").trim();
+  const role = String(opts?.role ?? "").trim().toUpperCase();
   const limit = opts?.limit != null && Number.isFinite(Number(opts.limit)) ? Math.min(500, Math.max(1, Math.floor(Number(opts.limit)))) : void 0;
   if (search) qs.set("search", search);
   if (role) qs.set("role", role);
   if (limit != null) qs.set("limit", String(limit));
   const q = qs.toString();
   const [raw, me] = await Promise.all([
-    jsonFetch(`/system/permisos${q ? `?${q}` : ""}`, { method: "GET", headers: systemApiHeaders() }),
+    fetchPermisosListRaw(q),
     fetchPermissionsMe().catch(() => null)
   ]);
   return applyPermissionsMeToKanban(normalizePermissionsPayload(raw), me);
@@ -337,20 +928,26 @@ async function searchPermisosUsers(query = "", opts) {
     })()
   })).filter((u) => u.username).slice(0, limit);
 }
-var PERMISSIONS_ME_CACHE;
+var PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_TTL_MS, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
 var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
     init_patyia();
+    init_patyia_jwt();
+    init_permAccessFromMap();
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
+    PERMISSIONS_ME_INFLIGHT = null;
+    PERMISOS_LIST_TTL_MS = 6e4;
+    PERMISOS_LIST_CACHE = /* @__PURE__ */ new Map();
+    PERMISOS_LIST_INFLIGHT = /* @__PURE__ */ new Map();
   }
 });
 
 // js/tools/PermisosKanban.jsx
 init_platform();
 
-// js/tools/permFixFilter.js
-var SESSION_OWNER_FIX_FILTER = {
+// js/tools/permFilter.js
+var SESSION_OWNER_FILTER = {
   itercero: "{{itercero}}",
   icontacto: "{{icontacto}}"
 };
@@ -359,23 +956,26 @@ var SESSION_OWNER_FIX_FILTER = {
 var FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard \u2014 anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
-  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." }
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (DEVISS)." }
 ];
 var ACCESS_MODES = [
   { value: "off", label: "Sin acceso" },
   { value: "allow", label: "Permitido" },
-  { value: "filtered", label: "Filtrado (fixFilter)" }
+  { value: "filtered", label: "Filtrado (filter)" }
 ];
 var FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
 
 // js/tools/permisosKanbanShared.js
-init_roleHierarchy();
 init_roleCanonicalMeta();
-function userCardLabels(username, displayName) {
+function userCardLabels(username, displayName, contact) {
   const user = String(username ?? "").trim().toUpperCase();
   const name = String(displayName ?? "").trim();
-  if (name) return { primary: name, secondary: user };
-  return { primary: user, secondary: null };
+  const itercero = contact?.itercero != null ? String(contact.itercero).trim() : "";
+  const rawC = contact?.icontacto;
+  const icontacto = rawC != null && rawC !== "" ? String(rawC).trim() : "";
+  const idsCaption = itercero || icontacto ? `(${itercero || "\u2014"}${icontacto ? ` / ${icontacto}` : ""})` : null;
+  if (name) return { primary: name, secondary: idsCaption || user, idsCaption };
+  return { primary: user, secondary: idsCaption, idsCaption };
 }
 function normalizePermisosUsername(raw) {
   const s = String(raw ?? "").trim().toUpperCase();
@@ -389,16 +989,6 @@ function columnAtPoint(columnIds, listRefs, clientX, clientY) {
     if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) return colId;
   }
   return null;
-}
-function canActorManageColumn(actorJerarquias, targetColumn) {
-  if (!targetColumn) return false;
-  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
-  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
-  if (!filtered.length) return false;
-  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
-}
-function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
-  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
 }
 function pointInRef(ref, clientX, clientY) {
   const el = ref?.current;
@@ -621,7 +1211,8 @@ var ROUTE_GROUPS = [
       { key: "PUT:/api/system/permisos", label: "Actualizar permisos" },
       { key: "PUT:/api/system/permisos/roles/*", label: "Editar rol" },
       { key: "PUT:/api/system/permisos/usuarios/*", label: "Editar usuario" },
-      { key: "PATCH:/api/system/permisos/usuarios/*/roles", label: "Asignar roles a usuario" },
+      // Decisión 18-jul-2026: en InSoft NO usamos PATCH; el endpoint pasó a PUT.
+      { key: "PUT:/api/system/permisos/usuarios/*/roles", label: "Asignar roles a usuario" },
       { key: "POST:/api/system/*", label: "POST sistema (wildcard)" },
       { key: "PUT:/api/system/*", label: "PUT sistema (wildcard)" }
     ]
@@ -647,11 +1238,8 @@ var ROUTE_GROUPS = [
 var CATALOG_KEYS = new Set(ROUTE_GROUPS.flatMap((g) => g.routes.map((r) => r.key)));
 
 // js/tools/permisosRoleTransfer.js
-init_roleHierarchy();
-function isTopDevLeadRole(roleName, jerarquia) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  if (key === "dev_lead") return true;
-  return String(jerarquia ?? "").trim() === "0.0.0";
+function isTopDevLeadRole(roleName) {
+  return String(roleName ?? "").trim().toUpperCase() === "DEVISS";
 }
 function isSamePermisosUser(a, b) {
   const x = String(a ?? "").trim().toUpperCase();
@@ -670,7 +1258,7 @@ function moveRoleImpactBullets({ username, fromRoleTitle, toRoleTitle, isSelf, l
   ];
   if (leavesDevLead) {
     bullets.push(
-      isSelf ? "Al salir de **dev_lead** (m\xE1ximo privilegio) perder\xE1s gesti\xF3n de permisos hasta que otro dev_lead te reasigne o un administrador ajuste la BD." : `Al salir de **dev_lead**, ${user} necesitar\xE1 que otro dev_lead lo reasigne o un ajuste manual en BD para recuperar el rol.`
+      isSelf ? "Al salir de **DEVISS** (m\xE1ximo privilegio) perder\xE1s gesti\xF3n de permisos hasta que otro DEVISS te reasigne o un administrador ajuste la BD." : `Al salir de **DEVISS**, ${user} necesitar\xE1 que otro DEVISS lo reasigne o un ajuste manual en BD para recuperar el rol.`
     );
   }
   return bullets;
@@ -685,49 +1273,16 @@ function removeRoleImpactBullets({ username, roleTitle, isSelf, isDevLead }) {
   ];
   if (isDevLead) {
     bullets.push(
-      isSelf ? "Si te quitas **dev_lead**, otro dev_lead deber\xE1 reasignarte o habr\xE1 que corregirlo en BD." : `Para restaurar **dev_lead** en ${user}, otro dev_lead deber\xE1 volver a asignar el rol.`
+      isSelf ? "Si te quitas **DEVISS**, otro DEVISS deber\xE1 reasignarte o habr\xE1 que corregirlo en BD." : `Para restaurar **DEVISS** en ${user}, otro DEVISS deber\xE1 volver a asignar el rol.`
     );
   } else {
-    bullets.push("Para restaurar el acceso, un dev_lead puede volver a asignar el rol.");
+    bullets.push("Para restaurar el acceso, un DEVISS puede volver a asignar el rol.");
   }
   return bullets;
 }
-function userJerarquiasFromBoard(username, columns) {
-  const u = String(username ?? "").trim().toUpperCase();
-  if (!u) return [];
-  const out = [];
-  for (const col of columns ?? []) {
-    if (col.users?.some((x) => String(x.username ?? "").trim().toUpperCase() === u)) {
-      out.push(col.jerarquia);
-    }
-  }
-  return out;
-}
-function canCopyUserRole({ fromJerarquia, toJerarquia, userJerarquiasOnBoard = [] }) {
-  if (isSameInheritanceLine(fromJerarquia, toJerarquia)) {
-    return {
-      ok: false,
-      reason: "No se puede copiar dentro de la misma rama jer\xE1rquica. Use mover para cambiar de rol en esa l\xEDnea."
-    };
-  }
-  for (const jer of userJerarquiasOnBoard) {
-    if (isSameInheritanceLine(jer, toJerarquia)) {
-      return {
-        ok: false,
-        reason: "El usuario ya tiene un rol en la misma rama que el destino. Copiar est\xE1 prohibido; use mover o quite el rol existente."
-      };
-    }
-  }
-  return { ok: true };
-}
-function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
-  for (const jer of userJerarquiasOnBoard) {
-    if (isSameInheritanceLine(jer, toJerarquia)) {
-      return {
-        ok: false,
-        reason: "El usuario ya tiene un rol en la misma rama jer\xE1rquica. No puede duplicarse; use mover entre columnas."
-      };
-    }
+function canAddUserToRole({ username } = {}) {
+  if (!String(username ?? "").trim()) {
+    return { ok: false, reason: "Indique un usuario." };
   }
   return { ok: true };
 }
@@ -899,14 +1454,14 @@ function PermisosUserAutocomplete({
 
 // js/tools/permisosVisitante.js
 var VISITANTE_DEFAULT_PERMISOS = {
-  namedisplay: "Visitante",
-  descripcion: "Visitante \u2014 solo sus propias conversaciones; logs abiertos; resto lectura",
-  "GET:/api/conversaciones": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "GET:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
+  namedisplay: "Usuario",
+  descripcion: "Usuario \u2014 solo sus propias conversaciones; logs abiertos; resto lectura",
+  "GET:/api/conversaciones": { filter: { ...SESSION_OWNER_FILTER } },
+  "GET:/api/conversacion/*": { filter: { ...SESSION_OWNER_FILTER } },
   "GET:/api/conversacion/logs/*": true,
-  "POST:/api/conversacion": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "POST:/api/mensaje": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } },
-  "DELETE:/api/conversacion/*": { fixFilter: { ...SESSION_OWNER_FIX_FILTER } }
+  "POST:/api/conversacion": { filter: { ...SESSION_OWNER_FILTER } },
+  "POST:/api/mensaje": { filter: { ...SESSION_OWNER_FILTER } },
+  "DELETE:/api/conversacion/*": { filter: { ...SESSION_OWNER_FILTER } }
 };
 
 // js/tools/permisosRoleConfig.jsx
@@ -944,29 +1499,14 @@ function renderImpactLine(text) {
 }
 var MODE_LABEL = Object.fromEntries(ACCESS_MODES.map((m) => [m.value, m.label]));
 function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
-  const [moveStep, setMoveStep] = useState4(false);
-  useEffect4(() => {
-    if (!open) setMoveStep(false);
-  }, [open]);
   if (!pending) return null;
-  const { username, fromRole, toRole, fromRoleTitle, toRoleTitle, fromJerarquia, toJerarquia, copyBlocked, copyBlockReason } = pending;
+  const { username, fromRole, toRole, fromRoleTitle, toRoleTitle } = pending;
   const fromLabel = fromRoleTitle || fromRole;
   const toLabel = toRoleTitle || toRole;
   const isSelf = isSamePermisosUser(username, sessionUsername);
-  const leavesDevLead = isTopDevLeadRole(fromRole, fromJerarquia);
-  const copyDenied = !!copyBlocked;
-  const copyDeniedReason = copyBlockReason || "En la misma rama jer\xE1rquica solo puede moverse el rol, no copiarse.";
-  function confirm(mode) {
-    if (busy) return;
-    if (mode === "copy" && copyDenied) return;
-    onConfirm(mode);
-  }
-  function handleCopy() {
-    if (copyDenied) return;
-    confirm("copy");
-  }
+  const leavesDevLead = isTopDevLeadRole(fromRole);
   const moveBullets = moveRoleImpactBullets({ username, fromRoleTitle: fromLabel, toRoleTitle: toLabel, isSelf, leavesDevLead });
-  return /* @__PURE__ */ jsx6(
+  return /* @__PURE__ */ jsxs3(
     GlassDialog,
     {
       open,
@@ -977,53 +1517,14 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
       header: /* @__PURE__ */ jsx6(
         GlassDialogHeader,
         {
-          icon: moveStep ? "mdi:alert-outline" : "mdi:account-switch",
-          title: moveStep ? "Confirmar movimiento" : "Asignar rol",
+          icon: "mdi:alert-outline",
+          title: "Confirmar movimiento",
           subtitle: `${username}: ${fromLabel} \u2192 ${toLabel}`,
-          accent: moveStep ? "#f59e0b" : "#1e90ff",
+          accent: "#f59e0b",
           onClose: busy ? void 0 : onClose
         }
       ),
-      children: !moveStep ? /* @__PURE__ */ jsxs3(Fragment2, { children: [
-        /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
-          /* @__PURE__ */ jsxs3(Typography3, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
-            "\xBFC\xF3mo asignar a ",
-            /* @__PURE__ */ jsx6("strong", { children: username }),
-            " el rol ",
-            /* @__PURE__ */ jsx6("strong", { children: toLabel }),
-            "?"
-          ] }),
-          copyDenied ? /* @__PURE__ */ jsx6(Alert, { severity: "info", sx: { mb: 2 }, children: copyDeniedReason || "En la misma rama jer\xE1rquica solo puede moverse el rol, no copiarse." }) : null,
-          /* @__PURE__ */ jsxs3(Stack2, { spacing: 1.25, children: [
-            /* @__PURE__ */ jsx6(
-              Button,
-              {
-                variant: "outlined",
-                fullWidth: true,
-                disabled: busy || copyDenied,
-                sx: { textTransform: "none", justifyContent: "flex-start", py: 1.25 },
-                onClick: handleCopy,
-                startIcon: busy ? /* @__PURE__ */ jsx6(CircularProgress, { size: 16, color: "inherit" }) : /* @__PURE__ */ jsx6(Icon, { icon: "mdi:content-copy", size: 18 }),
-                children: busy ? "Procesando\u2026" : copyDenied ? "Copiar no disponible (misma rama)" : `Copiar (mantener tambi\xE9n en ${fromLabel})`
-              }
-            ),
-            !copyDenied ? /* @__PURE__ */ jsx6(Typography3, { variant: "caption", color: "text.secondary", sx: { px: 0.5 }, children: "Copiar no quita el rol origen; no hay cambio de privilegios neto salvo sumar los del destino." }) : null,
-            /* @__PURE__ */ jsx6(
-              Button,
-              {
-                variant: "contained",
-                fullWidth: true,
-                disabled: busy,
-                sx: { textTransform: "none", justifyContent: "flex-start", py: 1.25 },
-                onClick: () => setMoveStep(true),
-                startIcon: /* @__PURE__ */ jsx6(Icon, { icon: "mdi:arrow-right-bold", size: 18 }),
-                children: copyDenied ? `Mover a ${toLabel} (quitar de ${fromLabel})\u2026` : `Mover (quitar de ${fromLabel})\u2026`
-              }
-            )
-          ] })
-        ] }),
-        /* @__PURE__ */ jsx6(DialogActions, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx6(Button, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }) })
-      ] }) : /* @__PURE__ */ jsxs3(Fragment2, { children: [
+      children: [
         /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsxs3(Alert, { severity: "warning", sx: { mb: 2 }, children: [
             "Mover implica ",
@@ -1040,26 +1541,28 @@ function RoleDragDialog({ open, pending, busy, sessionUsername, onClose, onConfi
             /* @__PURE__ */ jsx6("strong", { children: fromLabel }),
             " a ",
             /* @__PURE__ */ jsx6("strong", { children: toLabel }),
-            " (sin duplicar el origen)."
+            "."
           ] }),
           /* @__PURE__ */ jsx6(Box3, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: moveBullets.map((line) => /* @__PURE__ */ jsx6("li", { children: renderImpactLine(line) }, line)) })
         ] }),
         /* @__PURE__ */ jsxs3(DialogActions, { sx: glassDialogActionsSx(), children: [
-          /* @__PURE__ */ jsx6(Button, { onClick: () => setMoveStep(false), disabled: busy, sx: { textTransform: "none" }, children: "Atr\xE1s" }),
+          /* @__PURE__ */ jsx6(Button, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
           /* @__PURE__ */ jsx6(
             Button,
             {
               variant: "contained",
               color: "warning",
               disabled: busy,
-              onClick: () => confirm("move"),
+              onClick: () => {
+                if (!busy) onConfirm("move");
+              },
               sx: { textTransform: "none", minWidth: 140 },
               startIcon: busy ? /* @__PURE__ */ jsx6(CircularProgress, { size: 16, color: "inherit" }) : /* @__PURE__ */ jsx6(Icon, { icon: "mdi:arrow-right-bold", size: 18 }),
               children: busy ? "Moviendo\u2026" : "Confirmar movimiento"
             }
           )
         ] })
-      ] })
+      ]
     }
   );
 }
@@ -1069,12 +1572,10 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
     if (open) setUsername(null);
   }, [open]);
   if (!pending) return null;
-  const { roleTitle, role, existingUsernames, toJerarquia, columns } = pending;
-  const roleLabel = roleTitle || role;
+  const { roleTitle, role, existingUsernames } = pending;
+  const roleLabel2 = roleTitle || role;
   const alreadyInRole = username && existingUsernames?.has(String(username).trim().toUpperCase());
-  const userJerarquias = username ? userJerarquiasFromBoard(username, columns) : [];
-  const addCheck = username && !alreadyInRole ? canAddUserToRole({ toJerarquia, userJerarquiasOnBoard: userJerarquias }) : { ok: true };
-  const inheritanceBlocked = username && !alreadyInRole && !addCheck.ok;
+  const addCheck = username && !alreadyInRole ? canAddUserToRole({ username }) : { ok: true };
   return /* @__PURE__ */ jsxs3(
     GlassDialog,
     {
@@ -1082,17 +1583,17 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
       onClose: busy ? void 0 : onClose,
       maxWidth: "sm",
       fullWidth: true,
-      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel, accent: "#10b981", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-plus-outline", title: "Agregar al rol", subtitle: roleLabel2, accent: "#10b981", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
           /* @__PURE__ */ jsxs3(Typography3, { variant: "body2", color: "text.secondary", sx: { mb: 2 }, children: [
             "Busque un usuario en permisos ISS o escriba un login nuevo para asignarlo al rol ",
-            /* @__PURE__ */ jsx6("strong", { children: roleLabel }),
+            /* @__PURE__ */ jsx6("strong", { children: roleLabel2 }),
             "."
           ] }),
           /* @__PURE__ */ jsx6(PermisosUserAutocomplete, { value: username, onChange: setUsername, disabled: busy, label: "Usuario" }),
           alreadyInRole ? /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mt: 1.5 }, children: "Este usuario ya est\xE1 en el rol." }) : null,
-          inheritanceBlocked ? /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mt: 1.5 }, children: addCheck.reason }) : null
+          username && !alreadyInRole && !addCheck.ok ? /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mt: 1.5 }, children: addCheck.reason }) : null
         ] }),
         /* @__PURE__ */ jsxs3(DialogActions, { sx: glassDialogActionsSx(), children: [
           /* @__PURE__ */ jsx6(Button, { onClick: onClose, disabled: busy, sx: { textTransform: "none" }, children: "Cancelar" }),
@@ -1100,7 +1601,7 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
             Button,
             {
               variant: "contained",
-              disabled: busy || !username || alreadyInRole || inheritanceBlocked,
+              disabled: busy || !username || alreadyInRole || !addCheck.ok,
               onClick: () => onConfirm(username),
               sx: { textTransform: "none", minWidth: 120 },
               startIcon: busy ? /* @__PURE__ */ jsx6(CircularProgress, { size: 16, color: "inherit" }) : /* @__PURE__ */ jsx6(Icon, { icon: "mdi:account-plus-outline", size: 18 }),
@@ -1114,11 +1615,11 @@ function RoleAddDialog({ open, pending, busy, onClose, onConfirm }) {
 }
 function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onConfirm }) {
   if (!pending) return null;
-  const { username, roleTitle, role, fromJerarquia } = pending;
-  const roleLabel = roleTitle || role;
+  const { username, roleTitle, role } = pending;
+  const roleLabel2 = roleTitle || role;
   const isSelf = isSamePermisosUser(username, sessionUsername);
-  const isDevLead = isTopDevLeadRole(role, fromJerarquia);
-  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel, isSelf, isDevLead });
+  const isDevLead = isTopDevLeadRole(role);
+  const bullets = removeRoleImpactBullets({ username, roleTitle: roleLabel2, isSelf, isDevLead });
   return /* @__PURE__ */ jsxs3(
     GlassDialog,
     {
@@ -1127,15 +1628,15 @@ function RoleRemoveDialog({ open, pending, busy, sessionUsername, onClose, onCon
       maxWidth: "sm",
       fullWidth: true,
       disableEscapeKeyDown: busy,
-      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
+      header: /* @__PURE__ */ jsx6(GlassDialogHeader, { icon: "mdi:account-remove-outline", title: "Quitar del rol", subtitle: `${username} \xB7 ${roleLabel2}`, accent: "#f59e0b", onClose: busy ? void 0 : onClose }),
       children: [
         /* @__PURE__ */ jsxs3(DialogContent2, { sx: glassDialogContentSx({ p: 2.5 }), children: [
-          /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mb: 2 }, children: isSelf && isDevLead ? "Te quitar\xE1s dev_lead (m\xE1ximo privilegio). Otro dev_lead o un ajuste en BD ser\xE1 necesario para recuperarlo." : "Esta acci\xF3n revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar." }),
+          /* @__PURE__ */ jsx6(Alert, { severity: "warning", sx: { mb: 2 }, children: isSelf && isDevLead ? "Te quitar\xE1s DEVISS (m\xE1ximo privilegio). Otro DEVISS o un ajuste en BD ser\xE1 necesario para recuperarlo." : "Esta acci\xF3n revoca permisos de forma inmediata. Revise las consecuencias antes de confirmar." }),
           /* @__PURE__ */ jsxs3(Typography3, { variant: "body2", color: "text.secondary", sx: { mb: 1.5 }, children: [
             "\xBFQuitar a ",
             /* @__PURE__ */ jsx6("strong", { children: username }),
             " del rol ",
-            /* @__PURE__ */ jsx6("strong", { children: roleLabel }),
+            /* @__PURE__ */ jsx6("strong", { children: roleLabel2 }),
             "?"
           ] }),
           /* @__PURE__ */ jsx6(Box3, { component: "ul", sx: { m: 0, pl: 2.25, color: "text.secondary", fontSize: "0.875rem", "& li": { mb: 0.75 } }, children: bullets.map((line) => /* @__PURE__ */ jsx6("li", { children: renderImpactLine(line) }, line)) })
@@ -1167,7 +1668,7 @@ var { createPortal } = getReactDOM();
 var { Box: Box4, Paper, Typography: Typography4, Stack: Stack3, Chip: Chip3, IconButton, Tooltip: Tooltip2, CircularProgress: CircularProgress2 } = getMaterialUI();
 var { Icon: Icon2 } = UI;
 var DRAG_THRESHOLD_PX = 6;
-var UserCard = memo(function UserCard2({ card, columnId, columnTitle, columnJerarquia, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, onUserSummary, suppressClickRef }) {
+var UserCard = memo(function UserCard2({ card, columnId, columnTitle, canDragUser, isDragSource, userBusy, isSelected, isDimmed, onPointerDragStart, onRoleRemoveRequest, onUserSelect, onUserSummary, suppressClickRef }) {
   const canDragRole = !!canDragUser && !userBusy;
   const labels = card.labels ?? userCardLabels(card.username, card.displayName);
   const cardClass = [
@@ -1206,10 +1707,13 @@ var UserCard = memo(function UserCard2({ card, columnId, columnTitle, columnJera
         onUserSummary?.(card.username);
       },
       children: /* @__PURE__ */ jsxs4(Stack3, { direction: "row", alignItems: "center", spacing: 0.25, className: "paty-permisos-user-card__row", sx: { minWidth: 0 }, children: [
-        /* @__PURE__ */ jsxs4(Box4, { className: "paty-permisos-user-card__body", sx: { minWidth: 0, flex: 1 }, children: [
-          /* @__PURE__ */ jsx7(Typography4, { className: "paty-todos-card__title", component: "div", variant: "body2", fontWeight: 700, noWrap: true, title: labels.primary, children: labels.primary }),
-          labels.secondary ? /* @__PURE__ */ jsx7(Typography4, { className: "paty-todos-card__caption", component: "div", variant: "caption", color: "text.secondary", noWrap: true, title: labels.secondary, children: labels.secondary }) : null
-        ] }),
+        /* @__PURE__ */ jsx7(Box4, { className: "paty-permisos-user-card__body", sx: { minWidth: 0, flex: 1 }, children: /* @__PURE__ */ jsxs4(Typography4, { className: "paty-todos-card__title", component: "div", variant: "body2", fontWeight: 700, noWrap: true, title: [labels.primary, labels.idsCaption].filter(Boolean).join(" "), children: [
+          /* @__PURE__ */ jsx7("span", { className: "paty-permisos-user-card__name", children: labels.primary }),
+          labels.idsCaption ? /* @__PURE__ */ jsxs4("span", { className: "paty-todos-card__caption paty-permisos-user-card__ids", children: [
+            " ",
+            labels.idsCaption
+          ] }) : null
+        ] }) }),
         userBusy ? /* @__PURE__ */ jsx7(Tooltip2, { title: "Procesando\u2026", children: /* @__PURE__ */ jsx7("span", { className: "paty-permisos-user-card__busy", "aria-label": "Procesando", children: /* @__PURE__ */ jsx7(CircularProgress2, { size: 14, thickness: 5, color: "inherit" }) }) }) : canDragRole ? /* @__PURE__ */ jsx7(Tooltip2, { title: `Quitar de ${columnTitle || columnId}`, children: /* @__PURE__ */ jsx7("span", { className: "paty-permisos-user-card__remove-wrap", children: /* @__PURE__ */ jsx7(
           IconButton,
           {
@@ -1223,7 +1727,7 @@ var UserCard = memo(function UserCard2({ card, columnId, columnTitle, columnJera
             onClick: (e) => {
               e.stopPropagation();
               e.preventDefault();
-              onRoleRemoveRequest?.({ cardId: card.id, username: card.username, role: columnId, roleTitle: columnTitle, fromJerarquia: columnJerarquia });
+              onRoleRemoveRequest?.({ cardId: card.id, username: card.username, role: columnId, roleTitle: columnTitle });
             },
             children: /* @__PURE__ */ jsx7(Icon2, { icon: "mdi:close", size: 14 })
           }
@@ -1251,22 +1755,25 @@ function DragGhost({ card, column, x, y, width }) {
   }
   if (!card) return null;
   const labels = card.labels ?? userCardLabels(card.username, card.displayName);
-  const node = /* @__PURE__ */ jsxs4(
+  const node = /* @__PURE__ */ jsx7(
     Paper,
     {
       className: "paty-todos-card paty-permisos-user-card paty-permisos-drag-ghost paty-todos-card--ghost isa-glass-card",
       elevation: 8,
       style: { position: "fixed", left: x, top: y, width, zIndex: 1e4, pointerEvents: "none", margin: 0 },
       "aria-hidden": true,
-      children: [
-        /* @__PURE__ */ jsx7(Typography4, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: labels.primary }),
-        labels.secondary ? /* @__PURE__ */ jsx7(Typography4, { className: "paty-todos-card__caption", variant: "caption", color: "text.secondary", noWrap: true, children: labels.secondary }) : null
-      ]
+      children: /* @__PURE__ */ jsxs4(Typography4, { className: "paty-todos-card__title", variant: "body2", fontWeight: 700, noWrap: true, children: [
+        /* @__PURE__ */ jsx7("span", { className: "paty-permisos-user-card__name", children: labels.primary }),
+        labels.idsCaption ? /* @__PURE__ */ jsxs4("span", { className: "paty-todos-card__caption paty-permisos-user-card__ids", children: [
+          " ",
+          labels.idsCaption
+        ] }) : null
+      ] })
     }
   );
   return typeof document !== "undefined" ? createPortal(node, document.body) : node;
 }
-function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canManage, canEditRoleDescriptions, busy, actorJerarquia, actorJerarquias, sessionUsername, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleSave, onRoleDrag, onRoleRemove, onRoleAdd, onJerarquiaToast, onOpenRoleHierarchy, onUserSummary }) {
+function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canManage, canEditRoleDescriptions, busy, sessionUsername, filterToolbarRef, onUserFilterDrop, onRoleFilterDrop, onDragOverFilterChange, onRoleDrag, onRoleRemove, onRoleAdd, onUserSummary }) {
   const [dragOverCol, setDragOverCol] = useState5(null);
   const [draggingId, setDraggingId] = useState5(null);
   const [dragGhost, setDragGhost] = useState5(null);
@@ -1278,20 +1785,15 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
   const [processingUsername, setProcessingUsername] = useState5(null);
   const [selectedUsername, setSelectedUsername] = useState5(null);
   const [dragSourceCol, setDragSourceCol] = useState5(null);
-  const effectiveActorJerarquias = useMemo3(() => {
-    if (Array.isArray(actorJerarquias) && actorJerarquias.length) return actorJerarquias;
-    if (actorJerarquia != null && String(actorJerarquia).trim()) return [String(actorJerarquia).trim()];
-    return [];
-  }, [actorJerarquias, actorJerarquia]);
-  const kanbanWrapRef = useRef2(null);
+  const columns = boardData?.columns ?? [];
   const listRefs = useRef2({});
   const columnRefs = useRef2({});
   const dragRef = useRef2(null);
   const cardElRef = useRef2(null);
   const suppressClickRef = useRef2(false);
   const processingUserRef = useRef2(null);
+  const kanbanWrapRef = useRef2(null);
   const dragPendingRef = useRef2(null);
-  const columns = boardData?.columns ?? [];
   const filterActive = !!boardData?.filterActive;
   const assignEnabled = !!loggedIn && !!canAssignRoles;
   const filterDragEnabled = !!loggedIn && !canAssignRoles;
@@ -1353,14 +1855,13 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
       endUserProcessing();
     }
   }
-  async function handleDragConfirm(mode) {
+  async function handleDragConfirm() {
     const pending = dragPendingRef.current;
     if (!pending || !onRoleDrag || processingUserRef.current) return;
     if (!beginUserProcessing(pending.username)) return;
-    if (mode === "copy" && pending.copyBlocked) return;
     setDragPending(null);
     try {
-      await onRoleDrag({ ...pending, mode });
+      await onRoleDrag({ ...pending, mode: "move" });
     } catch {
     } finally {
       endUserProcessing();
@@ -1404,33 +1905,13 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
     const sourceColData = columns.find((c) => c.id === fromRole);
     const targetColData = columns.find((c) => c.id === toRole);
     if (targetColData?.users?.some((u) => u.username === username)) return;
-    if (!canActorTransferUser(effectiveActorJerarquias, sourceColData, targetColData)) {
-      onJerarquiaToast?.({
-        type: "info",
-        message: `Tu jerarqu\xEDa (${effectiveActorJerarquias.join(", ") || "?"}) no puede mover usuarios entre ${sourceColData?.title ?? fromRole} (${sourceColData?.jerarquia ?? "?"}) y ${targetColData?.title ?? toRole} (${targetColData?.jerarquia ?? "?"})`,
-        actorJerarquia: effectiveActorJerarquias.join("|"),
-        targetJerarquia: targetColData?.jerarquia,
-        targetRole: toRole
-      });
-      return;
-    }
-    const userJerarquiasOnBoard = userJerarquiasFromBoard(username, columns);
-    const copyCheck = canCopyUserRole({
-      fromJerarquia: sourceColData?.jerarquia,
-      toJerarquia: targetColData?.jerarquia,
-      userJerarquiasOnBoard
-    });
+    if (!assignEnabled) return;
     setDragPending({
       username: userKey(username),
       fromRole,
       toRole,
       fromRoleTitle: sourceColData?.title ?? fromRole,
-      toRoleTitle: targetColData?.title ?? toRole,
-      fromJerarquia: sourceColData?.jerarquia,
-      toJerarquia: targetColData?.jerarquia,
-      userJerarquiasOnBoard,
-      copyBlocked: !copyCheck.ok,
-      copyBlockReason: copyCheck.reason
+      toRoleTitle: targetColData?.title ?? toRole
     });
   }
   function handleColumnHeadDragStart(col, e) {
@@ -1460,7 +1941,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
     if (processingUserRef.current && key === processingUserRef.current) return;
     if (!assignEnabled) return;
     const sourceColData = columns.find((c) => c.id === sourceColumnId);
-    if (!canActorManageColumn(effectiveActorJerarquias, sourceColData)) return;
+    if (!assignEnabled) return;
     const rect = e.currentTarget.getBoundingClientRect();
     dragRef.current = {
       kind: "user",
@@ -1526,7 +2007,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [assignEnabled, columnIds, columns, processingUserKey, filterToolbarRef, onDragOverFilterChange, effectiveActorJerarquias, loggedIn, canAssignRoles]);
+  }, [assignEnabled, columnIds, columns, processingUserKey, filterToolbarRef, onDragOverFilterChange, loggedIn, canAssignRoles]);
   if (!boardData) return null;
   const transferBusy = !!processingUserKey;
   const removeBusy = transferBusy && !!removePending;
@@ -1537,7 +2018,7 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
       noUsersVisible ? /* @__PURE__ */ jsx7(Box4, { sx: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", p: 3, pointerEvents: "none", zIndex: 2 }, children: /* @__PURE__ */ jsx7(Typography4, { variant: "body2", color: "text.secondary", children: "Ning\xFAn usuario coincide con los filtros." }) }) : null,
       columns.length === 0 ? /* @__PURE__ */ jsx7(Box4, { sx: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }, children: /* @__PURE__ */ jsx7(Typography4, { variant: "body2", color: "text.secondary", children: boardData?.hideEmptyColumns ? "No hay columnas visibles (activa roles o desactiva \xABOcultar vac\xEDos\xBB)." : "No hay roles configurados." }) }) : null,
       columns.map((col) => {
-        const canManageCol = assignEnabled && canActorManageColumn(effectiveActorJerarquias, col);
+        const canManageCol = assignEnabled;
         const canDropOnCol = canManageCol;
         const isOver = draggingId && !String(draggingId).startsWith("col:") && dragOverCol === col.id;
         const isOverAllowed = isOver && canDropOnCol;
@@ -1577,46 +2058,29 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
                     /* @__PURE__ */ jsxs4(Stack3, { direction: "row", alignItems: "center", spacing: 0.75, className: "paty-todos-column__title", sx: { minWidth: 0, flex: 1 }, children: [
                       /* @__PURE__ */ jsx7(Icon2, { icon: col.icon, size: 16 }),
                       /* @__PURE__ */ jsxs4(Box4, { sx: { minWidth: 0 }, children: [
-                        /* @__PURE__ */ jsx7(Stack3, { direction: "row", alignItems: "baseline", spacing: 0.75, sx: { minWidth: 0 }, children: /* @__PURE__ */ jsx7(Box4, { component: "span", sx: { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }, title: col.jerarquia ? `${col.title} \xB7 Jerarqu\xEDa ${col.jerarquia}${col.roleName && col.title !== col.roleName ? ` (${col.roleName})` : ""}` : col.roleName && col.title !== col.roleName ? `${col.title} (${col.roleName})` : col.title, children: col.title }) }),
+                        /* @__PURE__ */ jsx7(Stack3, { direction: "row", alignItems: "baseline", spacing: 0.75, sx: { minWidth: 0 }, children: /* @__PURE__ */ jsx7(Box4, { component: "span", sx: { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 700 }, title: col.roleName && col.title !== col.roleName ? `${col.title} (${col.roleName})` : col.title, children: col.title }) }),
                         col.descripcion ? /* @__PURE__ */ jsx7(Typography4, { variant: "caption", color: "text.secondary", sx: { display: "block", lineHeight: 1.3, mt: 0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: col.descripcion, children: col.descripcion }) : null
                       ] })
                     ] }),
-                    /* @__PURE__ */ jsxs4(Stack3, { direction: "row", alignItems: "center", spacing: 0.5, sx: { flexShrink: 0 }, children: [
-                      onOpenRoleHierarchy ? /* @__PURE__ */ jsx7(Tooltip2, { title: `Ver/editar ${col.title || col.id} en jerarqu\xEDa`, children: /* @__PURE__ */ jsx7(
-                        IconButton,
-                        {
-                          size: "small",
-                          className: "paty-permisos-column__hierarchy",
-                          "aria-label": `Jerarqu\xEDa ${col.title || col.id}`,
-                          onPointerDown: (e) => e.stopPropagation(),
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            onOpenRoleHierarchy(col.roleName ?? col.id);
-                          },
-                          children: /* @__PURE__ */ jsx7(Icon2, { icon: "mdi:family-tree", size: 16 })
-                        }
-                      ) }) : null,
-                      canManageCol ? /* @__PURE__ */ jsx7(Tooltip2, { title: addBusy && addingRoleId === col.id ? "Agregando\u2026" : "Agregar usuario", children: /* @__PURE__ */ jsx7("span", { className: "paty-permisos-column__add-wrap", children: /* @__PURE__ */ jsx7(
-                        IconButton,
-                        {
-                          size: "small",
-                          className: "paty-permisos-column__add",
-                          disabled: addBusy,
-                          "aria-label": `Agregar usuario a ${col.title || col.id}`,
-                          onClick: () => {
-                            if (addBusy) return;
-                            setAddPending({
-                              role: col.id,
-                              roleTitle: col.title,
-                              toJerarquia: col.jerarquia,
-                              columns,
-                              existingUsernames: new Set(col.users.map((u) => u.username))
-                            });
-                          },
-                          children: addBusy && addingRoleId === col.id ? /* @__PURE__ */ jsx7(CircularProgress2, { size: 14, thickness: 5 }) : /* @__PURE__ */ jsx7(Icon2, { icon: "mdi:plus", size: 16 })
-                        }
-                      ) }) }) : null
-                    ] })
+                    /* @__PURE__ */ jsx7(Stack3, { direction: "row", alignItems: "center", spacing: 0.5, sx: { flexShrink: 0 }, children: canManageCol ? /* @__PURE__ */ jsx7(Tooltip2, { title: addBusy && addingRoleId === col.id ? "Agregando\u2026" : "Agregar usuario", children: /* @__PURE__ */ jsx7("span", { className: "paty-permisos-column__add-wrap", children: /* @__PURE__ */ jsx7(
+                      IconButton,
+                      {
+                        size: "small",
+                        className: "paty-permisos-column__add",
+                        disabled: addBusy,
+                        "aria-label": `Agregar usuario a ${col.title || col.id}`,
+                        onClick: () => {
+                          if (addBusy) return;
+                          setAddPending({
+                            role: col.id,
+                            roleTitle: col.title,
+                            columns,
+                            existingUsernames: new Set(col.users.map((u) => u.username))
+                          });
+                        },
+                        children: addBusy && addingRoleId === col.id ? /* @__PURE__ */ jsx7(CircularProgress2, { size: 14, thickness: 5 }) : /* @__PURE__ */ jsx7(Icon2, { icon: "mdi:plus", size: 16 })
+                      }
+                    ) }) }) : null })
                   ]
                 }
               ),
@@ -1635,14 +2099,13 @@ function PermisosKanban({ boardData, loggedIn, canAssignRoles, readOnly, canMana
                       const userBusy = !!processingUserKey && processingUserKey === cardUserKey;
                       const isSelected = selectedUserKey === cardUserKey;
                       const isDimmed = !!selectedUserKey && !isSelected;
-                      const canDragUser = canManageCol;
+                      const canDragUser = canAssignRoles && !readOnly;
                       return /* @__PURE__ */ jsx7(
                         UserCard,
                         {
                           card,
                           columnId: col.id,
                           columnTitle: col.title,
-                          columnJerarquia: col.jerarquia,
                           canDragUser,
                           isDragSource: draggingId === card.id,
                           userBusy,

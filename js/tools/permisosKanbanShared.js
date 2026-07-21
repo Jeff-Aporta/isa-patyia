@@ -1,8 +1,9 @@
 import { roleDescripcion, roleNamedisplay, userRoles } from "./permisosForm.js";
-import { getRoleJerarquia, compareHierarchy, canManageRole, actorCanManageTarget, formatJerarquiaLabel, actorJerarquiasFromRoles, actorJerarquiaFromRoles } from "./roleHierarchy.js";
 import { canonicalRoleMeta } from "./roleCanonicalMeta.js";
 
-export const VISITANTE = "visitante";
+export const USR_ROLE = "USR";
+/** @deprecated Prefer USR_ROLE — alias for minimal breakage */
+export const VISITANTE = USR_ROLE;
 
 const ROLE_ACCENTS = ["#1e90ff", "#10b981", "#a855f7", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 const ROLE_ICONS = ["mdi:shield-account", "mdi:file-document-edit-outline", "mdi:code-braces", "mdi:robot-outline", "mdi:eye-outline", "mdi:account-group-outline"];
@@ -12,20 +13,16 @@ export function permEntryKey(entry) {
 }
 
 export function roleNameFromEntry(entry) {
-  return permEntryKey(entry).toLowerCase().replace(/^role:/i, "");
+  return permEntryKey(entry).toUpperCase().replace(/^ROLE:/i, "");
 }
 
 function formatRoleTitle(roleName) {
-  return String(roleName ?? "")
-    .split("_")
-    .map((part) => {
-      const p = part.toLowerCase();
-      if (p === "iss" || p === "isw") return p.toUpperCase();
-      if (!p) return "";
-      return p.charAt(0).toUpperCase() + p.slice(1);
-    })
-    .filter(Boolean)
-    .join(" ");
+  const key = String(roleName ?? "").trim().toUpperCase();
+  if (key === "USR") return "Usuario";
+  if (key === "ADMN") return "Admn";
+  if (key === "DEVISS") return "Dev ISS";
+  if (key === "AUDITOR") return "Auditor";
+  return key;
 }
 
 export function roleTitleFromEntry(entry) {
@@ -54,19 +51,27 @@ export function themeForRole(roleName, index = 0, permisos = null) {
   return { accent: ROLE_ACCENTS[i], icon: ROLE_ICONS[i % ROLE_ICONS.length] };
 }
 
-export function userCardLabels(username, displayName) {
+export function userCardLabels(username, displayName, contact) {
   const user = String(username ?? "").trim().toUpperCase();
   const name = String(displayName ?? "").trim();
-  if (name) return { primary: name, secondary: user };
-  return { primary: user, secondary: null };
+  const itercero = contact?.itercero != null ? String(contact.itercero).trim() : "";
+  const rawC = contact?.icontacto;
+  const icontacto = rawC != null && rawC !== "" ? String(rawC).trim() : "";
+  const idsCaption = (itercero || icontacto)
+    ? `(${itercero || "—"}${icontacto ? ` / ${icontacto}` : ""})`
+    : null;
+  if (name) return { primary: name, secondary: idsCaption || user, idsCaption };
+  return { primary: user, secondary: idsCaption, idsCaption };
 }
 
-export function matchesUserFilter(username, displayName, query) {
+export function matchesUserFilter(username, displayName, query, contact) {
   const q = String(query ?? "").trim().toUpperCase();
   if (!q) return true;
   const u = String(username ?? "").trim().toUpperCase();
   const n = String(displayName ?? "").trim().toUpperCase();
-  return u.includes(q) || (n && n.includes(q));
+  const itercero = String(contact?.itercero ?? "").trim().toUpperCase();
+  const icontacto = String(contact?.icontacto ?? "").trim().toUpperCase();
+  return u.includes(q) || (n && n.includes(q)) || (itercero && itercero.includes(q)) || (icontacto && icontacto.includes(q));
 }
 
 export function displayNameFromUserEntry(entry) {
@@ -115,23 +120,21 @@ export function buildPermisosBoard(data, filters = {}) {
   const userQuery = filters.userSearch ?? "";
   const roleFiltersRaw = filters.roleFilters ?? filters.roleFilter ?? [];
   const roleFilters = (Array.isArray(roleFiltersRaw) ? roleFiltersRaw : [roleFiltersRaw])
-    .map((r) => String(r ?? "").trim().toLowerCase())
+    .map((r) => String(r ?? "").trim().toUpperCase())
     .filter(Boolean);
   const roleFilterSet = roleFilters.length ? new Set(roleFilters) : null;
   const userDirectory = filters.userDirectory ?? null;
+  const contactos = filters.contactos && typeof filters.contactos === "object" ? filters.contactos : {};
   const filterActive = Boolean(String(userQuery ?? "").trim()) || Boolean(roleFilterSet?.size);
 
   const activeRoles = roles.filter((entry) => entry?.itipo !== "user" && entry?.bactivo !== false && roleNameFromEntry(entry));
   const columns = activeRoles.map((entry, index) => {
     const roleName = roleNameFromEntry(entry);
     const theme = themeForRole(roleName, index, entry.permisos);
-    const jerarquia = getRoleJerarquia(roleName, entry.permisos);
     return {
       id: roleName,
       roleName,
       title: roleTitleFromEntry(entry),
-      jerarquia,
-      jerarquiaLabel: formatJerarquiaLabel(jerarquia),
       descripcion: roleDescripcionFromEntry(entry),
       entry,
       accent: theme.accent,
@@ -141,7 +144,7 @@ export function buildPermisosBoard(data, filters = {}) {
       roleFilteredOut: !!(roleFilterSet && !roleFilterSet.has(roleName)),
     };
   }).filter((c) => {
-    if (!c.id || c.id === VISITANTE) return false;
+    if (!c.id || c.id === USR_ROLE) return false;
     return true;
   });
 
@@ -149,14 +152,23 @@ export function buildPermisosBoard(data, filters = {}) {
   for (const userEntry of users) {
     const username = permEntryKey(userEntry).toUpperCase();
     const displayName = resolveDisplayName(username, userEntry, userDirectory);
-    if (!matchesUserFilter(username, displayName, userQuery)) continue;
+    const contact = contactos[username] ?? null;
+    if (!matchesUserFilter(username, displayName, userQuery, contact)) continue;
     for (const role of userRoles(userEntry.permisos)) {
       const col = colById.get(role);
       if (!col) continue;
       if (roleFilterSet && !roleFilterSet.has(role)) continue;
       if (col.users.some((u) => u.username === username)) continue;
-      const labels = userCardLabels(username, displayName);
-      col.users.push({ id: `${username}@${role}`, username, displayName, labels, userEntry });
+      const labels = userCardLabels(username, displayName, contact);
+      col.users.push({
+        id: `${username}@${role}`,
+        username,
+        displayName,
+        labels,
+        userEntry,
+        itercero: contact?.itercero ?? null,
+        icontacto: contact?.icontacto ?? null,
+      });
     }
   }
 
@@ -194,21 +206,13 @@ export function buildRolePermisosIndex(roles) {
   return out;
 }
 
-/** Resuelve la jerarquía efectiva del actor desde sus roles. */
-export { actorJerarquiasFromRoles, actorJerarquiaFromRoles };
-
-/** ¿El actor puede mover usuarios al rol `targetRole`? (cualquiera de sus jerarquías cubre la rama). */
-export function canActorManageColumn(actorJerarquias, targetColumn) {
-  if (!targetColumn) return false;
-  const actors = Array.isArray(actorJerarquias) ? actorJerarquias : [actorJerarquias];
-  const filtered = actors.map((j) => String(j ?? "").trim()).filter(Boolean);
-  if (!filtered.length) return false;
-  return actorCanManageTarget(filtered, targetColumn.jerarquia ?? "999");
+/** Board gates by canAssignRoles — hierarchy removed. */
+export function canActorManageColumn(_actorRoles, targetColumn) {
+  return !!targetColumn;
 }
 
-/** Origen y destino deben estar bajo alguna rama jerárquica del actor. */
-export function canActorTransferUser(actorJerarquias, fromColumn, toColumn) {
-  return canActorManageColumn(actorJerarquias, fromColumn) && canActorManageColumn(actorJerarquias, toColumn);
+export function canActorTransferUser(_actorRoles, fromColumn, toColumn) {
+  return !!fromColumn && !!toColumn;
 }
 
 export function pointInRef(ref, clientX, clientY) {

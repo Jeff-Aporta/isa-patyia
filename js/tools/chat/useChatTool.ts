@@ -5,7 +5,6 @@ import {
   clearPatyJwtLocal,
   canInteractPatyChat,
   canAdminPortalJwt,
-  isFaithfulImpersonation,
   convBelongsToJwt,
   resolveSessionBrowseScope,
   browseScopeKey,
@@ -192,7 +191,6 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
-  const impersonating = isFaithfulImpersonation();
   const canAdminJwt = canAdminPortalJwt();
   const canAuditChat = useMemo(
     () => LabSession.canAccessOthers(),
@@ -213,7 +211,6 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     selectedConvRow,
     activeConvOwnerScope(listScope, jwt?.claims),
     jwt?.claims,
-    impersonating,
   );
   const canSend = canInteract
     && auditScopeIsOwnJwt(auditScope, jwt?.claims)
@@ -223,8 +220,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       jwt?.claims
         ? !auditScopeIsOwnJwt(auditScope, jwt.claims)
         : sessionBrowseScope && browseScopeKey(auditScope) !== browseScopeKey(sessionBrowseScope)
-    ))
-    || (impersonating && Boolean(selectedId) && !selectedConvOwned),
+    )),
   );
   const viewOnly = loggedIn && !canSend;
   const needsJwt = loggedIn && !jwt?.token && !jwtLoading;
@@ -314,7 +310,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       setSessionScopeLoading(false);
       return undefined;
     }
-    if (jwt?.token && !impersonating) {
+    if (jwt?.token) {
       setSessionBrowseScope(null);
       setSessionScopeLoading(false);
       return undefined;
@@ -325,7 +321,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       .then((scope) => { if (!cancelled) setSessionBrowseScope(scope); })
       .finally(() => { if (!cancelled) setSessionScopeLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, sessionUser, jwt?.token, impersonating]);
+  }, [loggedIn, sessionUser, jwt?.token]);
 
   const reloadList = useCallback(async () => {
     if (!loggedIn || jwtLoading || sessionScopeLoading) return;
@@ -805,7 +801,6 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       rows.find((r) => convIdsEqual(r.iconversacion, selectedId)),
       displayScope,
       jwt.claims,
-      impersonating,
     )) {
       toastError("No puedes enviar mensajes en conversaciones de otro contacto");
       return;
@@ -893,10 +888,24 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
           setSelectedId(newId);
           persistChatConvId(newId);
         }
-        void reloadList();
+        // El ISS persiste el título nuevo DESPUÉS de cerrar el stream (tryUpdate en onComplete),
+        // así que la lista recargada puede traer el título viejo y pisar el patch. Re-aplicar
+        // el patch del stream (fuente más fresca) cuando la recarga termine.
+        void reloadList().then(() => {
+          setRows((prev) => {
+            const exists = prev.some((r) => convIdsEqual(r.iconversacion, newId));
+            if (exists) return prev.map((r) => (convIdsEqual(r.iconversacion, newId) ? { ...r, ...rowPatch } : r));
+            return [rowPatch, ...prev];
+          });
+        });
         void patchThreadAfterSend(newId, {
           minLogMensajes: logCountBefore + 2,
           ownerLabel: userName,
+        }).then(() => {
+          // El detail refetcheado puede traer el título viejo (BD aún sin tryUpdate) — el del stream manda.
+          if (!tituloStream) return;
+          setDetail((d) => (d && convIdsEqual(d.iconversacion, newId) && d.titulo !== tituloStream ? { ...d, titulo: tituloStream } : d));
+          setRows((prev) => prev.map((r) => (convIdsEqual(r.iconversacion, newId) && r.titulo !== tituloStream ? { ...r, titulo: tituloStream } : r)));
         });
       } else if (result?.mensajesOpenAI?.length) {
         applyThreadFromDetail(result, null, userName);

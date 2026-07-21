@@ -82,9 +82,10 @@ function msgStoredUserName(msg) {
 }
 
 function looksLikeUsername(name, nick) {
-  const n = String(name ?? "").trim();
-  const k = String(nick ?? "").trim();
-  return n && k && n.toUpperCase() === k.toUpperCase();
+  // El nick visible ya viene sin @dominio; comparar también la parte local del nombre guardado.
+  const n = String(name ?? "").trim().toUpperCase();
+  const k = String(nick ?? "").trim().toUpperCase();
+  return Boolean(n && k && (n === k || n.split("@")[0] === k.split("@")[0]));
 }
 
 function roleTitle(msg, chatUserDisplayName, chatUserNick) {
@@ -103,7 +104,7 @@ function roleUserCaption(msg, chatUserNick) {
   if (!msg.esUsuario) return "";
   const nick = String(chatUserNick ?? "").trim();
   if (nick) return nick;
-  const fromMsg = String(msgStoredUserName(msg)).trim();
+  const fromMsg = String(msgStoredUserName(msg)).trim().split("@")[0];
   return fromMsg && !/\s/.test(fromMsg) ? fromMsg : "";
 }
 

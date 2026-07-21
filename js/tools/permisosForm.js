@@ -4,13 +4,13 @@ export const PERM_META = new Set(["descripcion", "namedisplay", "roles"]);
 export const FLAG_DEFS = [
   { key: "*", label: "Acceso total", hint: "Wildcard — anula el resto de restricciones de ruta." },
   { key: "impersonate", label: "Suplantar chat", hint: "Actuar como otro usuario en conversaciones." },
-  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (dev_lead)." },
+  { key: "manage_permissions", label: "Gestionar permisos", hint: "CRUD de dbo.SYS_USR_PERMISSIONS (DEVISS)." },
 ];
 
 export const ACCESS_MODES = [
   { value: "off", label: "Sin acceso" },
   { value: "allow", label: "Permitido" },
-  { value: "filtered", label: "Filtrado (fixFilter)" },
+  { value: "filtered", label: "Filtrado (filter)" },
 ];
 
 const FLAG_KEYS = new Set(FLAG_DEFS.map((f) => f.key));
@@ -31,7 +31,7 @@ export function roleNamedisplay(permisos) {
 
 export function userRoles(permisos) {
   const r = permisos?.roles;
-  return Array.isArray(r) ? r.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : [];
+  return Array.isArray(r) ? r.map((x) => String(x).trim().toUpperCase()).filter(Boolean) : [];
 }
 
 export function userOverrides(permisos) {
@@ -45,20 +45,20 @@ export function userOverrides(permisos) {
 export function restrictionToMode(value) {
   if (value === true) return "allow";
   if (value && typeof value === "object") {
-    const ff = value.fixFilter;
-    if (ff && typeof ff === "object" && !Array.isArray(ff) && Object.keys(ff).length) return "filtered";
+    const f = value.filter;
+    if (f && typeof f === "object" && !Array.isArray(f) && Object.keys(f).length) return "filtered";
     return "allow";
   }
   return "off";
 }
 
-import { fixFilterFromRestriction } from "./permFixFilter.js";
+import { filterFromRestriction } from "./permFilter.js";
 
-export function modeToRestriction(mode, fixFilter) {
+export function modeToRestriction(mode, filter) {
   if (mode === "allow") return true;
   if (mode === "filtered") {
-    const ff = fixFilterFromRestriction({ fixFilter });
-    return ff ? { fixFilter: ff } : true;
+    const f = filterFromRestriction({ filter });
+    return f ? { filter: f } : true;
   }
   return null;
 }
@@ -75,8 +75,8 @@ export function splitRolePermisos(permisos) {
     }
     const mode = restrictionToMode(value);
     if (mode !== "off") {
-      const fixFilter = fixFilterFromRestriction(value);
-      routes.push(fixFilter ? { key, mode, fixFilter } : { key, mode });
+      const filter = filterFromRestriction(value);
+      routes.push(filter ? { key, mode, filter } : { key, mode });
     }
   }
   routes.sort((a, b) => a.key.localeCompare(b.key));
@@ -92,14 +92,14 @@ export function buildRolePermisos(desc, namedisplay, flags, routes) {
   }
   for (const row of routes) {
     if (!row.key || row.mode === "off") continue;
-    const restr = modeToRestriction(row.mode, row.fixFilter);
+    const restr = modeToRestriction(row.mode, row.filter);
     if (restr != null) out[row.key] = restr;
   }
   return out;
 }
 
 export function buildUserPermisos(selectedRoles, overrides = {}) {
-  const roles = [...new Set(selectedRoles.map((r) => String(r).trim().toLowerCase()).filter(Boolean))];
+  const roles = [...new Set(selectedRoles.map((r) => String(r).trim().toUpperCase()).filter(Boolean))];
   return { roles, ...overrides };
 }
 

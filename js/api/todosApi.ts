@@ -149,8 +149,8 @@ export async function searchScrumAppUsers(query = "", limit = 12) {
 }
 
 export async function fetchTodoBoards(boardType = "scrum") {
-  const data = await scrumHttp.capFetch(`/scrum/boards${qs({ boardType })}`, { method: "GET" });
-  return (data.boards ?? []) as TodoBoard[];
+  const data = (await scrumHttp.capFetch(`/scrum/boards${qs({ boardType })}`, { method: "GET" })) as { boards?: TodoBoard[] };
+  return data.boards ?? [];
 }
 
 export async function createTodoBoard(payload: {
@@ -168,12 +168,14 @@ export async function createTodoBoard(payload: {
   return data as TodoBoardFull & { ok: boolean };
 }
 
+// PUT /api/scrum/boards/{boardId} (era PATCH; migrado 18-jul-2026).
+// En InSoft no usamos PATCH: solo PUT.
 export async function updateTodoBoard(
   boardId: string,
   patch: { title?: string; description?: string | null; visibility?: BoardVisibility },
 ) {
   const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}${qs()}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
@@ -259,17 +261,17 @@ export async function createTodoTask(
     assignedTo?: string | null;
   },
 ) {
-  const data = await scrumHttp.capFetch(`/scrum/boards/${boardId}/tasks${qs()}`, {
+  const data = (await scrumHttp.capFetch(`/scrum/boards/${boardId}/tasks${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return data.task as TodoTask;
+  })) as { task: TodoTask };
+  return data.task;
 }
 
 export async function fetchTodoTask(taskId: string) {
-  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, { method: "GET" });
-  return data.task as TodoTask;
+  const data = (await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, { method: "GET" })) as { task: TodoTask };
+  return data.task;
 }
 
 export async function updateTodoTask(
@@ -282,36 +284,36 @@ export async function updateTodoTask(
     sortOrder?: number;
   },
 ) {
-  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, {
-    method: "PATCH",
+  const data = (await scrumHttp.capFetch(`/scrum/tasks/${taskId}${qs()}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
-  });
-  return data.task as TodoTask;
+  })) as { task: TodoTask };
+  return data.task;
 }
 
 export async function createTodoMilestone(
   taskId: string,
   payload: { title: string; dueDate?: string | null },
 ) {
-  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}/milestones${qs()}`, {
+  const data = (await scrumHttp.capFetch(`/scrum/tasks/${taskId}/milestones${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return data.milestone as TodoMilestone;
+  })) as { milestone: TodoMilestone };
+  return data.milestone;
 }
 
 export async function updateTodoMilestone(
   milestoneId: string,
   patch: { title?: string; dueDate?: string | null; completed?: boolean },
 ) {
-  const data = await scrumHttp.capFetch(`/scrum/milestones/${milestoneId}${qs()}`, {
-    method: "PATCH",
+  const data = (await scrumHttp.capFetch(`/scrum/milestones/${milestoneId}${qs()}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
-  });
-  return data.milestone as TodoMilestone;
+  })) as { milestone: TodoMilestone };
+  return data.milestone;
 }
 
 export async function deleteTodoTask(taskId: string) {
@@ -323,10 +325,10 @@ export async function deleteTodoMilestone(milestoneId: string) {
 }
 
 export async function addTodoComment(taskId: string, body: string) {
-  const data = await scrumHttp.capFetch(`/scrum/tasks/${taskId}/comments${qs()}`, {
+  const data = (await scrumHttp.capFetch(`/scrum/tasks/${taskId}/comments${qs()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ body }),
-  });
-  return data.event as TodoEvent;
+  })) as { event: TodoEvent };
+  return data.event;
 }

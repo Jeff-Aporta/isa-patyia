@@ -4,7 +4,8 @@ export const PERM_DOC_FIELD_RULES = [/^namedisplay$/, /^descripcion$/];
 
 export const PERM_SECURITY_FIELD_RULES = [
   /^(\*|impersonate|manage_permissions|manage_sampling)$/,
-  /^(GET|POST|PUT|PATCH|DELETE):\/api\//,
+  // Decisión 18-jul-2026: en InSoft NO usamos PATCH; solo GET/POST/PUT/DELETE.
+  /^(GET|POST|PUT|DELETE):\/api\//,
 ];
 
 export function resolvePermFieldRules({ canManage, canEditDesc }) {

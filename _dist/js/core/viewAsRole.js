@@ -1,22 +1,37 @@
-/**
- * Ver como rol — simulación SOLO front para DEVISS.
- * No altera JWT, no envía headers al ISS, no cambia loadEffectivePermisos del servidor.
- * Solo capabilities locales de UI (localMeCaps). Nunca eleva: preset ∩ caps reales del login.
- */
-import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
+// js/tools/roleCanonicalMeta.js
+var CANONICAL_ROLE_META = {
+  AUDITOR: {
+    namedisplay: "Auditor",
+    descripcion: "Ve conversaciones de todos; chatea solo en las propias"
+  },
+  ADMN: {
+    namedisplay: "Admn ISA-Paty",
+    descripcion: "Administraci\xF3n PatyIA \u2014 sin acceso total de desarrollo"
+  },
+  DEVISS: {
+    namedisplay: "Dev Lead ISS",
+    descripcion: "L\xEDder de desarrollo \u2014 acceso total"
+  },
+  USR: {
+    namedisplay: "Usuario",
+    descripcion: "Acceso b\xE1sico de sesi\xF3n"
+  }
+};
+function canonicalRoleMeta(roleName) {
+  const key = String(roleName ?? "").trim().toUpperCase();
+  return CANONICAL_ROLE_META[key] ?? null;
+}
 
-export const VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
-export const VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
-
-/** Roles que se pueden simular desde el menú (nombres SEG exactos). */
-export const VIEW_AS_ROLE_OPTIONS = [
+// js/core/viewAsRole.ts
+var VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
+var VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
+var VIEW_AS_ROLE_OPTIONS = [
   { id: "USR", label: "Usuario" },
   { id: "AUDITOR", label: "Auditor" },
   { id: "ADMN", label: "Admn" },
-  { id: "DEVISS", label: "Dev ISS" },
+  { id: "DEVISS", label: "Dev ISS" }
 ];
-
-const NONE = Object.freeze({
+var NONE = Object.freeze({
   canEditInstrucciones: false,
   canEditOpenAiConfig: false,
   canEditPromptsOperativos: false,
@@ -32,18 +47,16 @@ const NONE = Object.freeze({
   canViewPrompts: false,
   canViewChat: true,
   canViewConfig: false,
-  canSendChat: true,
+  canSendChat: true
 });
-
-/** Presets aproximados al outcome típico de GET /api/permissions/me por rol. */
-export const ROLE_CAPS_PRESETS = Object.freeze({
+var ROLE_CAPS_PRESETS = Object.freeze({
   USR: { ...NONE },
   AUDITOR: {
     ...NONE,
     canViewPrompts: true,
     canViewConfig: true,
     canAccessOthers: true,
-    canViewKanban: true,
+    canViewKanban: true
   },
   ADMN: {
     ...NONE,
@@ -55,7 +68,7 @@ export const ROLE_CAPS_PRESETS = Object.freeze({
     canAssignUserRoles: true,
     canAccessOthers: true,
     canViewKanban: true,
-    canEditKanbanCards: true,
+    canEditKanbanCards: true
   },
   DEVISS: {
     canEditInstrucciones: true,
@@ -73,20 +86,16 @@ export const ROLE_CAPS_PRESETS = Object.freeze({
     canViewPrompts: true,
     canViewChat: true,
     canViewConfig: true,
-    canSendChat: true,
-  },
+    canSendChat: true
+  }
 });
-
-function roleKey(name: unknown): string {
+function roleKey(name) {
   return String(name ?? "").trim().toUpperCase();
 }
-
-/** Solo DEVISS puede abrir el simulador «Ver como». */
-export function isDevBranchRole(roleName: unknown): boolean {
+function isDevBranchRole(roleName) {
   return roleKey(roleName) === "DEVISS";
 }
-
-export function formatViewAsRoleLabel(roleName: unknown): string {
+function formatViewAsRoleLabel(roleName) {
   const key = roleKey(roleName);
   if (!key) return "";
   const opt = VIEW_AS_ROLE_OPTIONS.find((o) => o.id === key);
@@ -95,57 +104,45 @@ export function formatViewAsRoleLabel(roleName: unknown): string {
   if (canon?.namedisplay) return canon.namedisplay;
   return key;
 }
-
-export function readViewAsRole(): string {
+function readViewAsRole() {
   try {
     const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
     if (!v || v === "DEVISS") return "";
-    if (!ROLE_CAPS_PRESETS[v as keyof typeof ROLE_CAPS_PRESETS]) return "";
+    if (!ROLE_CAPS_PRESETS[v]) return "";
     return v;
   } catch {
     return "";
   }
 }
-
-export function writeViewAsRole(roleName: unknown): void {
+function writeViewAsRole(roleName) {
   const key = roleKey(roleName);
   try {
-    if (!key || key === "DEVISS" || !ROLE_CAPS_PRESETS[key as keyof typeof ROLE_CAPS_PRESETS]) {
+    if (!key || key === "DEVISS" || !ROLE_CAPS_PRESETS[key]) {
       localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
     } else {
       localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
     }
-  } catch { /* ignore */ }
+  } catch {
+  }
   try {
     window.dispatchEvent(new CustomEvent(VIEW_AS_ROLE_EVENT, { detail: { role: readViewAsRole() } }));
     window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
-  } catch { /* ignore */ }
+  } catch {
+  }
 }
-
-export function clearViewAsRole(): void {
+function clearViewAsRole() {
   writeViewAsRole("");
 }
-
-export function capsForViewAsRole(roleName: unknown): Record<string, boolean> | null {
+function capsForViewAsRole(roleName) {
   const key = roleKey(roleName);
-  const preset = ROLE_CAPS_PRESETS[key as keyof typeof ROLE_CAPS_PRESETS];
+  const preset = ROLE_CAPS_PRESETS[key];
   return preset ? { ...preset } : null;
 }
-
-/** Solo DEVISS puede abrir el simulador. */
-export function realRolesAllowViewAs(roles: unknown[]): boolean {
+function realRolesAllowViewAs(roles) {
   return (roles ?? []).some((r) => isDevBranchRole(r));
 }
-
-/**
- * Nunca elevar: cada cap del preset solo queda true si el login real también la tiene.
- * Si el rol base no tiene una función, «ver como» no la enciende.
- */
-export function clampViewAsCapsToReal(
-  preset: Record<string, boolean> | null | undefined,
-  realCaps: Record<string, boolean> | null | undefined,
-): Record<string, boolean> {
-  const out: Record<string, boolean> = {};
+function clampViewAsCapsToReal(preset, realCaps) {
+  const out = {};
   const real = realCaps && typeof realCaps === "object" ? realCaps : {};
   for (const [k, v] of Object.entries(preset ?? {})) {
     if (typeof v !== "boolean") continue;
@@ -153,3 +150,17 @@ export function clampViewAsCapsToReal(
   }
   return out;
 }
+export {
+  ROLE_CAPS_PRESETS,
+  VIEW_AS_ROLE_EVENT,
+  VIEW_AS_ROLE_LS_KEY,
+  VIEW_AS_ROLE_OPTIONS,
+  capsForViewAsRole,
+  clampViewAsCapsToReal,
+  clearViewAsRole,
+  formatViewAsRoleLabel,
+  isDevBranchRole,
+  readViewAsRole,
+  realRolesAllowViewAs,
+  writeViewAsRole
+};

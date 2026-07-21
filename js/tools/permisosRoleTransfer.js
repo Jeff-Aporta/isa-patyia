@@ -1,11 +1,7 @@
 /** Textos de impacto al mover (no copiar) roles en el kanban de permisos. */
 
-import { isSameInheritanceLine } from "./roleHierarchy.js";
-
-export function isTopDevLeadRole(roleName, jerarquia) {
-  const key = String(roleName ?? "").trim().toLowerCase();
-  if (key === "dev_lead") return true;
-  return String(jerarquia ?? "").trim() === "0.0.0";
+export function isTopDevLeadRole(roleName) {
+  return String(roleName ?? "").trim().toUpperCase() === "DEVISS";
 }
 
 export function isSamePermisosUser(a, b) {
@@ -28,8 +24,8 @@ export function moveRoleImpactBullets({ username, fromRoleTitle, toRoleTitle, is
   if (leavesDevLead) {
     bullets.push(
       isSelf
-        ? "Al salir de **dev_lead** (máximo privilegio) perderás gestión de permisos hasta que otro dev_lead te reasigne o un administrador ajuste la BD."
-        : `Al salir de **dev_lead**, ${user} necesitará que otro dev_lead lo reasigne o un ajuste manual en BD para recuperar el rol.`,
+        ? "Al salir de **DEVISS** (máximo privilegio) perderás gestión de permisos hasta que otro DEVISS te reasigne o un administrador ajuste la BD."
+        : `Al salir de **DEVISS**, ${user} necesitará que otro DEVISS lo reasigne o un ajuste manual en BD para recuperar el rol.`,
     );
   }
   return bullets;
@@ -47,56 +43,19 @@ export function removeRoleImpactBullets({ username, roleTitle, isSelf, isDevLead
   if (isDevLead) {
     bullets.push(
       isSelf
-        ? "Si te quitas **dev_lead**, otro dev_lead deberá reasignarte o habrá que corregirlo en BD."
-        : `Para restaurar **dev_lead** en ${user}, otro dev_lead deberá volver a asignar el rol.`,
+        ? "Si te quitas **DEVISS**, otro DEVISS deberá reasignarte o habrá que corregirlo en BD."
+        : `Para restaurar **DEVISS** en ${user}, otro DEVISS deberá volver a asignar el rol.`,
     );
   } else {
-    bullets.push("Para restaurar el acceso, un dev_lead puede volver a asignar el rol.");
+    bullets.push("Para restaurar el acceso, un DEVISS puede volver a asignar el rol.");
   }
   return bullets;
 }
 
-/** Jerarquías de todos los roles donde aparece el usuario en el tablero. */
-export function userJerarquiasFromBoard(username, columns) {
-  const u = String(username ?? "").trim().toUpperCase();
-  if (!u) return [];
-  const out = [];
-  for (const col of columns ?? []) {
-    if (col.users?.some((x) => String(x.username ?? "").trim().toUpperCase() === u)) {
-      out.push(col.jerarquia);
-    }
-  }
-  return out;
-}
-
-/** ¿Se permite copiar (mantener origen) hacia el rol destino? */
-export function canCopyUserRole({ fromJerarquia, toJerarquia, userJerarquiasOnBoard = [] }) {
-  if (isSameInheritanceLine(fromJerarquia, toJerarquia)) {
-    return {
-      ok: false,
-      reason: "No se puede copiar dentro de la misma rama jerárquica. Use mover para cambiar de rol en esa línea.",
-    };
-  }
-  for (const jer of userJerarquiasOnBoard) {
-    if (isSameInheritanceLine(jer, toJerarquia)) {
-      return {
-        ok: false,
-        reason: "El usuario ya tiene un rol en la misma rama que el destino. Copiar está prohibido; use mover o quite el rol existente.",
-      };
-    }
-  }
-  return { ok: true };
-}
-
-/** ¿Se permite agregar usuario al rol destino (botón +)? */
-export function canAddUserToRole({ toJerarquia, userJerarquiasOnBoard = [] }) {
-  for (const jer of userJerarquiasOnBoard) {
-    if (isSameInheritanceLine(jer, toJerarquia)) {
-      return {
-        ok: false,
-        reason: "El usuario ya tiene un rol en la misma rama jerárquica. No puede duplicarse; use mover entre columnas.",
-      };
-    }
+/** ¿Se permite agregar usuario al rol destino (botón +)? Sin herencia — solo username presente. */
+export function canAddUserToRole({ username } = {}) {
+  if (!String(username ?? "").trim()) {
+    return { ok: false, reason: "Indique un usuario." };
   }
   return { ok: true };
 }

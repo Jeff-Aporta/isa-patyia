@@ -1071,12 +1071,20 @@ html[data-mui-color-scheme="light"] .paty-chat-thread-surface {
   }
   & .config-permisos-toolbar__actions {
     margin-left: auto;
-    padding: 0.08rem 0.28rem;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, var(--border, rgba(148, 163, 184, 0.28)) 85%, transparent);
-    background: color-mix(in srgb, var(--paper, #1e293b) 55%, transparent);
-    html[data-mui-color-scheme="light"] & {
-      background: rgba(255, 255, 255, 0.75);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 0.15rem;
+    & .btn-iconify {
+      width: 1.75rem;
+      height: 1.75rem;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--col-accent, #1e90ff) 14%, transparent);
+      }
     }
   }
   & .config-permisos-visitante-btn {
@@ -1367,6 +1375,17 @@ html[data-mui-color-scheme="light"] .paty-todos-card.paty-permisos-user-card.pat
   }
 }
 
+.paty-todos-card.paty-permisos-user-card .paty-permisos-user-card__ids,
+.paty-permisos-drag-ghost .paty-permisos-user-card__ids {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: var(--mui-palette-text-secondary, rgba(148, 163, 184, 0.92));
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
 .paty-permisos-kanban {
   & .paty-permisos-user-card {
     min-height: 0 !important;
@@ -1390,13 +1409,25 @@ html[data-mui-color-scheme="light"] .paty-todos-card.paty-permisos-user-card.pat
     font-size: 0.8125rem;
     line-height: 1.25;
     min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
   }
-  & .paty-permisos-user-card .paty-todos-card__caption {
+  & .paty-permisos-user-card .paty-permisos-user-card__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  & .paty-permisos-user-card .paty-todos-card__caption,
+  & .paty-permisos-user-card .paty-permisos-user-card__ids {
     font-size: 0.68rem;
     line-height: 1.2;
     letter-spacing: 0.02em;
     min-width: 0;
-    opacity: 0.78;
+    flex-shrink: 0;
+    font-weight: 500;
+    color: var(--mui-palette-text-secondary, rgba(148, 163, 184, 0.92));
+    opacity: 0.85;
   }
   & .paty-permisos-user-card__remove {
     flex-shrink: 0;

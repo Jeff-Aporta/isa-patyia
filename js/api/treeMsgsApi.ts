@@ -74,7 +74,9 @@ export async function postTreeMessage(
   return data.message as TreeMessage;
 }
 
-export async function patchTreeMessage(
+// PUT /api/tree-msgs/{treePath} (era PATCH; migrado 18-jul-2026).
+// En InSoft no usamos PATCH: solo PUT.
+export async function putTreeMessage(
   app: string,
   contextKey: string,
   treePath: string,
@@ -83,7 +85,7 @@ export async function patchTreeMessage(
   const data = await treeHttp.capFetch(
     `/tree-msgs/${encodeURIComponent(treePath)}${qs(app, { context: contextKey })}`,
     {
-      method: "PATCH",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     },
