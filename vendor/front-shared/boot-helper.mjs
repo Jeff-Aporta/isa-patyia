@@ -88,7 +88,6 @@ export const SHARED_UI_FILES = [
   "layouts/useResizablePanel.js",
   "layouts/IsaSplitView.jsx",
   "widgets/UserSessionMenu.jsx",
-  "widgets/ViewAsDialog.jsx",
   "widgets/UnitTestStreamModal.jsx",
   "layouts/AppShell.jsx",
 ];

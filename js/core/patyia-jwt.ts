@@ -150,10 +150,7 @@ export async function hydratePatyJwtFromServer(username: string | null | undefin
   }
 
   const cached = loadPatyJwt();
-  if (cached && cached.savedBy?.toUpperCase() === u) {
-    if (!isFaithfulImpersonation() || !cached.actingAsUsername) return cached;
-    clearPatyJwtLocal({ silent: true });
-  }
+  if (cached && cached.savedBy?.toUpperCase() === u) return cached;
   if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
 
   try {
@@ -174,17 +171,12 @@ export function clearPatyJwt(): void {
   clearPatyJwtLocal();
 }
 
-export function isFaithfulImpersonation(): boolean {
-  return Boolean(Session.isViewingAs?.());
-}
+/* Suplantación erradicada (21-jul-2026): sin modo «impersonation» en el chat. */
 
 /** Interactúa quien usa su JWT propio; JWT ajeno sigue restringido a administración. */
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
-  if (isFaithfulImpersonation()) {
-    return jwt.savedBy?.toUpperCase() === u && !jwt.actingAsUsername;
-  }
   if (jwt.savedBy?.toUpperCase() === u) return true;
   if (!Session.can("patyia.chat.interact")) return false;
   if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
@@ -192,7 +184,6 @@ export function canInteractPatyChat(sessionUser: string | null | undefined, jwt:
 }
 
 export function canAdminPortalJwt(): boolean {
-  if (isFaithfulImpersonation()) return false;
   return Session.can("patyia.jwt.admin");
 }
 
@@ -220,9 +211,6 @@ export async function activatePortalJwtAsAdmin(
   sessionUser: string,
   displayName?: string | null,
 ): Promise<PatyJwtRecord> {
-  if (isFaithfulImpersonation()) {
-    throw new Error("No puedes usar JWT de otros usuarios mientras suplantas");
-  }
   const owner = String(ownerUsername || "").trim().toUpperCase();
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!owner || !u) throw new Error("Sesión y usuario dueño requeridos");

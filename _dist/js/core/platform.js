@@ -331,9 +331,6 @@ function systemApiHeaders(extra = {}) {
   } else if (Session.isLoggedIn()) {
     Object.assign(h, Session.authHeader(), Session.appHeader());
   }
-  for (const k of Object.keys(h)) {
-    if (/^x-view-as-/i.test(k)) delete h[k];
-  }
   return h;
 }
 function unwrapBody(data) {
@@ -538,33 +535,6 @@ var init_viewAsRole = __esm({
 });
 
 // js/api/sessionApi.ts
-function stripViewAsHeaders(headers) {
-  const out = { ...headers };
-  for (const k of Object.keys(out)) {
-    if (/^x-view-as-/i.test(k)) delete out[k];
-  }
-  return out;
-}
-function installViewAsFrontOnlyGuard() {
-  const bag = Session;
-  if (!bag || bag.__viewAsFrontOnly) return;
-  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
-  if (!origAuth) return;
-  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
-  bag.authHeader = withoutViewAs;
-  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
-  if (origRefresh) {
-    bag.refreshProfile = async () => {
-      bag.authHeader = origAuth;
-      try {
-        return await origRefresh();
-      } finally {
-        bag.authHeader = withoutViewAs;
-      }
-    };
-  }
-  bag.__viewAsFrontOnly = true;
-}
 function formatRoleTitle(roleName) {
   const key = String(roleName ?? "").trim().toUpperCase();
   if (!key) return "";
@@ -741,7 +711,6 @@ function getSession() {
   return {
     username: Session.username(),
     realUsername: Session.realUsername(),
-    viewAsUsername: Session.viewAsUsername(),
     role: resolveDisplayRole(),
     expiresAt: s.expiresAt,
     sessionToken: s.token,
@@ -758,12 +727,6 @@ var init_sessionApi = __esm({
     init_permAccessFromMap();
     init_roleCanonicalMeta();
     init_viewAsRole();
-    installViewAsFrontOnlyGuard();
-    try {
-      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
-      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
-    } catch {
-    }
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     ME_CAPS = {};
     ME_CAPS_KEY = "";
@@ -1473,7 +1436,6 @@ function patchIsaPatyiaAuthEvents() {
     const session = {
       username,
       displayName: data.displayName || null,
-      viewAsUsername: null,
       role: null,
       token: String(data.token),
       expiresAt: data.expiresAt ?? null,
@@ -1684,8 +1646,6 @@ var init_platform = __esm({
       isLoggedIn: () => bridge().Session.isLoggedIn(),
       username: () => bridge().Session.username(),
       realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
       auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
       authHeader: () => bridge().Session.authHeader(),
       appHeader: () => bridge().Session.appHeader(),
@@ -1693,10 +1653,6 @@ var init_platform = __esm({
       login: (u, p, opts) => bridge().Session.login(u, p, opts),
       logout: () => bridge().Session.logout(),
       refreshProfile: () => bridge().Session.refreshProfile(),
-      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-      setViewAs: (u) => bridge().Session.setViewAs?.(u),
-      clearViewAs: () => bridge().Session.clearViewAs?.(),
       capabilities: () => bridge().Session.capabilities(),
       adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
       capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],

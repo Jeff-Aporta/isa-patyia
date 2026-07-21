@@ -82,12 +82,10 @@ interface IsaAuth {
 }
 
 interface IsaSession {
-  current(): { username: string; role: string | null; token: string; expiresAt: string | null; capabilities?: string[]; viewAsUsername?: string | null } | null;
+  current(): { username: string; role: string | null; token: string; expiresAt: string | null; capabilities?: string[] } | null;
   isLoggedIn(): boolean;
   username(): string | null;
   realUsername?(): string | null;
-  viewAsUsername?(): string | null;
-  isViewingAs?(): boolean;
   auditAuthor?(): string;
   authHeader(): Record<string, string>;
   appHeader(): Record<string, string>;
@@ -95,10 +93,6 @@ interface IsaSession {
   login(user: string, pass: string): Promise<unknown>;
   logout(): void;
   refreshProfile(): Promise<unknown>;
-  fetchViewAsCatalog?(): Promise<unknown>;
-  searchSuplantacionUsers?(q: string, limit?: number): Promise<unknown>;
-  setViewAs?(username: string): Promise<unknown>;
-  clearViewAs?(): void;
   capabilities(): string[];
   adminCapabilities?(): string[];
   capabilityCatalog?(): unknown[];

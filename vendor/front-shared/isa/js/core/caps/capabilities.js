@@ -64,12 +64,6 @@ export const CAPABILITY_CATALOG = [
     denyForbidden: "Tu rol no permite cambiar el entorno de despliegue",
   },
   {
-    id: "session.view_as",
-    label: "Suplantación de usuario (auditoría / QA, solo admin)",
-    denyLoggedOut: "Inicia sesión para usar suplantación",
-    denyForbidden: "Solo administradores pueden suplantar a otros usuarios",
-  },
-  {
     id: "patyia.jwt.admin",
     label: "Administrar JWT portal PatyIA de otros usuarios",
     denyLoggedOut: "Inicia sesi?n para administrar JWT de portal",
