@@ -6,8 +6,8 @@ import { sanitizeUserMessage } from "../util/sanitize-user-message.js";
 import { normalizeContapymeLoginId } from "../util/format.js";
 import { fetchRaw, wrapFetchError, localDevHint, isDevHost } from "../http/api-http.js";
 
+/* Suplantación (view-as de usuario) erradicada (21-jul-2026) de todos los workers y fronts. */
 const ADMIN_PERSISTENT_CAPS = new Set([
-  "session.view_as",
   "patyia.jwt.admin",
   "infra.target.switch",
 ]);
@@ -51,7 +51,6 @@ export function registerSession(ns, opts = {}) {
     store.save({
       username: data.username,
       displayName: data.displayName ?? null,
-      viewAsUsername: data.viewAsUsername ?? null,
       role: data.role ?? null,
       token: data.token,
       expiresAt: data.expiresAt ?? null,
@@ -84,7 +83,7 @@ export function registerSession(ns, opts = {}) {
   function username() {
     const s = current();
     if (!s) return null;
-    return s.viewAsUsername || s.username || null;
+    return s.username || null;
   }
 
   function displayName() {
@@ -98,19 +97,8 @@ export function registerSession(ns, opts = {}) {
     return current()?.username ?? null;
   }
 
-  function viewAsUsername() {
-    return current()?.viewAsUsername ?? null;
-  }
-
-  function isViewingAs() {
-    return Boolean(viewAsUsername());
-  }
-
   function auditAuthor() {
-    const real = String(realUsername() || username() || "").trim().toUpperCase();
-    const va = String(viewAsUsername() || "").trim().toUpperCase();
-    if (va && real && va !== real) return `${real} -> ${va}`;
-    return real || va || "";
+    return String(realUsername() || username() || "").trim().toUpperCase();
   }
 
   function adminCapabilities() {
@@ -151,32 +139,13 @@ export function registerSession(ns, opts = {}) {
     });
   }
 
-  function parseSuplantacionFromSession(data) {
-    const supl = data?.suplantacion || data?.impersonation;
-    if (!supl?.active) return { active: false, suplantadoUsername: null };
-    const suplantadoUsername = supl.suplantadoUsername ?? supl.viewAsUsername ?? null;
-    return { active: true, suplantadoUsername };
-  }
-
   function appHeader() {
     return { "X-App-Id": appId };
   }
 
-  /**
-   * Auth genérico (ISS, capFetch, APIs propias).
-   * NO incluye X-View-As-User: «ver como» / suplantoación es solo system-login + UI;
-   * el ISS y demás backends deben autorizar siempre al Bearer real.
-   */
+  /** Auth genérico (ISS, capFetch, APIs propias) — siempre el Bearer real. */
   function authHeader() {
     return isLoggedIn() ? { Authorization: "Bearer " + session.token, ...appHeader() } : {};
-  }
-
-  /** Solo system-login (refresh/session): propaga suplantoación activa. */
-  function authHeaderForSystemLogin() {
-    const hdr = { ...authHeader() };
-    const va = viewAsUsername();
-    if (va) hdr["X-View-As-User"] = va;
-    return hdr;
   }
 
   async function refreshProfile() {
@@ -185,23 +154,19 @@ export function registerSession(ns, opts = {}) {
     refreshPromise = (async () => {
       try {
         const res = await fetchRaw(authUrl("/api/session"), {
-          headers: { Accept: "application/json", ...authHeaderForSystemLogin() },
+          headers: { Accept: "application/json", ...authHeader() },
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) return null;
         const s = current();
         if (!s) return null;
         const caps = Array.isArray(data.capabilities) ? data.capabilities : [];
-        const { active: suplantando, suplantadoUsername } = parseSuplantacionFromSession(data);
         const next = {
           ...s,
           displayName: data.user?.displayName ?? s.displayName ?? null,
-          viewAsUsername: suplantando ? suplantadoUsername : null,
           role: data.user?.role ?? s.role,
           capabilities: caps,
-          adminCapabilities: suplantando
-            ? (s.adminCapabilities?.length ? s.adminCapabilities : s.capabilities)
-            : caps,
+          adminCapabilities: caps,
         };
         session = next;
         saveSession(next);
@@ -213,132 +178,6 @@ export function registerSession(ns, opts = {}) {
       }
     })();
     return refreshPromise;
-  }
-
-  async function fetchViewAsCatalog() {
-    const s = current();
-    if (!s) throw new Error("Sin sesión");
-    const headers = {
-      Accept: "application/json",
-      Authorization: "Bearer " + s.token,
-      ...appHeader(),
-    };
-    const res = await fetch(authUrl("/api/auth/suplantacion/catalog"), { headers });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.ok && Array.isArray(data.users)) {
-      return data.users;
-    }
-    if (!res.ok) {
-      const msg = data.error;
-      if (res.status === 404) {
-        throw new Error("Ruta de suplantación no encontrada (404). Despliega main-orchestrator y system-login.");
-      }
-      if (res.status === 403) {
-        throw new Error(msg || "Sin permiso de suplantación (solo administradores).");
-      }
-      throw new Error(msg || "No se pudo cargar el catálogo de suplantación (HTTP " + res.status + ").");
-    }
-    if (data.ok === false) {
-      throw new Error(data.error || "No se pudo cargar el catálogo de suplantación.");
-    }
-    const params = new URLSearchParams({ limit: "5" });
-    const res2 = await fetch(authUrl("/api/auth/suplantacion/search?" + params.toString()), { headers });
-    const data2 = await res2.json().catch(() => ({}));
-    if (res2.ok && data2.ok && Array.isArray(data2.users)) {
-      return data2.users;
-    }
-    if (res2.ok && data2.ok === false) {
-      throw new Error(data2.error || "No se pudo buscar usuarios para suplantación.");
-    }
-    const status = res2.status || res.status;
-    throw new Error(data2.error || data.error || "Respuesta inválida del catálogo de suplantación (HTTP " + status + ").");
-  }
-
-  const fetchSuplantacionCatalog = fetchViewAsCatalog;
-
-  async function searchSuplantacionUsers(query, limit) {
-    const s = current();
-    if (!s) throw new Error("Sin sesión");
-    const q = String(query ?? "").trim();
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (limit != null) params.set("limit", String(limit));
-    const res = await fetch(authUrl("/api/auth/suplantacion/search?" + params.toString()), {
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer " + s.token,
-        ...appHeader(),
-      },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || "No se pudo buscar usuarios");
-    }
-    return Array.isArray(data.users) ? data.users : [];
-  }
-
-  const searchViewAsUsers = searchSuplantacionUsers;
-
-  function reloadAfterSuplantacionChange() {
-    try {
-      const url = new URL(location.href);
-      if (url.searchParams.has("s")) {
-        url.searchParams.delete("s");
-        history.replaceState(null, "", url.pathname + url.search + url.hash);
-      }
-    } catch { /* ignore */ }
-    try {
-      sessionStorage.removeItem("isa-patyia:paty-jwt");
-    } catch { /* ignore */ }
-    window.location.reload();
-  }
-
-  async function setViewAs(targetUsername) {
-    const target = String(targetUsername || "").trim().toUpperCase();
-    if (!target) return clearViewAs();
-    const s = current();
-    if (!s) throw new Error("Sin sesión");
-    if (!can("session.view_as")) {
-      throw new Error("Sin permiso de suplantación (solo administradores)");
-    }
-    const res = await fetch(authUrl("/api/session"), {
-      headers: {
-        Accept: "application/json",
-        Authorization: "Bearer " + s.token,
-        ...appHeader(),
-        "X-View-As-User": target,
-      },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || "No se pudo activar la suplantación");
-    }
-    const caps = Array.isArray(data.capabilities) ? data.capabilities : [];
-    const adminCaps = s.adminCapabilities?.length ? s.adminCapabilities : s.capabilities;
-    const next = {
-      ...s,
-      viewAsUsername: target,
-      role: data.user?.role ?? s.role,
-      capabilities: caps,
-      adminCapabilities: adminCaps,
-    };
-    session = next;
-    saveSession(next);
-    window.dispatchEvent(new Event(authEvt));
-    reloadAfterSuplantacionChange();
-    return next;
-  }
-
-  async function clearViewAs() {
-    const s = current();
-    if (!s?.viewAsUsername) return s;
-    const next = { ...s, viewAsUsername: null };
-    session = next;
-    saveSession(next);
-    window.dispatchEvent(new Event(authEvt));
-    await refreshProfile().catch(() => null);
-    reloadAfterSuplantacionChange();
-    return session;
   }
 
   function loginErrorMessage(res, data) {
@@ -377,7 +216,7 @@ export function registerSession(ns, opts = {}) {
     const hint = localDevHint(isLocal && isDevHost());
     let res;
     try {
-      res = await fetchRaw(authUrl("/api/auth/token"), {
+      res = await fetchRaw(authUrl("/api/auth/portal-login"), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...appHeader() },
         body: JSON.stringify(credBody),
@@ -397,7 +236,6 @@ export function registerSession(ns, opts = {}) {
     session = {
       username: data.username || user,
       displayName: data.displayName || null,
-      viewAsUsername: null,
       role: data.role || null,
       token: data.token,
       expiresAt: data.expiresAt || null,
@@ -418,21 +256,12 @@ export function registerSession(ns, opts = {}) {
     clearSession();
   }
 
-  const setSuplantacion = setViewAs;
-  const clearSuplantacion = clearViewAs;
-  const isSuplantando = isViewingAs;
-  const suplantadoUsername = viewAsUsername;
-
   const sessionApi = {
     current,
     isLoggedIn,
     username,
     displayName,
     realUsername,
-    viewAsUsername,
-    suplantadoUsername,
-    isViewingAs,
-    isSuplantando,
     auditAuthor,
     authHeader,
     appHeader,
@@ -440,14 +269,6 @@ export function registerSession(ns, opts = {}) {
     login,
     logout,
     refreshProfile,
-    fetchViewAsCatalog,
-    fetchSuplantacionCatalog,
-    searchViewAsUsers,
-    searchSuplantacionUsers,
-    setViewAs,
-    setSuplantacion,
-    clearViewAs,
-    clearSuplantacion,
     capabilities,
     adminCapabilities,
     capabilityCatalog,
@@ -494,11 +315,8 @@ export function registerSession(ns, opts = {}) {
 
   if (isLoggedIn()) {
     const s = current();
-    const adminCaps = adminCapabilities();
     const needsRefresh = !Array.isArray(s?.capabilities) || !s.capabilities.length
-      || !String(s?.displayName ?? "").trim()
-      || (isAdminRole() && ADMIN_PERSISTENT_CAPS.has("session.view_as")
-        && !adminCaps.includes("session.view_as"));
+      || !String(s?.displayName ?? "").trim();
     if (needsRefresh) {
       refreshProfile().catch(() => {});
     }
