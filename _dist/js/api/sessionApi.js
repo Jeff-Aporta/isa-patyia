@@ -9,11 +9,18 @@ var __esm = (fn, res, err) => function __init() {
 };
 
 // js/core/patyia.ts
+function isPatyiaApiPath(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return p.startsWith("/patyia") || p.startsWith("/api/patyia");
+}
 function patyiaIssBase() {
   const t = getIssTarget();
   if (t === "local") return PATYIA_ISS_LOCAL.replace(/\/$/, "");
   if (t === "production") return PATYIA_ISS_PROD_URL.replace(/\/$/, "");
   return PATYIA_ISS_URL.replace(/\/$/, "");
+}
+function patyiaIssCapFetchBase() {
+  return patyiaIssBase();
 }
 function resolveIssApiBase() {
   const base = patyiaIssBase();
@@ -33,6 +40,9 @@ function isDevHost() {
   } catch {
     return false;
   }
+}
+function isLocalMode() {
+  return getIssTarget() === "local";
 }
 function avatarBgFromName(name) {
   let h = 0;
@@ -91,7 +101,7 @@ function toastError(text, timeout) {
 function toastWarning(text, timeout) {
   fb()?.toast?.warning?.(text, timeout);
 }
-var bridge, Session, fb;
+var bridge, Session, Config, fb;
 var init_platform = __esm({
   "js/core/platform.ts"() {
     init_patyia();
@@ -101,8 +111,6 @@ var init_platform = __esm({
       isLoggedIn: () => bridge().Session.isLoggedIn(),
       username: () => bridge().Session.username(),
       realUsername: () => bridge().Session.realUsername?.() ?? bridge().Session.username(),
-      viewAsUsername: () => bridge().Session.viewAsUsername?.() ?? null,
-      isViewingAs: () => bridge().Session.isViewingAs?.() ?? false,
       auditAuthor: () => bridge().Session.auditAuthor?.() ?? String(bridge().Session.username() || "").trim().toUpperCase(),
       authHeader: () => bridge().Session.authHeader(),
       appHeader: () => bridge().Session.appHeader(),
@@ -110,10 +118,6 @@ var init_platform = __esm({
       login: (u, p, opts) => bridge().Session.login(u, p, opts),
       logout: () => bridge().Session.logout(),
       refreshProfile: () => bridge().Session.refreshProfile(),
-      fetchViewAsCatalog: () => bridge().Session.fetchViewAsCatalog?.(),
-      searchSuplantacionUsers: (q, limit) => bridge().Session.searchSuplantacionUsers?.(q, limit),
-      setViewAs: (u) => bridge().Session.setViewAs?.(u),
-      clearViewAs: () => bridge().Session.clearViewAs?.(),
       capabilities: () => bridge().Session.capabilities(),
       adminCapabilities: () => bridge().Session.adminCapabilities?.() ?? bridge().Session.capabilities(),
       capabilityCatalog: () => bridge().Session.capabilityCatalog?.() ?? [],
@@ -123,7 +127,206 @@ var init_platform = __esm({
         return bridge().Session.EVENT;
       }
     };
+    Config = {
+      base: () => bridge().Config.base(),
+      apiUrl: (path) => bridge().Config.apiUrl(path),
+      isLocal: () => bridge().Config.isLocal(),
+      setLocal: (on) => bridge().Config.setLocal(on),
+      get EVENT() {
+        return bridge().Config.EVENT;
+      }
+    };
     fb = () => globalThis.ISAFront?.Feedback;
+  }
+});
+
+// js/api/portalJwtApi.ts
+var init_portalJwtApi = __esm({
+  "js/api/portalJwtApi.ts"() {
+    init_platform();
+    init_patyia();
+  }
+});
+
+// js/api/issListFilter.ts
+var init_issListFilter = __esm({
+  "js/api/issListFilter.ts"() {
+  }
+});
+
+// js/api/patyiaTokens.ts
+var init_patyiaTokens = __esm({
+  "js/api/patyiaTokens.ts"() {
+    init_platform();
+  }
+});
+
+// js/api/patyiaChatApi.ts
+var init_patyiaChatApi = __esm({
+  "js/api/patyiaChatApi.ts"() {
+    init_issListFilter();
+    init_patyiaTokens();
+    init_patyia();
+  }
+});
+
+// js/api/apiClient.ts
+var bridgeHttp, capFetch, apiUrl, rowVal;
+var init_apiClient = __esm({
+  "js/api/apiClient.ts"() {
+    init_platform();
+    init_patyia();
+    init_patyia_jwt();
+    init_patyiaChatApi();
+    init_issListFilter();
+    init_sessionApi();
+    init_systemConfigApi();
+    bridgeHttp = window.ISAFront.createCapFetch({
+      Session,
+      Config,
+      getApiBase: patyiaIssCapFetchBase,
+      localDirect: [
+        { test: (p) => isPatyiaApiPath(p) || String(p).startsWith("/patyia"), base: PATYIA_ISS_LOCAL.replace(/\/$/, "") }
+      ],
+      orchOnline: PATYIA_ISS_URL,
+      orchOnlineInLocal: true,
+      isLocal: isLocalMode
+    });
+    capFetch = bridgeHttp.capFetch;
+    apiUrl = bridgeHttp.apiUrl;
+    rowVal = bridgeHttp.rowVal;
+  }
+});
+
+// js/core/patyia-jwt.ts
+function parseJwtExp(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return typeof raw.exp === "number" ? raw.exp : null;
+  } catch {
+    return null;
+  }
+}
+function isPatyJwtExpired(token, skewSec = 60) {
+  const exp = parseJwtExp(token);
+  if (!exp) return false;
+  return Date.now() / 1e3 >= exp - skewSec;
+}
+function parseJwtClaims(token) {
+  try {
+    const part = String(token || "").trim().split(".")[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/"));
+    const raw = JSON.parse(json);
+    return { itercero: raw.itercero != null ? String(raw.itercero) : void 0, icontacto: raw.icontacto != null ? String(raw.icontacto) : void 0, nombres: raw.nombres != null ? String(raw.nombres) : void 0, apellidos: raw.apellidos != null ? String(raw.apellidos) : void 0, controlkey: raw.controlkey != null ? String(raw.controlkey) : void 0, iapp: typeof raw.iapp === "number" ? raw.iapp : void 0, idmaquina: raw.idmaquina != null ? String(raw.idmaquina) : void 0 };
+  } catch {
+    return null;
+  }
+}
+function loadPatyJwt() {
+  try {
+    const raw = sessionStorage.getItem(PATYIA_JWT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || typeof parsed.token !== "string") return null;
+    if (isPatyJwtExpired(parsed.token)) {
+      sessionStorage.removeItem(PATYIA_JWT_STORAGE_KEY);
+      return null;
+    }
+    parsed.claims = parseJwtClaims(parsed.token) || parsed.claims || {};
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+var PATYIA_JWT_STORAGE_KEY;
+var init_patyia_jwt = __esm({
+  "js/core/patyia-jwt.ts"() {
+    init_portalJwtApi();
+    init_apiClient();
+    init_platform();
+    PATYIA_JWT_STORAGE_KEY = "isa-patyia:paty-jwt";
+  }
+});
+
+// js/tools/permAccessFromMap.js
+function normalizePath(path) {
+  let p = String(path ?? "").trim();
+  try {
+    if (/^https?:\/\//i.test(p)) p = new URL(p).pathname;
+  } catch {
+  }
+  if (!p.startsWith("/")) p = `/${p}`;
+  return p.replace(/\/+$/, "") || "/";
+}
+function patternMatch(pattern, key) {
+  if (pattern === key) return true;
+  if (!pattern.includes("{") && !pattern.includes("*")) return false;
+  const escLit = (s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  const reBody = pattern.split(/(\{[^}]+\})/).map((seg) => /^\{[^}]+\}$/.test(seg) ? ".+" : seg.split("*").map(escLit).join("[^/]+")).join("");
+  return new RegExp(`^${reBody}$`).test(key);
+}
+function resolveAccess(perms, method, path) {
+  const map = perms && typeof perms === "object" ? perms : {};
+  const key = `${String(method ?? "GET").toUpperCase()}:${normalizePath(path)}`;
+  if (key in map) return map[key];
+  let bestPat = "";
+  let best = null;
+  for (const [pat, restr] of Object.entries(map)) {
+    if (!String(pat).includes(":")) continue;
+    if (!patternMatch(pat, key)) continue;
+    if (pat.length >= bestPat.length) {
+      bestPat = pat;
+      best = restr;
+    }
+  }
+  return best;
+}
+function hasAccess(perms, method, path) {
+  return resolveAccess(perms, method, path) != null && resolveAccess(perms, method, path) !== false;
+}
+function canAccessOthers(perms, method, path) {
+  const r = resolveAccess(perms, method, path);
+  if (r == null || r === false) return false;
+  if (r === true) return true;
+  if (typeof r === "object") {
+    const f = r.filter;
+    return !(f && typeof f === "object" && !Array.isArray(f) && Object.keys(f).length);
+  }
+  return false;
+}
+function capsFromPermisosEfectivos(perms) {
+  const p = perms ?? {};
+  const manage = hasAccess(p, "PUT", API_PERMISOS) || hasAccess(p, "DELETE", API_PERMISOS);
+  const assign = hasAccess(p, "PUT", API_ROLES);
+  return {
+    canEditOpenAiConfig: hasAccess(p, "PUT", "/api/system/openai"),
+    canEditSwagger: hasAccess(p, "PUT", "/api/system/swagger.json"),
+    canEditInstrucciones: hasAccess(p, "PUT", "/api/system/instrucciones") || hasAccess(p, "POST", "/api/patyia/instrucciones/publish"),
+    canEditPromptsOperativos: hasAccess(p, "PUT", "/api/system/prompts-operativos"),
+    canEditConversacionConfig: hasAccess(p, "PUT", "/api/system/config/conversacion"),
+    canOverrideSampling: canAccessOthers(p, "POST", "/api/conversacion"),
+    canManagePermissions: manage,
+    canAssignUserRoles: assign,
+    canEditRoleDescriptions: manage,
+    canAccessOthers: canAccessOthers(p, "GET", "/api/conversaciones"),
+    canViewKanban: hasAccess(p, "GET", "/api/permisos/usuarios") || hasAccess(p, "GET", API_PERMISOS),
+    canEditKanbanCards: assign || hasAccess(p, "POST", "/api/system/permisos/usuarios"),
+    canViewLogs: hasAccess(p, "GET", "/api/conversacion/logs/{id}") || hasAccess(p, "GET", "/api/conversacion/logs/*"),
+    canViewPrompts: hasAccess(p, "GET", "/api/system/instrucciones"),
+    canViewChat: hasAccess(p, "POST", "/api/conversacion") || hasAccess(p, "POST", "/api/mensaje") || hasAccess(p, "GET", "/api/conversaciones"),
+    canViewConfig: hasAccess(p, "GET", "/api/system/openai") || hasAccess(p, "GET", "/api/system/prompts-operativos") || hasAccess(p, "GET", "/api/system/instrucciones") || hasAccess(p, "GET", "/api/system/config/conversacion") || hasAccess(p, "GET", "/api/system/swagger.json") || hasAccess(p, "GET", API_PERMISOS),
+    canSendChat: hasAccess(p, "POST", "/api/conversacion") && hasAccess(p, "POST", "/api/mensaje")
+  };
+}
+var API_PERMISOS, API_ROLES;
+var init_permAccessFromMap = __esm({
+  "js/tools/permAccessFromMap.js"() {
+    API_PERMISOS = "/api/system/permisos";
+    API_ROLES = "/api/system/permisos/usuarios/*/roles";
   }
 });
 
@@ -131,15 +334,34 @@ var init_platform = __esm({
 function systemApiBase() {
   return resolveIssApiBase();
 }
+function resolveIssAuthMode() {
+  const base = systemApiBase();
+  if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
+  return "w";
+}
 function systemApiHeaders(extra = {}) {
+  const mode = resolveIssAuthMode();
   const h = {
     Accept: "application/json",
-    "X-Patyia-Auth-Mode": "w",
+    "X-Patyia-Auth-Mode": mode,
     ...extra
   };
-  if (Session.isLoggedIn()) Object.assign(h, Session.authHeader(), Session.appHeader());
-  for (const k of Object.keys(h)) {
-    if (/^x-view-as-/i.test(k)) delete h[k];
+  if (mode === "is") {
+    const paty = loadPatyJwt();
+    if (paty?.token && !isPatyJwtExpired(paty.token)) {
+      h.Authorization = `Bearer ${paty.token}`;
+      if (Session.isLoggedIn()) {
+        const app = { ...Session.appHeader() };
+        for (const k of Object.keys(app)) {
+          if (/^authorization$/i.test(k)) delete app[k];
+        }
+        Object.assign(h, app);
+      }
+    } else if (Session.isLoggedIn()) {
+      Object.assign(h, Session.authHeader(), Session.appHeader());
+    }
+  } else if (Session.isLoggedIn()) {
+    Object.assign(h, Session.authHeader(), Session.appHeader());
   }
   return h;
 }
@@ -170,7 +392,11 @@ function permissionsMeSessionKey() {
   return String(tok || user || "anon").trim();
 }
 async function fetchPermissionsMe(opts) {
-  if (!Session.isLoggedIn()) return null;
+  if (!Session.isLoggedIn() && !loadPatyJwt()?.token) return null;
+  const headers = systemApiHeaders();
+  if (!headers.Authorization && !headers.authorization) {
+    return null;
+  }
   const sessionKey = permissionsMeSessionKey();
   if (!opts?.force && PERMISSIONS_ME_CACHE.value && PERMISSIONS_ME_CACHE.key === sessionKey && Date.now() - PERMISSIONS_ME_CACHE.iat < PERMISSIONS_ME_CACHE.ttlMs) {
     return PERMISSIONS_ME_CACHE.value;
@@ -178,7 +404,7 @@ async function fetchPermissionsMe(opts) {
   const f = opts?.fetchImpl ?? fetch;
   const res = await f(`${systemApiBase()}/permissions/me`, {
     method: "GET",
-    headers: { ...systemApiHeaders(), Accept: "application/json" },
+    headers: { ...headers, Accept: "application/json" },
     credentials: "omit"
   });
   if (res.status === 401) {
@@ -199,66 +425,36 @@ var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
     init_patyia();
+    init_patyia_jwt();
+    init_permAccessFromMap();
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
-  }
-});
-
-// js/tools/roleHierarchy.js
-function compareHierarchy(a, b) {
-  const aParts = String(a ?? "").split(".").map((n) => Number(n) || 0);
-  const bParts = String(b ?? "").split(".").map((n) => Number(n) || 0);
-  const len = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < len; i++) {
-    const av = aParts[i] ?? 0;
-    const bv = bParts[i] ?? 0;
-    if (av !== bv) return av - bv;
-  }
-  return 0;
-}
-function getRoleJerarquia(roleName, permisos) {
-  if (permisos && typeof permisos === "object") {
-    const j = permisos.jerarquia;
-    if (typeof j === "string" && j.trim()) return j.trim();
-  }
-  const key = String(roleName ?? "").trim().toLowerCase();
-  return DEFAULT_ROLE_JERARQUIA[key] ?? DEFAULT_FOR_UNKNOWN;
-}
-var DEFAULT_ROLE_JERARQUIA, DEFAULT_FOR_UNKNOWN;
-var init_roleHierarchy = __esm({
-  "js/tools/roleHierarchy.js"() {
-    DEFAULT_ROLE_JERARQUIA = {
-      visitante: "0",
-      dev: "0.0",
-      dev_lead: "0.0.0",
-      dev_iss: "0.0.1",
-      admn: "0.1",
-      auditador: "0.1.0",
-      admn_isapatyia: "0.1.0.0"
-    };
-    DEFAULT_FOR_UNKNOWN = "999";
   }
 });
 
 // js/tools/roleCanonicalMeta.js
 function canonicalRoleMeta(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
+  const key = String(roleName ?? "").trim().toUpperCase();
   return CANONICAL_ROLE_META[key] ?? null;
 }
 var CANONICAL_ROLE_META;
 var init_roleCanonicalMeta = __esm({
   "js/tools/roleCanonicalMeta.js"() {
     CANONICAL_ROLE_META = {
-      dev: {
-        namedisplay: "Desarrollador b\xE1sico",
-        descripcion: "Desarrollador b\xE1sico \u2014 rama desarrollo (hereda visitante)"
+      AUDITOR: {
+        namedisplay: "Auditor",
+        descripcion: "Ve conversaciones de todos; chatea solo en las propias"
       },
-      admn: {
-        namedisplay: "Admn b\xE1sico",
-        descripcion: "Admn b\xE1sico \u2014 permisos administrativos globales (hereda visitante)"
-      },
-      admn_isapatyia: {
+      ADMN: {
         namedisplay: "Admn ISA-Paty",
-        descripcion: "Admn ISA-Paty \u2014 permisos administrativos sobre PatyIA (hereda auditador, admn y visitante)"
+        descripcion: "Administraci\xF3n PatyIA \u2014 sin acceso total de desarrollo"
+      },
+      DEVISS: {
+        namedisplay: "Dev Lead ISS",
+        descripcion: "L\xEDder de desarrollo \u2014 acceso total"
+      },
+      USR: {
+        namedisplay: "Usuario",
+        descripcion: "Acceso b\xE1sico de sesi\xF3n"
       }
     };
   }
@@ -266,14 +462,10 @@ var init_roleCanonicalMeta = __esm({
 
 // js/core/viewAsRole.ts
 function roleKey(name) {
-  return String(name ?? "").trim().toLowerCase();
+  return String(name ?? "").trim().toUpperCase();
 }
 function isDevBranchRole(roleName) {
-  const key = roleKey(roleName);
-  if (!key) return false;
-  if (key === "dev" || key.startsWith("dev_")) return true;
-  const j = getRoleJerarquia(key);
-  return j === "0.0" || j.startsWith("0.0.");
+  return roleKey(roleName) === "DEVISS";
 }
 function formatViewAsRoleLabel(roleName) {
   const key = roleKey(roleName);
@@ -282,12 +474,12 @@ function formatViewAsRoleLabel(roleName) {
   if (opt) return opt.label;
   const canon = canonicalRoleMeta(key);
   if (canon?.namedisplay) return canon.namedisplay;
-  return key.split("_").map((p) => p === "iss" ? "ISS" : p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+  return key;
 }
 function readViewAsRole() {
   try {
     const v = roleKey(localStorage.getItem(VIEW_AS_ROLE_LS_KEY));
-    if (!v || v === "dev_lead") return "";
+    if (!v || v === "DEVISS") return "";
     if (!ROLE_CAPS_PRESETS[v]) return "";
     return v;
   } catch {
@@ -297,7 +489,7 @@ function readViewAsRole() {
 function writeViewAsRole(roleName) {
   const key = roleKey(roleName);
   try {
-    if (!key || key === "dev_lead" || !ROLE_CAPS_PRESETS[key]) {
+    if (!key || key === "DEVISS" || !ROLE_CAPS_PRESETS[key]) {
       localStorage.removeItem(VIEW_AS_ROLE_LS_KEY);
     } else {
       localStorage.setItem(VIEW_AS_ROLE_LS_KEY, key);
@@ -315,7 +507,8 @@ function clearViewAsRole() {
 }
 function capsForViewAsRole(roleName) {
   const key = roleKey(roleName);
-  return ROLE_CAPS_PRESETS[key] ? { ...ROLE_CAPS_PRESETS[key] } : null;
+  const preset = ROLE_CAPS_PRESETS[key];
+  return preset ? { ...preset } : null;
 }
 function realRolesAllowViewAs(roles) {
   return (roles ?? []).some((r) => isDevBranchRole(r));
@@ -333,16 +526,13 @@ var VIEW_AS_ROLE_LS_KEY, VIEW_AS_ROLE_EVENT, VIEW_AS_ROLE_OPTIONS, NONE, ROLE_CA
 var init_viewAsRole = __esm({
   "js/core/viewAsRole.ts"() {
     init_roleCanonicalMeta();
-    init_roleHierarchy();
     VIEW_AS_ROLE_LS_KEY = "isa-patyia:view-as-role";
     VIEW_AS_ROLE_EVENT = "patyia-apptools:view-as-role";
     VIEW_AS_ROLE_OPTIONS = [
-      { id: "visitante", label: "Visitante" },
-      { id: "dev", label: "Desarrollador" },
-      { id: "dev_iss", label: "Dev ISS" },
-      { id: "auditador", label: "Auditor" },
-      { id: "admn", label: "Admn b\xE1sico" },
-      { id: "admn_isapatyia", label: "Admn ISA-Paty" }
+      { id: "USR", label: "Usuario" },
+      { id: "AUDITOR", label: "Auditor" },
+      { id: "ADMN", label: "Admn" },
+      { id: "DEVISS", label: "Dev ISS" }
     ];
     NONE = Object.freeze({
       canEditInstrucciones: false,
@@ -352,7 +542,6 @@ var init_viewAsRole = __esm({
       canEditSwagger: false,
       canOverrideSampling: false,
       canManagePermissions: false,
-      canImpersonate: false,
       canAssignUserRoles: false,
       canAccessOthers: false,
       canViewKanban: false,
@@ -364,39 +553,15 @@ var init_viewAsRole = __esm({
       canSendChat: true
     });
     ROLE_CAPS_PRESETS = Object.freeze({
-      visitante: { ...NONE },
-      dev: {
-        ...NONE,
-        canViewPrompts: true,
-        canViewConfig: true,
-        canViewKanban: true
-      },
-      dev_iss: {
-        ...NONE,
-        canViewPrompts: true,
-        canViewConfig: true,
-        canEditInstrucciones: true,
-        canEditPromptsOperativos: true,
-        canOverrideSampling: true,
-        canViewKanban: true,
-        canEditKanbanCards: true,
-        canAccessOthers: true
-      },
-      auditador: {
+      USR: { ...NONE },
+      AUDITOR: {
         ...NONE,
         canViewPrompts: true,
         canViewConfig: true,
         canAccessOthers: true,
         canViewKanban: true
       },
-      admn: {
-        ...NONE,
-        canViewPrompts: true,
-        canViewConfig: true,
-        canViewKanban: true,
-        canEditKanbanCards: true
-      },
-      admn_isapatyia: {
+      ADMN: {
         ...NONE,
         canViewPrompts: true,
         canViewConfig: true,
@@ -404,11 +569,11 @@ var init_viewAsRole = __esm({
         canEditConversacionConfig: true,
         canEditInstrucciones: true,
         canAssignUserRoles: true,
+        canAccessOthers: true,
         canViewKanban: true,
         canEditKanbanCards: true
       },
-      /** Referencia: Dev Lead real (no se ofrece como simulación). */
-      dev_lead: {
+      DEVISS: {
         canEditInstrucciones: true,
         canEditOpenAiConfig: true,
         canEditPromptsOperativos: true,
@@ -416,7 +581,6 @@ var init_viewAsRole = __esm({
         canEditSwagger: true,
         canOverrideSampling: true,
         canManagePermissions: true,
-        canImpersonate: true,
         canAssignUserRoles: true,
         canAccessOthers: true,
         canViewKanban: true,
@@ -432,62 +596,41 @@ var init_viewAsRole = __esm({
 });
 
 // js/api/sessionApi.ts
-function stripViewAsHeaders(headers) {
-  const out = { ...headers };
-  for (const k of Object.keys(out)) {
-    if (/^x-view-as-/i.test(k)) delete out[k];
-  }
-  return out;
-}
-function installViewAsFrontOnlyGuard() {
-  const bag = Session;
-  if (!bag || bag.__viewAsFrontOnly) return;
-  const origAuth = typeof bag.authHeader === "function" ? bag.authHeader.bind(bag) : null;
-  if (!origAuth) return;
-  const withoutViewAs = () => stripViewAsHeaders({ ...origAuth() });
-  bag.authHeader = withoutViewAs;
-  const origRefresh = typeof bag.refreshProfile === "function" ? bag.refreshProfile.bind(bag) : null;
-  if (origRefresh) {
-    bag.refreshProfile = async () => {
-      bag.authHeader = origAuth;
-      try {
-        return await origRefresh();
-      } finally {
-        bag.authHeader = withoutViewAs;
-      }
-    };
-  }
-  bag.__viewAsFrontOnly = true;
-}
 function formatRoleTitle(roleName) {
-  return String(roleName ?? "").split("_").map((part) => {
-    const p = part.toLowerCase();
-    if (p === "iss" || p === "isw") return p.toUpperCase();
-    if (!p) return "";
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  }).filter(Boolean).join(" ");
+  const key = String(roleName ?? "").trim().toUpperCase();
+  if (!key) return "";
+  if (key === "USR") return "Usuario";
+  if (key === "ADMN") return "Admn";
+  if (key === "DEVISS") return "Dev ISS";
+  if (key === "AUDITOR") return "Auditor";
+  return key;
 }
 function roleLabel(roleName) {
-  const key = String(roleName ?? "").trim().toLowerCase();
+  const key = String(roleName ?? "").trim().toUpperCase();
   if (!key) return "";
   const canon = canonicalRoleMeta(key);
   if (canon?.namedisplay) return canon.namedisplay;
   return formatRoleTitle(key);
 }
 function pickPrimaryIssRole(roles) {
-  const list = (roles ?? []).map((r) => String(r ?? "").trim().toLowerCase()).filter(Boolean);
+  const list = (roles ?? []).map((r) => String(r ?? "").trim().toUpperCase()).filter(Boolean);
   if (!list.length) return "";
-  list.sort((a, b) => compareHierarchy(getRoleJerarquia(a), getRoleJerarquia(b)));
-  const elevated = list.filter((r) => r !== "visitante");
-  return elevated[0] ?? list[0];
+  const elevated = list.filter((r) => r !== "USR");
+  const pool = elevated.length ? elevated : list;
+  pool.sort((a, b) => {
+    const ia = ROLE_PRIORITY.indexOf(a);
+    const ib = ROLE_PRIORITY.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return pool[0];
 }
 function resolvePrimaryIssRoleId() {
   if (!Session.isLoggedIn()) return "";
   const key = sessionCacheKey();
   if (key === ME_CAPS_KEY && ME_ISS_ROLES.length) return pickPrimaryIssRole(ME_ISS_ROLES);
-  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toLowerCase();
+  if (key === ME_CAPS_KEY && ME_LOGIN_ROLE) return String(ME_LOGIN_ROLE).trim().toUpperCase();
   const sl = Session.current()?.role;
-  return sl ? String(sl).trim().toLowerCase() : "";
+  return sl ? String(sl).trim().toUpperCase() : "";
 }
 function sessionCacheKey() {
   if (!Session.isLoggedIn()) return "";
@@ -519,28 +662,28 @@ async function primeMeCaps(force = false) {
     let ok = false;
     try {
       const me = await fetchPermissionsMe({ force });
-      if (me?.capabilities) {
+      if (me?.permisosEfectivos) {
         ME_CAPS_KEY = sessionCacheKey();
         ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
         ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
+        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
         ME_CAPS = {
-          canEditInstrucciones: !!me.capabilities.canEditInstrucciones,
-          canEditOpenAiConfig: !!me.capabilities.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!me.capabilities.canEditPromptsOperativos,
-          canEditConversacionConfig: !!me.capabilities.canEditConversacionConfig,
-          canEditSwagger: !!me.capabilities.canEditSwagger,
-          canOverrideSampling: !!me.capabilities.canOverrideSampling,
-          canManagePermissions: !!me.capabilities.canManagePermissions,
-          canImpersonate: !!me.capabilities.canImpersonate,
-          canAssignUserRoles: !!me.capabilities.canAssignUserRoles,
-          canAccessOthers: !!me.capabilities.canAccessOthers,
-          canViewKanban: !!me.capabilities.canViewKanban,
-          canEditKanbanCards: !!me.capabilities.canEditKanbanCards,
-          canViewLogs: !!me.capabilities.canViewLogs,
-          canViewPrompts: !!me.capabilities.canViewPrompts,
-          canViewChat: !!me.capabilities.canViewChat,
-          canViewConfig: !!me.capabilities.canViewConfig,
-          canSendChat: !!me.capabilities.canSendChat
+          canEditInstrucciones: !!caps.canEditInstrucciones,
+          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
+          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
+          canEditConversacionConfig: !!caps.canEditConversacionConfig,
+          canEditSwagger: !!caps.canEditSwagger,
+          canOverrideSampling: !!caps.canOverrideSampling,
+          canManagePermissions: !!caps.canManagePermissions,
+          canAssignUserRoles: !!caps.canAssignUserRoles,
+          canAccessOthers: !!caps.canAccessOthers,
+          canViewKanban: !!caps.canViewKanban,
+          canEditKanbanCards: !!caps.canEditKanbanCards,
+          canViewLogs: !!caps.canViewLogs,
+          canViewPrompts: !!caps.canViewPrompts,
+          canViewChat: !!caps.canViewChat,
+          canViewConfig: !!caps.canViewConfig,
+          canSendChat: !!caps.canSendChat
         };
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
@@ -619,13 +762,10 @@ function canOverrideSampling() {
 function canManagePermissions() {
   return !!localMeCaps().canManagePermissions;
 }
-function canImpersonate() {
-  return !!localMeCaps().canImpersonate;
-}
 function canAssignUserRoles() {
   return !!localMeCaps().canAssignUserRoles;
 }
-function canAccessOthers() {
+function canAccessOthers2() {
   return !!localMeCaps().canAccessOthers;
 }
 function canEditKanbanCards() {
@@ -640,9 +780,6 @@ function canSwitchTarget() {
 function canAdminPortalJwt() {
   return Session.can("patyia.jwt.admin");
 }
-function canViewAsUser() {
-  return Session.can("session.view_as");
-}
 function instruccionesPublishCap() {
   return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
 }
@@ -650,7 +787,7 @@ function patyChatInteractCap() {
   return canViewChat() && (Session.can("patyia.chat.interact") || Session.can("patyia.jwt.admin")) ? "patyia.chat.interact" : null;
 }
 function patyChatAuditCap() {
-  return canAccessOthers() ? "patyia.chat.audit" : null;
+  return canAccessOthers2() ? "patyia.chat.audit" : null;
 }
 function patyJwtAdminCap() {
   return Session.can("patyia.jwt.admin") ? "patyia.jwt.admin" : null;
@@ -671,10 +808,10 @@ async function bootMeCaps() {
   return primeMeCaps(true);
 }
 function roleLooksLikeDevBranch(raw) {
-  const s = String(raw ?? "").trim().toLowerCase();
+  const s = String(raw ?? "").trim().toUpperCase();
   if (!s) return false;
   if (isDevBranchRole(s)) return true;
-  return /\bdev(\s+lead|\s+iss)?\b/.test(s) || /^desarrollador/.test(s);
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
 }
 function canViewAsRole() {
   if (!Session.isLoggedIn()) return false;
@@ -724,7 +861,6 @@ function getSession() {
   return {
     username: Session.username(),
     realUsername: Session.realUsername(),
-    viewAsUsername: Session.viewAsUsername(),
     role: resolveDisplayRole(),
     expiresAt: s.expiresAt,
     sessionToken: s.token,
@@ -733,10 +869,7 @@ function getSession() {
   };
 }
 function auditAuthor() {
-  const real = String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
-  const viewAs = String(Session.viewAsUsername() || "").trim().toUpperCase();
-  if (viewAs && real && viewAs !== real) return `${real} -> ${viewAs}`;
-  return real || viewAs || "";
+  return String(Session.realUsername() || Session.username() || "").trim().toUpperCase();
 }
 function humanPermissionError(err, cap) {
   return window.ISAFront.humanPermissionError(err, cap, blockReason);
@@ -744,21 +877,16 @@ function humanPermissionError(err, cap) {
 function handleApiError(err, cap) {
   window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
 }
-var INSTRUCCIONES_WRITE_CAP, TARGET_SWITCH_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, TARGET_SWITCH_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
 var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
     init_platform();
     init_systemConfigApi();
-    init_roleHierarchy();
+    init_permAccessFromMap();
     init_roleCanonicalMeta();
     init_viewAsRole();
-    installViewAsFrontOnlyGuard();
-    try {
-      window.addEventListener("isa-patyia:auth", () => installViewAsFrontOnlyGuard());
-      window.addEventListener("system-login:auth", () => installViewAsFrontOnlyGuard());
-    } catch {
-    }
+    ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
     TARGET_SWITCH_CAP = "infra.target.switch";
     ME_CAPS = {};
@@ -807,7 +935,7 @@ export {
   blockReason,
   bootMeCaps,
   can,
-  canAccessOthers,
+  canAccessOthers2 as canAccessOthers,
   canAdminPortalJwt,
   canAssignUserRoles,
   canEditConversacionConfig,
@@ -816,13 +944,11 @@ export {
   canEditOpenAiConfig,
   canEditPromptsOperativos,
   canEditSwagger,
-  canImpersonate,
   canManagePermissions,
   canOverrideSampling,
   canSendChat,
   canSwitchTarget,
   canViewAsRole,
-  canViewAsUser,
   canViewChat,
   canViewConfig,
   canViewKanban,
@@ -846,6 +972,5 @@ export {
   resolvePrimaryIssRoleId,
   setServerInstruccionesCanEdit,
   setViewAsRole,
-  stopViewAsRole,
-  stripViewAsHeaders
+  stopViewAsRole
 };
