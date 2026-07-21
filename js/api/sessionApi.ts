@@ -9,7 +9,7 @@
  */
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../core/platform.ts";
-import { fetchPermissionsMe } from "./systemConfigApi.ts";
+import { fetchPermissionsMe, invalidatePermisosCache } from "./systemConfigApi.ts";
 import { capsFromPermisosEfectivos } from "../tools/permAccessFromMap.js";
 import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
 import {
@@ -140,7 +140,9 @@ async function primeMeCaps(force = false): Promise<void> {
   ME_CAPS_INFLIGHT = (async () => {
     let ok = false;
     try {
-      const me = await fetchPermissionsMe({ force });
+      // SPA: un solo GET /permissions/me por sesión. El cache subyacente se invalida en
+      // logout/mutaciones (invalidatePermisosCache), así que no hay que forzar red aquí.
+      const me = await fetchPermissionsMe();
       if (me?.permisosEfectivos) {
         ME_CAPS_KEY = sessionCacheKey();
         ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
@@ -260,6 +262,7 @@ export async function login(user: string, pass: string, opts?: Record<string, un
 export function logout() {
   Session.logout();
   clearMeCaps();
+  invalidatePermisosCache();
   clearViewAsRole();
   notifyAuth();
 }

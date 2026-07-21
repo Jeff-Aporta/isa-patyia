@@ -7,10 +7,6 @@ import { FRONT_SHARED_REF } from "./front-shared-ref.mjs";
 /** Bump al publicar front-shared (evita caché stale de jsDelivr @main). */
 export { FRONT_SHARED_REF };
 
-function isLocalHost() {
-  return typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
-}
-
 function useCdnDist() {
   if (typeof globalThis !== "undefined" && globalThis.__ISA_CDN_SRC__) return false;
   return true;

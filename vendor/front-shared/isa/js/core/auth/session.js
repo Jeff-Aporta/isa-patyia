@@ -148,36 +148,11 @@ export function registerSession(ns, opts = {}) {
     return isLoggedIn() ? { Authorization: "Bearer " + session.token, ...appHeader() } : {};
   }
 
+  /** Sesión = JWT ISS (portal-login). system-login /api/session no conoce estos JWT
+   *  (devolvía 401 en cada arranque) y los permisos viven en el ISS (/api/permissions/me),
+   *  así que no hay nada que refrescar contra system-login. */
   async function refreshProfile() {
-    if (!isLoggedIn()) return null;
-    if (refreshPromise) return refreshPromise;
-    refreshPromise = (async () => {
-      try {
-        const res = await fetchRaw(authUrl("/api/session"), {
-          headers: { Accept: "application/json", ...authHeader() },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) return null;
-        const s = current();
-        if (!s) return null;
-        const caps = Array.isArray(data.capabilities) ? data.capabilities : [];
-        const next = {
-          ...s,
-          displayName: data.user?.displayName ?? s.displayName ?? null,
-          role: data.user?.role ?? s.role,
-          capabilities: caps,
-          adminCapabilities: caps,
-        };
-        session = next;
-        saveSession(next);
-        return next;
-      } catch {
-        return null;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-    return refreshPromise;
+    return current();
   }
 
   function loginErrorMessage(res, data) {
