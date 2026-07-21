@@ -175,6 +175,28 @@ export function requestConfirm(opts: Record<string, unknown>) { return fb()?.con
 /** Login portal ContaPyme (DataSnap vía ISS). Reemplaza el legacy /api/auth/token (eliminado de los workers). */
 const PORTAL_LOGIN_PATH = "/api/auth/portal-login";
 
+/** Endpoints opcionales para el overlay de "auth-server-down":
+ *  /api/auth/portal-jwt* y rutas administrativas no rompen la app (la sesión portal-login basta
+ *  para leer conversaciones). Si portal-jwt falla, la app cae en "lectura sin admin features". */
+const AUTH_DOWN_OVERLAY_SKIP_PATTERNS: RegExp[] = [
+  /\/api\/auth\/portal-jwt(\/catalog)?(\?|$)/,
+  /\/api\/auth\/verify-access(\?|$)/,
+  /\/api\/auth\/service-token(\?|$)/,
+  /\/api\/auth\/test-token(\?|$)/,
+  /\/api\/session(\?|$)/,
+];
+
+function shouldSuppressAuthDownOverlay(url: string): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url, location.href);
+    if (u.origin === location.origin) return true;
+    return AUTH_DOWN_OVERLAY_SKIP_PATTERNS.some((re) => re.test(u.pathname + u.search));
+  } catch {
+    return false;
+  }
+}
+
 function normalizeLoginEmail(user: string): string {
   const s = String(user ?? "").trim();
   if (!s) return "";
@@ -370,6 +392,7 @@ function patchIsaPatyiaAuthEvents(): void {
           const body = await res.clone().text();
           if (isAuthServerDown(body) || isAuthServerDown(res.statusText)) {
             const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request).url || "");
+            if (shouldSuppressAuthDownOverlay(url)) return res;
             announceAuthServerDown(`HTTP ${res.status} ${res.statusText || ""}`.trim(), "fetch", url || resolveAuthTarget());
           }
         } catch { /* ignore */ }
@@ -377,7 +400,8 @@ function patchIsaPatyiaAuthEvents(): void {
       return res;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (isAuthServerDown(msg)) announceAuthServerDown(msg, "fetch");
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request)?.url || "");
+      if (isAuthServerDown(msg) && !shouldSuppressAuthDownOverlay(url)) announceAuthServerDown(msg, "fetch");
       throw err;
     }
   };

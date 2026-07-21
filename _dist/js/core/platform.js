@@ -1318,6 +1318,16 @@ function toastWarning(text, timeout) {
 function requestConfirm(opts) {
   return fb()?.confirm?.(opts) ?? Promise.resolve(false);
 }
+function shouldSuppressAuthDownOverlay(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url, location.href);
+    if (u.origin === location.origin) return true;
+    return AUTH_DOWN_OVERLAY_SKIP_PATTERNS.some((re) => re.test(u.pathname + u.search));
+  } catch {
+    return false;
+  }
+}
 function normalizeLoginEmail(user) {
   const s = String(user ?? "").trim();
   if (!s) return "";
@@ -1487,6 +1497,7 @@ function patchIsaPatyiaAuthEvents() {
           const body = await res.clone().text();
           if (isAuthServerDown(body) || isAuthServerDown(res.statusText)) {
             const url = typeof input === "string" ? input : input instanceof URL ? input.href : String(input.url || "");
+            if (shouldSuppressAuthDownOverlay(url)) return res;
             announceAuthServerDown(`HTTP ${res.status} ${res.statusText || ""}`.trim(), "fetch", url || resolveAuthTarget());
           }
         } catch {
@@ -1495,7 +1506,8 @@ function patchIsaPatyiaAuthEvents() {
       return res;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (isAuthServerDown(msg)) announceAuthServerDown(msg, "fetch");
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : String(input?.url || "");
+      if (isAuthServerDown(msg) && !shouldSuppressAuthDownOverlay(url)) announceAuthServerDown(msg, "fetch");
       throw err;
     }
   };
@@ -1625,7 +1637,7 @@ function bootstrapIsaPatyia() {
     throw new Error("No se pudo iniciar la aplicaci\xF3n. Recargue sin cach\xE9 (Ctrl+Shift+R).");
   }
 }
-var bridge, UI, Session, Toast, Config, Assets, Tokens, getReact, getReactDOM, getMaterialUI, LightboxZoom, Lightbox, fb, PORTAL_LOGIN_PATH;
+var bridge, UI, Session, Toast, Config, Assets, Tokens, getReact, getReactDOM, getMaterialUI, LightboxZoom, Lightbox, fb, PORTAL_LOGIN_PATH, AUTH_DOWN_OVERLAY_SKIP_PATTERNS;
 var init_platform = __esm({
   "js/core/platform.ts"() {
     init_patyia();
@@ -1766,6 +1778,13 @@ var init_platform = __esm({
     };
     fb = () => globalThis.ISAFront?.Feedback;
     PORTAL_LOGIN_PATH = "/api/auth/portal-login";
+    AUTH_DOWN_OVERLAY_SKIP_PATTERNS = [
+      /\/api\/auth\/portal-jwt(\/catalog)?(\?|$)/,
+      /\/api\/auth\/verify-access(\?|$)/,
+      /\/api\/auth\/service-token(\?|$)/,
+      /\/api\/auth\/test-token(\?|$)/,
+      /\/api\/session(\?|$)/
+    ];
   }
 });
 init_platform();
