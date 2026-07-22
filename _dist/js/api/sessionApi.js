@@ -783,7 +783,14 @@ function canAssignUserRoles() {
   return !!localMeCaps().canAssignUserRoles;
 }
 function canAccessOthers2() {
-  return !!localMeCaps().canAccessOthers;
+  if (localMeCaps().canAccessOthers) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  return false;
 }
 function canEditKanbanCards() {
   return !!localMeCaps().canEditKanbanCards;

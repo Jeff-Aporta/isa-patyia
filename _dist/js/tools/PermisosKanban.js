@@ -1051,6 +1051,7 @@ function resolveGlassDialogProps({
   fullWidth = true,
   fullScreen = false,
   paperMaxWidth,
+  paperSx,
   paperClassName = "",
   slotProps,
   ...rest
@@ -1058,6 +1059,7 @@ function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (paperSx) paper.sx = { ...paper.sx, ...paperSx };
   if (fullScreen) {
     paper.sx = {
       ...paper.sx,
@@ -1144,9 +1146,9 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
     onClose ? /* @__PURE__ */ jsx2(IconButton2, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon3, { icon: "mdi:close", size: 18 }) }) : null
   ] });
 }
-function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps });
   return /* @__PURE__ */ jsxs(Dialog, { ...props, children: [
     header,
     children

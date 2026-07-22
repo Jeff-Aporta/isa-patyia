@@ -1665,7 +1665,14 @@ function canEditPromptsOperativos() {
   return !!localMeCaps().canEditPromptsOperativos;
 }
 function canAccessOthers2() {
-  return !!localMeCaps().canAccessOthers;
+  if (localMeCaps().canAccessOthers) return true;
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  return false;
 }
 function instruccionesPublishCap() {
   return canEditInstrucciones() ? INSTRUCCIONES_WRITE_CAP : null;
@@ -2841,9 +2848,11 @@ function flattenConvLogMensaje(m) {
       flat.prompt_id = String(o.operativa_key);
     }
     if (o.operativa_engine) flat.operativa_engine = o.operativa_engine;
-    const txt = textFromOpenAIReceive(r);
+    const txt = textFromOpenAIReceive(r) || String(o.response_text ?? "").trim();
     if (txt) flat.text = txt;
     if (typeof r?.model === "string") flat.model = r.model;
+    const loginUrl = typeof r?.login_url === "string" ? r.login_url : typeof s?.login_url === "string" ? s.login_url : void 0;
+    if (loginUrl) flat.login_url = loginUrl;
   } else if (m.role === "assistant") {
     const txt = resolveAssistantLogContenido(o, r);
     if (txt) {
@@ -3098,7 +3107,8 @@ function normalizeMeta(raw, options = {}) {
     })(),
     chunks: Array.isArray(raw.chunks) && raw.chunks.length ? raw.chunks : void 0,
     chunks_total: typeof raw.chunks_total === "number" ? raw.chunks_total : void 0,
-    clasificador_vector_usado: Array.isArray(raw.clasificador_vector_usado) && raw.clasificador_vector_usado.length ? raw.clasificador_vector_usado.map(String) : void 0
+    clasificador_vector_usado: Array.isArray(raw.clasificador_vector_usado) && raw.clasificador_vector_usado.length ? raw.clasificador_vector_usado.map(String) : void 0,
+    login_url: typeof raw.login_url === "string" && raw.login_url.trim() ? raw.login_url.trim() : void 0
   };
 }
 function convLogToMsgVista(m, i, userSendForTurn, userVectorStoreIds) {
@@ -3303,6 +3313,7 @@ function resolveGlassDialogProps({
   fullWidth = true,
   fullScreen = false,
   paperMaxWidth,
+  paperSx,
   paperClassName = "",
   slotProps,
   ...rest
@@ -3310,6 +3321,7 @@ function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (paperSx) paper.sx = { ...paper.sx, ...paperSx };
   if (fullScreen) {
     paper.sx = {
       ...paper.sx,
@@ -3418,9 +3430,9 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
     onClose ? /* @__PURE__ */ jsx2(IconButton14, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon26, { icon: "mdi:close", size: 18 }) }) : null
   ] });
 }
-function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog: Dialog9 } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps });
   return /* @__PURE__ */ jsxs(Dialog9, { ...props, children: [
     header,
     children
@@ -4873,19 +4885,126 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
     }
   );
 }
-function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false }) {
+function extractContapymeLoginUrl(text, metaUrl) {
+  const fromMeta = String(metaUrl || "").trim();
+  if (/^https:\/\/ia\.contapyme\.com\/api\/login\/asw\?/i.test(fromMeta)) return fromMeta;
+  const m = String(text || "").match(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/i);
+  return m?.[0] ? m[0].replace(/[),.;]+$/, "") : null;
+}
+function ContapymeLoginEmbed({ url }) {
+  const { Box: Box33, Stack: Stack26, Button: Button21, DialogContent: DialogContent15 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
+  const [open, setOpen] = useState3(false);
+  if (!url) return null;
+  const close = () => setOpen(false);
+  return /* @__PURE__ */ jsxs3(Fragment2, { children: [
+    /* @__PURE__ */ jsxs3(
+      Stack26,
+      {
+        className: "contapyme-login-embed",
+        direction: { xs: "column", sm: "row" },
+        spacing: 1,
+        useFlexGap: true,
+        sx: { mt: 1.5, alignItems: { xs: "stretch", sm: "center" } },
+        children: [
+          /* @__PURE__ */ jsx5(
+            Button21,
+            {
+              variant: "contained",
+              size: "medium",
+              onClick: () => setOpen(true),
+              startIcon: /* @__PURE__ */ jsx5(Icon26, { icon: "mdi:login-variant", size: 18 }),
+              sx: { textTransform: "none", fontWeight: 700, alignSelf: { sm: "flex-start" } },
+              children: "Iniciar sesi\xF3n ContaPyme\xAE"
+            }
+          ),
+          /* @__PURE__ */ jsx5(
+            Button21,
+            {
+              href: url,
+              target: "_blank",
+              rel: "noopener noreferrer",
+              size: "small",
+              variant: "text",
+              sx: { textTransform: "none", fontWeight: 600, alignSelf: { sm: "flex-start" } },
+              children: "Abrir en pesta\xF1a"
+            }
+          )
+        ]
+      }
+    ),
+    /* @__PURE__ */ jsx5(
+      GlassDialog,
+      {
+        open,
+        onClose: close,
+        maxWidth: false,
+        paperMaxWidth: "95vw",
+        paperSx: {
+          width: "95vw",
+          height: "95vh",
+          maxHeight: "95vh",
+          m: "2.5vh auto",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden"
+        },
+        header: /* @__PURE__ */ jsx5(
+          GlassDialogHeader,
+          {
+            title: "Conectar ContaPyme\xAE",
+            subtitle: "Sesi\xF3n ASW \xB7 inicia sesi\xF3n y cierra cuando termines",
+            icon: "mdi:domain",
+            accent: "#1e90ff",
+            onClose: close
+          }
+        ),
+        children: /* @__PURE__ */ jsx5(
+          DialogContent15,
+          {
+            dividers: true,
+            sx: {
+              ...glassDialogContentSx({ p: 0 }),
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              bgcolor: "#fff"
+            },
+            children: /* @__PURE__ */ jsx5(
+              Box33,
+              {
+                component: "iframe",
+                src: open ? url : void 0,
+                title: "Iniciar sesi\xF3n en ContaPyme",
+                loading: "lazy",
+                referrerPolicy: "no-referrer-when-downgrade",
+                sandbox: "allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads",
+                sx: { border: 0, width: "100%", flex: 1, minHeight: 0, display: "block" }
+              }
+            )
+          }
+        )
+      }
+    )
+  ] });
+}
+function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false }) {
   const { Typography: Typography28, Box: Box33 } = getMaterialUI();
   const raw = String(text || "");
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
-  const html = mdToHtml(raw);
+  const loginUrl = streaming || disableLoginEmbed ? null : extractContapymeLoginUrl(raw, loginUrlProp);
+  const displayRaw = loginUrl ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() : raw;
+  const html = mdToHtml(displayRaw || (loginUrl ? "Inicia sesi\xF3n en ContaPyme\xAE con el bot\xF3n de abajo." : ""));
   return /* @__PURE__ */ jsxs3(Fragment2, { children: [
     streaming && !hasText && !audios?.length ? /* @__PURE__ */ jsxs3(Box33, { className: "conv-stream-typing", "aria-label": "PatyIA est\xE1 escribiendo", role: "status", children: [
       /* @__PURE__ */ jsx5("span", {}),
       /* @__PURE__ */ jsx5("span", {}),
       /* @__PURE__ */ jsx5("span", {})
     ] }) : /* @__PURE__ */ jsxs3(Box33, { className: `conv-msg-body-wrap${streaming ? " conv-msg-body-wrap--streaming" : ""}`, children: [
-      /* @__PURE__ */ jsx5(
+      displayRaw || !loginUrl ? /* @__PURE__ */ jsx5(
         Typography28,
         {
           component: "div",
@@ -4921,8 +5040,9 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
             }
           }
         }
-      ),
-      streaming && hasText ? /* @__PURE__ */ jsx5(Box33, { component: "span", className: "conv-stream-cursor", "aria-hidden": true }) : null
+      ) : null,
+      streaming && hasText ? /* @__PURE__ */ jsx5(Box33, { component: "span", className: "conv-stream-cursor", "aria-hidden": true }) : null,
+      loginUrl ? /* @__PURE__ */ jsx5(ContapymeLoginEmbed, { url: loginUrl }) : null
     ] }),
     imagenes?.length > 0 && /* @__PURE__ */ jsx5(ConvMsgImages, { items: imagenes, align, onImageClick }),
     audios?.length > 0 && /* @__PURE__ */ jsx5(ConvMsgAudios, { items: audios, transcriptions: audiosTranscripcion, align })
@@ -5743,7 +5863,8 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
                             audiosTranscripcion: msg.audiosTranscripcion,
                             align: isUser ? "right" : "left",
                             onImageClick,
-                            streaming: isStreaming
+                            streaming: isStreaming,
+                            loginUrl: isOperativa ? void 0 : msg.meta?.login_url || msg.meta?.extra?.login_url
                           }
                         ) : null
                       ]
