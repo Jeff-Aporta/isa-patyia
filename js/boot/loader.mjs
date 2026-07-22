@@ -5,11 +5,10 @@ const isDist = typeof globalThis !== "undefined" && globalThis.__ISA_DIST__;
 const appBuild = new URL(import.meta.url).searchParams.get("v") || "dev";
 const isDevHost = /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
 
-/** Fork `jeff-aporta/front-shared` (legacy-jwt-guard) — hasta que el upstream
- * acepte el fix de `isTokenValid` (rechazo de JWT LAB/system-login). */
-const CDN_OWNER = "jeff-aporta";
-const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/${CDN_OWNER}/front-shared@${PIN}/cdn/`;
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
 const BOOT_LOADER_URL = `${CDN}boot-loader.mjs?v=${PIN}`;
+/** Bust cache del vendor local (JWT legacy guard 21-jul-2026). No cambia PIN CDN remoto. */
+const VENDOR_BUNDLE_V = `${PIN}-jwt2`;
 
 function vendorFrontSharedBase() {
   const base = document.querySelector("base")?.href || location.href;
@@ -18,8 +17,8 @@ function vendorFrontSharedBase() {
 
 /** URLs del bundle ISAFront, en orden de preferencia (vendor same-origin primero en dev). */
 function isaFrontBundleUrls() {
-  const vendor = `${vendorFrontSharedBase()}_dist/isa/js/index.min.js?v=${PIN}`;
-  const primary = `${CDN}_dist/isa/js/index.min.js?v=${PIN}`;
+  const vendor = `${vendorFrontSharedBase()}_dist/isa/js/index.min.js?v=${VENDOR_BUNDLE_V}`;
+  const primary = `${CDN}_dist/isa/js/index.min.js?v=${VENDOR_BUNDLE_V}`;
   const remote = `${JSDELIVR_CDN}_dist/isa/js/index.min.js?v=${PIN}`;
   // En localhost: vendor → CDN configurado → jsDelivr (monorepo vacío no tumba el boot).
   if (isDevHost) return [vendor, primary, remote];

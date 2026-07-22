@@ -76,7 +76,6 @@ const jobs = [
   ["js/api/portalJwtApi.ts", "js/api/portalJwtApi.js"],
   ["js/core/urlState.ts", "js/core/urlState.js"],
   ["js/core/viewAsRole.ts", "js/core/viewAsRole.js"],
-  ["js/boot/cdn.mjs", "js/boot/cdn.js"],
 ];
 
 for (const [src, dist] of jobs) {

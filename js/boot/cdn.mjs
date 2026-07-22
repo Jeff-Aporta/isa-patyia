@@ -1,6 +1,4 @@
-/** Pin CDN front-shared — ver cdn/isa/js/core/auth/token-store.js (legacy JWT guard).
- *  fork: jeff-aporta/front-shared@legacy-jwt-guard (21-jul-2026) */
-export const PIN = "38ca691";
+export const PIN = "a13fc29";
 
 const isDevHost =
   typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
@@ -37,10 +35,7 @@ function vendorCdnBase() {
   return new URL("vendor/front-shared/", base).href.replace(/\/?$/, "/");
 }
 
-/** Fork `jeff-aporta/front-shared` (legacy-jwt-guard) — hasta que el upstream
- * acepte el fix de `isTokenValid` (rechazo de JWT LAB/system-login). */
-const CDN_OWNER = "jeff-aporta";
-const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/${CDN_OWNER}/front-shared@${PIN}/cdn/`;
+const JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
 
 /** Resolución del CDN de front-shared (boot-loader, ISAFront, stack.mjs):
  *  - Producción: vendor same-origin (sin depender de jsDelivr en runtime).
