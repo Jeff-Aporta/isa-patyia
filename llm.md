@@ -1044,3 +1044,36 @@ node --test tests/msgDateFormat.test.mjs
 ```
 
 **NO** commitear `tests/` — `.gitignore` lo excluye a propósito.
+
+---
+
+## ContaPyme login ASW en chat (21-jul-2026)
+
+ISS pide login ContaPyme® (MCP `pagina_login_asw`) y el mensaje trae URL `https://ia.contapyme.com/api/login/asw?…&appIA=paty`.
+
+### Qué HAY que hacer (front)
+
+| Pieza | Dónde | Regla |
+|-------|-------|-------|
+| Extraer URL | `ConvLogWebView.jsx` → `extractContapymeLoginUrl` | Meta `login_url` o regex en texto |
+| CTA | Botón «Iniciar sesión ContaPyme®» + «Abrir en pestaña» | **No** iframe inline en el hilo |
+| Modal | `GlassDialog` + `paperSx` **95vw × 95vh** | Iframe solo con `src={open ? url : undefined}` |
+| Caps auditoría | `sessionApi.canAccessOthers()` | Fallback Dev ISS si `/permissions/me` falla (PERMS_OPEN / host caído) |
+| Texto user log | `convLog.ts` | Lee `send.input`; propaga `login_url` en flatten OP/assistant |
+
+### Errores pagados
+
+1. **Iframe embebido ~500px** — invade el chat. Solución: modal 95vh/vw.
+2. **Toast «solo puede abrir tus propias conversaciones»** con ISS local muerto o PERMS_OPEN a medias — ver ISS `llm.md` ContaPyme MCP / PERMS_OPEN; front no debe asumir USR si el rol display es Dev ISS.
+3. **User «(mensaje usuario sin texto en log)»** — bug ISS (falta `http_request.input` en short-circuit); no «arreglar» inventando texto en el front.
+
+### Qué NO hacer
+
+| No hacer | Por qué |
+|----------|---------|
+| Volver a meter iframe alto en `MsgBody` | Invade el hilo |
+| Hardcodear 1920×1080 / VP9 para login | No aplica; es portal ASW en iframe |
+| Inventar LangGraph en el front para MCP | Gate vive en ISS |
+| Commitear `tests/` del front | gitignore a propósito; health productivo ISS = `src/health/` |
+
+Tras cambios: `node paty_build.mjs` (App bundle incluye ConvLogWebView).

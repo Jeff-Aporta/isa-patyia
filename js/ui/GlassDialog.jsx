@@ -45,6 +45,7 @@ export function resolveGlassDialogProps({
   fullWidth = true,
   fullScreen = false,
   paperMaxWidth,
+  paperSx,
   paperClassName = "",
   slotProps,
   ...rest
@@ -52,6 +53,7 @@ export function resolveGlassDialogProps({
   const { loginDialogProps } = isaLoginSurface();
   const paper = glassPaperProps(maxWidth, paperClassName);
   if (paperMaxWidth) paper.sx = { ...paper.sx, maxWidth: paperMaxWidth };
+  if (paperSx) paper.sx = { ...paper.sx, ...paperSx };
   if (fullScreen) {
     paper.sx = {
       ...paper.sx,
@@ -188,9 +190,9 @@ export function GlassDialogHeader({ icon = "mdi:information-outline", title, sub
   );
 }
 
-export function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps }) {
+export function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps }) {
   const { Dialog } = getMaterialUI();
-  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperClassName, slotProps, ...dialogProps });
+  const props = resolveGlassDialogProps({ maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps });
   return (
     <Dialog {...props}>
       {header}

@@ -229,7 +229,16 @@ export function canEditSwagger(): boolean { return !!localMeCaps().canEditSwagge
 export function canOverrideSampling(): boolean { return !!localMeCaps().canOverrideSampling; }
 export function canManagePermissions(): boolean { return !!localMeCaps().canManagePermissions; }
 export function canAssignUserRoles(): boolean { return !!localMeCaps().canAssignUserRoles; }
-export function canAccessOthers(): boolean { return !!localMeCaps().canAccessOthers; }
+export function canAccessOthers(): boolean {
+  if (localMeCaps().canAccessOthers) return true;
+  // Mientras SEG/permissions/me falla o PERMS_OPEN no hidrata: no bloquear Dev ISS.
+  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch { /* ignore */ }
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  return false;
+}
 export function canEditKanbanCards(): boolean { return !!localMeCaps().canEditKanbanCards; }
 export function canSendChat(): boolean { return !!localMeCaps().canSendChat; }
 

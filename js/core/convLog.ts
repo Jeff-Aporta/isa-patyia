@@ -6,7 +6,7 @@
 import { formatMsgFecha } from "./msgDateFormat.ts";
 
 /** Mensaje conv-log aplanado — campos base + propiedades según rol (user/assistant/operativa). */
-type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; vector_store_ids?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number; file_search?: unknown; archivos_citados?: string[]; chunks?: unknown[]; chunks_total?: number; clasificador_vector_usado?: string[] };
+type FlatConvLogMensaje = { ts?: unknown; tokens?: unknown; cost?: unknown; usage?: unknown; latency_ms?: unknown; send?: unknown; receive?: unknown; others?: unknown; text?: string; prompt_text?: string; imagenes?: string[]; audios?: string[]; audios_transcripcion?: string[]; prompt_id?: string; prompt_variables?: unknown; vectorStoreIds?: unknown; vector_store_ids?: unknown; operativa_key?: string; operativa_engine?: string; model?: string; response_text?: string; response_id?: string; engine?: string; itdconsulta?: string; nombre_usuario?: string; stream_ok?: boolean; stream_error?: string; nombre_usado_en_respuesta?: boolean; modelo_configurado?: string; modelo_autoswitch_vision?: boolean; premisas?: string[]; prompt_chars?: number; response_chars?: number; file_search?: unknown; archivos_citados?: string[]; chunks?: unknown[]; chunks_total?: number; clasificador_vector_usado?: string[]; login_url?: string };
 
 type NormalizeMetaOptions = { isUser?: boolean };
 
@@ -386,9 +386,13 @@ function pushImage(images: string[], ref: unknown) {
         flat.prompt_id = String(o.operativa_key);
       }
       if (o.operativa_engine) flat.operativa_engine = o.operativa_engine;
-      const txt = textFromOpenAIReceive(r);
+      const txt = textFromOpenAIReceive(r) || String(o.response_text ?? "").trim();
       if (txt) flat.text = txt;
       if (typeof r?.model === "string") flat.model = r.model;
+      const loginUrl = typeof r?.login_url === "string"
+        ? r.login_url
+        : (typeof s?.login_url === "string" ? s.login_url : undefined);
+      if (loginUrl) flat.login_url = loginUrl;
     } else if (m.role === "assistant") {
       const txt = resolveAssistantLogContenido(o as Record<string, unknown>, r);
       if (txt) {
@@ -702,6 +706,7 @@ function pushImage(images: string[], ref: unknown) {
       clasificador_vector_usado: Array.isArray(raw.clasificador_vector_usado) && raw.clasificador_vector_usado.length
         ? raw.clasificador_vector_usado.map(String)
         : undefined,
+      login_url: typeof raw.login_url === "string" && raw.login_url.trim() ? raw.login_url.trim() : undefined,
     };
   }
 

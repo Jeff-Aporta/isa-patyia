@@ -588,12 +588,110 @@ function MetaChipRow({ meta, isUser = false, hideUsageMetrics = false, hideClass
   );
 }
 
-function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false }) {
+function extractContapymeLoginUrl(text, metaUrl) {
+  const fromMeta = String(metaUrl || "").trim();
+  if (/^https:\/\/ia\.contapyme\.com\/api\/login\/asw\?/i.test(fromMeta)) return fromMeta;
+  const m = String(text || "").match(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/i);
+  return m?.[0] ? m[0].replace(/[),.;]+$/, "") : null;
+}
+
+/** Login ASW ContaPyme: botón en el hilo → modal 95vw×95vh (no invade el chat). */
+function ContapymeLoginEmbed({ url }) {
+  const { Box, Stack, Button, DialogContent } = getMaterialUI();
+  const { Icon } = UI;
+  const [open, setOpen] = useState(false);
+  if (!url) return null;
+  const close = () => setOpen(false);
+  return (
+    <>
+      <Stack
+        className="contapyme-login-embed"
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        useFlexGap
+        sx={{ mt: 1.5, alignItems: { xs: "stretch", sm: "center" } }}
+      >
+        <Button
+          variant="contained"
+          size="medium"
+          onClick={() => setOpen(true)}
+          startIcon={<Icon icon="mdi:login-variant" size={18} />}
+          sx={{ textTransform: "none", fontWeight: 700, alignSelf: { sm: "flex-start" } }}
+        >
+          Iniciar sesión ContaPyme®
+        </Button>
+        <Button
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          size="small"
+          variant="text"
+          sx={{ textTransform: "none", fontWeight: 600, alignSelf: { sm: "flex-start" } }}
+        >
+          Abrir en pestaña
+        </Button>
+      </Stack>
+      <GlassDialog
+        open={open}
+        onClose={close}
+        maxWidth={false}
+        paperMaxWidth="95vw"
+        paperSx={{
+          width: "95vw",
+          height: "95vh",
+          maxHeight: "95vh",
+          m: "2.5vh auto",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+        header={(
+          <GlassDialogHeader
+            title="Conectar ContaPyme®"
+            subtitle="Sesión ASW · inicia sesión y cierra cuando termines"
+            icon="mdi:domain"
+            accent="#1e90ff"
+            onClose={close}
+          />
+        )}
+      >
+        <DialogContent
+          dividers
+          sx={{
+            ...glassDialogContentSx({ p: 0 }),
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            bgcolor: "#fff",
+          }}
+        >
+          <Box
+            component="iframe"
+            src={open ? url : undefined}
+            title="Iniciar sesión en ContaPyme"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            sx={{ border: 0, width: "100%", flex: 1, minHeight: 0, display: "block" }}
+          />
+        </DialogContent>
+      </GlassDialog>
+    </>
+  );
+}
+
+function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false }) {
   const { Typography, Box } = getMaterialUI();
   const raw = String(text || "");
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
-  const html = mdToHtml(raw);
+  const loginUrl = (streaming || disableLoginEmbed) ? null : extractContapymeLoginUrl(raw, loginUrlProp);
+  const displayRaw = loginUrl
+    ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
+    : raw;
+  const html = mdToHtml(displayRaw || (loginUrl ? "Inicia sesión en ContaPyme® con el botón de abajo." : ""));
   return (
     <>
       {streaming && !hasText && !audios?.length ? (
@@ -602,6 +700,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
         </Box>
       ) : (
         <Box className={`conv-msg-body-wrap${streaming ? " conv-msg-body-wrap--streaming" : ""}`}>
+          {(displayRaw || !loginUrl) ? (
           <Typography
             component="div"
             variant="body1"
@@ -636,7 +735,9 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
               }
             }}
           />
+          ) : null}
           {streaming && hasText ? <Box component="span" className="conv-stream-cursor" aria-hidden /> : null}
+          {loginUrl ? <ContapymeLoginEmbed url={loginUrl} /> : null}
         </Box>
       )}
       {imagenes?.length > 0 && (
@@ -1553,6 +1654,9 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
               align={isUser ? "right" : "left"}
               onImageClick={onImageClick}
               streaming={isStreaming}
+              disableLoginEmbed={isOperativa}
+              // Solo asistente: la OP MCP trae login_url en el resumen y no debe duplicar el CTA/modal.
+              loginUrl={isOperativa ? undefined : (msg.meta?.login_url || msg.meta?.extra?.login_url)}
             />
             ) : null}
           </SectionCard>
