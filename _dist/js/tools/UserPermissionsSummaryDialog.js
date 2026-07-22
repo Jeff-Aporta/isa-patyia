@@ -241,7 +241,13 @@ function resolveGlassDialogProps({
     fullScreen,
     scroll: "paper",
     className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
-    slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
+    slotProps: {
+      ...slotProps || {},
+      backdrop: {
+        ...slotProps?.backdrop || {},
+        sx: { ...glassBackdropSx(), ...slotProps?.backdrop?.sx || {} }
+      }
+    },
     PaperProps: paper,
     ...rest
   };
@@ -270,7 +276,7 @@ function glassDialogActionsSx(extra = {}) {
     ...extra
   };
 }
-function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
+function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose, closeAutoFocus = false }) {
   const { Box: Box2, Typography: Typography2, IconButton, Stack: Stack2 } = getMaterialUI();
   const { Icon } = UI;
   const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
@@ -302,7 +308,18 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
         subtitle ? /* @__PURE__ */ jsx(Typography2, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
       ] })
     ] }) }),
-    onClose ? /* @__PURE__ */ jsx(IconButton, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx(Icon, { icon: "mdi:close", size: 18 }) }) : null
+    onClose ? /* @__PURE__ */ jsx(
+      IconButton,
+      {
+        size: "small",
+        onClick: onClose,
+        "aria-label": "Cerrar",
+        autoFocus: closeAutoFocus,
+        className: "isa-glass-dialog__close",
+        sx: { position: "absolute", top: 10, right: 10 },
+        children: /* @__PURE__ */ jsx(Icon, { icon: "mdi:close", size: 18 })
+      }
+    ) : null
   ] });
 }
 function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps }) {

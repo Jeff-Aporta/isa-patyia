@@ -649,6 +649,18 @@ function resolvePrimaryIssRoleId() {
   const sl = Session.current()?.role;
   return sl ? String(sl).trim().toUpperCase() : "";
 }
+function capsFromPermissionsMe(me) {
+  if (!me) return null;
+  const map = me.permisosEfectivos ?? me.permisos;
+  const fromMap = map && typeof map === "object" ? capsFromPermisosEfectivos(map) : null;
+  const fromCaps = me.capabilities && typeof me.capabilities === "object" ? me.capabilities : null;
+  if (!fromMap && !fromCaps) return null;
+  const out = {};
+  for (const k of ME_CAP_KEYS) {
+    out[k] = !!(fromMap?.[k] || fromCaps?.[k]);
+  }
+  return out;
+}
 function sessionCacheKey() {
   if (!Session.isLoggedIn()) return "";
   const tok = Session?.current?.()?.token;
@@ -658,7 +670,8 @@ function sessionCacheKey() {
 function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
-  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   if (viewAs && canViewAsRole()) {
     const preset = capsForViewAsRole(viewAs);
@@ -679,29 +692,12 @@ async function primeMeCaps(force = false) {
     let ok = false;
     try {
       const me = await fetchPermissionsMe();
-      if (me?.permisosEfectivos) {
+      const caps = capsFromPermissionsMe(me);
+      if (caps) {
         ME_CAPS_KEY = sessionCacheKey();
-        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
-        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
-        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
-        ME_CAPS = {
-          canEditInstrucciones: !!caps.canEditInstrucciones,
-          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
-          canEditConversacionConfig: !!caps.canEditConversacionConfig,
-          canEditSwagger: !!caps.canEditSwagger,
-          canOverrideSampling: !!caps.canOverrideSampling,
-          canManagePermissions: !!caps.canManagePermissions,
-          canAssignUserRoles: !!caps.canAssignUserRoles,
-          canAccessOthers: !!caps.canAccessOthers,
-          canViewKanban: !!caps.canViewKanban,
-          canEditKanbanCards: !!caps.canEditKanbanCards,
-          canViewLogs: !!caps.canViewLogs,
-          canViewPrompts: !!caps.canViewPrompts,
-          canViewChat: !!caps.canViewChat,
-          canViewConfig: !!caps.canViewConfig,
-          canSendChat: !!caps.canSendChat
-        };
+        ME_ISS_ROLES = Array.isArray(me?.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me?.loginRole ?? "").trim();
+        ME_CAPS = caps;
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
         if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
@@ -756,22 +752,37 @@ function canViewConfig() {
 function canViewKanban() {
   return !!localMeCaps().canViewKanban;
 }
+function meCapsHydrated() {
+  return !!(sessionCacheKey() && sessionCacheKey() === ME_CAPS_KEY);
+}
+function resolveEditCap(meFlag, serverHint) {
+  if (isViewingAsRole()) return !!meFlag;
+  if (FORCE_PERMS_OPEN) return true;
+  if (meFlag) return true;
+  if (serverHint === true) return true;
+  if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
+  if (!meCapsHydrated() && ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
+  try {
+    if (!meCapsHydrated() && roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  return false;
+}
 function canEditInstrucciones() {
   const caps = localMeCaps();
-  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
-  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+  return resolveEditCap(caps.canEditInstrucciones, ME_SERVER_INSTRUCCIONES_EDIT);
 }
 function canEditOpenAiConfig() {
-  return !!localMeCaps().canEditOpenAiConfig;
+  return resolveEditCap(localMeCaps().canEditOpenAiConfig);
 }
 function canEditPromptsOperativos() {
-  return !!localMeCaps().canEditPromptsOperativos;
+  return resolveEditCap(localMeCaps().canEditPromptsOperativos);
 }
 function canEditConversacionConfig() {
-  return !!localMeCaps().canEditConversacionConfig;
+  return resolveEditCap(localMeCaps().canEditConversacionConfig);
 }
 function canEditSwagger() {
-  return !!localMeCaps().canEditSwagger;
+  return resolveEditCap(localMeCaps().canEditSwagger);
 }
 function canOverrideSampling() {
   return !!localMeCaps().canOverrideSampling;
@@ -783,13 +794,14 @@ function canAssignUserRoles() {
   return !!localMeCaps().canAssignUserRoles;
 }
 function canAccessOthers2() {
+  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
   if (localMeCaps().canAccessOthers) return true;
-  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
   try {
-    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+    if (roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
   } catch {
   }
-  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
   return false;
 }
 function canEditKanbanCards() {
@@ -836,7 +848,12 @@ function roleLooksLikeDevBranch(raw) {
   const s = String(raw ?? "").trim().toUpperCase();
   if (!s) return false;
   if (isDevBranchRole(s)) return true;
-  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s);
+}
+function roleLooksLikeElevatedEdit(raw) {
+  if (roleLooksLikeDevBranch(raw)) return true;
+  const s = String(raw ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return s === "DEV_LEAD" || s === "DEVLEAD" || s.endsWith("_DEV_LEAD");
 }
 function canViewAsRole() {
   if (!Session.isLoggedIn()) return false;
@@ -902,7 +919,7 @@ function humanPermissionError(err, cap) {
 function handleApiError(err, cap) {
   window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
 }
-var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, TARGET_SWITCH_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, TARGET_SWITCH_CAP, FORCE_PERMS_OPEN, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
 var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
@@ -914,6 +931,26 @@ var init_sessionApi = __esm({
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
     TARGET_SWITCH_CAP = "infra.target.switch";
+    FORCE_PERMS_OPEN = true;
+    OPEN_ME_CAPS = {
+      canEditInstrucciones: true,
+      canEditOpenAiConfig: true,
+      canEditPromptsOperativos: true,
+      canEditConversacionConfig: true,
+      canEditSwagger: true,
+      canOverrideSampling: true,
+      canManagePermissions: true,
+      canAssignUserRoles: true,
+      canAccessOthers: true,
+      canViewKanban: true,
+      canEditKanbanCards: true,
+      canViewLogs: true,
+      canViewPrompts: true,
+      canViewChat: true,
+      canViewConfig: true,
+      canSendChat: true
+    };
+    ME_CAP_KEYS = Object.keys(OPEN_ME_CAPS);
     ME_CAPS = {};
     ME_CAPS_KEY = "";
     ME_ISS_ROLES = [];
@@ -952,6 +989,7 @@ var init_sessionApi = __esm({
 });
 init_sessionApi();
 export {
+  FORCE_PERMS_OPEN,
   INSTRUCCIONES_WRITE_CAP,
   TARGET_SWITCH_CAP,
   VIEW_AS_ROLE_EVENT,
@@ -990,6 +1028,7 @@ export {
   isViewingAsRole,
   login,
   logout,
+  meCapsHydrated,
   patyChatAuditCap,
   patyChatInteractCap,
   patyJwtAdminCap,

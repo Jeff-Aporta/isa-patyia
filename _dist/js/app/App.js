@@ -872,6 +872,10 @@ function buildConversacionPostBody(input) {
   if (input.mode && String(input.mode).trim().toLowerCase() !== "patyia") {
     body.mode = String(input.mode).trim().toLowerCase();
   }
+  const provider = String(input.provider || "").trim().toLowerCase();
+  if (provider && provider !== "openai") {
+    body.provider = provider;
+  }
   if (!String(body.prompt || "").trim() && hasMedia) {
     body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";
   }
@@ -1561,6 +1565,18 @@ function resolvePrimaryIssRoleId() {
   const sl = Session.current()?.role;
   return sl ? String(sl).trim().toUpperCase() : "";
 }
+function capsFromPermissionsMe(me) {
+  if (!me) return null;
+  const map = me.permisosEfectivos ?? me.permisos;
+  const fromMap = map && typeof map === "object" ? capsFromPermisosEfectivos(map) : null;
+  const fromCaps = me.capabilities && typeof me.capabilities === "object" ? me.capabilities : null;
+  if (!fromMap && !fromCaps) return null;
+  const out = {};
+  for (const k of ME_CAP_KEYS) {
+    out[k] = !!(fromMap?.[k] || fromCaps?.[k]);
+  }
+  return out;
+}
 function sessionCacheKey() {
   if (!Session.isLoggedIn()) return "";
   const tok = Session?.current?.()?.token;
@@ -1570,7 +1586,8 @@ function sessionCacheKey() {
 function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
-  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   if (viewAs && canViewAsRole()) {
     const preset = capsForViewAsRole(viewAs);
@@ -1591,29 +1608,12 @@ async function primeMeCaps(force = false) {
     let ok = false;
     try {
       const me = await fetchPermissionsMe();
-      if (me?.permisosEfectivos) {
+      const caps = capsFromPermissionsMe(me);
+      if (caps) {
         ME_CAPS_KEY = sessionCacheKey();
-        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
-        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
-        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
-        ME_CAPS = {
-          canEditInstrucciones: !!caps.canEditInstrucciones,
-          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
-          canEditConversacionConfig: !!caps.canEditConversacionConfig,
-          canEditSwagger: !!caps.canEditSwagger,
-          canOverrideSampling: !!caps.canOverrideSampling,
-          canManagePermissions: !!caps.canManagePermissions,
-          canAssignUserRoles: !!caps.canAssignUserRoles,
-          canAccessOthers: !!caps.canAccessOthers,
-          canViewKanban: !!caps.canViewKanban,
-          canEditKanbanCards: !!caps.canEditKanbanCards,
-          canViewLogs: !!caps.canViewLogs,
-          canViewPrompts: !!caps.canViewPrompts,
-          canViewChat: !!caps.canViewChat,
-          canViewConfig: !!caps.canViewConfig,
-          canSendChat: !!caps.canSendChat
-        };
+        ME_ISS_ROLES = Array.isArray(me?.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me?.loginRole ?? "").trim();
+        ME_CAPS = caps;
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
         if (readViewAsRole() && !realRolesAllowViewAs(ME_ISS_ROLES)) clearViewAsRole();
@@ -1653,25 +1653,41 @@ function notifyAuth() {
   window.dispatchEvent(new Event("patyia-apptools:auth"));
   window.dispatchEvent(new Event("isa-patyia:auth"));
 }
-function canEditInstrucciones() {
-  const caps = localMeCaps();
-  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
-  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+function meCapsHydrated() {
+  return !!(sessionCacheKey() && sessionCacheKey() === ME_CAPS_KEY);
 }
-function canEditOpenAiConfig() {
-  return !!localMeCaps().canEditOpenAiConfig;
-}
-function canEditPromptsOperativos() {
-  return !!localMeCaps().canEditPromptsOperativos;
-}
-function canAccessOthers2() {
-  if (localMeCaps().canAccessOthers) return true;
-  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+function resolveEditCap(meFlag, serverHint) {
+  if (isViewingAsRole()) return !!meFlag;
+  if (FORCE_PERMS_OPEN) return true;
+  if (meFlag) return true;
+  if (serverHint === true) return true;
+  if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
+  if (!meCapsHydrated() && ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
   try {
-    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+    if (!meCapsHydrated() && roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
   } catch {
   }
-  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  return false;
+}
+function canEditInstrucciones() {
+  const caps = localMeCaps();
+  return resolveEditCap(caps.canEditInstrucciones, ME_SERVER_INSTRUCCIONES_EDIT);
+}
+function canEditOpenAiConfig() {
+  return resolveEditCap(localMeCaps().canEditOpenAiConfig);
+}
+function canEditPromptsOperativos() {
+  return resolveEditCap(localMeCaps().canEditPromptsOperativos);
+}
+function canAccessOthers2() {
+  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
+  if (localMeCaps().canAccessOthers) return true;
+  if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
+  try {
+    if (roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch {
+  }
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
   return false;
 }
 function instruccionesPublishCap() {
@@ -1697,7 +1713,12 @@ function roleLooksLikeDevBranch(raw) {
   const s = String(raw ?? "").trim().toUpperCase();
   if (!s) return false;
   if (isDevBranchRole(s)) return true;
-  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s);
+}
+function roleLooksLikeElevatedEdit(raw) {
+  if (roleLooksLikeDevBranch(raw)) return true;
+  const s = String(raw ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return s === "DEV_LEAD" || s === "DEVLEAD" || s.endsWith("_DEV_LEAD");
 }
 function canViewAsRole() {
   if (!Session.isLoggedIn()) return false;
@@ -1763,7 +1784,7 @@ function humanPermissionError(err, cap) {
 function handleApiError(err, cap) {
   window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
 }
-var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, FORCE_PERMS_OPEN, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
 var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
@@ -1774,6 +1795,26 @@ var init_sessionApi = __esm({
     init_viewAsRole();
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
+    FORCE_PERMS_OPEN = true;
+    OPEN_ME_CAPS = {
+      canEditInstrucciones: true,
+      canEditOpenAiConfig: true,
+      canEditPromptsOperativos: true,
+      canEditConversacionConfig: true,
+      canEditSwagger: true,
+      canOverrideSampling: true,
+      canManagePermissions: true,
+      canAssignUserRoles: true,
+      canAccessOthers: true,
+      canViewKanban: true,
+      canEditKanbanCards: true,
+      canViewLogs: true,
+      canViewPrompts: true,
+      canViewChat: true,
+      canViewConfig: true,
+      canSendChat: true
+    };
+    ME_CAP_KEYS = Object.keys(OPEN_ME_CAPS);
     ME_CAPS = {};
     ME_CAPS_KEY = "";
     ME_ISS_ROLES = [];
@@ -2473,6 +2514,16 @@ function persistChatMode(mode) {
   const prev = String(snap.chat?.mode || "patyia");
   if (prev === normalized) return snap;
   return mergePartial({ tool: "chat", chat: { mode: normalized } });
+}
+function persistChatLlmProvider(provider) {
+  const normalized = String(provider || "openai").trim().toLowerCase() || "openai";
+  const snap = getSnapshot();
+  const prev = String(snap.chat?.provider || "openai").toLowerCase();
+  if (prev === normalized) return snap;
+  if (normalized === "openai") {
+    return mergePartial({ tool: "chat", chat: { provider: void 0 } });
+  }
+  return mergePartial({ tool: "chat", chat: { provider: normalized } });
 }
 function configPermisosBag(snap) {
   const cfg = (snap ?? getSnapshot()).config;
@@ -3344,7 +3395,13 @@ function resolveGlassDialogProps({
     fullScreen,
     scroll: "paper",
     className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
-    slotProps: { backdrop: { sx: glassBackdropSx() }, ...slotProps || {} },
+    slotProps: {
+      ...slotProps || {},
+      backdrop: {
+        ...slotProps?.backdrop || {},
+        sx: { ...glassBackdropSx(), ...slotProps?.backdrop?.sx || {} }
+      }
+    },
     PaperProps: paper,
     ...rest
   };
@@ -3395,7 +3452,7 @@ function GlassDialogCloseActions({ onClose, label = "Cerrar" }) {
   const { DialogActions: DialogActions13, Button: Button21 } = getMaterialUI();
   return /* @__PURE__ */ jsx2(DialogActions13, { sx: glassDialogActionsSx(), children: /* @__PURE__ */ jsx2(Button21, { onClick: onClose, sx: { textTransform: "none", fontWeight: 600, minWidth: 72 }, children: label }) });
 }
-function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
+function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose, closeAutoFocus = false }) {
   const { Box: Box33, Typography: Typography28, IconButton: IconButton14, Stack: Stack26 } = getMaterialUI();
   const { Icon: Icon26 } = UI;
   const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
@@ -3427,7 +3484,18 @@ function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, 
         subtitle ? /* @__PURE__ */ jsx2(Typography28, { variant: "caption", color: "text.secondary", display: "block", sx: { mt: 0.35, lineHeight: 1.4 }, children: subtitle }) : null
       ] })
     ] }) }),
-    onClose ? /* @__PURE__ */ jsx2(IconButton14, { size: "small", onClick: onClose, "aria-label": "Cerrar", className: "isa-glass-dialog__close", sx: { position: "absolute", top: 10, right: 10 }, children: /* @__PURE__ */ jsx2(Icon26, { icon: "mdi:close", size: 18 }) }) : null
+    onClose ? /* @__PURE__ */ jsx2(
+      IconButton14,
+      {
+        size: "small",
+        onClick: onClose,
+        "aria-label": "Cerrar",
+        autoFocus: closeAutoFocus,
+        className: "isa-glass-dialog__close",
+        sx: { position: "absolute", top: 10, right: 10 },
+        children: /* @__PURE__ */ jsx2(Icon26, { icon: "mdi:close", size: 18 })
+      }
+    ) : null
   ] });
 }
 function GlassDialog({ children, header = null, maxWidth, fullWidth, fullScreen, paperMaxWidth, paperSx, paperClassName, slotProps, ...dialogProps }) {
@@ -4946,32 +5014,131 @@ function extractContapymeLoginUrl(text, metaUrl) {
 function scrubContapymeLoginFromText(text) {
   return String(text || "").replace(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/gi, "").replace(/^login_url:\s*.*$/gim, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
-function forceIframeWindowRelayout(iframe) {
+function forceIframeRepaint(iframe) {
   if (!iframe) return;
-  const w = iframe.clientWidth;
-  const h = iframe.clientHeight;
-  if (w < 2 || h < 2) return;
-  iframe.style.width = `${w - 1}px`;
-  iframe.style.height = `${h - 1}px`;
+  const rect = iframe.getBoundingClientRect();
+  const w = Math.round(rect.width) || iframe.clientWidth || 0;
+  const h = Math.round(rect.height) || iframe.clientHeight || 0;
+  if (w < 8 || h < 8) return;
+  const prev = { w: iframe.style.width, h: iframe.style.height, v: iframe.style.visibility };
+  iframe.style.visibility = "hidden";
+  iframe.style.width = `${Math.max(8, w - 1)}px`;
+  iframe.style.height = `${Math.max(8, h - 1)}px`;
+  void iframe.offsetHeight;
   requestAnimationFrame(() => {
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    try {
-      iframe.contentWindow?.dispatchEvent?.(new Event("resize"));
-    } catch {
-    }
+    iframe.style.width = prev.w || "100%";
+    iframe.style.height = prev.h || "100%";
+    iframe.style.visibility = prev.v || "visible";
+    void iframe.offsetHeight;
+    window.dispatchEvent(new Event("resize"));
   });
 }
-function ContapymeLoginEmbed({ url }) {
-  const { Box: Box33, Stack: Stack26, Button: Button21, DialogContent: DialogContent15 } = getMaterialUI();
+function scheduleIframeRepaint(iframe, delaysMs = [0, 80, 200, 500, 1e3, 2e3, 4e3]) {
+  if (!iframe) return () => {
+  };
+  const timers = delaysMs.map((ms) => window.setTimeout(() => forceIframeRepaint(iframe), ms));
+  return () => timers.forEach((id) => window.clearTimeout(id));
+}
+function ContapymeLoginEmbed({ url, onLoginDone }) {
+  const { Stack: Stack26, Button: Button21, Dialog: Dialog9, DialogContent: DialogContent15 } = getMaterialUI();
   const { Icon: Icon26 } = UI;
   const [open, setOpen] = useState3(false);
-  const [iframeSrc, setIframeSrc] = useState3(null);
+  const [hostReady, setHostReady] = useState3(false);
+  const [geomNudge, setGeomNudge] = useState3(0);
   const iframeRef = useRef(null);
-  const close = () => {
-    setOpen(false);
-    setIframeSrc(null);
+  const contentRef = useRef(null);
+  const tabOpenedRef = useRef(false);
+  const doneOnceRef = useRef(false);
+  const cancelRepaintRef = useRef(null);
+  const signalDone = () => {
+    if (doneOnceRef.current) return;
+    doneOnceRef.current = true;
+    onLoginDone?.();
   };
+  const close = () => {
+    cancelRepaintRef.current?.();
+    cancelRepaintRef.current = null;
+    setOpen(false);
+    setHostReady(false);
+    setGeomNudge(0);
+    signalDone();
+  };
+  useEffect3(() => {
+    if (!open) {
+      setHostReady(false);
+      return void 0;
+    }
+    let cancelled = false;
+    let ready = false;
+    const mark = () => {
+      if (cancelled || ready) return false;
+      const el = contentRef.current;
+      if ((el?.clientWidth || 0) < 80 || (el?.clientHeight || 0) < 80) return false;
+      ready = true;
+      setHostReady(true);
+      return true;
+    };
+    if (mark()) return void 0;
+    const host = contentRef.current;
+    let ro;
+    if (host && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        if (mark()) ro?.disconnect();
+      });
+      ro.observe(host);
+    }
+    const poll = window.setInterval(() => {
+      if (mark()) window.clearInterval(poll);
+    }, 50);
+    const fallback = window.setTimeout(() => {
+      if (!cancelled && !ready) setHostReady(true);
+    }, 2500);
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+      window.clearInterval(poll);
+      window.clearTimeout(fallback);
+    };
+  }, [open, url]);
+  useEffect3(() => {
+    if (!open || !hostReady) return void 0;
+    const host = contentRef.current;
+    const iframe = iframeRef.current;
+    cancelRepaintRef.current?.();
+    const onLoad = () => {
+      cancelRepaintRef.current?.();
+      cancelRepaintRef.current = scheduleIframeRepaint(iframeRef.current);
+      setGeomNudge((n) => n === 0 ? 1 : 0);
+      window.setTimeout(() => setGeomNudge(0), 60);
+    };
+    iframe?.addEventListener("load", onLoad);
+    cancelRepaintRef.current = scheduleIframeRepaint(iframe);
+    let ro;
+    if (host && typeof ResizeObserver !== "undefined") {
+      let last = "";
+      ro = new ResizeObserver(() => {
+        const key = `${host.clientWidth}x${host.clientHeight}`;
+        if (key === last) return;
+        last = key;
+        forceIframeRepaint(iframeRef.current);
+      });
+      ro.observe(host);
+    }
+    return () => {
+      iframe?.removeEventListener("load", onLoad);
+      cancelRepaintRef.current?.();
+      cancelRepaintRef.current = null;
+      ro?.disconnect();
+    };
+  }, [open, hostReady, url]);
+  useEffect3(() => {
+    if (!tabOpenedRef.current) return void 0;
+    const onVis = () => {
+      if (document.visibilityState === "visible") signalDone();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [url]);
   if (!url) return null;
   return /* @__PURE__ */ jsxs3(Fragment2, { children: [
     /* @__PURE__ */ jsxs3(
@@ -4988,7 +5155,11 @@ function ContapymeLoginEmbed({ url }) {
             {
               variant: "contained",
               size: "medium",
-              onClick: () => setOpen(true),
+              onClick: (e) => {
+                doneOnceRef.current = false;
+                e.currentTarget.blur();
+                setOpen(true);
+              },
               startIcon: /* @__PURE__ */ jsx5(Icon26, { icon: "mdi:login-variant", size: 18 }),
               sx: { textTransform: "none", fontWeight: 700, alignSelf: { sm: "flex-start" } },
               children: "Iniciar sesi\xF3n ContaPyme\xAE"
@@ -5002,6 +5173,9 @@ function ContapymeLoginEmbed({ url }) {
               rel: "noopener noreferrer",
               size: "small",
               variant: "text",
+              onClick: () => {
+                tabOpenedRef.current = true;
+              },
               sx: { textTransform: "none", fontWeight: 600, alignSelf: { sm: "flex-start" } },
               children: "Abrir en pesta\xF1a"
             }
@@ -5009,89 +5183,101 @@ function ContapymeLoginEmbed({ url }) {
         ]
       }
     ),
-    /* @__PURE__ */ jsx5(
-      GlassDialog,
+    /* @__PURE__ */ jsxs3(
+      Dialog9,
       {
         open,
         onClose: close,
         maxWidth: false,
+        fullWidth: false,
         transitionDuration: 0,
-        TransitionProps: {
-          onEntered: () => {
-            setIframeSrc(url);
-            requestAnimationFrame(() => forceIframeWindowRelayout(iframeRef.current));
-          }
-        },
-        paperMaxWidth: "95vw",
-        paperSx: {
-          width: "95vw",
-          height: "95vh",
-          maxHeight: "95vh",
-          m: "2.5vh auto",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden"
-        },
-        header: /* @__PURE__ */ jsx5(
-          GlassDialogHeader,
-          {
-            title: "Conectar ContaPyme\xAE",
-            subtitle: "Sesi\xF3n ASW \xB7 inicia sesi\xF3n y cierra cuando termines",
-            icon: "mdi:domain",
-            accent: "#1e90ff",
-            onClose: close
-          }
-        ),
-        children: /* @__PURE__ */ jsx5(
-          DialogContent15,
-          {
-            dividers: true,
+        disableRestoreFocus: true,
+        className: "contapyme-asw-login-dialog",
+        slotProps: {
+          backdrop: {
             sx: {
-              ...glassDialogContentSx({ p: 0 }),
-              flex: "1 1 auto",
-              minHeight: 0,
-              height: "100%",
-              position: "relative",
-              overflow: "hidden",
-              bgcolor: "#fff"
-            },
-            children: iframeSrc ? /* @__PURE__ */ jsx5(
-              Box33,
-              {
-                component: "iframe",
-                ref: iframeRef,
-                src: iframeSrc,
-                title: "Iniciar sesi\xF3n en ContaPyme",
-                loading: "eager",
-                referrerPolicy: "no-referrer-when-downgrade",
-                sandbox: "allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads",
-                onLoad: () => {
-                  forceIframeWindowRelayout(iframeRef.current);
-                  setTimeout(() => forceIframeWindowRelayout(iframeRef.current), 250);
-                },
-                sx: {
-                  position: "absolute",
-                  inset: 0,
-                  border: 0,
-                  width: "100%",
-                  height: "100%",
-                  display: "block"
-                }
-              },
-              iframeSrc
-            ) : null
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none",
+              backgroundColor: "rgba(11,18,32,0.72)"
+            }
           }
-        )
+        },
+        PaperProps: {
+          elevation: 8,
+          className: "contapyme-asw-login-paper",
+          sx: {
+            width: `calc(95vw + ${geomNudge}px)`,
+            height: `calc(95vh + ${geomNudge}px)`,
+            maxWidth: "95vw",
+            maxHeight: "95vh",
+            m: "2.5vh auto",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            borderRadius: 2,
+            backdropFilter: "none",
+            WebkitBackdropFilter: "none",
+            filter: "none",
+            transform: "none",
+            bgcolor: "#0b1220",
+            backgroundImage: "none"
+          }
+        },
+        children: [
+          /* @__PURE__ */ jsx5(
+            GlassDialogHeader,
+            {
+              title: "Conectar ContaPyme\xAE",
+              subtitle: "Sesi\xF3n ASW \xB7 inicia sesi\xF3n y cierra cuando veas \xABEn l\xEDnea\xBB",
+              icon: "mdi:domain",
+              accent: "#1e90ff",
+              onClose: close,
+              closeAutoFocus: true
+            }
+          ),
+          /* @__PURE__ */ jsx5(
+            DialogContent15,
+            {
+              ref: contentRef,
+              dividers: true,
+              className: "contapyme-asw-login-content",
+              sx: {
+                p: 0,
+                display: "flex",
+                flexDirection: "column",
+                flex: "1 1 0",
+                minHeight: 0,
+                position: "relative",
+                overflow: "hidden",
+                bgcolor: "#fff",
+                backgroundImage: "none",
+                borderTop: 0
+              },
+              children: hostReady ? /* @__PURE__ */ jsx5(
+                "iframe",
+                {
+                  ref: iframeRef,
+                  title: "Iniciar sesi\xF3n en ContaPyme",
+                  src: url,
+                  loading: "eager",
+                  referrerPolicy: "no-referrer-when-downgrade",
+                  allow: "clipboard-read; clipboard-write",
+                  className: "contapyme-asw-login-iframe"
+                }
+              ) : null
+            }
+          )
+        ]
       }
     )
   ] });
 }
-function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false }) {
+function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false, onContapymeLoginDone }) {
   const { Typography: Typography28, Box: Box33 } = getMaterialUI();
   const raw = String(text || "");
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
-  const loginUrl = streaming || disableLoginEmbed ? null : extractContapymeLoginUrl(raw, loginUrlProp);
+  const loginUrl = disableLoginEmbed ? null : extractContapymeLoginUrl(raw, loginUrlProp);
   const displayRaw = disableLoginEmbed ? scrubContapymeLoginFromText(raw) : loginUrl ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() : raw;
   const html = mdToHtml(displayRaw || (loginUrl ? "Inicia sesi\xF3n en ContaPyme\xAE con el bot\xF3n de abajo." : ""));
   return /* @__PURE__ */ jsxs3(Fragment2, { children: [
@@ -5138,7 +5324,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
         }
       ) : null,
       streaming && hasText ? /* @__PURE__ */ jsx5(Box33, { component: "span", className: "conv-stream-cursor", "aria-hidden": true }) : null,
-      loginUrl ? /* @__PURE__ */ jsx5(ContapymeLoginEmbed, { url: loginUrl }) : null
+      loginUrl ? /* @__PURE__ */ jsx5(ContapymeLoginEmbed, { url: loginUrl, onLoginDone: streaming ? void 0 : onContapymeLoginDone }) : null
     ] }),
     imagenes?.length > 0 && /* @__PURE__ */ jsx5(ConvMsgImages, { items: imagenes, align, onImageClick }),
     audios?.length > 0 && /* @__PURE__ */ jsx5(ConvMsgAudios, { items: audios, transcriptions: audiosTranscripcion, align })
@@ -5891,7 +6077,7 @@ function resolveMsgImensaje(msg) {
   const imensaje = Number(msg?.imensaje);
   return imensaje > 0 ? imensaje : void 0;
 }
-var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
+var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false, onContapymeLoginDone = null }) {
   const { Alert: Alert18, Box: Box33 } = getMaterialUI();
   const [fileSearchOpen, setFileSearchOpen] = useState3(false);
   const meta = roleMetaFor(msg, compactMeta);
@@ -6008,7 +6194,8 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
                             onImageClick,
                             streaming: isStreaming,
                             disableLoginEmbed: isOperativa,
-                            loginUrl: isOperativa ? void 0 : msg.meta?.login_url || msg.meta?.extra?.login_url
+                            loginUrl: isOperativa ? void 0 : msg.meta?.login_url || msg.meta?.extra?.login_url,
+                            onContapymeLoginDone: isOperativa || isUser ? void 0 : onContapymeLoginDone
                           }
                         ) : null
                       ]
@@ -6059,7 +6246,7 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
     }
   );
 }, (prev, next) => prev.msg === next.msg && prev.streamingMsgId === next.streamingMsgId && prev.compactMeta === next.compactMeta && prev.chatUserDisplayName === next.chatUserDisplayName && prev.chatUserNick === next.chatUserNick && prev.showUsageStats === next.showUsageStats && prev.ratingMsgId === next.ratingMsgId && prev.canRate === next.canRate && prev.operativaEnter === next.operativaEnter);
-function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
+function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "", onContapymeLoginDone = null }) {
   const { Box: Box33, Typography: Typography28 } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState3(null);
   const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
@@ -6088,7 +6275,8 @@ function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chat
         onRateMessage,
         canRate,
         ratingMsgId,
-        operativaEnter: operativaEnterIds.has(m.idMsg)
+        operativaEnter: operativaEnterIds.has(m.idMsg),
+        onContapymeLoginDone
       },
       m.idMsg
     )),
@@ -6139,7 +6327,8 @@ function ConvLogThread({
   scrollRef = null,
   onScroll = null,
   surfaceClassName = "",
-  sx = {}
+  sx = {},
+  onContapymeLoginDone = null
 }) {
   const threadClassName = compactMeta ? "paty-chat-thread--compact" : "paty-chat-log-thread";
   const showSpinner = loading && (loadingOnlyWhenEmpty ? !mensajes?.length : true);
@@ -6172,7 +6361,8 @@ function ConvLogThread({
             canRate,
             onRateMessage,
             ratingMsgId,
-            threadKey
+            threadKey,
+            onContapymeLoginDone
           }
         )
       ]
@@ -7316,9 +7506,10 @@ function urlDraftTipoSet(bootPrompts) {
   return new Set(listed);
 }
 function ensurePublishCap(onNeedLogin) {
+  if (FORCE_PERMS_OPEN && !isViewingAsRole() && isLoggedIn()) return true;
   const cap = instruccionesPublishCap();
   if (cap) return true;
-  const reason = blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para publicar instrucciones";
+  const reason = "Sin permiso para publicar instrucciones";
   toastWarning(reason);
   if (!isLoggedIn()) onNeedLogin?.();
   return false;
@@ -7745,6 +7936,7 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     if (isViewingAsRole()) {
       return canEditInstrucciones() || canEditPromptsOperativos();
     }
+    if (FORCE_PERMS_OPEN) return true;
     return instruccionesCanEdit || canEditInstrucciones() || canEditPromptsOperativos();
   }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo4(() => isLoggedIn(), [authTick]);
@@ -7752,16 +7944,16 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const editBlockReason = useMemo4(() => {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesi\xF3n para editar instrucciones";
-    return blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para editar instrucciones";
+    return "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo4(() => {
     if (canPublish) return "Guardar instrucciones y configuraci\xF3n en Paty (MSSQL)";
-    return blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para guardar en Paty";
+    return "Sin permiso para guardar en Paty";
   }, [authTick, canPublish]);
   const importTitle = useMemo4(() => {
     if (canPublish) return "Importar archivos PROMPT_*.md / .txt";
     if (!loggedIn) return "Inicia sesi\xF3n para importar instrucciones";
-    return blockReason(INSTRUCCIONES_WRITE_CAP) || "Sin permiso para importar instrucciones";
+    return "Sin permiso para importar instrucciones";
   }, [authTick, canPublish, loggedIn]);
   const [extraInstructionKeys, setExtraInstructionKeys] = useState5([]);
   const instruccionKeys = useMemo4(
@@ -9897,6 +10089,27 @@ function persistConvListPageSize(size) {
 }
 var CHAT_MODE_PATYIA = "patyia";
 var CHAT_MODE_LIBRE = "libre";
+var CHAT_PROVIDER_OPENAI = "openai";
+var CHAT_PROVIDER_MINIMAX = "minimax";
+function parseChatLlmProvider(raw) {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (t === CHAT_PROVIDER_MINIMAX || t === "mini-max" || t === "mm") return CHAT_PROVIDER_MINIMAX;
+  return CHAT_PROVIDER_OPENAI;
+}
+function isMinimaxChatProvider(provider) {
+  return parseChatLlmProvider(provider) === CHAT_PROVIDER_MINIMAX;
+}
+function readChatLlmProvider(bootChat) {
+  if (bootChat?.provider != null && String(bootChat.provider).trim() !== "") {
+    return parseChatLlmProvider(bootChat.provider);
+  }
+  const chat = getSnapshot().chat;
+  return parseChatLlmProvider(chat?.provider);
+}
+function chatLlmProviderFromUrl(chat) {
+  if (!chat || chat.provider == null || String(chat.provider).trim() === "") return null;
+  return parseChatLlmProvider(chat.provider);
+}
 function parseChatMode(raw) {
   if (typeof raw === "string") {
     const m = raw.trim().toLowerCase();
@@ -10681,6 +10894,7 @@ function useChatTool({ bootChat }) {
   const [convListMeta, setConvListMeta] = useState8(null);
   const [messageSource, setMessageSource] = useState8(() => readChatMessageSource(bootChat));
   const [chatMode, setChatMode] = useState8(() => readChatMode(bootChat));
+  const [llmProvider, setLlmProvider] = useState8(() => readChatLlmProvider(bootChat));
   const inputRef = useRef5(null);
   const attachInputRef = useRef5(null);
   const voiceRecorderRef = useRef5(createVoiceRecorder());
@@ -10691,6 +10905,11 @@ function useChatTool({ bootChat }) {
   const openConvRef = useRef5(async () => {
   });
   const pendingListConvRef = useRef5(null);
+  const contapymeResumeLockRef = useRef5(false);
+  const sendingRef = useRef5(false);
+  const logMensajesRef = useRef5(logMensajes);
+  logMensajesRef.current = logMensajes;
+  sendingRef.current = sending;
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
   const canAdminJwt = canAdminPortalJwt();
@@ -11161,6 +11380,12 @@ function useChatTool({ bootChat }) {
     persistChatMode(mode);
     setChatMode(mode);
   }, [chatMode]);
+  const onLlmProviderChange = useCallback6((next) => {
+    const provider = String(next || "openai").trim().toLowerCase() === CHAT_PROVIDER_MINIMAX ? CHAT_PROVIDER_MINIMAX : "openai";
+    if (provider === llmProvider) return;
+    persistChatLlmProvider(provider);
+    setLlmProvider(provider);
+  }, [llmProvider]);
   const onConvListPageSizeChange = useCallback6((next) => {
     const size = parseConvListPageSize(next);
     if (size === convListPageSize) return;
@@ -11176,6 +11401,8 @@ function useChatTool({ bootChat }) {
     if (urlSource) setMessageSource((prev) => prev === urlSource ? prev : urlSource);
     const urlMode = chatModeFromUrl(chat);
     if (urlMode !== null) setChatMode((prev) => prev === urlMode ? prev : urlMode);
+    const urlProvider = chatLlmProviderFromUrl(chat);
+    if (urlProvider !== null) setLlmProvider((prev) => prev === urlProvider ? prev : urlProvider);
   }), []);
   useEffect8(() => {
     if (jwtLoading) return;
@@ -11247,9 +11474,9 @@ function useChatTool({ bootChat }) {
       toastError(e instanceof Error ? e.message : String(e));
     }
   }
-  async function onSend() {
+  async function onSend(overrideText) {
     if (!canSend || !jwt) return;
-    const text = draft.trim();
+    const text = String(overrideText ?? draft).trim();
     if (!text && !images.length && !audios.length) return;
     if (selectedId && !convBelongsToJwtResolved(
       detail,
@@ -11298,7 +11525,7 @@ function useChatTool({ bootChat }) {
       const audiosUrls = uploadedAudios.map((u) => u.url);
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || void 0, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode },
+        { prompt: text, iconversacion: selectedId || void 0, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode, provider: llmProvider },
         (partial) => setStreamText(partial)
       );
       const finalText = String(result.respuesta || "").trim();
@@ -11488,6 +11715,30 @@ function useChatTool({ bootChat }) {
     setMetaMsg(msg);
     setMetaOpen(true);
   }, []);
+  const onSendRef = useRef5(onSend);
+  onSendRef.current = onSend;
+  const onContapymeLoginDone = useCallback6(() => {
+    if (sendingRef.current || contapymeResumeLockRef.current || !canSend || !jwt) return;
+    const msgs = logMensajesRef.current || [];
+    let pending = false;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m.esUsuario || m.esOperativa) continue;
+      const t = String(m.contenido || "");
+      if (/Sesión ContaPyme® activa/i.test(t)) break;
+      if (/ia\.contapyme\.com\/api\/login\/asw/i.test(t) || Boolean(m.meta?.login_url || m.meta?.extra?.login_url || m.meta?.contapyme_mcp_login)) {
+        pending = true;
+      }
+      break;
+    }
+    if (!pending) return;
+    contapymeResumeLockRef.current = true;
+    void Promise.resolve(onSendRef.current("ya inici\xE9 sesi\xF3n")).finally(() => {
+      window.setTimeout(() => {
+        contapymeResumeLockRef.current = false;
+      }, 8e3);
+    });
+  }, [canSend, jwt]);
   const onRateMessage = useCallback6(async (msg, butil) => {
     if (!canSend || !jwt?.token || !selectedId) return;
     if (msg.calificacion !== void 0) return;
@@ -11542,9 +11793,10 @@ function useChatTool({ bootChat }) {
       // preview sin URLs (se generan tras subir); muestra placeholders.
       imagenes: images.map((i) => i.uploadedUrl ?? `[local image: ${i.name} \xB7 ${i.mime} \xB7 ${i.blob.size}B]`),
       audios: audios.map((a) => a.uploadedUrl ?? `[local audio: ${a.name} \xB7 ${a.mime} \xB7 ${a.blob.size}B]`),
-      mode: chatMode
+      mode: chatMode,
+      provider: llmProvider
     }),
-    [draft, selectedId, images, audios, chatMode]
+    [draft, selectedId, images, audios, chatMode, llmProvider]
   );
   const clearAuditFilter = useCallback6(() => {
     if (jwt?.claims?.itercero) {
@@ -11605,6 +11857,7 @@ function useChatTool({ bootChat }) {
     convListSearch,
     messageSource,
     chatMode,
+    llmProvider,
     chatUserDisplayName,
     chatUserNick,
     convListOwnerLabel,
@@ -11631,6 +11884,7 @@ function useChatTool({ bootChat }) {
     onNewChat,
     onDelete,
     onSend,
+    onContapymeLoginDone,
     onPaste,
     onAttachClick,
     onAttachChange,
@@ -11639,6 +11893,7 @@ function useChatTool({ bootChat }) {
     onRateMessage,
     onMessageSourceChange,
     onChatModeChange,
+    onLlmProviderChange,
     onConvListPageSizeChange,
     setDraft,
     setImages,
@@ -12022,12 +12277,35 @@ function ChatModeSwitch({ mode, onChange }) {
     }
   ) });
 }
+function LlmProviderSwitch({ provider, onChange }) {
+  const isMm = isMinimaxChatProvider(provider);
+  const title = isMm ? "MiniMax M3" : "OpenAI";
+  const hint = isMm ? "Clic \u2192 OpenAI (default)" : "Clic \u2192 MiniMax M3 (experimental)";
+  const icon = isMm ? "mdi:creation" : "simple-icons:openai";
+  return /* @__PURE__ */ jsx19(Tooltip2, { title: `${title} \xB7 ${hint}`, children: /* @__PURE__ */ jsx19(
+    Button4,
+    {
+      size: "small",
+      variant: isMm ? "contained" : "outlined",
+      color: isMm ? "secondary" : "inherit",
+      className: `paty-chat-provider-btn${isMm ? " paty-chat-provider-btn--minimax" : ""}`,
+      onClick: () => onChange?.(isMm ? CHAT_PROVIDER_OPENAI : CHAT_PROVIDER_MINIMAX),
+      "aria-label": title,
+      "aria-pressed": isMm,
+      startIcon: /* @__PURE__ */ jsx19(Icon4, { icon, size: 16 }),
+      sx: { textTransform: "none", minWidth: 0, px: 1, py: 0.25, fontWeight: 700, fontSize: "0.75rem", lineHeight: 1.2 },
+      children: isMm ? "MiniMax" : "OpenAI"
+    }
+  ) });
+}
 function ChatSidebarHeaderActions({
   onClose,
   messageSource = "logs",
   mode = CHAT_MODE_PATYIA,
+  llmProvider = CHAT_PROVIDER_OPENAI,
   onMessageSourceChange,
-  onChatModeChange
+  onChatModeChange,
+  onLlmProviderChange
 }) {
   return /* @__PURE__ */ jsxs16(
     Stack8,
@@ -12041,7 +12319,8 @@ function ChatSidebarHeaderActions({
       children: [
         onClose ? /* @__PURE__ */ jsx19(Tooltip2, { title: "Cerrar panel", children: /* @__PURE__ */ jsx19(IconButton3, { size: "small", onClick: onClose, "aria-label": "Cerrar panel", children: /* @__PURE__ */ jsx19(Icon4, { icon: "mdi:close", size: 18 }) }) }) : null,
         onMessageSourceChange ? /* @__PURE__ */ jsx19(MessageSourceSwitch, { messageSource, onChange: onMessageSourceChange }) : null,
-        onChatModeChange ? /* @__PURE__ */ jsx19(ChatModeSwitch, { mode, onChange: onChatModeChange }) : null
+        onChatModeChange ? /* @__PURE__ */ jsx19(ChatModeSwitch, { mode, onChange: onChatModeChange }) : null,
+        onLlmProviderChange ? /* @__PURE__ */ jsx19(LlmProviderSwitch, { provider: llmProvider, onChange: onLlmProviderChange }) : null
       ]
     }
   );
@@ -12281,8 +12560,10 @@ function ChatThreadSidebar({
   onConvListSearchChange,
   messageSource = "logs",
   mode = CHAT_MODE_PATYIA,
+  llmProvider = CHAT_PROVIDER_OPENAI,
   onMessageSourceChange,
   onChatModeChange,
+  onLlmProviderChange,
   onOpenJwt,
   onOpenAudit,
   onNewChat,
@@ -12354,7 +12635,7 @@ function ChatThreadSidebar({
         boxSizing: "border-box"
       },
       children: [
-        onClose || onMessageSourceChange || onChatModeChange ? /* @__PURE__ */ jsx19(
+        onClose || onMessageSourceChange || onChatModeChange || onLlmProviderChange ? /* @__PURE__ */ jsx19(
           Stack8,
           {
             direction: "row",
@@ -12369,8 +12650,10 @@ function ChatThreadSidebar({
                 onClose,
                 messageSource,
                 mode,
+                llmProvider,
                 onMessageSourceChange,
-                onChatModeChange
+                onChatModeChange,
+                onLlmProviderChange
               }
             )
           }
@@ -12645,8 +12928,34 @@ var {
   Stack: Stack9
 } = getMaterialUI();
 var { Icon: Icon7 } = UI;
-function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, onMessageSourceChange, onChatModeChange }) {
+function RefreshConvButton({ onClick, busy = false }) {
+  return /* @__PURE__ */ jsx22(Tooltip4, { title: "Actualizar conversaci\xF3n", arrow: true, children: /* @__PURE__ */ jsx22("span", { children: /* @__PURE__ */ jsx22(
+    IconButton5,
+    {
+      size: "small",
+      onClick,
+      disabled: busy,
+      "aria-label": "Actualizar",
+      title: "Actualizar",
+      className: busy ? "paty-chat-refresh-spin" : void 0,
+      children: /* @__PURE__ */ jsx22(Icon7, { icon: busy ? "mdi:loading" : "mdi:refresh", size: 20 })
+    }
+  ) }) });
+}
+function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, llmProvider = "openai", onMessageSourceChange, onChatModeChange, onLlmProviderChange, onContapymeLoginDone = null }) {
   const isProdView = messageSource === "prod";
+  const hasThread = Boolean(selectedId || detail);
+  const headerActions = /* @__PURE__ */ jsx22(
+    ChatSidebarHeaderActions,
+    {
+      messageSource,
+      mode,
+      llmProvider,
+      onMessageSourceChange,
+      onChatModeChange,
+      onLlmProviderChange
+    }
+  );
   return /* @__PURE__ */ jsxs19(Box11, { sx: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
     onOpenSidebar ? /* @__PURE__ */ jsxs19(
       Stack9,
@@ -12659,28 +12968,11 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         children: [
           /* @__PURE__ */ jsx22(Tooltip4, { title: "Conversaciones", arrow: true, children: /* @__PURE__ */ jsx22(IconButton5, { size: "small", onClick: onOpenSidebar, "aria-label": "Abrir conversaciones", children: /* @__PURE__ */ jsx22(Icon7, { icon: "mdi:menu-open", size: 20 }) }) }),
           /* @__PURE__ */ jsx22(Typography10, { variant: "subtitle2", sx: { fontWeight: 700, flex: 1, minWidth: 0 }, noWrap: true, children: "Conversaciones" }),
-          /* @__PURE__ */ jsx22(
-            ChatSidebarHeaderActions,
-            {
-              messageSource,
-              mode,
-              onMessageSourceChange,
-              onChatModeChange
-            }
-          ),
-          selectedId || detail ? /* @__PURE__ */ jsx22(Tooltip4, { title: "Actualizar conversaci\xF3n", arrow: true, children: /* @__PURE__ */ jsx22("span", { children: /* @__PURE__ */ jsx22(
-            ButtonIconify,
-            {
-              icon: "mdi:refresh",
-              title: "Actualizar",
-              onClick: onRefreshConv,
-              disabled: refreshingThread,
-              busy: refreshingThread
-            }
-          ) }) }) : null
+          headerActions,
+          hasThread ? /* @__PURE__ */ jsx22(RefreshConvButton, { onClick: onRefreshConv, busy: refreshingThread }) : null
         ]
       }
-    ) : selectedId || detail ? /* @__PURE__ */ jsxs19(
+    ) : /* @__PURE__ */ jsxs19(
       Stack9,
       {
         direction: "row",
@@ -12690,28 +12982,11 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         sx: { px: 2, py: 0.75, flexShrink: 0 },
         children: [
           /* @__PURE__ */ jsx22(Box11, { sx: { flex: 1 } }),
-          /* @__PURE__ */ jsx22(
-            ChatSidebarHeaderActions,
-            {
-              messageSource,
-              mode,
-              onMessageSourceChange,
-              onChatModeChange
-            }
-          ),
-          /* @__PURE__ */ jsx22(Tooltip4, { title: "Actualizar conversaci\xF3n", arrow: true, children: /* @__PURE__ */ jsx22("span", { children: /* @__PURE__ */ jsx22(
-            ButtonIconify,
-            {
-              icon: "mdi:refresh",
-              title: "Actualizar",
-              onClick: onRefreshConv,
-              disabled: refreshingThread,
-              busy: refreshingThread
-            }
-          ) }) })
+          headerActions,
+          hasThread ? /* @__PURE__ */ jsx22(RefreshConvButton, { onClick: onRefreshConv, busy: refreshingThread }) : null
         ]
       }
-    ) : null,
+    ),
     needsJwt && /* @__PURE__ */ jsxs19(
       Alert7,
       {
@@ -12764,7 +13039,8 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         threadKey: selectedId ?? "draft",
         loading: loadingThread,
         loadingOnlyWhenEmpty: !sending,
-        error: logError
+        error: logError,
+        onContapymeLoginDone
       }
     ),
     /* @__PURE__ */ jsx22(
@@ -13149,7 +13425,9 @@ function ChatTool({ bootChat, onNeedLogin }) {
     messageSource: chat.messageSource,
     onMessageSourceChange: chat.onMessageSourceChange,
     mode: chat.chatMode,
+    llmProvider: chat.llmProvider,
     onChatModeChange: chat.onChatModeChange,
+    onLlmProviderChange: chat.onLlmProviderChange,
     onOpenJwt: () => chat.setJwtOpen(true),
     onOpenAudit: () => {
       if (!chat.canAuditChat) {
@@ -13206,6 +13484,7 @@ function ChatTool({ bootChat, onNeedLogin }) {
       onDraftChange: (e) => chat.setDraft(e.target.value),
       onPaste: chat.onPaste,
       onSend: chat.onSend,
+      onContapymeLoginDone: chat.onContapymeLoginDone,
       onTogglePayloadPreview: () => chat.setPayloadPreviewOpen((v) => !v),
       onAttachClick: chat.onAttachClick,
       onAttachChange: chat.onAttachChange,
@@ -13216,8 +13495,10 @@ function ChatTool({ bootChat, onNeedLogin }) {
       onRateMessage: chat.onRateMessage,
       messageSource: chat.messageSource,
       mode: chat.chatMode,
+      llmProvider: chat.llmProvider,
       onMessageSourceChange: chat.onMessageSourceChange,
       onChatModeChange: chat.onChatModeChange,
+      onLlmProviderChange: chat.onLlmProviderChange,
       onOpenSidebar: isMobile ? () => setSidebarOpen(true) : void 0
     }
   );
@@ -18945,7 +19226,7 @@ function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection: ConfigFo
       setSkeletonCount(keys.length);
       setConfig(data);
       setSaved(data);
-      setCanEdit(isViewingAsRole() ? canEditPromptsOperativos() : !!ce);
+      setCanEdit(isViewingAsRole() ? canEditPromptsOperativos() : !!ce || canEditPromptsOperativos());
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -19214,7 +19495,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       const next = { ...buildDefaults(), ...cfg };
       setConfig(next);
       setSaved(next);
-      setCanEdit(isViewingAsRole() ? canEditOpenAiConfig() : !!cfg.canEdit);
+      setCanEdit(isViewingAsRole() ? canEditOpenAiConfig() : !!cfg.canEdit || canEditOpenAiConfig());
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));

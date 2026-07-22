@@ -321,6 +321,16 @@ function persistChatMode(mode) {
   if (prev === normalized) return snap;
   return mergePartial({ tool: "chat", chat: { mode: normalized } });
 }
+function persistChatLlmProvider(provider) {
+  const normalized = String(provider || "openai").trim().toLowerCase() || "openai";
+  const snap = getSnapshot();
+  const prev = String(snap.chat?.provider || "openai").toLowerCase();
+  if (prev === normalized) return snap;
+  if (normalized === "openai") {
+    return mergePartial({ tool: "chat", chat: { provider: void 0 } });
+  }
+  return mergePartial({ tool: "chat", chat: { provider: normalized } });
+}
 function configPermisosBag(snap) {
   const cfg = (snap ?? getSnapshot()).config;
   const permisos = cfg?.permisos;
@@ -341,6 +351,7 @@ export {
   hrefFor,
   mergePartial,
   persistChatConvId,
+  persistChatLlmProvider,
   persistChatMessageSource,
   persistChatMode,
   persistLogMeta,
