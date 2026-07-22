@@ -1113,7 +1113,7 @@ html[data-mui-color-scheme="light"] .conv-log-shell::before {
   &__meta {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.75rem;
     min-width: 0;
     max-width: 100%;
     flex-wrap: nowrap;
@@ -1122,6 +1122,7 @@ html[data-mui-color-scheme="light"] .conv-log-shell::before {
   &__badge {
     height: 18px !important;
     max-height: 18px !important;
+    margin: 0 !important;
     border-radius: 6px !important;
     font-size: 0.6rem !important;
     font-weight: 600 !important;
@@ -1172,8 +1173,9 @@ html[data-mui-color-scheme="light"] .conv-log-shell::before {
     display: inline-block !important;
     min-width: 0;
     flex: 1 1 auto;
-    margin: 0 0 0 0.5rem !important;
-    padding: 0 0 0 0.15rem !important;
+    margin: 0 !important;
+    padding: 0 0 0 0.7rem !important;
+    border-left: 1px solid rgba(148, 163, 184, 0.32);
     font-size: 0.58rem !important;
     line-height: 1.15 !important;
     font-weight: 400 !important;
@@ -1282,6 +1284,7 @@ html[data-mui-color-scheme="light"] .conv-log-shell::before {
     }
     &__ids {
       color: rgba(100, 116, 139, 0.8) !important;
+      border-left-color: rgba(148, 163, 184, 0.4);
     }
   }
 }
@@ -1396,6 +1399,79 @@ html[data-mui-color-scheme="light"] .paty-chat-mode-btn--libre {
   & iconify-icon {
     color: #d97706 !important;
   }
+}
+
+/* LLM provider — OpenAI / MiniMax en toolbar (etiqueta visible) */
+.paty-chat-provider-btn {
+  color: inherit !important;
+  opacity: 1 !important;
+  border-color: color-mix(in srgb, currentColor 35%, transparent) !important;
+  & iconify-icon {
+    color: inherit !important;
+    opacity: 1 !important;
+  }
+}
+.paty-chat-provider-btn--minimax {
+  color: #083344 !important;
+  background: #22d3ee !important;
+  border-color: #22d3ee !important;
+  & iconify-icon {
+    color: #083344 !important;
+    filter: none;
+  }
+  &:hover {
+    color: #083344 !important;
+    background: #67e8f9 !important;
+    border-color: #67e8f9 !important;
+  }
+}
+html[data-mui-color-scheme="light"] .paty-chat-provider-btn--minimax {
+  color: #fff !important;
+  background: #0891b2 !important;
+  border-color: #0891b2 !important;
+  & iconify-icon {
+    color: #fff !important;
+  }
+}
+
+.paty-chat-refresh-spin iconify-icon {
+  animation: spin-icon 0.9s linear infinite;
+}
+
+/* ContaPyme ASW login modal — Dialog plano, sin glass/blur (Chrome blank iframe hasta resize) */
+.MuiDialog-root.contapyme-asw-login-dialog .MuiBackdrop-root {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.MuiDialog-paper.contapyme-asw-login-paper {
+  display: flex !important;
+  flex-direction: column !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none !important;
+  background-image: none !important;
+}
+.MuiDialog-paper.contapyme-asw-login-paper .contapyme-asw-login-content.MuiDialogContent-root {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: hidden !important;
+  background: #fff !important;
+  background-image: none !important;
+  isolation: auto !important;
+}
+.MuiDialog-paper.contapyme-asw-login-paper .contapyme-asw-login-iframe {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #fff;
+  /* capa propia sin opacity/filter de ancestros glass */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .paty-chat-sidebar-meta {
