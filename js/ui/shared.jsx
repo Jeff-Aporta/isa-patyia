@@ -52,11 +52,11 @@ export function instructionKeyFromMeta(meta) {
 }
 
 const USAGE_METRIC_COLS = [
-  { key: "in", label: "in" },
-  { key: "cache", label: "cache" },
-  { key: "out", label: "out" },
-  { key: "total", label: "total" },
-  { key: "reason", label: "reason" },
+  { key: "in", label: "Entrada" },
+  { key: "cache", label: "Caché" },
+  { key: "out", label: "Salida" },
+  { key: "total", label: "Total" },
+  { key: "reason", label: "Razon." },
 ];
 
 function buildUsageRowMetrics(tokens, cost) {
@@ -103,7 +103,7 @@ function MetaUsageGrid({ sections, hideRowLabels = false, className = "" }) {
   const gridTemplateColumns = hideRowLabels
     ? `repeat(${visibleCols.length}, minmax(5.5rem, 1fr))`
     : `5.75rem repeat(${visibleCols.length}, minmax(5.5rem, 1fr))`;
-  const gridStyle = { gridTemplateColumns };
+  const gridStyle = { display: "grid", gridTemplateColumns };
 
   return (
     <div className={`meta-prompt-stat__usage-grid ${className}`.trim()}>

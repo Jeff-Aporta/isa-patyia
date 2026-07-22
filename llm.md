@@ -1057,15 +1057,18 @@ ISS pide login ContaPyme® (MCP `pagina_login_asw`) y el mensaje trae URL `https
 |-------|-------|-------|
 | Extraer URL | `ConvLogWebView.jsx` → `extractContapymeLoginUrl` | Meta `login_url` o regex en texto |
 | CTA | Botón «Iniciar sesión ContaPyme®» + «Abrir en pestaña» | **No** iframe inline en el hilo |
-| Modal | `GlassDialog` + `paperSx` **95vw × 95vh** | Iframe solo con `src={open ? url : undefined}` |
+| Modal | `GlassDialog` + `paperSx` **95vw × 95vh** | Iframe solo tras `onEntered`; `transitionDuration={0}`; reflow 1px en `onLoad` |
 | Caps auditoría | `sessionApi.canAccessOthers()` | Fallback Dev ISS si `/permissions/me` falla (PERMS_OPEN / host caído) |
 | Texto user log | `convLog.ts` | Lee `send.input`; propaga `login_url` en flatten OP/assistant |
+| Card OP | `disableLoginEmbed` + scrub URL | OP `contapymeMcpLogin` **sin** botones ni enlace ASW (CTA solo en mensaje asistente) |
 
 ### Errores pagados
 
 1. **Iframe embebido ~500px** — invade el chat. Solución: modal 95vh/vw.
 2. **Toast «solo puede abrir tus propias conversaciones»** con ISS local muerto o PERMS_OPEN a medias — ver ISS `llm.md` ContaPyme MCP / PERMS_OPEN; front no debe asumir USR si el rol display es Dev ISS.
 3. **User «(mensaje usuario sin texto en log)»** — bug ISS (falta `http_request.input` en short-circuit); no «arreglar» inventando texto en el front.
+4. **CTA/enlace ASW en card OP** — el `_dist` no pasaba `disableLoginEmbed`; además el resumen OP trae `login_url:` y `mdToHtml` lo linkifica. Solución: `disableLoginEmbed` + scrub de URL en OP.
+5. **Modal ContaPyme en blanco / formulario derecho vacío hasta resize** — ASW hidrata con el tamaño del iframe; si carga durante la transición MUI o sin resize, el panel login queda vacío. Solución: `transitionDuration={0}`, montar `src` en `onEntered`, y pulso 1px + `resize` en `onLoad`.
 
 ### Qué NO hacer
 
