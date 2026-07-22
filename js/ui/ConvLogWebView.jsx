@@ -399,11 +399,37 @@ function visionAutoswitchBadge(meta) {
   };
 }
 
+function formatUsageTs(ts) {
+  const raw = String(ts || "").trim();
+  if (!raw) return "";
+  try {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return d.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "medium" });
+  } catch {
+    return raw;
+  }
+}
+
+function friendlyItdconsulta(value) {
+  const s = String(value || "").trim();
+  if (!s) return s;
+  if (/^DATOS_CONTAPYME_MCP$/i.test(s)) return "ContaPyme MCP · datos vivos";
+  if (/^REQUIERE_CONTEXTO$/i.test(s)) return "Requiere contexto";
+  return s.replace(/_/g, " ");
+}
+
 function buildUsageDialogCtxItems(meta) {
   const latency = formatLatencySeconds(meta?.latency_ms);
   const items = [];
   if (meta?.ts) {
-    items.push({ key: "ts", label: "ts", value: meta.ts, mono: true });
+    items.push({
+      key: "ts",
+      label: "Momento",
+      value: formatUsageTs(meta.ts),
+      icon: "mdi:clock-outline",
+      mono: false,
+    });
   }
 
   if (meta?.modelo_autoswitch_vision) {
@@ -412,24 +438,26 @@ function buildUsageDialogCtxItems(meta) {
     if (from && to) {
       items.push({
         key: "vision_sw",
-        label: "autoswitch visión",
-        value: from === to ? `${from} (sin cambio de modelo)` : `${from} → ${to}`,
+        label: "Autoswitch visión",
+        value: from === to ? `${from} (sin cambio)` : `${from} → ${to}`,
+        icon: "mdi:eye-plus-outline",
         mono: true,
         wide: true,
         vision: true,
       });
     } else {
       if (from) {
-        items.push({ key: "model_from", label: "modelo configurado", value: from, mono: true, vision: true });
+        items.push({ key: "model_from", label: "Modelo config.", value: from, icon: "mdi:cog-outline", mono: true, vision: true });
       }
       if (to) {
-        items.push({ key: "model_to", label: "modelo usado", value: to, mono: true, vision: true });
+        items.push({ key: "model_to", label: "Modelo usado", value: to, icon: "mdi:robot-outline", mono: true, vision: true });
       }
       if (!from && !to) {
         items.push({
           key: "vision_sw",
-          label: "autoswitch visión",
-          value: "activo (imágenes adjuntas)",
+          label: "Autoswitch visión",
+          value: "Activo (imágenes adjuntas)",
+          icon: "mdi:eye-plus-outline",
           mono: false,
           wide: true,
           vision: true,
@@ -437,14 +465,40 @@ function buildUsageDialogCtxItems(meta) {
       }
     }
   } else if (meta?.model) {
-    items.push({ key: "model", label: "model", value: meta.model, mono: true });
+    items.push({ key: "model", label: "Modelo", value: meta.model, icon: "mdi:robot-outline", mono: true });
   }
 
   if (latency) {
-    items.push({ key: "latency", label: "latency", value: latency, mono: true });
+    items.push({ key: "latency", label: "Latencia", value: latency, icon: "mdi:timer-outline", mono: true });
   }
   if (meta?.itdconsulta) {
-    items.push({ key: "itd", label: "itdconsulta", value: meta.itdconsulta, mono: true });
+    items.push({
+      key: "itd",
+      label: "Tipo",
+      value: friendlyItdconsulta(meta.itdconsulta),
+      icon: "mdi:tag-outline",
+      mono: false,
+      wide: /CONTAPYME|MCP/i.test(String(meta.itdconsulta)),
+    });
+  } else {
+    const opKey = String(meta?.extra?.operativa_key || "").trim();
+    if (/^contapymeMcpSession$/i.test(opKey)) {
+      items.push({
+        key: "op",
+        label: "Tipo",
+        value: "ContaPyme MCP · sesión / datos vivos",
+        icon: "mdi:api",
+        wide: true,
+      });
+    } else if (/^contapymeMcpLogin$/i.test(opKey)) {
+      items.push({
+        key: "op",
+        label: "Tipo",
+        value: "ContaPyme MCP · login ASW",
+        icon: "mdi:login-variant",
+        wide: true,
+      });
+    }
   }
   return items;
 }
@@ -595,13 +649,44 @@ function extractContapymeLoginUrl(text, metaUrl) {
   return m?.[0] ? m[0].replace(/[),.;]+$/, "") : null;
 }
 
+/** OP card: sin URL ASW (ni link markdown ni CTA). */
+function scrubContapymeLoginFromText(text) {
+  return String(text || "")
+    .replace(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/gi, "")
+    .replace(/^login_url:\s*.*$/gim, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /** Login ASW ContaPyme: botón en el hilo → modal 95vw×95vh (no invade el chat). */
+function forceIframeWindowRelayout(iframe) {
+  if (!iframe) return;
+  // ContaPyme ASW hidrata el formulario con el tamaño del iframe; si nace durante la
+  // transición del Dialog, el panel derecho queda vacío hasta un resize real.
+  const w = iframe.clientWidth;
+  const h = iframe.clientHeight;
+  if (w < 2 || h < 2) return;
+  iframe.style.width = `${w - 1}px`;
+  iframe.style.height = `${h - 1}px`;
+  requestAnimationFrame(() => {
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    try { iframe.contentWindow?.dispatchEvent?.(new Event("resize")); } catch { /* cross-origin ok */ }
+  });
+}
+
 function ContapymeLoginEmbed({ url }) {
   const { Box, Stack, Button, DialogContent } = getMaterialUI();
   const { Icon } = UI;
   const [open, setOpen] = useState(false);
+  const [iframeSrc, setIframeSrc] = useState(null);
+  const iframeRef = useRef(null);
+  const close = () => {
+    setOpen(false);
+    setIframeSrc(null);
+  };
   if (!url) return null;
-  const close = () => setOpen(false);
   return (
     <>
       <Stack
@@ -635,6 +720,13 @@ function ContapymeLoginEmbed({ url }) {
         open={open}
         onClose={close}
         maxWidth={false}
+        transitionDuration={0}
+        TransitionProps={{
+          onEntered: () => {
+            setIframeSrc(url);
+            requestAnimationFrame(() => forceIframeWindowRelayout(iframeRef.current));
+          },
+        }}
         paperMaxWidth="95vw"
         paperSx={{
           width: "95vw",
@@ -659,23 +751,38 @@ function ContapymeLoginEmbed({ url }) {
           dividers
           sx={{
             ...glassDialogContentSx({ p: 0 }),
-            flex: 1,
+            flex: "1 1 auto",
             minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
+            height: "100%",
+            position: "relative",
             overflow: "hidden",
             bgcolor: "#fff",
           }}
         >
-          <Box
-            component="iframe"
-            src={open ? url : undefined}
-            title="Iniciar sesión en ContaPyme"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
-            sx={{ border: 0, width: "100%", flex: 1, minHeight: 0, display: "block" }}
-          />
+          {iframeSrc ? (
+            <Box
+              component="iframe"
+              ref={iframeRef}
+              key={iframeSrc}
+              src={iframeSrc}
+              title="Iniciar sesión en ContaPyme"
+              loading="eager"
+              referrerPolicy="no-referrer-when-downgrade"
+              sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
+              onLoad={() => {
+                forceIframeWindowRelayout(iframeRef.current);
+                setTimeout(() => forceIframeWindowRelayout(iframeRef.current), 250);
+              }}
+              sx={{
+                position: "absolute",
+                inset: 0,
+                border: 0,
+                width: "100%",
+                height: "100%",
+                display: "block",
+              }}
+            />
+          ) : null}
         </DialogContent>
       </GlassDialog>
     </>
@@ -688,9 +795,11 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
   const loginUrl = (streaming || disableLoginEmbed) ? null : extractContapymeLoginUrl(raw, loginUrlProp);
-  const displayRaw = loginUrl
-    ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
-    : raw;
+  const displayRaw = disableLoginEmbed
+    ? scrubContapymeLoginFromText(raw)
+    : loginUrl
+      ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
+      : raw;
   const html = mdToHtml(displayRaw || (loginUrl ? "Inicia sesión en ContaPyme® con el botón de abajo." : ""));
   return (
     <>
@@ -841,13 +950,34 @@ function UsageSummaryChip({ label, className = "", title, tag, onClick, role, ta
   );
 }
 
+function isContapymeMcpMeta(meta) {
+  const hay = [
+    meta?.itdconsulta,
+    meta?.engine,
+    meta?.extra?.operativa_key,
+    meta?.extra?.operativa,
+  ].filter(Boolean).join(" ");
+  return /CONTAPYME|MCP|contapymeMcp/i.test(hay);
+}
+
 function UsageDialogMetaPanel({ meta }) {
   const { Box } = getMaterialUI();
+  const { Icon } = UI;
   const ctxItems = buildUsageDialogCtxItems(meta);
   if (!ctxItems.length) return null;
+  const isMcp = isContapymeMcpMeta(meta);
 
   return (
     <Box className="conv-usage-dialog__meta conv-usage-dialog__meta--ctx">
+      <div className="conv-usage-dialog__meta-head">
+        <span className="conv-usage-dialog__meta-eyebrow">Contexto del turno</span>
+        {isMcp ? (
+          <span className="conv-usage-dialog__meta-badge conv-usage-dialog__meta-badge--mcp">
+            <Icon icon="mdi:api" size={14} />
+            Sin costo LLM
+          </span>
+        ) : null}
+      </div>
       <div className="conv-usage-dialog__ctx-grid">
         {ctxItems.map((item) => (
           <div
@@ -858,9 +988,14 @@ function UsageDialogMetaPanel({ meta }) {
               item.vision ? "conv-usage-dialog__ctx-item--vision" : "",
             ].filter(Boolean).join(" ") || undefined}
           >
-            <span className="conv-usage-dialog__ctx-k">{item.label}</span>
-            <span className={`conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`}>
-              {item.value}
+            <span className="conv-usage-dialog__ctx-icon" aria-hidden>
+              <Icon icon={item.icon || "mdi:information-outline"} size={16} />
+            </span>
+            <span className="conv-usage-dialog__ctx-copy">
+              <span className="conv-usage-dialog__ctx-k">{item.label}</span>
+              <span className={`conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`}>
+                {item.value}
+              </span>
             </span>
           </div>
         ))}
@@ -932,8 +1067,10 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
       <GlassDialog
         open={open}
         onClose={onClose}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        paperMaxWidth="42rem"
+        paperClassName="conv-usage-dialog-paper"
         header={(
           <GlassDialogHeader
             icon={header.icon}
@@ -944,7 +1081,15 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
           />
         )}
       >
-        <DialogContent dividers className="conv-usage-dialog" sx={glassDialogContentSx({ p: { xs: 1.5, sm: 2 } })}>
+        <DialogContent
+          dividers
+          className="conv-usage-dialog"
+          sx={glassDialogContentSx({
+            p: { xs: 1.75, sm: 2.25 },
+            maxHeight: "min(72dvh, 40rem)",
+            overflow: "auto",
+          })}
+        >
           <Box className="conv-usage-dialog__stack">
             {showMetaPanel ? <UsageDialogMetaPanel meta={meta} /> : null}
             {sections.map((section) => (
@@ -1162,66 +1307,88 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
   const reasonLabel = reasoning > 0
     ? `${reasoning.toLocaleString("es-CO")} razon.`
     : null;
+  const empty = totalCost <= 0 && totalTokens <= 0;
 
   const body = (
     <Box className="conv-usage-dialog__section-body">
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={{ xs: 1, sm: 2 }}
-        alignItems={{ xs: "stretch", sm: "center" }}
-        justifyContent="space-between"
-        className="conv-usage-dialog__headline"
-      >
-        <Box className="conv-usage-dialog__headline-main">
-          <Typography variant="overline" className="conv-usage-dialog__headline-k" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
-            Costo
-          </Typography>
-          <Typography
-            variant="h4"
-            component="span"
-            className={`conv-usage-dialog__headline-v conv-usage-dialog__headline-v--${section.key}`}
-            sx={{ fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.05, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
-          >
-            {costLabel}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center" className="conv-usage-dialog__headline-meta">
-          <Box className="conv-usage-dialog__headline-meta-item">
-            <Typography variant="overline" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
-              Tokens
+      {empty ? (
+        <Box className="conv-usage-dialog__empty" role="status">
+          <span className="conv-usage-dialog__empty-icon" aria-hidden>
+            <Icon icon="mdi:currency-usd-off" size={18} />
+          </span>
+          <Box className="conv-usage-dialog__empty-copy">
+            <Typography component="p" className="conv-usage-dialog__empty-title">
+              Sin costo ni tokens LLM
             </Typography>
-            <Typography
-              variant="h6"
-              component="span"
-              className="conv-usage-dialog__headline-meta-v"
-              sx={{ fontWeight: 700, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
-            >
-              {totalTokLabel}
+            <Typography component="p" className="conv-usage-dialog__empty-sub">
+              Este turno no pasó por OpenAI (p. ej. ContaPyme MCP u operativa local).
             </Typography>
           </Box>
-          {reasonLabel ? (
-            <Box className="conv-usage-dialog__headline-meta-item conv-usage-dialog__headline-meta-item--reason">
+        </Box>
+      ) : (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={{ xs: 1.25, sm: 2 }}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          justifyContent="space-between"
+          className="conv-usage-dialog__headline"
+        >
+          <Box className="conv-usage-dialog__headline-main">
+            <Typography variant="overline" className="conv-usage-dialog__headline-k" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
+              Costo
+            </Typography>
+            <Typography
+              variant="h4"
+              component="span"
+              className={`conv-usage-dialog__headline-v conv-usage-dialog__headline-v--${section.key}`}
+              sx={{ fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.05, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+            >
+              {costLabel}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} alignItems="center" className="conv-usage-dialog__headline-meta">
+            <Box className="conv-usage-dialog__headline-meta-item">
               <Typography variant="overline" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
-                Razonamiento
+                Tokens
               </Typography>
               <Typography
-                variant="body1"
+                variant="h6"
                 component="span"
-                sx={{ fontWeight: 600, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+                className="conv-usage-dialog__headline-meta-v"
+                sx={{ fontWeight: 700, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
               >
-                {reasonLabel}
+                {totalTokLabel}
               </Typography>
             </Box>
-          ) : null}
+            {reasonLabel ? (
+              <Box className="conv-usage-dialog__headline-meta-item conv-usage-dialog__headline-meta-item--reason">
+                <Typography variant="overline" sx={{ lineHeight: 1, display: "block", opacity: 0.7 }}>
+                  Razonamiento
+                </Typography>
+                <Typography
+                  variant="body1"
+                  component="span"
+                  sx={{ fontWeight: 600, lineHeight: 1.1, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+                >
+                  {reasonLabel}
+                </Typography>
+              </Box>
+            ) : null}
+          </Stack>
         </Stack>
-      </Stack>
-      <Box className="conv-usage-dialog__metrics-wrap">
-        <UsageMetricsGrid
-          className="conv-usage-dialog__metrics"
-          hideRowLabels
-          sections={[{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]}
-        />
-      </Box>
+      )}
+      {!empty ? (
+        <Box className="conv-usage-dialog__metrics-wrap">
+          <Typography component="p" variant="caption" className="conv-usage-dialog__metrics-caption">
+            Desglose por etapa
+          </Typography>
+          <UsageMetricsGrid
+            className="conv-usage-dialog__metrics"
+            hideRowLabels
+            sections={[{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]}
+          />
+        </Box>
+      ) : null}
     </Box>
   );
 
