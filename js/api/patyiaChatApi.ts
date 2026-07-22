@@ -222,6 +222,8 @@ export type SendMessageInput = {
   /** URLs R2 firmadas (multimedia/...). Subidas en cliente vía POST /api/adjuntos/audios. */
   audios?: string[];
   mode?: string;
+  /** Solo enviar si no es openai (default servidor). */
+  provider?: string;
 };
 
 function isHttpUrl(s: string): boolean {
@@ -251,6 +253,10 @@ export function buildConversacionPostBody(input: SendMessageInput): Record<strin
   if (audios.length) body.audios = audios;
   if (input.mode && String(input.mode).trim().toLowerCase() !== "patyia") {
     body.mode = String(input.mode).trim().toLowerCase();
+  }
+  const provider = String(input.provider || "").trim().toLowerCase();
+  if (provider && provider !== "openai") {
+    body.provider = provider;
   }
   if (!String(body.prompt || "").trim() && hasMedia) {
     body.prompt = imagenes.length ? "(imagen adjunta)" : "(nota de voz)";

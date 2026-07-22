@@ -1,6 +1,6 @@
 import { getMaterialUI, UI } from "../../core/platform.ts";
 import { convBelongsToJwt } from "../../core/patyia-jwt.ts";
-import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTIONS, CHAT_MODE_LIBRE, CHAT_MODE_PATYIA, isLibreChatMode } from "./constants.ts";
+import { CHAT_SIDEBAR_W, CONV_LIST_PAGE_SIZE_DEFAULT, CONV_LIST_PAGE_SIZE_OPTIONS, CHAT_MODE_LIBRE, CHAT_MODE_PATYIA, CHAT_PROVIDER_OPENAI, CHAT_PROVIDER_MINIMAX, isLibreChatMode, isMinimaxChatProvider } from "./constants.ts";
 import { formatTs } from "./mensajesModel.ts";
 import { ChatSessionPanel } from "./ChatSessionPanel.jsx";
 import { ConvSearchAutocomplete } from "./ConvSearchAutocomplete.jsx";
@@ -46,13 +46,40 @@ function ChatModeSwitch({ mode, onChange }) {
   );
 }
 
+function LlmProviderSwitch({ provider, onChange }) {
+  const isMm = isMinimaxChatProvider(provider);
+  const title = isMm ? "MiniMax M3" : "OpenAI";
+  const hint = isMm ? "Clic → OpenAI (default)" : "Clic → MiniMax M3 (experimental)";
+  // Texto visible + icono estable (mdi:openai a menudo no carga → botón «invisible»).
+  const icon = isMm ? "mdi:creation" : "simple-icons:openai";
+  return (
+    <Tooltip title={`${title} · ${hint}`}>
+      <Button
+        size="small"
+        variant={isMm ? "contained" : "outlined"}
+        color={isMm ? "secondary" : "inherit"}
+        className={`paty-chat-provider-btn${isMm ? " paty-chat-provider-btn--minimax" : ""}`}
+        onClick={() => onChange?.(isMm ? CHAT_PROVIDER_OPENAI : CHAT_PROVIDER_MINIMAX)}
+        aria-label={title}
+        aria-pressed={isMm}
+        startIcon={<Icon icon={icon} size={16} />}
+        sx={{ textTransform: "none", minWidth: 0, px: 1, py: 0.25, fontWeight: 700, fontSize: "0.75rem", lineHeight: 1.2 }}
+      >
+        {isMm ? "MiniMax" : "OpenAI"}
+      </Button>
+    </Tooltip>
+  );
+}
+
 /** Acciones del header (split IsaSplitView o drawer). */
 export function ChatSidebarHeaderActions({
   onClose,
   messageSource = "logs",
   mode = CHAT_MODE_PATYIA,
+  llmProvider = CHAT_PROVIDER_OPENAI,
   onMessageSourceChange,
   onChatModeChange,
+  onLlmProviderChange,
 }) {
   return (
     <Stack
@@ -72,6 +99,7 @@ export function ChatSidebarHeaderActions({
       ) : null}
       {onMessageSourceChange ? <MessageSourceSwitch messageSource={messageSource} onChange={onMessageSourceChange} /> : null}
       {onChatModeChange ? <ChatModeSwitch mode={mode} onChange={onChatModeChange} /> : null}
+      {onLlmProviderChange ? <LlmProviderSwitch provider={llmProvider} onChange={onLlmProviderChange} /> : null}
     </Stack>
   );
 }
@@ -347,8 +375,10 @@ export function ChatThreadSidebar({
   onConvListSearchChange,
   messageSource = "logs",
   mode = CHAT_MODE_PATYIA,
+  llmProvider = CHAT_PROVIDER_OPENAI,
   onMessageSourceChange,
   onChatModeChange,
+  onLlmProviderChange,
   onOpenJwt,
   onOpenAudit,
   onNewChat,
@@ -421,7 +451,7 @@ export function ChatThreadSidebar({
         boxSizing: "border-box",
       }}
     >
-      {(onClose || onMessageSourceChange || onChatModeChange) ? (
+      {(onClose || onMessageSourceChange || onChatModeChange || onLlmProviderChange) ? (
         <Stack
           direction="row"
           spacing={1}
@@ -434,8 +464,10 @@ export function ChatThreadSidebar({
             onClose={onClose}
             messageSource={messageSource}
             mode={mode}
+            llmProvider={llmProvider}
             onMessageSourceChange={onMessageSourceChange}
             onChatModeChange={onChatModeChange}
+            onLlmProviderChange={onLlmProviderChange}
           />
         </Stack>
       ) : null}

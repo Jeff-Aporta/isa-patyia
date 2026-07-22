@@ -76,7 +76,13 @@ export function resolveGlassDialogProps({
     fullScreen,
     scroll: "paper",
     className: `isa-login-dialog isa-glass-dialog${fullScreen ? " isa-glass-dialog--fullscreen" : ""}`,
-    slotProps: { backdrop: { sx: glassBackdropSx() }, ...(slotProps || {}) },
+    slotProps: {
+      ...(slotProps || {}),
+      backdrop: {
+        ...(slotProps?.backdrop || {}),
+        sx: { ...glassBackdropSx(), ...(slotProps?.backdrop?.sx || {}) },
+      },
+    },
     PaperProps: paper,
     ...rest,
   };
@@ -139,7 +145,7 @@ export function GlassDialogCloseActions({ onClose, label = "Cerrar" }) {
   );
 }
 
-export function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose }) {
+export function GlassDialogHeader({ icon = "mdi:information-outline", title, subtitle, accent = "#1e90ff", onClose, closeAutoFocus = false }) {
   const { Box, Typography, IconButton, Stack } = getMaterialUI();
   const { Icon } = UI;
   const { loginHeaderBandSx, loginIconBoxSx, loginHeaderTitleSx } = isaLoginSurface();
@@ -182,7 +188,14 @@ export function GlassDialogHeader({ icon = "mdi:information-outline", title, sub
         </Stack>
       </Box>
       {onClose ? (
-        <IconButton size="small" onClick={onClose} aria-label="Cerrar" className="isa-glass-dialog__close" sx={{ position: "absolute", top: 10, right: 10 }}>
+        <IconButton
+          size="small"
+          onClick={onClose}
+          aria-label="Cerrar"
+          autoFocus={closeAutoFocus}
+          className="isa-glass-dialog__close"
+          sx={{ position: "absolute", top: 10, right: 10 }}
+        >
           <Icon icon="mdi:close" size={18} />
         </IconButton>
       ) : null}

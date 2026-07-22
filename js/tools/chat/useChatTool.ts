@@ -26,8 +26,8 @@ import { fetchConvLogById, fetchConvLogByIdWithRetry } from "../../api/apiClient
 import * as LabSession from "../../api/sessionApi.ts";
 import { logToMensajesVista, formatStreamError } from "../../core/convLog.ts";
 import { toastError, toastSuccess, toastWarning, toastInfo, requestConfirm } from "../../core/platform.ts";
-import { persistChatConvId, persistChatMessageSource, persistChatMode, getSnapshot, subscribe } from "../../core/urlState.ts";
-import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS, readChatMessageSource, messageSourceFromUrl, readChatMode, chatModeFromUrl, readConvListPageSize, persistConvListPageSize, parseConvListPageSize, isLibreChatMode, type ChatMessageSource, type ChatMode, type ConvListPageSize } from "./constants.ts";
+import { persistChatConvId, persistChatMessageSource, persistChatMode, persistChatLlmProvider, getSnapshot, subscribe } from "../../core/urlState.ts";
+import { CONV_LIST_PAGE_SIZE, MAX_CHAT_IMAGES, MAX_CHAT_AUDIOS, readChatMessageSource, messageSourceFromUrl, readChatMode, chatModeFromUrl, readChatLlmProvider, chatLlmProviderFromUrl, readConvListPageSize, persistConvListPageSize, parseConvListPageSize, isLibreChatMode, CHAT_PROVIDER_MINIMAX, type ChatMessageSource, type ChatMode, type ChatLlmProvider, type ConvListPageSize } from "./constants.ts";
 import { useThreadScrollAnchor } from "./threadScroll.ts";
 import {
   auditScopeIsOwnJwt,
@@ -177,6 +177,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const [convListMeta, setConvListMeta] = useState<ConvListMeta | null>(null);
   const [messageSource, setMessageSource] = useState<ChatMessageSource>(() => readChatMessageSource(bootChat));
   const [chatMode, setChatMode] = useState<ChatMode>(() => readChatMode(bootChat));
+  const [llmProvider, setLlmProvider] = useState<ChatLlmProvider>(() => readChatLlmProvider(bootChat));
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const voiceRecorderRef = useRef(createVoiceRecorder());
@@ -188,6 +189,11 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
   const openConvRef = useRef<(id: number, opts?: OpenConvOptions) => Promise<void>>(async () => {});
   /** Conv recién creada al enviar — esperar a que aparezca en la lista antes de reconciliar. */
   const pendingListConvRef = useRef<number | null>(null);
+  const contapymeResumeLockRef = useRef(false);
+  const sendingRef = useRef(false);
+  const logMensajesRef = useRef(logMensajes);
+  logMensajesRef.current = logMensajes;
+  sendingRef.current = sending;
 
   const loggedIn = Session.isLoggedIn();
   const sessionUser = Session.username();
@@ -703,6 +709,15 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setChatMode(mode);
   }, [chatMode]);
 
+  const onLlmProviderChange = useCallback((next: ChatLlmProvider) => {
+    const provider = String(next || "openai").trim().toLowerCase() === CHAT_PROVIDER_MINIMAX
+      ? CHAT_PROVIDER_MINIMAX
+      : "openai";
+    if (provider === llmProvider) return;
+    persistChatLlmProvider(provider);
+    setLlmProvider(provider);
+  }, [llmProvider]);
+
   const onConvListPageSizeChange = useCallback((next: number) => {
     const size = parseConvListPageSize(next);
     if (size === convListPageSize) return;
@@ -719,6 +734,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     if (urlSource) setMessageSource((prev) => (prev === urlSource ? prev : urlSource));
     const urlMode = chatModeFromUrl(chat);
     if (urlMode !== null) setChatMode((prev) => (prev === urlMode ? prev : urlMode));
+    const urlProvider = chatLlmProviderFromUrl(chat);
+    if (urlProvider !== null) setLlmProvider((prev) => (prev === urlProvider ? prev : urlProvider));
   }), []);
 
   useEffect(() => {
@@ -792,9 +809,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     }
   }
 
-  async function onSend() {
+  async function onSend(overrideText?: string) {
     if (!canSend || !jwt) return;
-    const text = draft.trim();
+    const text = String(overrideText ?? draft).trim();
     if (!text && !images.length && !audios.length) return;
     if (selectedId && !convBelongsToJwtResolved(
       detail,
@@ -845,7 +862,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       const audiosUrls = uploadedAudios.map((u) => u.url);
       const result = await sendConversacionStream(
         jwt,
-        { prompt: text, iconversacion: selectedId || undefined, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode },
+        { prompt: text, iconversacion: selectedId || undefined, imagenes: imagenesUrls, audios: audiosUrls, mode: chatMode, provider: llmProvider },
         (partial) => setStreamText(partial),
       );
       const finalText = String(result.respuesta || "").trim();
@@ -1049,6 +1066,33 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     setMetaOpen(true);
   }, []);
 
+  /** Tras cerrar ASW (o volver de pestaña): si el server no retomó en el SSE, manda ack y recupera la consulta. */
+  const onSendRef = useRef(onSend);
+  onSendRef.current = onSend;
+  const onContapymeLoginDone = useCallback(() => {
+    if (sendingRef.current || contapymeResumeLockRef.current || !canSend || !jwt) return;
+    const msgs = logMensajesRef.current || [];
+    let pending = false;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m.esUsuario || m.esOperativa) continue;
+      const t = String(m.contenido || "");
+      if (/Sesión ContaPyme® activa/i.test(t)) break;
+      if (
+        /ia\.contapyme\.com\/api\/login\/asw/i.test(t)
+        || Boolean(m.meta?.login_url || m.meta?.extra?.login_url || m.meta?.contapyme_mcp_login)
+      ) {
+        pending = true;
+      }
+      break;
+    }
+    if (!pending) return;
+    contapymeResumeLockRef.current = true;
+    void Promise.resolve(onSendRef.current("ya inicié sesión")).finally(() => {
+      window.setTimeout(() => { contapymeResumeLockRef.current = false; }, 8_000);
+    });
+  }, [canSend, jwt]);
+
   const onRateMessage = useCallback(async (msg: ChatMensajeVista, butil: boolean) => {
     if (!canSend || !jwt?.token || !selectedId) return;
     if (msg.calificacion !== undefined) return;
@@ -1112,8 +1156,9 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
       imagenes: images.map((i) => i.uploadedUrl ?? `[local image: ${i.name} · ${i.mime} · ${i.blob.size}B]`),
       audios: audios.map((a) => a.uploadedUrl ?? `[local audio: ${a.name} · ${a.mime} · ${a.blob.size}B]`),
       mode: chatMode,
+      provider: llmProvider,
     }),
-    [draft, selectedId, images, audios, chatMode],
+    [draft, selectedId, images, audios, chatMode, llmProvider],
   );
 
   const clearAuditFilter = useCallback(() => {
@@ -1179,6 +1224,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     convListSearch,
     messageSource,
     chatMode,
+    llmProvider,
     chatUserDisplayName,
     chatUserNick,
     convListOwnerLabel,
@@ -1205,6 +1251,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     onNewChat,
     onDelete,
     onSend,
+    onContapymeLoginDone,
     onPaste,
     onAttachClick,
     onAttachChange,
@@ -1213,6 +1260,7 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
     onRateMessage,
     onMessageSourceChange,
     onChatModeChange,
+    onLlmProviderChange,
     onConvListPageSizeChange,
     setDraft,
     setImages,

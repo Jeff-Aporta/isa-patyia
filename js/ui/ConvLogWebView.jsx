@@ -660,33 +660,130 @@ function scrubContapymeLoginFromText(text) {
 }
 
 /** Login ASW ContaPyme: botón en el hilo → modal 95vw×95vh (no invade el chat). */
-function forceIframeWindowRelayout(iframe) {
+/** Blank hasta F12 = compositing: simula el resize del viewport sobre el iframe host. */
+function forceIframeRepaint(iframe) {
   if (!iframe) return;
-  // ContaPyme ASW hidrata el formulario con el tamaño del iframe; si nace durante la
-  // transición del Dialog, el panel derecho queda vacío hasta un resize real.
-  const w = iframe.clientWidth;
-  const h = iframe.clientHeight;
-  if (w < 2 || h < 2) return;
-  iframe.style.width = `${w - 1}px`;
-  iframe.style.height = `${h - 1}px`;
+  const rect = iframe.getBoundingClientRect();
+  const w = Math.round(rect.width) || iframe.clientWidth || 0;
+  const h = Math.round(rect.height) || iframe.clientHeight || 0;
+  if (w < 8 || h < 8) return;
+  const prev = { w: iframe.style.width, h: iframe.style.height, v: iframe.style.visibility };
+  iframe.style.visibility = "hidden";
+  iframe.style.width = `${Math.max(8, w - 1)}px`;
+  iframe.style.height = `${Math.max(8, h - 1)}px`;
+  void iframe.offsetHeight;
   requestAnimationFrame(() => {
-    iframe.style.width = "100%";
-    iframe.style.height = "100%";
-    try { iframe.contentWindow?.dispatchEvent?.(new Event("resize")); } catch { /* cross-origin ok */ }
+    iframe.style.width = prev.w || "100%";
+    iframe.style.height = prev.h || "100%";
+    iframe.style.visibility = prev.v || "visible";
+    void iframe.offsetHeight;
+    window.dispatchEvent(new Event("resize"));
   });
 }
 
-function ContapymeLoginEmbed({ url }) {
-  const { Box, Stack, Button, DialogContent } = getMaterialUI();
+function scheduleIframeRepaint(iframe, delaysMs = [0, 80, 200, 500, 1000, 2000, 4000]) {
+  if (!iframe) return () => {};
+  const timers = delaysMs.map((ms) => window.setTimeout(() => forceIframeRepaint(iframe), ms));
+  return () => timers.forEach((id) => window.clearTimeout(id));
+}
+
+function ContapymeLoginEmbed({ url, onLoginDone }) {
+  const { Stack, Button, Dialog, DialogContent } = getMaterialUI();
   const { Icon } = UI;
   const [open, setOpen] = useState(false);
-  const [iframeSrc, setIframeSrc] = useState(null);
+  const [hostReady, setHostReady] = useState(false);
+  const [geomNudge, setGeomNudge] = useState(0);
   const iframeRef = useRef(null);
-  const close = () => {
-    setOpen(false);
-    setIframeSrc(null);
+  const contentRef = useRef(null);
+  const tabOpenedRef = useRef(false);
+  const doneOnceRef = useRef(false);
+  const cancelRepaintRef = useRef(null);
+  const signalDone = () => {
+    if (doneOnceRef.current) return;
+    doneOnceRef.current = true;
+    onLoginDone?.();
   };
+  const close = () => {
+    cancelRepaintRef.current?.();
+    cancelRepaintRef.current = null;
+    setOpen(false);
+    setHostReady(false);
+    setGeomNudge(0);
+    signalDone();
+  };
+  useEffect(() => {
+    if (!open) {
+      setHostReady(false);
+      return undefined;
+    }
+    let cancelled = false;
+    let ready = false;
+    const mark = () => {
+      if (cancelled || ready) return false;
+      const el = contentRef.current;
+      if ((el?.clientWidth || 0) < 80 || (el?.clientHeight || 0) < 80) return false;
+      ready = true;
+      setHostReady(true);
+      return true;
+    };
+    if (mark()) return undefined;
+    const host = contentRef.current;
+    let ro;
+    if (host && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => { if (mark()) ro?.disconnect(); });
+      ro.observe(host);
+    }
+    const poll = window.setInterval(() => { if (mark()) window.clearInterval(poll); }, 50);
+    const fallback = window.setTimeout(() => { if (!cancelled && !ready) setHostReady(true); }, 2500);
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+      window.clearInterval(poll);
+      window.clearTimeout(fallback);
+    };
+  }, [open, url]);
+  useEffect(() => {
+    if (!open || !hostReady) return undefined;
+    const host = contentRef.current;
+    const iframe = iframeRef.current;
+    cancelRepaintRef.current?.();
+    const onLoad = () => {
+      cancelRepaintRef.current?.();
+      cancelRepaintRef.current = scheduleIframeRepaint(iframeRef.current);
+      // +1px en paper = mismo efecto que abrir DevTools (reflow del host).
+      setGeomNudge((n) => (n === 0 ? 1 : 0));
+      window.setTimeout(() => setGeomNudge(0), 60);
+    };
+    iframe?.addEventListener("load", onLoad);
+    cancelRepaintRef.current = scheduleIframeRepaint(iframe);
+    let ro;
+    if (host && typeof ResizeObserver !== "undefined") {
+      let last = "";
+      ro = new ResizeObserver(() => {
+        const key = `${host.clientWidth}x${host.clientHeight}`;
+        if (key === last) return;
+        last = key;
+        forceIframeRepaint(iframeRef.current);
+      });
+      ro.observe(host);
+    }
+    return () => {
+      iframe?.removeEventListener("load", onLoad);
+      cancelRepaintRef.current?.();
+      cancelRepaintRef.current = null;
+      ro?.disconnect();
+    };
+  }, [open, hostReady, url]);
+  useEffect(() => {
+    if (!tabOpenedRef.current) return undefined;
+    const onVis = () => {
+      if (document.visibilityState === "visible") signalDone();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [url]);
   if (!url) return null;
+  // Dialog MUI plano (no GlassDialog): loginDialogProps / backdrop-filter rompen el paint del iframe.
   return (
     <>
       <Stack
@@ -699,7 +796,12 @@ function ContapymeLoginEmbed({ url }) {
         <Button
           variant="contained"
           size="medium"
-          onClick={() => setOpen(true)}
+          onClick={(e) => {
+            doneOnceRef.current = false;
+            // Evita aria-hidden en #root con el CTA aún enfocado (warning a11y del Modal).
+            e.currentTarget.blur();
+            setOpen(true);
+          }}
           startIcon={<Icon icon="mdi:login-variant" size={18} />}
           sx={{ textTransform: "none", fontWeight: 700, alignSelf: { sm: "flex-start" } }}
         >
@@ -711,90 +813,100 @@ function ContapymeLoginEmbed({ url }) {
           rel="noopener noreferrer"
           size="small"
           variant="text"
+          onClick={() => { tabOpenedRef.current = true; }}
           sx={{ textTransform: "none", fontWeight: 600, alignSelf: { sm: "flex-start" } }}
         >
           Abrir en pestaña
         </Button>
       </Stack>
-      <GlassDialog
+      <Dialog
         open={open}
         onClose={close}
         maxWidth={false}
+        fullWidth={false}
         transitionDuration={0}
-        TransitionProps={{
-          onEntered: () => {
-            setIframeSrc(url);
-            requestAnimationFrame(() => forceIframeWindowRelayout(iframeRef.current));
+        disableRestoreFocus
+        className="contapyme-asw-login-dialog"
+        slotProps={{
+          backdrop: {
+            sx: {
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none",
+              backgroundColor: "rgba(11,18,32,0.72)",
+            },
           },
         }}
-        paperMaxWidth="95vw"
-        paperSx={{
-          width: "95vw",
-          height: "95vh",
-          maxHeight: "95vh",
-          m: "2.5vh auto",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+        PaperProps={{
+          elevation: 8,
+          className: "contapyme-asw-login-paper",
+          sx: {
+            width: `calc(95vw + ${geomNudge}px)`,
+            height: `calc(95vh + ${geomNudge}px)`,
+            maxWidth: "95vw",
+            maxHeight: "95vh",
+            m: "2.5vh auto",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            borderRadius: 2,
+            backdropFilter: "none",
+            WebkitBackdropFilter: "none",
+            filter: "none",
+            transform: "none",
+            bgcolor: "#0b1220",
+            backgroundImage: "none",
+          },
         }}
-        header={(
-          <GlassDialogHeader
-            title="Conectar ContaPyme®"
-            subtitle="Sesión ASW · inicia sesión y cierra cuando termines"
-            icon="mdi:domain"
-            accent="#1e90ff"
-            onClose={close}
-          />
-        )}
       >
+        <GlassDialogHeader
+          title="Conectar ContaPyme®"
+          subtitle="Sesión ASW · inicia sesión y cierra cuando veas «En línea»"
+          icon="mdi:domain"
+          accent="#1e90ff"
+          onClose={close}
+          closeAutoFocus
+        />
         <DialogContent
+          ref={contentRef}
           dividers
+          className="contapyme-asw-login-content"
           sx={{
-            ...glassDialogContentSx({ p: 0 }),
-            flex: "1 1 auto",
+            p: 0,
+            display: "flex",
+            flexDirection: "column",
+            flex: "1 1 0",
             minHeight: 0,
-            height: "100%",
             position: "relative",
             overflow: "hidden",
             bgcolor: "#fff",
+            backgroundImage: "none",
+            borderTop: 0,
           }}
         >
-          {iframeSrc ? (
-            <Box
-              component="iframe"
+          {hostReady ? (
+            <iframe
               ref={iframeRef}
-              key={iframeSrc}
-              src={iframeSrc}
               title="Iniciar sesión en ContaPyme"
+              src={url}
               loading="eager"
               referrerPolicy="no-referrer-when-downgrade"
-              sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads"
-              onLoad={() => {
-                forceIframeWindowRelayout(iframeRef.current);
-                setTimeout(() => forceIframeWindowRelayout(iframeRef.current), 250);
-              }}
-              sx={{
-                position: "absolute",
-                inset: 0,
-                border: 0,
-                width: "100%",
-                height: "100%",
-                display: "block",
-              }}
+              allow="clipboard-read; clipboard-write"
+              className="contapyme-asw-login-iframe"
             />
           ) : null}
         </DialogContent>
-      </GlassDialog>
+      </Dialog>
     </>
   );
 }
 
-function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false }) {
+function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", onImageClick, streaming = false, loginUrl: loginUrlProp, disableLoginEmbed = false, onContapymeLoginDone }) {
   const { Typography, Box } = getMaterialUI();
   const raw = String(text || "");
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
-  const loginUrl = (streaming || disableLoginEmbed) ? null : extractContapymeLoginUrl(raw, loginUrlProp);
+  // CTA visible también durante stream (ISS espera sesión con SSE abierto).
+  const loginUrl = disableLoginEmbed ? null : extractContapymeLoginUrl(raw, loginUrlProp);
   const displayRaw = disableLoginEmbed
     ? scrubContapymeLoginFromText(raw)
     : loginUrl
@@ -846,7 +958,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
           />
           ) : null}
           {streaming && hasText ? <Box component="span" className="conv-stream-cursor" aria-hidden /> : null}
-          {loginUrl ? <ContapymeLoginEmbed url={loginUrl} /> : null}
+          {loginUrl ? <ContapymeLoginEmbed url={loginUrl} onLoginDone={streaming ? undefined : onContapymeLoginDone} /> : null}
         </Box>
       )}
       {imagenes?.length > 0 && (
@@ -1694,7 +1806,7 @@ function resolveMsgImensaje(msg) {
   return imensaje > 0 ? imensaje : undefined;
 }
 
-const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false }) {
+const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta = false, chatUserDisplayName, chatUserNick, showUsageStats = false, onImageClick, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, operativaEnter = false, onContapymeLoginDone = null }) {
   const { Alert, Box } = getMaterialUI();
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
   const meta = roleMetaFor(msg, compactMeta);
@@ -1824,6 +1936,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
               disableLoginEmbed={isOperativa}
               // Solo asistente: la OP MCP trae login_url en el resumen y no debe duplicar el CTA/modal.
               loginUrl={isOperativa ? undefined : (msg.meta?.login_url || msg.meta?.extra?.login_url)}
+              onContapymeLoginDone={isOperativa || isUser ? undefined : onContapymeLoginDone}
             />
             ) : null}
           </SectionCard>
@@ -1877,7 +1990,7 @@ const MensajeSection = memo(function MensajeSection({ msg, onMeta, compactMeta =
   && prev.operativaEnter === next.operativaEnter
 ));
 
-export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "" }) {
+export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHint, chatUserDisplayName, chatUserNick, showUsageStats = true, streamingMsgId = null, onRateMessage = null, canRate = false, ratingMsgId = null, threadKey = null, threadClassName = "", onContapymeLoginDone = null }) {
   const { Box, Typography } = getMaterialUI();
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const operativaEnterIds = useOperativaEnterIds(mensajes, threadKey, { enabled: !compactMeta });
@@ -1915,6 +2028,7 @@ export function ConvLogWebView({ mensajes, onMeta, compactMeta = false, emptyHin
           canRate={canRate}
           ratingMsgId={ratingMsgId}
           operativaEnter={operativaEnterIds.has(m.idMsg)}
+          onContapymeLoginDone={onContapymeLoginDone}
         />
       ))}
       <ImageLightboxDialog open={Boolean(lightboxSrc)} src={lightboxSrc} onClose={() => setLightboxSrc(null)} />

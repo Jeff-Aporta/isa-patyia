@@ -48,6 +48,34 @@ export const CHAT_MODE_PATYIA = "patyia";
 export const CHAT_MODE_LIBRE = "libre";
 export type ChatMode = typeof CHAT_MODE_PATYIA | typeof CHAT_MODE_LIBRE | string;
 
+export const CHAT_PROVIDER_OPENAI = "openai";
+export const CHAT_PROVIDER_MINIMAX = "minimax";
+export type ChatLlmProvider = typeof CHAT_PROVIDER_OPENAI | typeof CHAT_PROVIDER_MINIMAX;
+
+export function parseChatLlmProvider(raw: unknown): ChatLlmProvider {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (t === CHAT_PROVIDER_MINIMAX || t === "mini-max" || t === "mm") return CHAT_PROVIDER_MINIMAX;
+  return CHAT_PROVIDER_OPENAI;
+}
+
+export function isMinimaxChatProvider(provider: unknown): boolean {
+  return parseChatLlmProvider(provider) === CHAT_PROVIDER_MINIMAX;
+}
+
+/** Proveedor LLM — ?s=.chat.provider (default openai; no persistir openai). */
+export function readChatLlmProvider(bootChat?: { provider?: unknown }): ChatLlmProvider {
+  if (bootChat?.provider != null && String(bootChat.provider).trim() !== "") {
+    return parseChatLlmProvider(bootChat.provider);
+  }
+  const chat = getSnapshot().chat as Record<string, unknown> | undefined;
+  return parseChatLlmProvider(chat?.provider);
+}
+
+export function chatLlmProviderFromUrl(chat: Record<string, unknown> | undefined): ChatLlmProvider | null {
+  if (!chat || chat.provider == null || String(chat.provider).trim() === "") return null;
+  return parseChatLlmProvider(chat.provider);
+}
+
 export function parseChatMode(raw: unknown): ChatMode {
   if (typeof raw === "string") {
     const m = raw.trim().toLowerCase();

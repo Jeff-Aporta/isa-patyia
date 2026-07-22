@@ -292,6 +292,18 @@ export function persistChatMode(mode: string) {
   return mergePartial({ tool: "chat", chat: { mode: normalized } });
 }
 
+/** Proveedor LLM — openai | minimax en ?s=.chat.provider (openai = omitir en URL). */
+export function persistChatLlmProvider(provider: string) {
+  const normalized = String(provider || "openai").trim().toLowerCase() || "openai";
+  const snap = getSnapshot();
+  const prev = String((snap.chat as Record<string, unknown>)?.provider || "openai").toLowerCase();
+  if (prev === normalized) return snap;
+  if (normalized === "openai") {
+    return mergePartial({ tool: "chat", chat: { provider: undefined } });
+  }
+  return mergePartial({ tool: "chat", chat: { provider: normalized } });
+}
+
 function configPermisosBag(snap?: Record<string, unknown>) {
   const cfg = (snap ?? getSnapshot()).config as Record<string, unknown> | undefined;
   const permisos = cfg?.permisos;

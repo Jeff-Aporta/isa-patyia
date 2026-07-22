@@ -41,6 +41,7 @@ export function ConvLogThread({
   onScroll = null,
   surfaceClassName = "",
   sx = {},
+  onContapymeLoginDone = null,
 }) {
   const threadClassName = compactMeta ? "paty-chat-thread--compact" : "paty-chat-log-thread";
   const showSpinner = loading && (loadingOnlyWhenEmpty ? !mensajes?.length : true);
@@ -72,6 +73,7 @@ export function ConvLogThread({
         onRateMessage={onRateMessage}
         ratingMsgId={ratingMsgId}
         threadKey={threadKey}
+        onContapymeLoginDone={onContapymeLoginDone}
       />
     </Box>
   );

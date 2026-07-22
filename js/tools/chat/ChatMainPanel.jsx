@@ -1,7 +1,6 @@
 import { getMaterialUI, UI } from "../../core/platform.ts";
 import { convLogSurfaceSx } from "../../core/convLog.ts";
 import { ConvLogThread } from "../../ui/ConvLogThread.jsx";
-import { ButtonIconify } from "../../ui/shared.jsx";
 import { ChatComposer } from "./ChatComposer.jsx";
 import { ChatSidebarHeaderActions } from "./ChatThreadSidebar.jsx";
 
@@ -10,8 +9,38 @@ const {
 } = getMaterialUI();
 const { Icon } = UI;
 
-export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, onMessageSourceChange, onChatModeChange }) {
+function RefreshConvButton({ onClick, busy = false }) {
+  return (
+    <Tooltip title="Actualizar conversación" arrow>
+      <span>
+        <IconButton
+          size="small"
+          onClick={onClick}
+          disabled={busy}
+          aria-label="Actualizar"
+          title="Actualizar"
+          className={busy ? "paty-chat-refresh-spin" : undefined}
+        >
+          <Icon icon={busy ? "mdi:loading" : "mdi:refresh"} size={20} />
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
+}
+
+export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, llmProvider = "openai", onMessageSourceChange, onChatModeChange, onLlmProviderChange, onContapymeLoginDone = null }) {
   const isProdView = messageSource === "prod";
+  const hasThread = Boolean(selectedId || detail);
+  const headerActions = (
+    <ChatSidebarHeaderActions
+      messageSource={messageSource}
+      mode={mode}
+      llmProvider={llmProvider}
+      onMessageSourceChange={onMessageSourceChange}
+      onChatModeChange={onChatModeChange}
+      onLlmProviderChange={onLlmProviderChange}
+    />
+  );
   return (
     <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {onOpenSidebar ? (
@@ -30,27 +59,10 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
             Conversaciones
           </Typography>
-          <ChatSidebarHeaderActions
-            messageSource={messageSource}
-            mode={mode}
-            onMessageSourceChange={onMessageSourceChange}
-            onChatModeChange={onChatModeChange}
-          />
-          {(selectedId || detail) ? (
-            <Tooltip title="Actualizar conversación" arrow>
-              <span>
-                <ButtonIconify
-                  icon="mdi:refresh"
-                  title="Actualizar"
-                  onClick={onRefreshConv}
-                  disabled={refreshingThread}
-                  busy={refreshingThread}
-                />
-              </span>
-            </Tooltip>
-          ) : null}
+          {headerActions}
+          {hasThread ? <RefreshConvButton onClick={onRefreshConv} busy={refreshingThread} /> : null}
         </Stack>
-      ) : (selectedId || detail) ? (
+      ) : (
         <Stack
           direction="row"
           spacing={1}
@@ -59,25 +71,10 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           sx={{ px: 2, py: 0.75, flexShrink: 0 }}
         >
           <Box sx={{ flex: 1 }} />
-          <ChatSidebarHeaderActions
-            messageSource={messageSource}
-            mode={mode}
-            onMessageSourceChange={onMessageSourceChange}
-            onChatModeChange={onChatModeChange}
-          />
-          <Tooltip title="Actualizar conversación" arrow>
-            <span>
-              <ButtonIconify
-                icon="mdi:refresh"
-                title="Actualizar"
-                onClick={onRefreshConv}
-                disabled={refreshingThread}
-                busy={refreshingThread}
-              />
-            </span>
-          </Tooltip>
+          {headerActions}
+          {hasThread ? <RefreshConvButton onClick={onRefreshConv} busy={refreshingThread} /> : null}
         </Stack>
-      ) : null}
+      )}
       {needsJwt && (
         <Alert
           severity="info"
@@ -145,6 +142,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           loading={loadingThread}
           loadingOnlyWhenEmpty={!sending}
           error={logError}
+          onContapymeLoginDone={onContapymeLoginDone}
         />
       )}
 

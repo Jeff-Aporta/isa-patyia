@@ -53,7 +53,9 @@ export function ChatTool({ bootChat, onNeedLogin }) {
     messageSource: chat.messageSource,
     onMessageSourceChange: chat.onMessageSourceChange,
     mode: chat.chatMode,
+    llmProvider: chat.llmProvider,
     onChatModeChange: chat.onChatModeChange,
+    onLlmProviderChange: chat.onLlmProviderChange,
     onOpenJwt: () => chat.setJwtOpen(true),
     onOpenAudit: () => {
       if (!chat.canAuditChat) {
@@ -110,6 +112,7 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onDraftChange={(e) => chat.setDraft(e.target.value)}
         onPaste={chat.onPaste}
         onSend={chat.onSend}
+        onContapymeLoginDone={chat.onContapymeLoginDone}
         onTogglePayloadPreview={() => chat.setPayloadPreviewOpen((v) => !v)}
         onAttachClick={chat.onAttachClick}
         onAttachChange={chat.onAttachChange}
@@ -120,8 +123,10 @@ export function ChatTool({ bootChat, onNeedLogin }) {
         onRateMessage={chat.onRateMessage}
         messageSource={chat.messageSource}
         mode={chat.chatMode}
+        llmProvider={chat.llmProvider}
         onMessageSourceChange={chat.onMessageSourceChange}
         onChatModeChange={chat.onChatModeChange}
+        onLlmProviderChange={chat.onLlmProviderChange}
         onOpenSidebar={isMobile ? () => setSidebarOpen(true) : undefined}
       />
   );
