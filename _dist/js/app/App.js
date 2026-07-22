@@ -3659,11 +3659,11 @@ function instructionKeyFromMeta(meta) {
   return bdInstructionKey(meta) || String(meta?.extra?.operativa_key ?? "").trim();
 }
 var USAGE_METRIC_COLS = [
-  { key: "in", label: "in" },
-  { key: "cache", label: "cache" },
-  { key: "out", label: "out" },
-  { key: "total", label: "total" },
-  { key: "reason", label: "reason" }
+  { key: "in", label: "Entrada" },
+  { key: "cache", label: "Cach\xE9" },
+  { key: "out", label: "Salida" },
+  { key: "total", label: "Total" },
+  { key: "reason", label: "Razon." }
 ];
 function buildUsageRowMetrics(tokens, cost) {
   const tk = tokens || {};
@@ -3699,7 +3699,7 @@ function MetaUsageGrid({ sections, hideRowLabels = false, className = "" }) {
   );
   if (!visibleCols.length) return null;
   const gridTemplateColumns = hideRowLabels ? `repeat(${visibleCols.length}, minmax(5.5rem, 1fr))` : `5.75rem repeat(${visibleCols.length}, minmax(5.5rem, 1fr))`;
-  const gridStyle = { gridTemplateColumns };
+  const gridStyle = { display: "grid", gridTemplateColumns };
   return /* @__PURE__ */ jsxs2("div", { className: `meta-prompt-stat__usage-grid ${className}`.trim(), children: [
     /* @__PURE__ */ jsxs2("div", { className: "meta-prompt-stat__usage-grid-head", style: gridStyle, children: [
       !hideRowLabels ? /* @__PURE__ */ jsx3("span", { className: "meta-prompt-stat__usage-grid-corner", "aria-hidden": "true" }) : null,
@@ -4709,11 +4709,35 @@ function visionAutoswitchBadge(meta) {
     title: used && configured !== used ? `Autoswitch visi\xF3n: ${configured} \u2192 ${used}` : `Modelo configurado (${configured}); autoswitch visi\xF3n por im\xE1genes adjuntas`
   };
 }
+function formatUsageTs(ts) {
+  const raw = String(ts || "").trim();
+  if (!raw) return "";
+  try {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return raw;
+    return d.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "medium" });
+  } catch {
+    return raw;
+  }
+}
+function friendlyItdconsulta(value) {
+  const s = String(value || "").trim();
+  if (!s) return s;
+  if (/^DATOS_CONTAPYME_MCP$/i.test(s)) return "ContaPyme MCP \xB7 datos vivos";
+  if (/^REQUIERE_CONTEXTO$/i.test(s)) return "Requiere contexto";
+  return s.replace(/_/g, " ");
+}
 function buildUsageDialogCtxItems(meta) {
   const latency = formatLatencySeconds(meta?.latency_ms);
   const items = [];
   if (meta?.ts) {
-    items.push({ key: "ts", label: "ts", value: meta.ts, mono: true });
+    items.push({
+      key: "ts",
+      label: "Momento",
+      value: formatUsageTs(meta.ts),
+      icon: "mdi:clock-outline",
+      mono: false
+    });
   }
   if (meta?.modelo_autoswitch_vision) {
     const from = String(meta.modelo_configurado ?? "").trim();
@@ -4721,24 +4745,26 @@ function buildUsageDialogCtxItems(meta) {
     if (from && to) {
       items.push({
         key: "vision_sw",
-        label: "autoswitch visi\xF3n",
-        value: from === to ? `${from} (sin cambio de modelo)` : `${from} \u2192 ${to}`,
+        label: "Autoswitch visi\xF3n",
+        value: from === to ? `${from} (sin cambio)` : `${from} \u2192 ${to}`,
+        icon: "mdi:eye-plus-outline",
         mono: true,
         wide: true,
         vision: true
       });
     } else {
       if (from) {
-        items.push({ key: "model_from", label: "modelo configurado", value: from, mono: true, vision: true });
+        items.push({ key: "model_from", label: "Modelo config.", value: from, icon: "mdi:cog-outline", mono: true, vision: true });
       }
       if (to) {
-        items.push({ key: "model_to", label: "modelo usado", value: to, mono: true, vision: true });
+        items.push({ key: "model_to", label: "Modelo usado", value: to, icon: "mdi:robot-outline", mono: true, vision: true });
       }
       if (!from && !to) {
         items.push({
           key: "vision_sw",
-          label: "autoswitch visi\xF3n",
-          value: "activo (im\xE1genes adjuntas)",
+          label: "Autoswitch visi\xF3n",
+          value: "Activo (im\xE1genes adjuntas)",
+          icon: "mdi:eye-plus-outline",
           mono: false,
           wide: true,
           vision: true
@@ -4746,13 +4772,39 @@ function buildUsageDialogCtxItems(meta) {
       }
     }
   } else if (meta?.model) {
-    items.push({ key: "model", label: "model", value: meta.model, mono: true });
+    items.push({ key: "model", label: "Modelo", value: meta.model, icon: "mdi:robot-outline", mono: true });
   }
   if (latency) {
-    items.push({ key: "latency", label: "latency", value: latency, mono: true });
+    items.push({ key: "latency", label: "Latencia", value: latency, icon: "mdi:timer-outline", mono: true });
   }
   if (meta?.itdconsulta) {
-    items.push({ key: "itd", label: "itdconsulta", value: meta.itdconsulta, mono: true });
+    items.push({
+      key: "itd",
+      label: "Tipo",
+      value: friendlyItdconsulta(meta.itdconsulta),
+      icon: "mdi:tag-outline",
+      mono: false,
+      wide: /CONTAPYME|MCP/i.test(String(meta.itdconsulta))
+    });
+  } else {
+    const opKey = String(meta?.extra?.operativa_key || "").trim();
+    if (/^contapymeMcpSession$/i.test(opKey)) {
+      items.push({
+        key: "op",
+        label: "Tipo",
+        value: "ContaPyme MCP \xB7 sesi\xF3n / datos vivos",
+        icon: "mdi:api",
+        wide: true
+      });
+    } else if (/^contapymeMcpLogin$/i.test(opKey)) {
+      items.push({
+        key: "op",
+        label: "Tipo",
+        value: "ContaPyme MCP \xB7 login ASW",
+        icon: "mdi:login-variant",
+        wide: true
+      });
+    }
   }
   return items;
 }
@@ -4891,12 +4943,36 @@ function extractContapymeLoginUrl(text, metaUrl) {
   const m = String(text || "").match(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/i);
   return m?.[0] ? m[0].replace(/[),.;]+$/, "") : null;
 }
+function scrubContapymeLoginFromText(text) {
+  return String(text || "").replace(/https:\/\/ia\.contapyme\.com\/api\/login\/asw\?[^\s<>"'`]+/gi, "").replace(/^login_url:\s*.*$/gim, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function forceIframeWindowRelayout(iframe) {
+  if (!iframe) return;
+  const w = iframe.clientWidth;
+  const h = iframe.clientHeight;
+  if (w < 2 || h < 2) return;
+  iframe.style.width = `${w - 1}px`;
+  iframe.style.height = `${h - 1}px`;
+  requestAnimationFrame(() => {
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    try {
+      iframe.contentWindow?.dispatchEvent?.(new Event("resize"));
+    } catch {
+    }
+  });
+}
 function ContapymeLoginEmbed({ url }) {
   const { Box: Box33, Stack: Stack26, Button: Button21, DialogContent: DialogContent15 } = getMaterialUI();
   const { Icon: Icon26 } = UI;
   const [open, setOpen] = useState3(false);
+  const [iframeSrc, setIframeSrc] = useState3(null);
+  const iframeRef = useRef(null);
+  const close = () => {
+    setOpen(false);
+    setIframeSrc(null);
+  };
   if (!url) return null;
-  const close = () => setOpen(false);
   return /* @__PURE__ */ jsxs3(Fragment2, { children: [
     /* @__PURE__ */ jsxs3(
       Stack26,
@@ -4939,6 +5015,13 @@ function ContapymeLoginEmbed({ url }) {
         open,
         onClose: close,
         maxWidth: false,
+        transitionDuration: 0,
+        TransitionProps: {
+          onEntered: () => {
+            setIframeSrc(url);
+            requestAnimationFrame(() => forceIframeWindowRelayout(iframeRef.current));
+          }
+        },
         paperMaxWidth: "95vw",
         paperSx: {
           width: "95vw",
@@ -4965,25 +5048,38 @@ function ContapymeLoginEmbed({ url }) {
             dividers: true,
             sx: {
               ...glassDialogContentSx({ p: 0 }),
-              flex: 1,
+              flex: "1 1 auto",
               minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
+              height: "100%",
+              position: "relative",
               overflow: "hidden",
               bgcolor: "#fff"
             },
-            children: /* @__PURE__ */ jsx5(
+            children: iframeSrc ? /* @__PURE__ */ jsx5(
               Box33,
               {
                 component: "iframe",
-                src: open ? url : void 0,
+                ref: iframeRef,
+                src: iframeSrc,
                 title: "Iniciar sesi\xF3n en ContaPyme",
-                loading: "lazy",
+                loading: "eager",
                 referrerPolicy: "no-referrer-when-downgrade",
                 sandbox: "allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads",
-                sx: { border: 0, width: "100%", flex: 1, minHeight: 0, display: "block" }
-              }
-            )
+                onLoad: () => {
+                  forceIframeWindowRelayout(iframeRef.current);
+                  setTimeout(() => forceIframeWindowRelayout(iframeRef.current), 250);
+                },
+                sx: {
+                  position: "absolute",
+                  inset: 0,
+                  border: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "block"
+                }
+              },
+              iframeSrc
+            ) : null
           }
         )
       }
@@ -4996,7 +5092,7 @@ function MsgBody({ text, imagenes, audios, audiosTranscripcion, align = "left", 
   const placeholderOnly = /^\((?:imagen adjunta|nota de voz)\)$/i.test(raw.trim());
   const hasText = Boolean(raw.trim()) && !placeholderOnly;
   const loginUrl = streaming || disableLoginEmbed ? null : extractContapymeLoginUrl(raw, loginUrlProp);
-  const displayRaw = loginUrl ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() : raw;
+  const displayRaw = disableLoginEmbed ? scrubContapymeLoginFromText(raw) : loginUrl ? raw.replace(loginUrl, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim() : raw;
   const html = mdToHtml(displayRaw || (loginUrl ? "Inicia sesi\xF3n en ContaPyme\xAE con el bot\xF3n de abajo." : ""));
   return /* @__PURE__ */ jsxs3(Fragment2, { children: [
     streaming && !hasText && !audios?.length ? /* @__PURE__ */ jsxs3(Box33, { className: "conv-stream-typing", "aria-label": "PatyIA est\xE1 escribiendo", role: "status", children: [
@@ -5128,25 +5224,48 @@ function UsageSummaryChip({ label, className = "", title, tag, onClick, role, ta
     }
   );
 }
+function isContapymeMcpMeta(meta) {
+  const hay = [
+    meta?.itdconsulta,
+    meta?.engine,
+    meta?.extra?.operativa_key,
+    meta?.extra?.operativa
+  ].filter(Boolean).join(" ");
+  return /CONTAPYME|MCP|contapymeMcp/i.test(hay);
+}
 function UsageDialogMetaPanel({ meta }) {
   const { Box: Box33 } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
   const ctxItems = buildUsageDialogCtxItems(meta);
   if (!ctxItems.length) return null;
-  return /* @__PURE__ */ jsx5(Box33, { className: "conv-usage-dialog__meta conv-usage-dialog__meta--ctx", children: /* @__PURE__ */ jsx5("div", { className: "conv-usage-dialog__ctx-grid", children: ctxItems.map((item) => /* @__PURE__ */ jsxs3(
-    "div",
-    {
-      className: [
-        "conv-usage-dialog__ctx-item",
-        item.wide ? "conv-usage-dialog__ctx-item--wide" : "",
-        item.vision ? "conv-usage-dialog__ctx-item--vision" : ""
-      ].filter(Boolean).join(" ") || void 0,
-      children: [
-        /* @__PURE__ */ jsx5("span", { className: "conv-usage-dialog__ctx-k", children: item.label }),
-        /* @__PURE__ */ jsx5("span", { className: `conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`, children: item.value })
-      ]
-    },
-    item.key
-  )) }) });
+  const isMcp = isContapymeMcpMeta(meta);
+  return /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__meta conv-usage-dialog__meta--ctx", children: [
+    /* @__PURE__ */ jsxs3("div", { className: "conv-usage-dialog__meta-head", children: [
+      /* @__PURE__ */ jsx5("span", { className: "conv-usage-dialog__meta-eyebrow", children: "Contexto del turno" }),
+      isMcp ? /* @__PURE__ */ jsxs3("span", { className: "conv-usage-dialog__meta-badge conv-usage-dialog__meta-badge--mcp", children: [
+        /* @__PURE__ */ jsx5(Icon26, { icon: "mdi:api", size: 14 }),
+        "Sin costo LLM"
+      ] }) : null
+    ] }),
+    /* @__PURE__ */ jsx5("div", { className: "conv-usage-dialog__ctx-grid", children: ctxItems.map((item) => /* @__PURE__ */ jsxs3(
+      "div",
+      {
+        className: [
+          "conv-usage-dialog__ctx-item",
+          item.wide ? "conv-usage-dialog__ctx-item--wide" : "",
+          item.vision ? "conv-usage-dialog__ctx-item--vision" : ""
+        ].filter(Boolean).join(" ") || void 0,
+        children: [
+          /* @__PURE__ */ jsx5("span", { className: "conv-usage-dialog__ctx-icon", "aria-hidden": true, children: /* @__PURE__ */ jsx5(Icon26, { icon: item.icon || "mdi:information-outline", size: 16 }) }),
+          /* @__PURE__ */ jsxs3("span", { className: "conv-usage-dialog__ctx-copy", children: [
+            /* @__PURE__ */ jsx5("span", { className: "conv-usage-dialog__ctx-k", children: item.label }),
+            /* @__PURE__ */ jsx5("span", { className: `conv-usage-dialog__ctx-v${item.mono ? " conv-usage-dialog__mono" : ""}`, children: item.value })
+          ] })
+        ]
+      },
+      item.key
+    )) })
+  ] });
 }
 function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
   const { DialogContent: DialogContent15, Typography: Typography28, Box: Box33, Chip: Chip19, Stack: Stack26, Tooltip: Tooltip15, IconButton: IconButton14 } = getMaterialUI();
@@ -5208,8 +5327,10 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
       {
         open,
         onClose,
-        maxWidth: "sm",
+        maxWidth: "md",
         fullWidth: true,
+        paperMaxWidth: "42rem",
+        paperClassName: "conv-usage-dialog-paper",
         header: /* @__PURE__ */ jsx5(
           GlassDialogHeader,
           {
@@ -5221,30 +5342,110 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
           }
         ),
         children: [
-          /* @__PURE__ */ jsx5(DialogContent15, { dividers: true, className: "conv-usage-dialog", sx: glassDialogContentSx({ p: { xs: 1.5, sm: 2 } }), children: /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__stack", children: [
-            showMetaPanel ? /* @__PURE__ */ jsx5(UsageDialogMetaPanel, { meta }) : null,
-            sections.map((section) => /* @__PURE__ */ jsx5(
-              UsageDialogSection,
-              {
-                section,
-                GlassSection,
-                GlassInner
-              },
-              section.key
-            )),
-            chunks.length || archivos.length ? GlassSection ? /* @__PURE__ */ jsxs3(
-              GlassSection,
-              {
-                sectionKey: "conv-usage-chunks",
-                className: "conv-usage-dialog__chunks-section",
-                title: "Fragmentos citados",
-                accent: "#7c3aed",
-                tone: "purple",
-                headerSx: { borderRadius: "0.75rem 0.75rem 0 0" },
-                bodySx: { pt: { xs: 1.25, sm: 1.5 } },
-                children: [
-                  /* @__PURE__ */ jsx5(Typography28, { variant: "caption", color: "text.secondary", component: "div", className: "conv-usage-dialog__section-sub", sx: { mb: 1 }, children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` }),
-                  archivos.length ? /* @__PURE__ */ jsx5(Stack26, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", sx: { mb: 1 }, children: archivos.map((name) => {
+          /* @__PURE__ */ jsx5(
+            DialogContent15,
+            {
+              dividers: true,
+              className: "conv-usage-dialog",
+              sx: glassDialogContentSx({
+                p: { xs: 1.75, sm: 2.25 },
+                maxHeight: "min(72dvh, 40rem)",
+                overflow: "auto"
+              }),
+              children: /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__stack", children: [
+                showMetaPanel ? /* @__PURE__ */ jsx5(UsageDialogMetaPanel, { meta }) : null,
+                sections.map((section) => /* @__PURE__ */ jsx5(
+                  UsageDialogSection,
+                  {
+                    section,
+                    GlassSection,
+                    GlassInner
+                  },
+                  section.key
+                )),
+                chunks.length || archivos.length ? GlassSection ? /* @__PURE__ */ jsxs3(
+                  GlassSection,
+                  {
+                    sectionKey: "conv-usage-chunks",
+                    className: "conv-usage-dialog__chunks-section",
+                    title: "Fragmentos citados",
+                    accent: "#7c3aed",
+                    tone: "purple",
+                    headerSx: { borderRadius: "0.75rem 0.75rem 0 0" },
+                    bodySx: { pt: { xs: 1.25, sm: 1.5 } },
+                    children: [
+                      /* @__PURE__ */ jsx5(Typography28, { variant: "caption", color: "text.secondary", component: "div", className: "conv-usage-dialog__section-sub", sx: { mb: 1 }, children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` }),
+                      archivos.length ? /* @__PURE__ */ jsx5(Stack26, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", sx: { mb: 1 }, children: archivos.map((name) => {
+                        const clickable = chunks.some((c) => c.filename === name);
+                        return /* @__PURE__ */ jsx5(
+                          Chip19,
+                          {
+                            size: "small",
+                            variant: "outlined",
+                            clickable,
+                            onClick: clickable ? () => {
+                              const first = chunks.find((c) => c.filename === name);
+                              if (first) setOpenChunk(first);
+                            } : void 0,
+                            icon: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:file-document-outline", width: "14", height: "14" }),
+                            label: name,
+                            title: clickable ? `Ver fragmentos de ${name}` : name,
+                            className: "conv-usage-dialog__file-chip"
+                          },
+                          name
+                        );
+                      }) }) : null,
+                      /* @__PURE__ */ jsx5(Stack26, { spacing: 0.75, className: "conv-usage-dialog__chunks", children: chunks.map((c) => /* @__PURE__ */ jsxs3(
+                        Box33,
+                        {
+                          className: "conv-usage-dialog__chunk",
+                          onClick: () => setOpenChunk(c),
+                          role: "button",
+                          tabIndex: 0,
+                          onKeyDown: (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setOpenChunk(c);
+                            }
+                          },
+                          "aria-label": `Ver fragmento de ${c.filename || c.fileId || "texto"}`,
+                          children: [
+                            /* @__PURE__ */ jsxs3(Stack26, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.35 }, children: [
+                              /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
+                              /* @__PURE__ */ jsx5(Typography28, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
+                              c.score != null ? /* @__PURE__ */ jsx5(
+                                Chip19,
+                                {
+                                  size: "small",
+                                  variant: "outlined",
+                                  label: `score ${Number(c.score).toFixed(3)}`,
+                                  className: "conv-usage-dialog__chunk-score"
+                                }
+                              ) : null,
+                              /* @__PURE__ */ jsx5(Tooltip15, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton14, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
+                            ] }),
+                            /* @__PURE__ */ jsx5(
+                              Typography28,
+                              {
+                                variant: "caption",
+                                component: "pre",
+                                className: "conv-usage-dialog__chunk-preview",
+                                sx: { whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0, fontFamily: "inherit" },
+                                children: chunkPreview(c.text, 280)
+                              }
+                            )
+                          ]
+                        },
+                        c.key
+                      )) })
+                    ]
+                  }
+                ) : /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__section-card conv-usage-dialog__section-card--chunks", children: [
+                  /* @__PURE__ */ jsxs3("div", { className: "conv-usage-dialog__section-head", children: [
+                    /* @__PURE__ */ jsx5(Typography28, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: "Fragmentos citados" }),
+                    /* @__PURE__ */ jsx5(Typography28, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` })
+                  ] }),
+                  archivos.length ? /* @__PURE__ */ jsx5(Stack26, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", children: archivos.map((name) => {
                     const clickable = chunks.some((c) => c.filename === name);
                     return /* @__PURE__ */ jsx5(
                       Chip19,
@@ -5307,78 +5508,10 @@ function UsageStatsDialog({ open, onClose, stats, msgLabel, fecha, meta }) {
                     },
                     c.key
                   )) })
-                ]
-              }
-            ) : /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__section-card conv-usage-dialog__section-card--chunks", children: [
-              /* @__PURE__ */ jsxs3("div", { className: "conv-usage-dialog__section-head", children: [
-                /* @__PURE__ */ jsx5(Typography28, { component: "h3", variant: "subtitle2", className: "conv-usage-dialog__section-title", children: "Fragmentos citados" }),
-                /* @__PURE__ */ jsx5(Typography28, { variant: "caption", color: "text.secondary", className: "conv-usage-dialog__section-sub", children: archivos.length ? `Chunks extra\xEDdos por file_search (${chunks.length} de ${archivos.length} archivo${archivos.length === 1 ? "" : "s"}).` : `${chunks.length} fragmento${chunks.length === 1 ? "" : "s"} del message.` })
-              ] }),
-              archivos.length ? /* @__PURE__ */ jsx5(Stack26, { direction: "row", spacing: 0.5, flexWrap: "wrap", useFlexGap: true, className: "conv-usage-dialog__files", children: archivos.map((name) => {
-                const clickable = chunks.some((c) => c.filename === name);
-                return /* @__PURE__ */ jsx5(
-                  Chip19,
-                  {
-                    size: "small",
-                    variant: "outlined",
-                    clickable,
-                    onClick: clickable ? () => {
-                      const first = chunks.find((c) => c.filename === name);
-                      if (first) setOpenChunk(first);
-                    } : void 0,
-                    icon: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:file-document-outline", width: "14", height: "14" }),
-                    label: name,
-                    title: clickable ? `Ver fragmentos de ${name}` : name,
-                    className: "conv-usage-dialog__file-chip"
-                  },
-                  name
-                );
-              }) }) : null,
-              /* @__PURE__ */ jsx5(Stack26, { spacing: 0.75, className: "conv-usage-dialog__chunks", children: chunks.map((c) => /* @__PURE__ */ jsxs3(
-                Box33,
-                {
-                  className: "conv-usage-dialog__chunk",
-                  onClick: () => setOpenChunk(c),
-                  role: "button",
-                  tabIndex: 0,
-                  onKeyDown: (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setOpenChunk(c);
-                    }
-                  },
-                  "aria-label": `Ver fragmento de ${c.filename || c.fileId || "texto"}`,
-                  children: [
-                    /* @__PURE__ */ jsxs3(Stack26, { direction: "row", spacing: 0.75, alignItems: "center", sx: { mb: 0.35 }, children: [
-                      /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:text-box-search-outline", width: "16", height: "16" }),
-                      /* @__PURE__ */ jsx5(Typography28, { variant: "body2", fontWeight: 600, sx: { flex: 1, minWidth: 0 }, children: c.filename || c.fileId || "fragmento" }),
-                      c.score != null ? /* @__PURE__ */ jsx5(
-                        Chip19,
-                        {
-                          size: "small",
-                          variant: "outlined",
-                          label: `score ${Number(c.score).toFixed(3)}`,
-                          className: "conv-usage-dialog__chunk-score"
-                        }
-                      ) : null,
-                      /* @__PURE__ */ jsx5(Tooltip15, { title: "Ver fragmento en full-page", children: /* @__PURE__ */ jsx5(IconButton14, { size: "small", "aria-label": "Abrir fragmento", className: "conv-usage-dialog__chunk-open", children: /* @__PURE__ */ jsx5("iconify-icon", { icon: "mdi:fullscreen", width: "16", height: "16" }) }) })
-                    ] }),
-                    /* @__PURE__ */ jsx5(
-                      Typography28,
-                      {
-                        variant: "caption",
-                        component: "pre",
-                        className: "conv-usage-dialog__chunk-preview",
-                        sx: { whiteSpace: "pre-wrap", wordBreak: "break-word", m: 0, fontFamily: "inherit" },
-                        children: chunkPreview(c.text, 280)
-                      }
-                    )
-                  ]
-                },
-                c.key
-              )) })
-            ] }) : null
-          ] }) }),
+                ] }) : null
+              ] })
+            }
+          ),
           /* @__PURE__ */ jsx5(GlassDialogCloseActions, { onClose })
         ]
       }
@@ -5411,12 +5544,19 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
   const totalTokLabel = totalTokens ? totalTokens.toLocaleString("es-CO") : "\u2014";
   const costLabel = totalCost > 0 ? `$${totalCost.toFixed(6)}` : "\u2014";
   const reasonLabel = reasoning > 0 ? `${reasoning.toLocaleString("es-CO")} razon.` : null;
+  const empty = totalCost <= 0 && totalTokens <= 0;
   const body = /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__section-body", children: [
-    /* @__PURE__ */ jsxs3(
+    empty ? /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__empty", role: "status", children: [
+      /* @__PURE__ */ jsx5("span", { className: "conv-usage-dialog__empty-icon", "aria-hidden": true, children: /* @__PURE__ */ jsx5(Icon26, { icon: "mdi:currency-usd-off", size: 18 }) }),
+      /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__empty-copy", children: [
+        /* @__PURE__ */ jsx5(Typography28, { component: "p", className: "conv-usage-dialog__empty-title", children: "Sin costo ni tokens LLM" }),
+        /* @__PURE__ */ jsx5(Typography28, { component: "p", className: "conv-usage-dialog__empty-sub", children: "Este turno no pas\xF3 por OpenAI (p. ej. ContaPyme MCP u operativa local)." })
+      ] })
+    ] }) : /* @__PURE__ */ jsxs3(
       Stack26,
       {
         direction: { xs: "column", sm: "row" },
-        spacing: { xs: 1, sm: 2 },
+        spacing: { xs: 1.25, sm: 2 },
         alignItems: { xs: "stretch", sm: "center" },
         justifyContent: "space-between",
         className: "conv-usage-dialog__headline",
@@ -5464,14 +5604,17 @@ function UsageDialogSection({ section, GlassSection, GlassInner }) {
         ]
       }
     ),
-    /* @__PURE__ */ jsx5(Box33, { className: "conv-usage-dialog__metrics-wrap", children: /* @__PURE__ */ jsx5(
-      UsageMetricsGrid,
-      {
-        className: "conv-usage-dialog__metrics",
-        hideRowLabels: true,
-        sections: [{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]
-      }
-    ) })
+    !empty ? /* @__PURE__ */ jsxs3(Box33, { className: "conv-usage-dialog__metrics-wrap", children: [
+      /* @__PURE__ */ jsx5(Typography28, { component: "p", variant: "caption", className: "conv-usage-dialog__metrics-caption", children: "Desglose por etapa" }),
+      /* @__PURE__ */ jsx5(
+        UsageMetricsGrid,
+        {
+          className: "conv-usage-dialog__metrics",
+          hideRowLabels: true,
+          sections: [{ key: section.key, label: section.title, tokens: section.tokens, cost: section.cost }]
+        }
+      )
+    ] }) : null
   ] });
   if (!GlassSection) {
     return /* @__PURE__ */ jsxs3(Box33, { className: `conv-usage-dialog__section-card conv-usage-dialog__section-card--${section.key}`, children: [
@@ -5864,6 +6007,7 @@ var MensajeSection = memo(function MensajeSection2({ msg, onMeta, compactMeta = 
                             align: isUser ? "right" : "left",
                             onImageClick,
                             streaming: isStreaming,
+                            disableLoginEmbed: isOperativa,
                             loginUrl: isOperativa ? void 0 : msg.meta?.login_url || msg.meta?.extra?.login_url
                           }
                         ) : null
