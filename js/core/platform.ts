@@ -197,6 +197,37 @@ function shouldSuppressAuthDownOverlay(url: string): boolean {
   }
 }
 
+/** Solo caídas de portal-login / auth del orchestrator merecen overlay full-screen. */
+function isAuthCriticalUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url, location.href);
+    const path = u.pathname + u.search;
+    if (/\/api\/auth\/portal-login(\?|$)/i.test(path)) return true;
+    if (/main-orchestrator/i.test(u.host) && /\/api\/auth\//i.test(path)) return true;
+    return false;
+  } catch {
+    return /portal-login/i.test(url);
+  }
+}
+
+function hasPortalSessionToken(): boolean {
+  try {
+    const fromApi = window.ISA?.AuthApi?.readSession?.();
+    if (fromApi && typeof fromApi === "object" && (fromApi as { token?: string }).token) return true;
+    const cur = window.ISA?.Session?.current;
+    if (cur && typeof cur === "object" && (cur as { token?: string }).token) return true;
+    const raw = localStorage.getItem("system-login:session:isa-patyia");
+    if (raw) {
+      const s = JSON.parse(raw) as { token?: string };
+      if (s?.token) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeLoginEmail(user: string): string {
   const s = String(user ?? "").trim();
   if (!s) return "";
@@ -392,7 +423,8 @@ function patchIsaPatyiaAuthEvents(): void {
           const body = await res.clone().text();
           if (isAuthServerDown(body) || isAuthServerDown(res.statusText)) {
             const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request).url || "");
-            if (shouldSuppressAuthDownOverlay(url)) return res;
+            if (shouldSuppressAuthDownOverlay(url) || !isAuthCriticalUrl(url)) return res;
+            if (hasPortalSessionToken() && !/portal-login/i.test(url)) return res;
             announceAuthServerDown(`HTTP ${res.status} ${res.statusText || ""}`.trim(), "fetch", url || resolveAuthTarget());
           }
         } catch { /* ignore */ }
@@ -401,7 +433,10 @@ function patchIsaPatyiaAuthEvents(): void {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : String((input as Request)?.url || "");
-      if (isAuthServerDown(msg) && !shouldSuppressAuthDownOverlay(url)) announceAuthServerDown(msg, "fetch");
+      // Failed to fetch en chat/API con sesión viva ≠ auth caído (no tumbar GH Pages).
+      if (isAuthServerDown(msg) && !shouldSuppressAuthDownOverlay(url) && isAuthCriticalUrl(url) && !(hasPortalSessionToken() && !/portal-login/i.test(url))) {
+        announceAuthServerDown(msg, "fetch");
+      }
       throw err;
     }
   };

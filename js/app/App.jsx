@@ -90,6 +90,11 @@ export function App() {
 
   useEffect(() => {
     const onDown = (ev) => {
+      // Con sesión portal viva, un Failed to fetch de chat/API no debe tapar toda la SPA.
+      try {
+        const s = window.ISA?.AuthApi?.readSession?.() ?? window.ISA?.Session?.current;
+        if (s?.token && ev?.detail?.source === "fetch") return;
+      } catch { /* ignore */ }
       setAuthDownReason(String(ev?.detail?.reason || "Servidor de autenticación caído"));
       setAuthDownTarget(String(ev?.detail?.target || "main-orchestrator (system-login)"));
       setAuthOpen(false);

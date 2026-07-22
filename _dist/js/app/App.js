@@ -465,7 +465,7 @@ async function ensureSwaggerViewer(base = swaggerViewerBase()) {
 var PIN, isDevHost2, JSDELIVR_CDN, CDN, asset, LIGHTBOX_ZOOM_REF, SWAGGER_VIEWER_REF;
 var init_cdn = __esm({
   "js/boot/cdn.mjs"() {
-    PIN = "38ca691";
+    PIN = "a13fc29";
     isDevHost2 = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
     JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
     CDN = !isDevHost2 ? vendorCdnBase() : useLocalMonorepoCdn() ? frontSharedCdnBase() : typeof location !== "undefined" && new URLSearchParams(location.search).get("isa_cdn") === "remote" ? JSDELIVR_CDN : vendorCdnBase();
@@ -19256,6 +19256,11 @@ function App() {
   const publicScrumView = isPublicScrumBoot(appBoot.todos);
   useEffect30(() => {
     const onDown = (ev) => {
+      try {
+        const s = window.ISA?.AuthApi?.readSession?.() ?? window.ISA?.Session?.current;
+        if (s?.token && ev?.detail?.source === "fetch") return;
+      } catch {
+      }
       setAuthDownReason(String(ev?.detail?.reason || "Servidor de autenticaci\xF3n ca\xEDdo"));
       setAuthDownTarget(String(ev?.detail?.target || "main-orchestrator (system-login)"));
       setAuthOpen(false);
