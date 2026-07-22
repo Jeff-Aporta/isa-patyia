@@ -90,10 +90,10 @@ export function urlDraftTipoSet(bootPrompts) {
 }
 
 export function ensurePublishCap(onNeedLogin) {
+  if (LabSession.FORCE_PERMS_OPEN && !LabSession.isViewingAsRole() && LabSession.isLoggedIn()) return true;
   const cap = LabSession.instruccionesPublishCap();
   if (cap) return true;
-  const reason = LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
-    || "Sin permiso para publicar instrucciones";
+  const reason = "Sin permiso para publicar instrucciones";
   toastWarning(reason);
   if (!LabSession.isLoggedIn()) onNeedLogin?.();
   return false;

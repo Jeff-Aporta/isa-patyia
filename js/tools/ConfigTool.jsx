@@ -184,7 +184,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
       setSaved(next);
       setCanEdit(SessionApi.isViewingAsRole()
         ? SessionApi.canEditOpenAiConfig()
-        : !!cfg.canEdit);
+        : !!cfg.canEdit || SessionApi.canEditOpenAiConfig());
       onModelsChange?.({ modeloOperativo: next.modeloOperativo, modeloConversacion: next.modeloConversacion });
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));

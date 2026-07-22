@@ -392,7 +392,7 @@ export function ConfigPromptsOperativosPanel({ onNeedLogin, ConfigFormSection, o
       setSaved(data);
       setCanEdit(SessionApi.isViewingAsRole()
         ? SessionApi.canEditPromptsOperativos()
-        : !!ce);
+        : !!ce || SessionApi.canEditPromptsOperativos());
     } catch (e) {
       toastError(e instanceof Error ? e.message : String(e));
     } finally {

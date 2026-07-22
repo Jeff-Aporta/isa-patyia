@@ -75,6 +75,12 @@ export function resolvePrimaryIssRoleId(): string {
 export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
 export const TARGET_SWITCH_CAP = "infra.target.switch";
 
+/**
+ * Provisional 22-jul-2026: UI sin comprobación real de caps SEG (equiv. permsOpen).
+ * Solo front — ISS sigue con su flag env/Azure. Poner `false` cuando SEG prod esté listo.
+ */
+export const FORCE_PERMS_OPEN = true;
+
 /** Cache local de capabilities devueltas por GET /api/permissions/me.
  *  La fuente canónica es el endpoint; este cache es solo espejo en memoria. */
 type MeCapabilities = {
@@ -95,6 +101,46 @@ type MeCapabilities = {
   canViewConfig?: boolean;
   canSendChat?: boolean;
 };
+
+const OPEN_ME_CAPS: MeCapabilities = {
+  canEditInstrucciones: true,
+  canEditOpenAiConfig: true,
+  canEditPromptsOperativos: true,
+  canEditConversacionConfig: true,
+  canEditSwagger: true,
+  canOverrideSampling: true,
+  canManagePermissions: true,
+  canAssignUserRoles: true,
+  canAccessOthers: true,
+  canViewKanban: true,
+  canEditKanbanCards: true,
+  canViewLogs: true,
+  canViewPrompts: true,
+  canViewChat: true,
+  canViewConfig: true,
+  canSendChat: true,
+};
+
+const ME_CAP_KEYS = Object.keys(OPEN_ME_CAPS) as (keyof MeCapabilities)[];
+
+/** Prod ISS v2: `capabilities{}` + `permisos`; v5: solo mapa `permisosEfectivos`. OR de ambos. */
+function capsFromPermissionsMe(me: {
+  permisosEfectivos?: Record<string, unknown>;
+  permisos?: Record<string, unknown>;
+  capabilities?: Record<string, unknown>;
+} | null | undefined): MeCapabilities | null {
+  if (!me) return null;
+  const map = me.permisosEfectivos ?? me.permisos;
+  const fromMap = map && typeof map === "object" ? capsFromPermisosEfectivos(map) : null;
+  const fromCaps = me.capabilities && typeof me.capabilities === "object" ? me.capabilities : null;
+  if (!fromMap && !fromCaps) return null;
+  const out: MeCapabilities = {};
+  for (const k of ME_CAP_KEYS) {
+    out[k] = !!(fromMap?.[k] || fromCaps?.[k]);
+  }
+  return out;
+}
+
 let ME_CAPS: MeCapabilities = {};
 let ME_CAPS_KEY = "";
 let ME_ISS_ROLES: string[] = [];
@@ -115,7 +161,9 @@ function sessionCacheKey(): string {
 function localMeCaps(): MeCapabilities {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
-  const real = key === ME_CAPS_KEY ? ME_CAPS : {};
+  const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
+  // FORCE gana sobre falsos de ME (prod v2/SEG parcial); «ver como» sigue clampando abajo.
+  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   // Solo UI: preset ∩ caps reales. El ISS sigue usando JWT/roles reales (ME_CAPS crudo).
   if (viewAs && canViewAsRole()) {
@@ -143,29 +191,12 @@ async function primeMeCaps(force = false): Promise<void> {
       // SPA: un solo GET /permissions/me por sesión. El cache subyacente se invalida en
       // logout/mutaciones (invalidatePermisosCache), así que no hay que forzar red aquí.
       const me = await fetchPermissionsMe();
-      if (me?.permisosEfectivos) {
+      const caps = capsFromPermissionsMe(me as Parameters<typeof capsFromPermissionsMe>[0]);
+      if (caps) {
         ME_CAPS_KEY = sessionCacheKey();
-        ME_ISS_ROLES = Array.isArray(me.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
-        ME_LOGIN_ROLE = String(me.loginRole ?? "").trim();
-        const caps = capsFromPermisosEfectivos(me.permisosEfectivos);
-        ME_CAPS = {
-          canEditInstrucciones: !!caps.canEditInstrucciones,
-          canEditOpenAiConfig: !!caps.canEditOpenAiConfig,
-          canEditPromptsOperativos: !!caps.canEditPromptsOperativos,
-          canEditConversacionConfig: !!caps.canEditConversacionConfig,
-          canEditSwagger: !!caps.canEditSwagger,
-          canOverrideSampling: !!caps.canOverrideSampling,
-          canManagePermissions: !!caps.canManagePermissions,
-          canAssignUserRoles: !!caps.canAssignUserRoles,
-          canAccessOthers: !!caps.canAccessOthers,
-          canViewKanban: !!caps.canViewKanban,
-          canEditKanbanCards: !!caps.canEditKanbanCards,
-          canViewLogs: !!caps.canViewLogs,
-          canViewPrompts: !!caps.canViewPrompts,
-          canViewChat: !!caps.canViewChat,
-          canViewConfig: !!caps.canViewConfig,
-          canSendChat: !!caps.canSendChat,
-        };
+        ME_ISS_ROLES = Array.isArray(me?.roles) ? me.roles.map((r) => String(r ?? "").trim()).filter(Boolean) : [];
+        ME_LOGIN_ROLE = String(me?.loginRole ?? "").trim();
+        ME_CAPS = caps;
         ME_CAPS_BOOTSTRAP_TS = Date.now();
         ok = true;
         // Si el login no es rama dev, limpia simulación colgada en localStorage.
@@ -217,26 +248,46 @@ export function canViewConfig(): boolean { return !!localMeCaps().canViewConfig;
 export function canViewKanban(): boolean { return !!localMeCaps().canViewKanban; }
 
 // ─── Capabilities de edición (ISS /api/permissions/me + hints GET system/*) ───
+/** true si /permissions/me ya hidrató caps (aunque todas sean false). */
+export function meCapsHydrated(): boolean {
+  return !!(sessionCacheKey() && sessionCacheKey() === ME_CAPS_KEY);
+}
+
+/** Edición config: ME_CAPS ∪ hint servidor ∪ puente Dev ISS si ME aún vacío (prod ISS viejo). */
+function resolveEditCap(meFlag: boolean | undefined, serverHint?: boolean | null): boolean {
+  if (isViewingAsRole()) return !!meFlag;
+  if (FORCE_PERMS_OPEN) return true;
+  if (meFlag) return true;
+  if (serverHint === true) return true;
+  // ME no hidrató: no bloquear Dev ISS / prod v2 dev_lead.
+  if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
+  if (!meCapsHydrated() && ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
+  try {
+    if (!meCapsHydrated() && roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+  } catch { /* ignore */ }
+  return false;
+}
+
 export function canEditInstrucciones(): boolean {
   const caps = localMeCaps();
-  if (isViewingAsRole()) return !!caps.canEditInstrucciones;
-  return !!caps.canEditInstrucciones || ME_SERVER_INSTRUCCIONES_EDIT === true;
+  return resolveEditCap(caps.canEditInstrucciones, ME_SERVER_INSTRUCCIONES_EDIT);
 }
-export function canEditOpenAiConfig(): boolean { return !!localMeCaps().canEditOpenAiConfig; }
-export function canEditPromptsOperativos(): boolean { return !!localMeCaps().canEditPromptsOperativos; }
-export function canEditConversacionConfig(): boolean { return !!localMeCaps().canEditConversacionConfig; }
-export function canEditSwagger(): boolean { return !!localMeCaps().canEditSwagger; }
+export function canEditOpenAiConfig(): boolean { return resolveEditCap(localMeCaps().canEditOpenAiConfig); }
+export function canEditPromptsOperativos(): boolean { return resolveEditCap(localMeCaps().canEditPromptsOperativos); }
+export function canEditConversacionConfig(): boolean { return resolveEditCap(localMeCaps().canEditConversacionConfig); }
+export function canEditSwagger(): boolean { return resolveEditCap(localMeCaps().canEditSwagger); }
 export function canOverrideSampling(): boolean { return !!localMeCaps().canOverrideSampling; }
 export function canManagePermissions(): boolean { return !!localMeCaps().canManagePermissions; }
 export function canAssignUserRoles(): boolean { return !!localMeCaps().canAssignUserRoles; }
 export function canAccessOthers(): boolean {
+  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
   if (localMeCaps().canAccessOthers) return true;
-  // Mientras SEG/permissions/me falla o PERMS_OPEN no hidrata: no bloquear Dev ISS.
-  if (roleLooksLikeDevBranch(Session.current?.()?.role)) return true;
+  // Mientras SEG/permissions/me falla: no bloquear Dev ISS / prod v2 dev_lead.
+  if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
   try {
-    if (roleLooksLikeDevBranch(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
+    if (roleLooksLikeElevatedEdit(window.ISA?.AppSession?.resolveDisplayRole?.())) return true;
   } catch { /* ignore */ }
-  if (ME_ISS_ROLES.some((r) => roleLooksLikeDevBranch(r))) return true;
+  if (ME_ISS_ROLES.some((r) => roleLooksLikeElevatedEdit(r))) return true;
   return false;
 }
 export function canEditKanbanCards(): boolean { return !!localMeCaps().canEditKanbanCards; }
@@ -285,7 +336,15 @@ function roleLooksLikeDevBranch(raw: unknown): boolean {
   const s = String(raw ?? "").trim().toUpperCase();
   if (!s) return false;
   if (isDevBranchRole(s)) return true;
-  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s) || /\bDEV\s*LEAD\b/.test(s);
+  // Solo DEVISS / "Dev ISS" — NO DEV_LEAD (prod v2): ese rol no abre «Ver como».
+  return s === "DEVISS" || /\bDEV\s*ISS\b/.test(s);
+}
+
+/** Puente edición UI: DEVISS + prod v2 `dev_lead` (no habilita view-as). */
+function roleLooksLikeElevatedEdit(raw: unknown): boolean {
+  if (roleLooksLikeDevBranch(raw)) return true;
+  const s = String(raw ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return s === "DEV_LEAD" || s === "DEVLEAD" || s.endsWith("_DEV_LEAD");
 }
 
 /** ¿Este login real puede usar «Ver como rol»? Solo DEVISS. */

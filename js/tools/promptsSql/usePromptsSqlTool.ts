@@ -51,6 +51,8 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     if (LabSession.isViewingAsRole()) {
       return LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
     }
+    // FORCE / ME v2+v5 / hint GET instrucciones — nunca Session.can legacy (tooltip denyForbidden falso).
+    if (LabSession.FORCE_PERMS_OPEN) return true;
     return instruccionesCanEdit || LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
   }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);
@@ -58,19 +60,16 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
   const editBlockReason = useMemo(() => {
     if (canEdit) return "";
     if (!loggedIn) return "Inicia sesión para editar instrucciones";
-    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
-      || "Sin permiso para editar instrucciones";
+    return "Sin permiso para editar instrucciones";
   }, [authTick, canEdit, loggedIn]);
   const saveTitle = useMemo(() => {
     if (canPublish) return "Guardar instrucciones y configuración en Paty (MSSQL)";
-    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
-      || "Sin permiso para guardar en Paty";
+    return "Sin permiso para guardar en Paty";
   }, [authTick, canPublish]);
   const importTitle = useMemo(() => {
     if (canPublish) return "Importar archivos PROMPT_*.md / .txt";
     if (!loggedIn) return "Inicia sesión para importar instrucciones";
-    return LabSession.blockReason(LabSession.INSTRUCCIONES_WRITE_CAP)
-      || "Sin permiso para importar instrucciones";
+    return "Sin permiso para importar instrucciones";
   }, [authTick, canPublish, loggedIn]);
 
   const [extraInstructionKeys, setExtraInstructionKeys] = useState([]);

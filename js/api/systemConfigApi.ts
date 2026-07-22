@@ -232,19 +232,20 @@ export type PermissionsData = {
 export type PermisosFetchOpts = { search?: string; role?: string; /** Top N usuarios (autocomplete). */ limit?: number };
 
 /**
- * Shape insoft.permissions-me v5 — fuente de verdad de permisos del usuario.
- * Roles planos SEG (AUDITOR|ADMN|DEVISS|USR); UI caps se derivan de permisosEfectivos.
+ * Shape insoft.permissions-me — v5 (SEG) o v2 prod (capabilities + permisos).
+ * UI caps = mapa `permisosEfectivos|permisos` ∪ `capabilities` (sessionApi).
  */
 export type PermissionsMe = {
   kind: "insoft.permissions-me";
-  version: 5;
+  version: number;
   username: string;
   loginRole: string | null;
   roles: string[];
-  irol: string;
-  permisos: Record<string, true>;
-  permisosEfectivos: Record<string, unknown>;
-  restricciones: Record<string, unknown>;
+  irol?: string;
+  permisos?: Record<string, true>;
+  permisosEfectivos?: Record<string, unknown>;
+  capabilities?: Record<string, boolean>;
+  restricciones?: Record<string, unknown>;
   iat: number;
   ttlMs: number;
 };

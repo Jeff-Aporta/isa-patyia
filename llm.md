@@ -164,10 +164,23 @@ npm run start    # :8802
 La UI verificaba capacidades abstractas con `Session.can("patyia.instrucciones.publish")` (y similares), pero el catálogo legacy de ISAFront no incluye todas las capabilities del nuevo sistema `GET /api/permissions/me` de ISS. Resultado: acciones que el backend autorizaba aparecían deshabilitadas en la UI para roles como `dev_lead`.
 
 ### Solución aplicada (`js/api/sessionApi.ts`)
-Se añadió un cache local (`ME_CAPS`) con funciones síncronas que consultan las capabilities de `/permissions/me` cuando la capability legacy no se reconoce:
+Cache `ME_CAPS` desde `GET /api/permissions/me` → `capsFromPermisosEfectivos` (mapa SEG). **No** usar `Session.can()` para gates de config (salvo chat/jwt).
 
-- **`canEditInstrucciones()`**: `Session.can(INSTRUCCIONES_WRITE_CAP)` OR `ME_CAPS.canEditInstrucciones`
-- **`canEditOpenAiConfig()`**, **`canEditPromptsOperativos()`**, **`canEditConversacionConfig()`**, **`canEditSwagger()`**, **`canOverrideSampling()`**: patrón análogo con capacidades equivalentes del nuevo catálogo.
+- **`canEdit*()`**: `ME_CAPS` **OR** hint GET system **OR** puente Dev ISS si ME no hidrató.
+- Paneles config: `canEdit = cfg.canEdit || SessionApi.canEditXxx()`.
+- «Ver como rol»: solo ME clampado.
+
+### Prod vs staging (22-jul-2026) — ME v2 vs v5 + bypass UI
+
+| Slot | `/api/permissions/me` | Front |
+|------|----------------------|-------|
+| **Staging** | v5 + `permsOpen` | mapa `permisosEfectivos` (wildcards) |
+| **Prod** | **v2** `roles:[dev_lead]` + `capabilities{}` + mapa explícito | hidratar **mapa ∪ capabilities** (no solo mapa); `FORCE_PERMS_OPEN` provisional |
+
+**NO** usar `Session.blockReason("patyia.instrucciones.publish")` para gates/title de prompts (legacy `denyForbidden` aunque ME diga `canEditInstrucciones: true`).
+
+**Provisional:** `FORCE_PERMS_OPEN` solo front. «Ver como» sigue clampando. `dev_lead` no abre view-as (solo puente edición si ME no hidrató).
+
 - **`canSwitchTarget()`**: sin cambio (la capability `infra.target.switch` sí está en legacy y corresponde).
 
 **Nuevas funciones exportadas**:
