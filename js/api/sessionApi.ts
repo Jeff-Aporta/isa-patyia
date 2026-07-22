@@ -76,10 +76,10 @@ export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
 export const TARGET_SWITCH_CAP = "infra.target.switch";
 
 /**
- * Provisional 22-jul-2026: UI sin comprobación real de caps SEG (equiv. permsOpen).
- * Solo front — ISS sigue con su flag env/Azure. Poner `false` cuando SEG prod esté listo.
+ * Provisional: UI sin comprobación real de caps SEG (equiv. permsOpen ISS).
+ * Solo front — ISS usa SYS_VALUES config/runtime.permsOpen. false = probar SEG ClientesIS.
  */
-export const FORCE_PERMS_OPEN = true;
+export const FORCE_PERMS_OPEN = false;
 
 /** Cache local de capabilities devueltas por GET /api/permissions/me.
  *  La fuente canónica es el endpoint; este cache es solo espejo en memoria. */

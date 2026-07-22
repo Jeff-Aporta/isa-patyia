@@ -465,7 +465,7 @@ async function ensureSwaggerViewer(base = swaggerViewerBase()) {
 var PIN, isDevHost2, JSDELIVR_CDN, CDN, asset, LIGHTBOX_ZOOM_REF, SWAGGER_VIEWER_REF;
 var init_cdn = __esm({
   "js/boot/cdn.mjs"() {
-    PIN = "a13fc29";
+    PIN = "f8ce806";
     isDevHost2 = typeof location !== "undefined" && /localhost|127\.0\.0\.1|\[::1\]/.test(location.hostname);
     JSDELIVR_CDN = `https://cdn.jsdelivr.net/gh/Jeff-Aporta/front-shared@${PIN}/cdn/`;
     CDN = !isDevHost2 ? vendorCdnBase() : useLocalMonorepoCdn() ? frontSharedCdnBase() : typeof location !== "undefined" && new URLSearchParams(location.search).get("isa_cdn") === "remote" ? JSDELIVR_CDN : vendorCdnBase();
@@ -1795,7 +1795,7 @@ var init_sessionApi = __esm({
     init_viewAsRole();
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-    FORCE_PERMS_OPEN = true;
+    FORCE_PERMS_OPEN = false;
     OPEN_ME_CAPS = {
       canEditInstrucciones: true,
       canEditOpenAiConfig: true,

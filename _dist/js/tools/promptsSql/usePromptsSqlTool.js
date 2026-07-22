@@ -890,7 +890,7 @@ var init_sessionApi = __esm({
     init_viewAsRole();
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-    FORCE_PERMS_OPEN = true;
+    FORCE_PERMS_OPEN = false;
     OPEN_ME_CAPS = {
       canEditInstrucciones: true,
       canEditOpenAiConfig: true,
