@@ -378,7 +378,7 @@ export async function fetchConversacionesBridge(input: {
 }, jwt?: PatyJwtRecord | null): Promise<ConversacionesBridgeResponse> {
   const tokenJwt = jwt ?? loadPatyJwt();
   if (!tokenJwt?.token) {
-    throw new Error("Configura el JWT de soporte-staging para listar conversaciones");
+    throw new Error("Inicia sesión o configura un JWT ContaPyme para listar conversaciones");
   }
   const res = await listConversaciones(tokenJwt, {
     page: input.page,
