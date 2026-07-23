@@ -19689,6 +19689,7 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
 init_platform();
 
 // js/api/openaiStatusApi.ts
+var OPENAI_STATUS_POLL_MS = 6e4;
 var SUMMARY_URL = "https://status.openai.com/api/v2/summary.json";
 var STATUS_PAGE = "https://status.openai.com/";
 function asIndicator(raw) {
@@ -19752,18 +19753,225 @@ function openAiStatusLooksOperational(snap) {
   const d = String(snap.description || "").trim().toLowerCase();
   return /all systems operational|operacional|operational/.test(d) && snap.indicator !== "minor" && snap.indicator !== "major" && snap.indicator !== "critical";
 }
+function openAiStatusTone(snap) {
+  if (!snap) return "loading";
+  if (snap.error) return "warn";
+  if (openAiStatusLooksOperational(snap)) return "ok";
+  if (snap.indicator === "critical" || snap.indicator === "major") return "err";
+  if (openAiStatusIsDegraded(snap)) return "warn";
+  return "ok";
+}
+var _status = null;
+var _progress = 0;
+var _cycleStart = Date.now();
+var _started = false;
+var _abort = null;
+var _nextPullId = 0;
+var _tickId = 0;
+var _listeners = /* @__PURE__ */ new Set();
+var _view = {
+  status: null,
+  progress: 0,
+  pollMs: OPENAI_STATUS_POLL_MS
+};
+function bumpView() {
+  _view = { status: _status, progress: _progress, pollMs: OPENAI_STATUS_POLL_MS };
+}
+function emit() {
+  bumpView();
+  _listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+    }
+  });
+}
+function getOpenAiStatusView() {
+  return _view;
+}
+function subscribeOpenAiStatus(fn) {
+  _listeners.add(fn);
+  return () => {
+    _listeners.delete(fn);
+  };
+}
+function clearTimers() {
+  window.clearTimeout(_nextPullId);
+  window.clearTimeout(_tickId);
+  _nextPullId = 0;
+  _tickId = 0;
+}
+function scheduleTick() {
+  window.clearTimeout(_tickId);
+  if (!_started) return;
+  _tickId = window.setTimeout(() => {
+    if (!_started) return;
+    const elapsed = Date.now() - _cycleStart;
+    const next = Math.min(1, Math.max(0, elapsed / OPENAI_STATUS_POLL_MS));
+    if (Math.abs(next - _progress) >= 1e-3 || next >= 1 && _progress < 1) {
+      _progress = next;
+      emit();
+    }
+    scheduleTick();
+  }, 120);
+}
+async function pullOnce() {
+  if (!_started) return;
+  window.clearTimeout(_nextPullId);
+  _cycleStart = Date.now();
+  _progress = 0;
+  emit();
+  const ac = new AbortController();
+  _abort = ac;
+  try {
+    _status = await fetchOpenAiStatus(ac.signal);
+    emit();
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    _status = {
+      ok: false,
+      indicator: "unknown",
+      description: "Sin datos",
+      incidents: [],
+      fetchedAt: Date.now(),
+      error: e instanceof Error ? e.message : String(e),
+      sourceUrl: STATUS_PAGE
+    };
+    emit();
+  } finally {
+    if (!_started) return;
+    _nextPullId = window.setTimeout(() => {
+      void pullOnce();
+    }, OPENAI_STATUS_POLL_MS);
+  }
+}
+function startOpenAiStatusPolling() {
+  if (_started) return;
+  _started = true;
+  _cycleStart = Date.now();
+  _progress = 0;
+  scheduleTick();
+  void pullOnce();
+}
+function stopOpenAiStatusPolling() {
+  if (!_started) return;
+  _started = false;
+  clearTimers();
+  _abort?.abort();
+  _abort = null;
+}
+
+// js/status/OpenAiStatusRing.jsx
+init_platform();
+import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
+var TONE_COLOR = {
+  ok: "var(--pw-green, #34d399)",
+  warn: "var(--pw-amber, #fbbf24)",
+  err: "var(--pw-red, #f87171)",
+  loading: "var(--pw-cyan, #22d3ee)"
+};
+function useOpenAiStatus() {
+  const { useSyncExternalStore, useEffect: useEffect30 } = getReact();
+  useEffect30(() => {
+    startOpenAiStatusPolling();
+  }, []);
+  return useSyncExternalStore(subscribeOpenAiStatus, getOpenAiStatusView, getOpenAiStatusView);
+}
+function openAiStatusHeadline(status) {
+  if (!status) return "Consultando OpenAI Status\u2026";
+  if (status.error) return "No se pudo leer OpenAI Status";
+  const degraded = openAiStatusIsDegraded(status);
+  const operational = openAiStatusLooksOperational(status);
+  if (operational || !degraded) return status.description || "OpenAI operacional";
+  return status.description || "OpenAI Status";
+}
+function OpenAiStatusRing({
+  size = 14,
+  className = "",
+  children = null,
+  title: titleProp,
+  link = false
+}) {
+  const { Tooltip: Tooltip15 } = getMaterialUI();
+  const { status, progress, pollMs } = useOpenAiStatus();
+  const tone = openAiStatusTone(status);
+  const accent = TONE_COLOR[tone] || TONE_COLOR.loading;
+  const secsLeft = Math.max(0, Math.ceil((1 - progress) * (pollMs / 1e3)));
+  const vb = 36;
+  const r = 15.5;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - progress);
+  const headline = openAiStatusHeadline(status);
+  const href = status?.sourceUrl || "https://status.openai.com/";
+  const tooltip = titleProp || headline;
+  const aria = link ? `${headline}. Abrir status.openai.com` : `${headline}${status && !status.error ? ` \xB7 pr\xF3xima actualizaci\xF3n en ${secsLeft}s` : ""}`;
+  const ring = /* @__PURE__ */ jsxs39(
+    "span",
+    {
+      className: `paty-openai-status-ring paty-openai-status-ring--${tone}${link ? " paty-openai-status-ring--link" : ""}${className ? ` ${className}` : ""}`,
+      style: { "--oa-ring-accent": accent, width: size, height: size },
+      role: link ? void 0 : "img",
+      "aria-label": link ? void 0 : aria,
+      "aria-hidden": link ? true : void 0,
+      children: [
+        /* @__PURE__ */ jsxs39("svg", { className: "paty-openai-status-ring__svg", viewBox: `0 0 ${vb} ${vb}`, "aria-hidden": "true", children: [
+          /* @__PURE__ */ jsx46("circle", { className: "paty-openai-status-ring__track", cx: "18", cy: "18", r }),
+          /* @__PURE__ */ jsx46(
+            "circle",
+            {
+              className: "paty-openai-status-ring__prog",
+              cx: "18",
+              cy: "18",
+              r,
+              style: {
+                strokeDasharray: `${c} ${c}`,
+                strokeDashoffset: offset
+              }
+            }
+          )
+        ] }),
+        children ? /* @__PURE__ */ jsx46("span", { className: "paty-openai-status-ring__inner", children }) : null
+      ]
+    }
+  );
+  if (!link) return ring;
+  return /* @__PURE__ */ jsx46(Tooltip15, { title: tooltip, enterDelay: 200, describeChild: true, children: /* @__PURE__ */ jsx46(
+    "a",
+    {
+      className: "paty-openai-status-ring__anchor",
+      href,
+      target: "_blank",
+      rel: "noreferrer",
+      "aria-label": aria,
+      onClick: (e) => {
+        e.stopPropagation();
+      },
+      onKeyDown: (e) => {
+        e.stopPropagation();
+      },
+      children: ring
+    }
+  ) });
+}
 
 // js/tools/WelcomeHome.jsx
-import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
-var POLL_MS = 45e3;
+import { jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
 var TOOLS = [
   {
     id: "chat",
     title: "Chat",
-    blurb: "Conversaciones con Paty, logs de turnos y trazas de consulta.",
+    blurb: "Conversaciones con Paty y consultas al asistente.",
     icon: "solar:chat-round-line-bold-duotone",
     accentKey: "cyan",
-    pane: null
+    pane: "conv"
+  },
+  {
+    id: "chat",
+    title: "Logs",
+    blurb: "Turnos, trazas de consulta y historial de conversaci\xF3n.",
+    icon: "solar:clipboard-list-bold-duotone",
+    accentKey: "cyan",
+    pane: "logs"
   },
   {
     id: "config",
@@ -19792,9 +20000,9 @@ var TOOLS = [
 ];
 var HERO_PILLS = [
   { label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
+  { label: "Logs", icon: "solar:clipboard-list-bold-duotone" },
   { label: "Prompts", icon: "solar:document-text-bold-duotone" },
-  { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
-  { label: "Trazas", icon: "solar:graph-up-bold-duotone" }
+  { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" }
 ];
 var ILLUSTRATION_ORBITS = [
   { icon: "solar:chat-round-dots-bold-duotone", cls: "paty-welcome__orbit--a", size: 36 },
@@ -19802,14 +20010,6 @@ var ILLUSTRATION_ORBITS = [
   { icon: "solar:database-bold-duotone", cls: "paty-welcome__orbit--c", size: 30 },
   { icon: "solar:shield-check-bold-duotone", cls: "paty-welcome__orbit--d", size: 28 }
 ];
-function statusToneKey(status, degraded) {
-  if (!status) return "loading";
-  if (status.error) return "warn";
-  if (openAiStatusLooksOperational(status)) return "ok";
-  if (status.indicator === "critical" || status.indicator === "major") return "err";
-  if (degraded) return "warn";
-  return "ok";
-}
 function glassToneForStatus(tone) {
   if (tone === "ok") return "success";
   if (tone === "err") return "err";
@@ -19829,92 +20029,18 @@ function statusIcon(tone) {
   return "solar:danger-circle-bold-duotone";
 }
 function WelcomeHome({ onOpenTool }) {
-  const { useState: useState34, useEffect: useEffect30, useRef: useRef17 } = getReact();
   const { Box: Box33, Typography: Typography28, Button: Button21, Stack: Stack26, Link, Chip: Chip19 } = getMaterialUI();
   const { Icon: Icon26 } = UI;
   const { GlassPageSurface, GlassHero, GlassCard, GlassSection, NEON_COLORS } = getGlass();
-  const [status, setStatus] = useState34(
-    /** @type {OpenAiStatusSnapshot | null} */
-    null
-  );
-  const [pollProgress, setPollProgress] = useState34(0);
-  const abortRef = useRef17(
-    /** @type {AbortController | null} */
-    null
-  );
-  const cycleStartRef = useRef17(Date.now());
-  useEffect30(() => {
-    let alive = true;
-    let nextPullId = 0;
-    let tickId = 0;
-    const clearTimers = () => {
-      window.clearTimeout(nextPullId);
-      window.clearTimeout(tickId);
-      nextPullId = 0;
-      tickId = 0;
-    };
-    const scheduleTick = () => {
-      window.clearTimeout(tickId);
-      if (!alive) return;
-      tickId = window.setTimeout(() => {
-        if (!alive) return;
-        const elapsed = Date.now() - cycleStartRef.current;
-        setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
-        scheduleTick();
-      }, 120);
-    };
-    async function pull() {
-      if (!alive) return;
-      window.clearTimeout(nextPullId);
-      cycleStartRef.current = Date.now();
-      setPollProgress(0);
-      const ac = new AbortController();
-      abortRef.current = ac;
-      try {
-        const snap = await fetchOpenAiStatus(ac.signal);
-        if (alive) setStatus(snap);
-      } catch (e) {
-        if (e?.name === "AbortError") return;
-        if (alive) {
-          setStatus({
-            ok: false,
-            indicator: "unknown",
-            description: "Sin datos",
-            incidents: [],
-            fetchedAt: Date.now(),
-            error: e instanceof Error ? e.message : String(e),
-            sourceUrl: "https://status.openai.com/"
-          });
-        }
-      } finally {
-        if (!alive) return;
-        nextPullId = window.setTimeout(() => {
-          void pull();
-        }, POLL_MS);
-      }
-    }
-    cycleStartRef.current = Date.now();
-    setPollProgress(0);
-    scheduleTick();
-    void pull();
-    return () => {
-      alive = false;
-      clearTimers();
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, []);
+  const { status, progress, pollMs } = useOpenAiStatus();
   const degraded = openAiStatusIsDegraded(status);
   const operational = openAiStatusLooksOperational(status);
-  const statusTone = statusToneKey(status, degraded);
+  const statusTone = openAiStatusTone(status);
   const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : operational || !degraded ? status.description || "OpenAI operacional" : status.description;
-  const statusDetail = !status ? "Actualizaci\xF3n autom\xE1tica cada 45 s." : status.error ? status.error : operational || !degraded ? "Sin incidentes activos." : status.incidents[0]?.name || "Revisa status.openai.com para m\xE1s detalle.";
+  const statusDetail = !status ? `Actualizaci\xF3n autom\xE1tica cada ${Math.round(pollMs / 1e3)} s.` : status.error ? status.error : operational || !degraded ? "Sin incidentes activos." : status.incidents[0]?.name || "Revisa status.openai.com para m\xE1s detalle.";
   const accent = statusAccent(NEON_COLORS, statusTone);
-  const secsLeft = Math.max(0, Math.ceil((1 - pollProgress) * (POLL_MS / 1e3)));
-  const ringR = 15.5;
-  const ringC = 2 * Math.PI * ringR;
-  const ringOffset = ringC * (1 - pollProgress);
-  return /* @__PURE__ */ jsxs39(
+  const secsLeft = Math.max(0, Math.ceil((1 - progress) * (pollMs / 1e3)));
+  return /* @__PURE__ */ jsxs40(
     GlassPageSurface,
     {
       className: "paty-welcome",
@@ -19922,57 +20048,57 @@ function WelcomeHome({ onOpenTool }) {
       orbs: true,
       sx: { px: 0, pt: 0, pb: { xs: 1.5, sm: 2, md: 3 }, height: "100%", minHeight: 0 },
       children: [
-        /* @__PURE__ */ jsx46(GlassHero, { className: "paty-welcome__hero", sx: { mb: 2.5, borderRadius: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }, children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-grid", children: [
-          /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-copy", children: [
-            /* @__PURE__ */ jsxs39(Typography28, { className: "paty-welcome__eyebrow", component: "p", children: [
-              /* @__PURE__ */ jsx46(Icon26, { icon: "solar:buildings-2-bold-duotone", size: 16 }),
+        /* @__PURE__ */ jsx47(GlassHero, { className: "paty-welcome__hero", sx: { mb: 2.5, borderRadius: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }, children: /* @__PURE__ */ jsxs40(Box33, { className: "paty-welcome__hero-grid", children: [
+          /* @__PURE__ */ jsxs40(Box33, { className: "paty-welcome__hero-copy", children: [
+            /* @__PURE__ */ jsxs40(Typography28, { className: "paty-welcome__eyebrow", component: "p", children: [
+              /* @__PURE__ */ jsx47(Icon26, { icon: "solar:buildings-2-bold-duotone", size: 16 }),
               "InSoft \xB7 ContaPyme"
             ] }),
-            /* @__PURE__ */ jsx46(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
-            /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de QA con IA para ContaPyme: conversaciones, configuraci\xF3n, permisos y trazas en un solo lugar." }),
-            /* @__PURE__ */ jsx46(Stack26, { direction: "row", spacing: 1, className: "paty-welcome__pills", flexWrap: "wrap", useFlexGap: true, children: HERO_PILLS.map((p) => /* @__PURE__ */ jsx46(
+            /* @__PURE__ */ jsx47(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
+            /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__tagline", children: "Consola de QA con IA para ContaPyme: conversaciones, configuraci\xF3n, permisos y trazas en un solo lugar." }),
+            /* @__PURE__ */ jsx47(Stack26, { direction: "row", spacing: 1, className: "paty-welcome__pills", flexWrap: "wrap", useFlexGap: true, children: HERO_PILLS.map((p) => /* @__PURE__ */ jsx47(
               Chip19,
               {
                 size: "small",
                 className: "paty-welcome__pill",
-                icon: /* @__PURE__ */ jsx46(Icon26, { icon: p.icon, size: 15 }),
+                icon: /* @__PURE__ */ jsx47(Icon26, { icon: p.icon, size: 15 }),
                 label: p.label
               },
               p.label
             )) }),
-            /* @__PURE__ */ jsxs39(Stack26, { direction: "row", spacing: 1.5, className: "paty-welcome__cta", flexWrap: "wrap", useFlexGap: true, children: [
-              /* @__PURE__ */ jsx46(
+            /* @__PURE__ */ jsxs40(Stack26, { direction: "row", spacing: 1.5, className: "paty-welcome__cta", flexWrap: "wrap", useFlexGap: true, children: [
+              /* @__PURE__ */ jsx47(
                 Button21,
                 {
                   variant: "contained",
                   size: "large",
                   className: "paty-welcome__cta-primary",
-                  startIcon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:chat-round-line-bold-duotone", size: 20 }),
+                  startIcon: /* @__PURE__ */ jsx47(Icon26, { icon: "solar:chat-round-line-bold-duotone", size: 20 }),
                   onClick: () => onOpenTool("chat"),
                   children: "Abrir Chat"
                 }
               ),
-              /* @__PURE__ */ jsx46(
+              /* @__PURE__ */ jsx47(
                 Button21,
                 {
                   variant: "outlined",
                   size: "large",
                   className: "paty-welcome__cta-ghost",
-                  startIcon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:settings-bold-duotone", size: 20 }),
+                  startIcon: /* @__PURE__ */ jsx47(Icon26, { icon: "solar:settings-bold-duotone", size: 20 }),
                   onClick: () => onOpenTool("config", "prompts"),
                   children: "Ir a Config"
                 }
               )
             ] })
           ] }),
-          /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-art", "aria-hidden": "true", children: [
-            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--outer" }),
-            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--mid" }),
-            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-core", children: /* @__PURE__ */ jsx46(Icon26, { icon: "ph:robot-duotone", size: 88 }) }),
-            ILLUSTRATION_ORBITS.map((o) => /* @__PURE__ */ jsx46(Box33, { className: `paty-welcome__orbit ${o.cls}`, children: /* @__PURE__ */ jsx46(Icon26, { icon: o.icon, size: o.size }) }, o.cls))
+          /* @__PURE__ */ jsxs40(Box33, { className: "paty-welcome__hero-art", "aria-hidden": "true", children: [
+            /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--outer" }),
+            /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--mid" }),
+            /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__art-core", children: /* @__PURE__ */ jsx47(Icon26, { icon: "ph:robot-duotone", size: 88 }) }),
+            ILLUSTRATION_ORBITS.map((o) => /* @__PURE__ */ jsx47(Box33, { className: `paty-welcome__orbit ${o.cls}`, children: /* @__PURE__ */ jsx47(Icon26, { icon: o.icon, size: o.size }) }, o.cls))
           ] })
         ] }) }),
-        /* @__PURE__ */ jsx46(
+        /* @__PURE__ */ jsx47(
           GlassCard,
           {
             className: "paty-welcome__status-card",
@@ -19981,41 +20107,23 @@ function WelcomeHome({ onOpenTool }) {
             hover: false,
             sx: { mb: 2.5, p: 0, overflow: "hidden" },
             "aria-live": "polite",
-            children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-row", children: [
-              /* @__PURE__ */ jsxs39(
+            children: /* @__PURE__ */ jsxs40(Box33, { className: "paty-welcome__status-row", children: [
+              /* @__PURE__ */ jsx47(
                 Box33,
                 {
                   className: "paty-welcome__status-icon",
                   sx: { "--pw-status-accent": accent },
                   title: `Pr\xF3xima actualizaci\xF3n en ${secsLeft}s`,
                   "aria-label": `Pr\xF3xima actualizaci\xF3n de OpenAI Status en ${secsLeft} segundos`,
-                  children: [
-                    /* @__PURE__ */ jsxs39("svg", { className: "paty-welcome__status-ring", viewBox: "0 0 36 36", "aria-hidden": "true", children: [
-                      /* @__PURE__ */ jsx46("circle", { className: "paty-welcome__status-ring-track", cx: "18", cy: "18", r: ringR }),
-                      /* @__PURE__ */ jsx46(
-                        "circle",
-                        {
-                          className: "paty-welcome__status-ring-prog",
-                          cx: "18",
-                          cy: "18",
-                          r: ringR,
-                          style: {
-                            strokeDasharray: `${ringC} ${ringC}`,
-                            strokeDashoffset: ringOffset
-                          }
-                        }
-                      )
-                    ] }),
-                    /* @__PURE__ */ jsx46("span", { className: "paty-welcome__status-icon-glyph", children: /* @__PURE__ */ jsx46(Icon26, { icon: statusIcon(statusTone), size: 22 }) })
-                  ]
+                  children: /* @__PURE__ */ jsx47(OpenAiStatusRing, { size: 48, className: "paty-welcome__status-ring-wrap", children: /* @__PURE__ */ jsx47(Icon26, { icon: statusIcon(statusTone), size: 22 }) })
                 }
               ),
-              /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-body", sx: { flex: 1, minWidth: 0 }, children: [
-                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-kicker", component: "p", children: "OpenAI Status" }),
-                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-title", component: "h2", children: statusTitle }),
-                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-detail", component: "p", children: statusDetail })
+              /* @__PURE__ */ jsxs40(Box33, { className: "paty-welcome__status-body", sx: { flex: 1, minWidth: 0 }, children: [
+                /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__status-kicker", component: "p", children: "OpenAI Status" }),
+                /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__status-title", component: "h2", children: statusTitle }),
+                /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__status-detail", component: "p", children: statusDetail })
               ] }),
-              /* @__PURE__ */ jsxs39(
+              /* @__PURE__ */ jsxs40(
                 Link,
                 {
                   className: "paty-welcome__status-link",
@@ -20024,7 +20132,7 @@ function WelcomeHome({ onOpenTool }) {
                   rel: "noreferrer",
                   underline: "hover",
                   children: [
-                    /* @__PURE__ */ jsx46(Icon26, { icon: "solar:link-round-bold-duotone", size: 16 }),
+                    /* @__PURE__ */ jsx47(Icon26, { icon: "solar:link-round-bold-duotone", size: 16 }),
                     "status.openai.com"
                   ]
                 }
@@ -20032,50 +20140,47 @@ function WelcomeHome({ onOpenTool }) {
             ] })
           }
         ),
-        /* @__PURE__ */ jsxs39(
+        /* @__PURE__ */ jsx47(
           GlassSection,
           {
             className: "paty-welcome__tools",
             title: "Herramientas",
             accent: NEON_COLORS.cyan,
-            icon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:widget-4-bold-duotone", size: 18 }),
+            icon: /* @__PURE__ */ jsx47(Icon26, { icon: "solar:widget-4-bold-duotone", size: 18 }),
             bodySx: { pt: 2 },
             sx: { mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" },
-            children: [
-              /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", component: "p", children: "Un solo espacio de trabajo. Elige el panel; el entorno del chip define contra qu\xE9 instancia pruebas." }),
-              /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => {
-                const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
-                return /* @__PURE__ */ jsxs39(
-                  GlassCard,
-                  {
-                    className: "paty-welcome__tool isa-neon-accent-stripe",
-                    accent: toolAccent,
-                    hover: true,
-                    component: "button",
-                    type: "button",
-                    onClick: () => onOpenTool(t.id, t.pane),
-                    sx: {
-                      "--stripe-accent": toolAccent,
-                      "--card-accent": toolAccent,
-                      p: 2,
-                      textAlign: "left",
-                      cursor: "pointer",
-                      width: "100%",
-                      border: "none",
-                      font: "inherit",
-                      color: "inherit"
-                    },
-                    children: [
-                      /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-icon", sx: { "--pw-tool-accent": toolAccent }, "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: t.icon, size: 32 }) }),
-                      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tool-title", component: "span", children: t.title }),
-                      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tool-blurb", component: "span", children: t.blurb }),
-                      /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-go", "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:arrow-right-bold-duotone", size: 18 }) })
-                    ]
+            children: /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => {
+              const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
+              return /* @__PURE__ */ jsxs40(
+                GlassCard,
+                {
+                  className: "paty-welcome__tool isa-neon-accent-stripe",
+                  accent: toolAccent,
+                  hover: true,
+                  component: "button",
+                  type: "button",
+                  onClick: () => onOpenTool(t.id, t.pane),
+                  sx: {
+                    "--stripe-accent": toolAccent,
+                    "--card-accent": toolAccent,
+                    p: 2,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    width: "100%",
+                    border: "none",
+                    font: "inherit",
+                    color: "inherit"
                   },
-                  `${t.id}-${t.title}`
-                );
-              }) })
-            ]
+                  children: [
+                    /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__tool-icon", sx: { "--pw-tool-accent": toolAccent }, "aria-hidden": true, children: /* @__PURE__ */ jsx47(Icon26, { icon: t.icon, size: 32 }) }),
+                    /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__tool-title", component: "span", children: t.title }),
+                    /* @__PURE__ */ jsx47(Typography28, { className: "paty-welcome__tool-blurb", component: "span", children: t.blurb }),
+                    /* @__PURE__ */ jsx47(Box33, { className: "paty-welcome__tool-go", "aria-hidden": true, children: /* @__PURE__ */ jsx47(Icon26, { icon: "solar:arrow-right-bold-duotone", size: 18 }) })
+                  ]
+                },
+                `${t.id}-${t.title}`
+              );
+            }) })
           }
         )
       ]
@@ -20089,7 +20194,7 @@ init_IssTargetSwitch();
 // js/components/ViewAsRoleControl.jsx
 init_platform();
 init_sessionApi();
-import { jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
+import { jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
 var { useState: useState33, useEffect: useEffect29 } = getReact();
 var { Box: Box32, Select: Select9, MenuItem: MenuItem9, IconButton: IconButton13 } = getMaterialUI();
 var { Icon: Icon25 } = UI;
@@ -20148,15 +20253,15 @@ function ViewAsRoleMenu({ onPicked } = {}) {
     stopViewAsRole();
     onPicked?.();
   }
-  return /* @__PURE__ */ jsx47(
+  return /* @__PURE__ */ jsx48(
     MenuItem9,
     {
       disableRipple: true,
       sx: MENU_ITEM_SX,
       onClick: (e) => e.stopPropagation(),
       title: "Solo roles dev. Simula otro rol en la UI (solo puede quitar accesos; nunca a\xF1ade los que tu login no tiene).",
-      children: /* @__PURE__ */ jsxs40(Box32, { sx: { display: "flex", alignItems: "center", gap: 0.75, width: "100%", minHeight: 36 }, children: [
-        isSimulating ? /* @__PURE__ */ jsx47(
+      children: /* @__PURE__ */ jsxs41(Box32, { sx: { display: "flex", alignItems: "center", gap: 0.75, width: "100%", minHeight: 36 }, children: [
+        isSimulating ? /* @__PURE__ */ jsx48(
           IconButton13,
           {
             size: "small",
@@ -20164,10 +20269,10 @@ function ViewAsRoleMenu({ onPicked } = {}) {
             "aria-label": "Restaurar rol original",
             title: "Restaurar rol original",
             sx: { p: 0.25, color: accent },
-            children: /* @__PURE__ */ jsx47(Icon25, { icon: "mdi:restart", size: 18 })
+            children: /* @__PURE__ */ jsx48(Icon25, { icon: "mdi:restart", size: 18 })
           }
-        ) : /* @__PURE__ */ jsx47(Icon25, { icon: "mdi:account-eye-outline", size: 18, style: { color: "inherit", opacity: 0.85 } }),
-        /* @__PURE__ */ jsxs40(
+        ) : /* @__PURE__ */ jsx48(Icon25, { icon: "mdi:account-eye-outline", size: 18, style: { color: "inherit", opacity: 0.85 } }),
+        /* @__PURE__ */ jsxs41(
           Select9,
           {
             value,
@@ -20190,8 +20295,8 @@ function ViewAsRoleMenu({ onPicked } = {}) {
             },
             renderValue: (v) => v ? roleOptionLabel(formatViewAsRoleLabel(v), v) : roleOptionLabel(realLabel, primaryId),
             children: [
-              /* @__PURE__ */ jsx47(MenuItem9, { value: "", children: roleOptionLabel(realLabel, primaryId) }),
-              VIEW_AS_ROLE_OPTIONS.map((opt) => /* @__PURE__ */ jsx47(MenuItem9, { value: opt.id, children: roleOptionLabel(opt.label, opt.id) }, opt.id))
+              /* @__PURE__ */ jsx48(MenuItem9, { value: "", children: roleOptionLabel(realLabel, primaryId) }),
+              VIEW_AS_ROLE_OPTIONS.map((opt) => /* @__PURE__ */ jsx48(MenuItem9, { value: opt.id, children: roleOptionLabel(opt.label, opt.id) }, opt.id))
             ]
           }
         )
@@ -20202,7 +20307,7 @@ function ViewAsRoleMenu({ onPicked } = {}) {
 
 // js/app/App.jsx
 init_sessionApi();
-import { Fragment as Fragment17, jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
+import { Fragment as Fragment17, jsx as jsx49, jsxs as jsxs42 } from "react/jsx-runtime";
 (function registerViewAsRoleMenu() {
   const ui = window.ISA?.UI;
   if (!ui) return;
@@ -20249,12 +20354,18 @@ function readConfigPane(boot) {
   return "prompts";
 }
 function LocalIssBadge() {
-  return /* @__PURE__ */ jsx48(IssTargetChip, {});
+  return /* @__PURE__ */ jsx49(IssTargetChip, {});
 }
 function App() {
   const { useState: useState34, useEffect: useEffect30, useMemo: useMemo21 } = getReact();
   const { LoginButton } = UI;
   const boot = bootState;
+  useEffect30(() => {
+    startOpenAiStatusPolling();
+    return () => {
+      stopOpenAiStatusPolling();
+    };
+  }, []);
   const [appBoot, setAppBoot] = useState34(boot);
   const [tool, setTool] = useState34(() => boot.tool || "home");
   const [chatPane, setChatPane] = useState34(() => readChatPane(boot));
@@ -20384,7 +20495,14 @@ function App() {
       }
       return;
     }
-    selectTool(id === "chat" ? "chat" : id);
+    if (id === "chat") {
+      const p = pane === "logs" ? "logs" : "conv";
+      setChatPane(p);
+      setTool("chat");
+      mergePartial({ tool: "chat", chat: { pane: p } });
+      return;
+    }
+    selectTool(id);
   }
   function selectChatPane(id) {
     const pane = id === "logs" ? "logs" : "conv";
@@ -20404,9 +20522,9 @@ function App() {
   }
   const Shell = window.ISAFront?.Layout?.AppShell;
   if (!Shell) throw new Error("AppShell no cargado \u2014 revisar loader.mjs");
-  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsxs41(Stack25, { direction: "row", spacing: 0.75, alignItems: "center", className: "header-session-wrap", children: [
-    /* @__PURE__ */ jsx48(LocalIssBadge, {}),
-    /* @__PURE__ */ jsx48(
+  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsxs42(Stack25, { direction: "row", spacing: 0.75, alignItems: "center", className: "header-session-wrap", children: [
+    /* @__PURE__ */ jsx49(LocalIssBadge, {}),
+    /* @__PURE__ */ jsx49(
       LoginButton,
       {
         loginOpen: authOpen,
@@ -20441,26 +20559,30 @@ function App() {
       tabHref: (id) => hrefFor({ tool: "config", config: { pane: id } })
     }] : []
   ];
-  return /* @__PURE__ */ jsx48(
+  const brandTitle = /* @__PURE__ */ jsxs42("span", { className: "paty-brand-title", children: [
+    /* @__PURE__ */ jsx49("span", { className: "paty-brand-title__text", children: "PatyIA" }),
+    /* @__PURE__ */ jsx49(OpenAiStatusRing, { size: 14, className: "paty-brand-title__status", link: true })
+  ] });
+  return /* @__PURE__ */ jsx49(
     Shell,
     {
       ns: "ISA",
-      title: "PatyIA",
+      title: brandTitle,
       showTarget: false,
       mobileBreakpoint: "xs",
       chromeless: publicScrumView,
       toolbarExtra: toolbarTools,
       navRows,
-      children: authDownReason && !publicScrumView ? /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-overlay", role: "alert", "aria-live": "assertive", children: /* @__PURE__ */ jsxs41("div", { className: "isa-auth-down-card", children: [
-        /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-icon", "aria-hidden": "true", children: "\u26A0" }),
-        /* @__PURE__ */ jsx48("h2", { className: "isa-auth-down-title", children: "Servidor de autenticaci\xF3n no disponible" }),
-        /* @__PURE__ */ jsx48("p", { className: "isa-auth-down-reason", children: authDownReason }),
-        /* @__PURE__ */ jsxs41("p", { className: "isa-auth-down-target", children: [
-          /* @__PURE__ */ jsx48("span", { className: "isa-auth-down-target-label", children: "Servidor intentado:" }),
-          /* @__PURE__ */ jsx48("code", { className: "isa-auth-down-target-url", children: authDownTarget })
+      children: authDownReason && !publicScrumView ? /* @__PURE__ */ jsx49("div", { className: "isa-auth-down-overlay", role: "alert", "aria-live": "assertive", children: /* @__PURE__ */ jsxs42("div", { className: "isa-auth-down-card", children: [
+        /* @__PURE__ */ jsx49("div", { className: "isa-auth-down-icon", "aria-hidden": "true", children: "\u26A0" }),
+        /* @__PURE__ */ jsx49("h2", { className: "isa-auth-down-title", children: "Servidor de autenticaci\xF3n no disponible" }),
+        /* @__PURE__ */ jsx49("p", { className: "isa-auth-down-reason", children: authDownReason }),
+        /* @__PURE__ */ jsxs42("p", { className: "isa-auth-down-target", children: [
+          /* @__PURE__ */ jsx49("span", { className: "isa-auth-down-target-label", children: "Servidor intentado:" }),
+          /* @__PURE__ */ jsx49("code", { className: "isa-auth-down-target-url", children: authDownTarget })
         ] }),
-        /* @__PURE__ */ jsx48("p", { className: "isa-auth-down-hint", children: "PatyIA requiere conexi\xF3n con el servidor de autenticaci\xF3n para operar. Reintente autom\xE1ticamente o haga una recarga manual cuando el servicio se haya recuperado." }),
-        /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-actions", children: /* @__PURE__ */ jsx48(
+        /* @__PURE__ */ jsx49("p", { className: "isa-auth-down-hint", children: "PatyIA requiere conexi\xF3n con el servidor de autenticaci\xF3n para operar. Reintente autom\xE1ticamente o haga una recarga manual cuando el servicio se haya recuperado." }),
+        /* @__PURE__ */ jsx49("div", { className: "isa-auth-down-actions", children: /* @__PURE__ */ jsx49(
           "button",
           {
             type: "button",
@@ -20469,13 +20591,13 @@ function App() {
             children: "Reintentar ahora"
           }
         ) })
-      ] }) }) : publicScrumView ? /* @__PURE__ */ jsx48(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs41(Fragment17, { children: [
-        tool === "home" && /* @__PURE__ */ jsx48(WelcomeHome, { onOpenTool: openFromWelcome }, `home-${homeTick}`),
-        tool === "chat" && chatPane === "logs" && /* @__PURE__ */ jsx48(LogViewer, { bootLog: appBoot.log || getSnapshot().log || {} }, `logs-${homeTick}`),
-        tool === "chat" && chatPane !== "logs" && /* @__PURE__ */ jsx48(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx48(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
-        tool === "config" && configPane === "prompts" && /* @__PURE__ */ jsx48(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "config" && (configPane === "permisos" || configPane === "sistema") && /* @__PURE__ */ jsx48(ConfigTool, { pane: configPane, onNeedLogin: () => setAuthOpen(true) }, homeTick)
+      ] }) }) : publicScrumView ? /* @__PURE__ */ jsx49(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs42(Fragment17, { children: [
+        tool === "home" && /* @__PURE__ */ jsx49(WelcomeHome, { onOpenTool: openFromWelcome }, `home-${homeTick}`),
+        tool === "chat" && chatPane === "logs" && /* @__PURE__ */ jsx49(LogViewer, { bootLog: appBoot.log || getSnapshot().log || {} }, `logs-${homeTick}`),
+        tool === "chat" && chatPane !== "logs" && /* @__PURE__ */ jsx49(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx49(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
+        tool === "config" && configPane === "prompts" && /* @__PURE__ */ jsx49(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "config" && (configPane === "permisos" || configPane === "sistema") && /* @__PURE__ */ jsx49(ConfigTool, { pane: configPane, onNeedLogin: () => setAuthOpen(true) }, homeTick)
       ] })
     }
   );
