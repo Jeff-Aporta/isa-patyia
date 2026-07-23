@@ -164,7 +164,7 @@ export function ChatComposer({
           }}
           disabled={sending || isRecording}
         />
-        <Button variant="contained" disabled={sending || isRecording || !hasContent} onClick={onSend}>
+        <Button variant="contained" disabled={sending || isRecording || !hasContent} onClick={() => onSend()}>
           {sending ? <CircularProgress size={20} color="inherit" /> : "Enviar"}
         </Button>
       </Box>
