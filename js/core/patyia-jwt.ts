@@ -1,4 +1,6 @@
-/** JWT InSoft para AyudasCP-IA staging — BD por usuario + caché de sesión. */
+/** JWT InSoft (portal ContaPyme) para chat PatyIA — misma auth en staging y prod.
+ *  Caché: sessionStorage. Persistencia opcional en BD_AUTH (portal id histórico `soporte-staging`).
+ */
 
 import { fetchPortalJwt, removePortalJwt, savePortalJwt, fetchPortalJwtForUser, PATYIA_PORTAL_ID } from "../api/portalJwtApi.ts";
 import { fetchTercerosAudit, type TerceroAuditRow } from "../api/apiClient.ts";
@@ -13,6 +15,16 @@ export type PatyJwtClaims = { itercero?: string; icontacto?: string; nombres?: s
 
 /** actingAsUsername: dueño del token en BD_AUTH (admin). actingAsDisplayName: nombre del contacto dueño. */
 export type PatyJwtRecord = { token: string; savedBy: string; savedAt: string; expiresAt?: string | null; claims: PatyJwtClaims; actingAsUsername?: string | null; actingAsDisplayName?: string | null };
+
+/** Compara usuarios ISA (email vs nick). */
+export function samePatyUser(a: string | null | undefined, b: string | null | undefined): boolean {
+  const na = String(a ?? "").trim().toUpperCase();
+  const nb = String(b ?? "").trim().toUpperCase();
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const strip = (s: string) => s.replace(/@CONTAPYME\.COM$/i, "").replace(/@.*$/, "");
+  return strip(na) === strip(nb);
+}
 
 export function parseJwtExp(token: string): number | null {
   try {
@@ -116,6 +128,26 @@ function buildPatyJwtRecord(token: string, savedBy: string, expiresAt?: string |
   return { token: token.trim(), savedBy: String(savedBy || "").trim().toUpperCase(), savedAt: new Date().toISOString(), expiresAt: expiresAt ?? (exp ? new Date(exp * 1000).toISOString() : null), claims };
 }
 
+/**
+ * Reusa el JWT ContaPyme de la sesión ISA (login portal).
+ * Misma firma sirve para ISS staging y producción — no depende del chip target.
+ */
+export function syncPatyJwtFromSession(): PatyJwtRecord | null {
+  if (!Session.isLoggedIn()) return null;
+  const sess = Session.current() as { token?: string; username?: string; expiresAt?: string | null } | null;
+  const token = String(sess?.token ?? "").trim();
+  if (!token || isPatyJwtExpired(token)) return null;
+  const claims = parseJwtClaims(token);
+  if (!claims?.itercero) return null;
+  const savedBy = String(sess?.username || Session.username() || "").trim().toUpperCase();
+  if (!savedBy) return null;
+  try {
+    return cachePatyJwt(buildPatyJwtRecord(token, savedBy, sess?.expiresAt ?? null));
+  } catch {
+    return null;
+  }
+}
+
 /** Guarda en caché local (sessionStorage). Preferir savePatyJwtAsync para persistir en BD. */
 export function savePatyJwt(token: string, savedBy: string, expiresAt?: string | null): PatyJwtRecord {
   return cachePatyJwt(buildPatyJwtRecord(token, savedBy, expiresAt));
@@ -141,7 +173,7 @@ export async function clearPatyJwtAsync(): Promise<void> {
   clearPatyJwtLocal();
 }
 
-/** Carga JWT desde BD (o caché válida). Solo pide configuración manual si no hay token o expiró. */
+/** Carga JWT: caché → sesión ContaPyme → BD_AUTH (si el orchestrator/Neon responde). */
 export async function hydratePatyJwtFromServer(username: string | null | undefined): Promise<PatyJwtRecord | null> {
   const u = String(username || "").trim().toUpperCase();
   if (!u) {
@@ -150,19 +182,27 @@ export async function hydratePatyJwtFromServer(username: string | null | undefin
   }
 
   const cached = loadPatyJwt();
-  if (cached && cached.savedBy?.toUpperCase() === u) return cached;
-  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
+  if (cached?.actingAsUsername) return cached;
+  if (cached && samePatyUser(cached.savedBy, u)) return cached;
+
+  // Sesión ISA ya trae el JWT portal (staging=prod auth). No depender de Neon.
+  const fromSession = syncPatyJwtFromSession();
+  if (fromSession && samePatyUser(fromSession.savedBy, u)) return fromSession;
+  if (fromSession && !cached) return fromSession;
+
+  if (cached && !samePatyUser(cached.savedBy, u) && !fromSession) {
+    clearPatyJwtLocal({ silent: true });
+  }
 
   try {
     const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
     if (!data.token || isPatyJwtExpired(data.token)) {
-      clearPatyJwtLocal({ silent: true });
-      return null;
+      return loadPatyJwt() || syncPatyJwtFromSession();
     }
     return savePatyJwt(data.token, u, data.expiresAt ?? null);
   } catch (err) {
-    console.warn("[paty-jwt] hydrate falló:", err instanceof Error ? err.message : err);
-    return loadPatyJwt();
+    console.warn("[paty-jwt] hydrate BD falló (uso sesión si hay):", err instanceof Error ? err.message : err);
+    return loadPatyJwt() || syncPatyJwtFromSession();
   }
 }
 
@@ -177,7 +217,7 @@ export function clearPatyJwt(): void {
 export function canInteractPatyChat(sessionUser: string | null | undefined, jwt: PatyJwtRecord | null): boolean {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
-  if (jwt.savedBy?.toUpperCase() === u) return true;
+  if (samePatyUser(jwt.savedBy, u)) return true;
   if (!Session.can("patyia.chat.interact")) return false;
   if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
   return false;
