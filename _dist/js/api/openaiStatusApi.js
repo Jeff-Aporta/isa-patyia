@@ -1,4 +1,5 @@
 // js/api/openaiStatusApi.ts
+var OPENAI_STATUS_POLL_MS = 6e4;
 var SUMMARY_URL = "https://status.openai.com/api/v2/summary.json";
 var STATUS_PAGE = "https://status.openai.com/";
 function asIndicator(raw) {
@@ -62,8 +63,121 @@ function openAiStatusLooksOperational(snap) {
   const d = String(snap.description || "").trim().toLowerCase();
   return /all systems operational|operacional|operational/.test(d) && snap.indicator !== "minor" && snap.indicator !== "major" && snap.indicator !== "critical";
 }
+function openAiStatusTone(snap) {
+  if (!snap) return "loading";
+  if (snap.error) return "warn";
+  if (openAiStatusLooksOperational(snap)) return "ok";
+  if (snap.indicator === "critical" || snap.indicator === "major") return "err";
+  if (openAiStatusIsDegraded(snap)) return "warn";
+  return "ok";
+}
+var _status = null;
+var _progress = 0;
+var _cycleStart = Date.now();
+var _started = false;
+var _abort = null;
+var _nextPullId = 0;
+var _tickId = 0;
+var _listeners = /* @__PURE__ */ new Set();
+var _view = {
+  status: null,
+  progress: 0,
+  pollMs: OPENAI_STATUS_POLL_MS
+};
+function bumpView() {
+  _view = { status: _status, progress: _progress, pollMs: OPENAI_STATUS_POLL_MS };
+}
+function emit() {
+  bumpView();
+  _listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+    }
+  });
+}
+function getOpenAiStatusView() {
+  return _view;
+}
+function subscribeOpenAiStatus(fn) {
+  _listeners.add(fn);
+  return () => {
+    _listeners.delete(fn);
+  };
+}
+function clearTimers() {
+  window.clearTimeout(_nextPullId);
+  window.clearTimeout(_tickId);
+  _nextPullId = 0;
+  _tickId = 0;
+}
+function scheduleTick() {
+  window.clearTimeout(_tickId);
+  if (!_started) return;
+  _tickId = window.setTimeout(() => {
+    if (!_started) return;
+    const elapsed = Date.now() - _cycleStart;
+    const next = Math.min(1, Math.max(0, elapsed / OPENAI_STATUS_POLL_MS));
+    if (Math.abs(next - _progress) >= 1e-3 || next >= 1 && _progress < 1) {
+      _progress = next;
+      emit();
+    }
+    scheduleTick();
+  }, 120);
+}
+async function pullOnce() {
+  if (!_started) return;
+  window.clearTimeout(_nextPullId);
+  _cycleStart = Date.now();
+  _progress = 0;
+  emit();
+  const ac = new AbortController();
+  _abort = ac;
+  try {
+    _status = await fetchOpenAiStatus(ac.signal);
+    emit();
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+    _status = {
+      ok: false,
+      indicator: "unknown",
+      description: "Sin datos",
+      incidents: [],
+      fetchedAt: Date.now(),
+      error: e instanceof Error ? e.message : String(e),
+      sourceUrl: STATUS_PAGE
+    };
+    emit();
+  } finally {
+    if (!_started) return;
+    _nextPullId = window.setTimeout(() => {
+      void pullOnce();
+    }, OPENAI_STATUS_POLL_MS);
+  }
+}
+function startOpenAiStatusPolling() {
+  if (_started) return;
+  _started = true;
+  _cycleStart = Date.now();
+  _progress = 0;
+  scheduleTick();
+  void pullOnce();
+}
+function stopOpenAiStatusPolling() {
+  if (!_started) return;
+  _started = false;
+  clearTimers();
+  _abort?.abort();
+  _abort = null;
+}
 export {
+  OPENAI_STATUS_POLL_MS,
   fetchOpenAiStatus,
+  getOpenAiStatusView,
   openAiStatusIsDegraded,
-  openAiStatusLooksOperational
+  openAiStatusLooksOperational,
+  openAiStatusTone,
+  startOpenAiStatusPolling,
+  stopOpenAiStatusPolling,
+  subscribeOpenAiStatus
 };
