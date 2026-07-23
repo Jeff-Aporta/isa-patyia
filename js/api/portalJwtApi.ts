@@ -1,4 +1,6 @@
-/** JWT portal soporte-staging — persistido en BD_AUTH por usuario (system-login). Token `app`.
+/** JWT portal ContaPyme — persistido en BD_AUTH por usuario (system-login). Token `app`.
+ *  El id `soporte-staging` es solo la clave histórica en BD_AUTH; el mismo JWT vale
+ *  para ISS staging y producción (misma auth ContaPyme).
  *
  * NO usar Config.apiUrl: en isa-patyia Config.base se remapea al ISS (Staging/Prod/Local).
  * portal-jwt vive en system-login vía main-orchestrator.
