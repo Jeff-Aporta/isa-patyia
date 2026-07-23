@@ -28,15 +28,24 @@ export function formatMsgFecha(v: string | number | Date | null | undefined): Ms
     const raw = String(v ?? "").trim();
     return { label: raw ? raw.slice(0, 40) : "", iso: "" };
   }
-  const label = d.toLocaleString("es-CO", {
+  const datePart = d.toLocaleDateString("es-CO", {
     day: "numeric",
     month: "short",
     year: "numeric",
+  });
+  const tenth = Math.floor(d.getMilliseconds() / 100);
+  const timeParts = new Intl.DateTimeFormat("es-CO", {
     hour: "numeric",
     minute: "2-digit",
+    second: "2-digit",
     hour12: true,
-  });
-  return { label, iso: d.toISOString() };
+  }).formatToParts(d);
+  let timePart = "";
+  for (const p of timeParts) {
+    timePart += p.value;
+    if (p.type === "second") timePart += `.${tenth}`;
+  }
+  return { label: `${datePart}, ${timePart}`, iso: d.toISOString() };
 }
 
 export function formatTs(v: string | number | Date | null | undefined): string {
