@@ -140,7 +140,8 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
           return {
             ...base,
             borderColor: theme.palette.action.disabled,
-            bgcolor: theme.palette.action.hover,
+            bgcolor: "transparent",
+            background: isLight ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.08)",
             boxShadow: "none",
             transition: "none",
           };
@@ -148,26 +149,34 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
         if (isLight) {
           return {
             ...base,
-            borderColor: `${color}52`,
-            bgcolor: operativa ? "#fffbeb" : "#ffffff",
-            boxShadow: "none",
+            borderColor: `${color}40`,
+            bgcolor: "transparent",
+            background: operativa
+              ? `linear-gradient(165deg, ${color}18 0%, rgba(255,251,235,0.72) 42%, rgba(255,255,255,0.55) 100%)`
+              : `linear-gradient(165deg, ${color}14 0%, rgba(255,255,255,0.72) 48%, rgba(248,250,252,0.55) 100%)`,
+            boxShadow: "0 1px 0 rgba(255,255,255,0.65) inset, 0 8px 28px rgba(15,23,42,0.06)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
             transition: "none",
           };
         }
         return {
           ...base,
-          borderColor: `${color}40`,
-          bgcolor: "background.paper",
+          borderColor: `${color}32`,
+          bgcolor: "transparent",
+          background: operativa
+            ? `linear-gradient(165deg, ${color}1f 0%, rgba(15,23,42,0.28) 52%, rgba(11,18,32,0.14) 100%)`
+            : `linear-gradient(165deg, ${color}16 0%, rgba(15,34,54,0.28) 46%, rgba(11,18,32,0.14) 100%)`,
           boxShadow: fullNeon
-            ? `0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px ${color}28`
-            : operativa
-              ? `0 4px 20px ${color}18`
-              : `0 4px 24px rgba(0, 0, 0, 0.22), 0 0 0 1px ${color}22`,
+            ? `0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 22px rgba(0,0,0,0.16), 0 0 0 1px ${color}1a`
+            : `0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px ${color}14`,
+          backdropFilter: "blur(14px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.15)",
           transition: fullNeon ? "transform 0.2s ease, box-shadow 0.2s ease" : "none",
           ...(fullNeon ? {
             "&:hover": {
-              transform: { sm: "translateY(-2px)" },
-              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.35), 0 0 24px ${color}22`,
+              transform: { sm: "translateY(-1px)" },
+              boxShadow: `0 1px 0 rgba(255,255,255,0.07) inset, 0 10px 28px rgba(0,0,0,0.2), 0 0 18px ${color}14`,
             },
           } : {}),
         };
@@ -187,20 +196,24 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
             if (isLight) {
               return {
                 ...base,
-                bgcolor: `${color}12`,
+                bgcolor: "transparent",
+                background: `${color}14`,
+                borderColor: "rgba(148,163,184,0.18)",
                 ...(isRight
-                  ? { borderRight: 4, borderRightColor: color }
-                  : { borderLeft: 4, borderLeftColor: color }),
+                  ? { borderRight: 3, borderRightColor: color }
+                  : { borderLeft: 3, borderLeftColor: color }),
               };
             }
             return {
               ...base,
+              bgcolor: "transparent",
+              borderColor: "rgba(148,163,184,0.12)",
               background: isRight
-                ? `linear-gradient(270deg, ${color}28, transparent 72%)`
-                : `linear-gradient(90deg, ${color}28, transparent 72%)`,
+                ? `linear-gradient(270deg, ${color}24, transparent 78%)`
+                : `linear-gradient(90deg, ${color}24, transparent 78%)`,
               ...(isRight
-                ? { borderRight: 4, borderRightColor: color }
-                : { borderLeft: 4, borderLeftColor: color }),
+                ? { borderRight: 3, borderRightColor: color }
+                : { borderLeft: 3, borderLeftColor: color }),
             };
           }
           if (operativa) {

@@ -46,24 +46,24 @@ function ChatModeSwitch({ mode, onChange }) {
   );
 }
 
-function LlmProviderSwitch({ provider, onChange }) {
+export function LlmProviderSwitch({ provider, onChange }) {
   const isMm = isMinimaxChatProvider(provider);
   const title = isMm ? "MiniMax M3" : "OpenAI";
   const hint = isMm ? "Clic → OpenAI (default)" : "Clic → MiniMax M3 (experimental)";
-  // Texto visible + icono estable (mdi:openai a menudo no carga → botón «invisible»).
+  // Icono estable: mdi:openai a menudo no carga.
   const icon = isMm ? "mdi:creation" : "simple-icons:openai";
   return (
     <Tooltip title={`${title} · ${hint}`}>
       <Button
         size="small"
-        variant={isMm ? "contained" : "outlined"}
-        color={isMm ? "secondary" : "inherit"}
+        variant="text"
+        color="inherit"
         className={`paty-chat-provider-btn${isMm ? " paty-chat-provider-btn--minimax" : ""}`}
         onClick={() => onChange?.(isMm ? CHAT_PROVIDER_OPENAI : CHAT_PROVIDER_MINIMAX)}
         aria-label={title}
         aria-pressed={isMm}
         startIcon={<Icon icon={icon} size={16} />}
-        sx={{ textTransform: "none", minWidth: 0, px: 1, py: 0.25, fontWeight: 700, fontSize: "0.75rem", lineHeight: 1.2 }}
+        sx={{ textTransform: "none", minWidth: 0, px: 0.75, py: 0.25, fontWeight: 600, fontSize: "0.75rem", lineHeight: 1.2, bgcolor: "transparent", boxShadow: "none", "&:hover": { bgcolor: "transparent" } }}
       >
         {isMm ? "MiniMax" : "OpenAI"}
       </Button>

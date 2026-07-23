@@ -2,7 +2,7 @@ import { getMaterialUI, UI } from "../../core/platform.ts";
 import { convLogSurfaceSx } from "../../core/convLog.ts";
 import { ConvLogThread } from "../../ui/ConvLogThread.jsx";
 import { ChatComposer } from "./ChatComposer.jsx";
-import { ChatSidebarHeaderActions } from "./ChatThreadSidebar.jsx";
+import { ChatSidebarHeaderActions, LlmProviderSwitch } from "./ChatThreadSidebar.jsx";
 
 const {
   Box, Typography, Button, IconButton, Tooltip, Alert, Stack,
@@ -31,14 +31,15 @@ function RefreshConvButton({ onClick, busy = false }) {
 export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, llmProvider = "openai", onMessageSourceChange, onChatModeChange, onLlmProviderChange, onContapymeLoginDone = null }) {
   const isProdView = messageSource === "prod";
   const hasThread = Boolean(selectedId || detail);
+  const providerBtn = onLlmProviderChange
+    ? <LlmProviderSwitch provider={llmProvider} onChange={onLlmProviderChange} />
+    : null;
   const headerActions = (
     <ChatSidebarHeaderActions
       messageSource={messageSource}
       mode={mode}
-      llmProvider={llmProvider}
       onMessageSourceChange={onMessageSourceChange}
       onChatModeChange={onChatModeChange}
-      onLlmProviderChange={onLlmProviderChange}
     />
   );
   return (
@@ -56,6 +57,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
               <Icon icon="mdi:menu-open" size={20} />
             </IconButton>
           </Tooltip>
+          {providerBtn}
           <Typography variant="subtitle2" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
             Conversaciones
           </Typography>
@@ -70,6 +72,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
           className="paty-chat-main-toolbar paty-chat-main-toolbar--desktop"
           sx={{ px: 2, py: 0.75, flexShrink: 0 }}
         >
+          {providerBtn}
           <Box sx={{ flex: 1 }} />
           {headerActions}
           {hasThread ? <RefreshConvButton onClick={onRefreshConv} busy={refreshingThread} /> : null}
