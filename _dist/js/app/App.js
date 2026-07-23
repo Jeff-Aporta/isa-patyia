@@ -304,6 +304,14 @@ var init_platform = __esm({
         api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
           console.warn("todos-staging.css:", err);
         });
+      },
+      ensureWelcomeCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/welcome-home.css`).catch((err) => {
+          console.warn("welcome-home.css:", err);
+        });
       }
     };
     Tokens = {
@@ -524,6 +532,14 @@ var init_portalJwtApi = __esm({
 });
 
 // js/core/patyia-jwt.ts
+function samePatyUser(a, b) {
+  const na = String(a ?? "").trim().toUpperCase();
+  const nb = String(b ?? "").trim().toUpperCase();
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const strip = (s) => s.replace(/@CONTAPYME\.COM$/i, "").replace(/@.*$/, "");
+  return strip(na) === strip(nb);
+}
 function parseJwtExp(token) {
   try {
     const part = String(token || "").trim().split(".")[1];
@@ -606,6 +622,21 @@ function buildPatyJwtRecord(token, savedBy, expiresAt) {
   const exp = parseJwtExp(token);
   return { token: token.trim(), savedBy: String(savedBy || "").trim().toUpperCase(), savedAt: (/* @__PURE__ */ new Date()).toISOString(), expiresAt: expiresAt ?? (exp ? new Date(exp * 1e3).toISOString() : null), claims };
 }
+function syncPatyJwtFromSession() {
+  if (!Session.isLoggedIn()) return null;
+  const sess = Session.current();
+  const token = String(sess?.token ?? "").trim();
+  if (!token || isPatyJwtExpired(token)) return null;
+  const claims = parseJwtClaims(token);
+  if (!claims?.itercero) return null;
+  const savedBy = String(sess?.username || Session.username() || "").trim().toUpperCase();
+  if (!savedBy) return null;
+  try {
+    return cachePatyJwt(buildPatyJwtRecord(token, savedBy, sess?.expiresAt ?? null));
+  } catch {
+    return null;
+  }
+}
 function savePatyJwt(token, savedBy, expiresAt) {
   return cachePatyJwt(buildPatyJwtRecord(token, savedBy, expiresAt));
 }
@@ -625,24 +656,29 @@ async function hydratePatyJwtFromServer(username) {
     return null;
   }
   const cached = loadPatyJwt();
-  if (cached && cached.savedBy?.toUpperCase() === u) return cached;
-  if (cached && cached.savedBy?.toUpperCase() !== u) clearPatyJwtLocal({ silent: true });
+  if (cached?.actingAsUsername) return cached;
+  if (cached && samePatyUser(cached.savedBy, u)) return cached;
+  const fromSession = syncPatyJwtFromSession();
+  if (fromSession && samePatyUser(fromSession.savedBy, u)) return fromSession;
+  if (fromSession && !cached) return fromSession;
+  if (cached && !samePatyUser(cached.savedBy, u) && !fromSession) {
+    clearPatyJwtLocal({ silent: true });
+  }
   try {
     const data = await fetchPortalJwt(PATYIA_PORTAL_ID);
     if (!data.token || isPatyJwtExpired(data.token)) {
-      clearPatyJwtLocal({ silent: true });
-      return null;
+      return loadPatyJwt() || syncPatyJwtFromSession();
     }
     return savePatyJwt(data.token, u, data.expiresAt ?? null);
   } catch (err) {
-    console.warn("[paty-jwt] hydrate fall\xF3:", err instanceof Error ? err.message : err);
-    return loadPatyJwt();
+    console.warn("[paty-jwt] hydrate BD fall\xF3 (uso sesi\xF3n si hay):", err instanceof Error ? err.message : err);
+    return loadPatyJwt() || syncPatyJwtFromSession();
   }
 }
 function canInteractPatyChat(sessionUser, jwt) {
   const u = String(sessionUser || "").trim().toUpperCase();
   if (!u || !jwt?.token) return false;
-  if (jwt.savedBy?.toUpperCase() === u) return true;
+  if (samePatyUser(jwt.savedBy, u)) return true;
   if (!Session.can("patyia.chat.interact")) return false;
   if (jwt.actingAsUsername && Session.can("patyia.jwt.admin")) return true;
   return false;
@@ -862,8 +898,16 @@ function isLegacyDataUrl(s) {
   const v = String(s || "").trim();
   return v.startsWith("data:audio/") || v.startsWith("data:image/");
 }
+function resolveChatSendText(overrideText, draft = "") {
+  if (typeof overrideText === "string") return overrideText.trim();
+  if (typeof draft === "string") return draft.trim();
+  return "";
+}
+function coerceConversacionPrompt(prompt) {
+  return typeof prompt === "string" ? prompt.trim() : "";
+}
 function buildConversacionPostBody(input) {
-  const text = String(input.prompt || "").trim();
+  const text = coerceConversacionPrompt(input.prompt);
   const imagenes = (input.imagenes || []).map((s) => String(s || "").trim()).filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
   const audios = (input.audios || []).map((s) => String(s || "").trim()).filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));
   const hasMedia = imagenes.length > 0 || audios.length > 0;
@@ -2269,32 +2313,33 @@ function normalizeLog(raw) {
   return o;
 }
 function initial() {
-  return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } };
+  return { v: STATE_VERSION, tool: "home", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "prompts" } };
 }
 function normalizeChatPane(raw) {
   return raw === "logs" ? "logs" : "conv";
 }
 function normalizeConfigPane(raw) {
   if (raw === "permisos") return "permisos";
-  if (raw === "prompts") return "prompts";
-  return "sistema";
+  if (raw === "sistema") return "sistema";
+  return "prompts";
 }
 function legacyConfigPaneFromLs() {
   try {
     const v = localStorage.getItem("isa-patyia:config-tab");
-    if (v === "permisos" || v === "prompts") return v;
-    return "sistema";
+    if (v === "permisos" || v === "sistema" || v === "prompts") return v;
+    return "prompts";
   } catch {
-    return "sistema";
+    return "prompts";
   }
 }
 function normalizeTool(raw) {
   if (raw === "log") return "chat";
   if (raw === "prompts") return "config";
+  if (raw === "home") return "home";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "chat";
+  return "home";
 }
 function normalizeChatBag(chat, legacyTool) {
   const bag = chat && typeof chat === "object" ? { ...chat } : {};
@@ -11494,7 +11539,7 @@ function useChatTool({ bootChat }) {
   }
   async function onSend(overrideText) {
     if (!canSend || !jwt) return;
-    const text = String(overrideText ?? draft).trim();
+    const text = resolveChatSendText(overrideText, draft);
     if (!text && !images.length && !audios.length) return;
     if (selectedId && !convBelongsToJwtResolved(
       detail,
@@ -12928,7 +12973,7 @@ function ChatComposer({
           disabled: sending || isRecording
         }
       ),
-      /* @__PURE__ */ jsx21(Button5, { variant: "contained", disabled: sending || isRecording || !hasContent, onClick: onSend, children: sending ? /* @__PURE__ */ jsx21(CircularProgress5, { size: 20, color: "inherit" }) : "Enviar" })
+      /* @__PURE__ */ jsx21(Button5, { variant: "contained", disabled: sending || isRecording || !hasContent, onClick: () => onSend(), children: sending ? /* @__PURE__ */ jsx21(CircularProgress5, { size: 20, color: "inherit" }) : "Enviar" })
     ] }),
     /* @__PURE__ */ jsx21(ImageLightboxDialog, { open: Boolean(lightboxSrc), src: lightboxSrc, onClose: () => setLightboxSrc(null) })
   ] });
@@ -13006,19 +13051,13 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         ]
       }
     ),
-    needsJwt && /* @__PURE__ */ jsxs19(
+    needsJwt && /* @__PURE__ */ jsx22(
       Alert7,
       {
         severity: "info",
         sx: { mx: 2, mt: 1, flexShrink: 0 },
         action: /* @__PURE__ */ jsx22(Button6, { color: "inherit", size: "small", onClick: onOpenJwt, children: "Configurar JWT" }),
-        children: [
-          "Modo lectura \u2014 puedes explorar conversaciones. Configura el JWT de",
-          " ",
-          /* @__PURE__ */ jsx22(Typography10, { component: "a", href: "https://www.contapyme.com/soporte-staging/", target: "_blank", rel: "noreferrer", variant: "inherit", children: "soporte-staging" }),
-          " ",
-          "para enviar mensajes."
-        ]
+        children: "Modo lectura \u2014 puedes explorar conversaciones. Para enviar mensajes inicia sesi\xF3n con tu cuenta ContaPyme o configura un JWT de portal (v\xE1lido en staging y producci\xF3n)."
       }
     ),
     viewingAuditOther && /* @__PURE__ */ jsx22(Alert7, { severity: "info", sx: { mx: 2, mt: 1, flexShrink: 0 }, action: /* @__PURE__ */ jsx22(
@@ -13036,7 +13075,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
       {
         className: "paty-chat-thread-surface",
         sx: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...convLogSurfaceSx({ flex: 1 }) },
-        children: /* @__PURE__ */ jsx22(Box11, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx22(Typography10, { variant: "body1", children: canSend ? "Escribe un mensaje abajo para iniciar una conversaci\xF3n." : needsJwt ? "Selecciona una conversaci\xF3n del listado o configura JWT para chatear." : "Selecciona una conversaci\xF3n o crea una nueva." }) })
+        children: /* @__PURE__ */ jsx22(Box11, { sx: { textAlign: "center", maxWidth: 420, p: 2, borderRadius: 2, border: 1, borderColor: "divider", borderStyle: "dashed" }, children: /* @__PURE__ */ jsx22(Typography10, { variant: "body1", children: canSend ? "Escribe un mensaje abajo para iniciar una conversaci\xF3n." : needsJwt ? "Selecciona una conversaci\xF3n del listado o inicia sesi\xF3n / configura JWT para chatear." : "Selecciona una conversaci\xF3n o crea una nueva." }) })
       }
     ) : /* @__PURE__ */ jsx22(
       ConvLogThread,
@@ -19637,13 +19676,234 @@ function OpenAiSection({ onNeedLogin, onModelsChange }) {
   );
 }
 
+// js/tools/WelcomeHome.jsx
+init_platform();
+
+// js/api/openaiStatusApi.ts
+var SUMMARY_URL = "https://status.openai.com/api/v2/summary.json";
+var STATUS_PAGE = "https://status.openai.com/";
+function asIndicator(raw) {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "none" || s === "minor" || s === "major" || s === "critical") return s;
+  return "unknown";
+}
+async function fetchOpenAiStatus(signal) {
+  const fetchedAt = Date.now();
+  try {
+    const res = await fetch(SUMMARY_URL, { cache: "no-store", signal });
+    if (!res.ok) {
+      return {
+        ok: false,
+        indicator: "unknown",
+        description: `HTTP ${res.status}`,
+        incidents: [],
+        fetchedAt,
+        error: `No se pudo leer status.openai.com (${res.status})`,
+        sourceUrl: STATUS_PAGE
+      };
+    }
+    const j = await res.json();
+    const incidents = (Array.isArray(j.incidents) ? j.incidents : []).filter((i) => i && String(i.status || "").toLowerCase() !== "resolved").map((i) => ({
+      name: String(i.name || "Incidente"),
+      status: String(i.status || ""),
+      impact: String(i.impact || ""),
+      shortlink: i.shortlink ? String(i.shortlink) : void 0
+    }));
+    const indicator = asIndicator(j.status?.indicator);
+    return {
+      ok: true,
+      indicator,
+      description: String(j.status?.description || (indicator === "none" ? "All Systems Operational" : "Degraded")),
+      incidents,
+      fetchedAt,
+      sourceUrl: STATUS_PAGE
+    };
+  } catch (e) {
+    if (e?.name === "AbortError") throw e;
+    return {
+      ok: false,
+      indicator: "unknown",
+      description: "Sin datos",
+      incidents: [],
+      fetchedAt,
+      error: e instanceof Error ? e.message : String(e),
+      sourceUrl: STATUS_PAGE
+    };
+  }
+}
+function openAiStatusIsDegraded(snap) {
+  if (!snap) return false;
+  if (snap.indicator === "minor" || snap.indicator === "major" || snap.indicator === "critical") return true;
+  return (snap.incidents?.length ?? 0) > 0;
+}
+
+// js/tools/WelcomeHome.jsx
+import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
+var POLL_MS = 1e4;
+var TOOLS = [
+  {
+    id: "chat",
+    title: "Chat",
+    blurb: "Conversaciones con Paty, logs de turnos y trazas file_search.",
+    icon: "mdi:chat-outline",
+    pane: null
+  },
+  {
+    id: "config",
+    title: "Prompts",
+    blurb: "Instrucciones MSSQL, borradores y publicaci\xF3n hacia el ISS.",
+    icon: "mdi:database-export",
+    pane: "prompts"
+  },
+  {
+    id: "config",
+    title: "Sistema",
+    blurb: "Modelos OpenAI, max_num_results y prompts operativos.",
+    icon: "mdi:tune-vertical",
+    pane: "sistema"
+  },
+  {
+    id: "config",
+    title: "Permisos",
+    blurb: "Roles SEG, jerarqu\xEDa y capacidades por usuario.",
+    icon: "mdi:shield-key-outline",
+    pane: "permisos"
+  }
+];
+function WelcomeHome({ onOpenTool }) {
+  const { useState: useState34, useEffect: useEffect30, useRef: useRef17 } = getReact();
+  const { Box: Box33, Typography: Typography28, Button: Button21, Stack: Stack26, Link } = getMaterialUI();
+  const { Icon: Icon26 } = UI;
+  const [status, setStatus] = useState34(
+    /** @type {OpenAiStatusSnapshot | null} */
+    null
+  );
+  const [tick, setTick] = useState34(0);
+  const abortRef = useRef17(
+    /** @type {AbortController | null} */
+    null
+  );
+  useEffect30(() => {
+    let alive = true;
+    async function pull() {
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+      try {
+        const snap = await fetchOpenAiStatus(ac.signal);
+        if (alive) {
+          setStatus(snap);
+          setTick((n) => n + 1);
+        }
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        if (alive) {
+          setStatus({
+            ok: false,
+            indicator: "unknown",
+            description: "Sin datos",
+            incidents: [],
+            fetchedAt: Date.now(),
+            error: e instanceof Error ? e.message : String(e),
+            sourceUrl: "https://status.openai.com/"
+          });
+        }
+      }
+    }
+    void pull();
+    const id = window.setInterval(() => {
+      void pull();
+    }, POLL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+      abortRef.current?.abort();
+    };
+  }, []);
+  const degraded = openAiStatusIsDegraded(status);
+  const lastAgo = status?.fetchedAt ? Math.max(0, Math.round((Date.now() - status.fetchedAt) / 1e3)) : null;
+  const statusTone = !status ? "loading" : status.error ? "warn" : status.indicator === "critical" || status.indicator === "major" ? "err" : degraded ? "warn" : "ok";
+  const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : degraded ? status.description : "OpenAI operacional";
+  const statusDetail = !status ? "Poll cada 10 s en esta vista." : status.error ? status.error : [
+    status.incidents[0]?.name,
+    status.indicator !== "none" ? `indicator: ${status.indicator}` : null,
+    lastAgo != null ? `actualizado hace ${lastAgo}s` : null,
+    `poll #${tick}`
+  ].filter(Boolean).join(" \xB7 ");
+  return /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome", component: "main", children: [
+    /* @__PURE__ */ jsx46("section", { className: "paty-welcome__status-wrap", "aria-live": "polite", children: /* @__PURE__ */ jsxs39("article", { className: `paty-welcome__status-card paty-welcome__status-card--${statusTone}`, children: [
+      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__status-icon", "aria-hidden": "true", children: /* @__PURE__ */ jsx46(
+        Icon26,
+        {
+          icon: statusTone === "ok" ? "mdi:check-circle-outline" : statusTone === "loading" ? "mdi:loading" : "mdi:alert-outline",
+          size: 28
+        }
+      ) }),
+      /* @__PURE__ */ jsxs39("div", { className: "paty-welcome__status-body", children: [
+        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__status-kicker", children: "OpenAI Status" }),
+        /* @__PURE__ */ jsx46("h2", { className: "paty-welcome__status-title", children: statusTitle }),
+        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__status-detail", children: statusDetail })
+      ] }),
+      /* @__PURE__ */ jsx46(
+        "a",
+        {
+          className: "paty-welcome__status-link",
+          href: status?.sourceUrl || "https://status.openai.com/",
+          target: "_blank",
+          rel: "noreferrer",
+          children: "status.openai.com"
+        }
+      )
+    ] }) }),
+    /* @__PURE__ */ jsxs39("section", { className: "paty-welcome__hero", children: [
+      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__hero-glow", "aria-hidden": "true" }),
+      /* @__PURE__ */ jsxs39("div", { className: "paty-welcome__hero-inner", children: [
+        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__eyebrow", children: "InSoft \xB7 ContaPyme" }),
+        /* @__PURE__ */ jsx46(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
+        /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de soporte con IA: chat RAG, prompts, permisos y trazas \u2014 contra staging o producci\xF3n." }),
+        /* @__PURE__ */ jsxs39(Stack26, { direction: "row", spacing: 1.5, className: "paty-welcome__cta", flexWrap: "wrap", useFlexGap: true, children: [
+          /* @__PURE__ */ jsx46(Button21, { variant: "contained", size: "large", onClick: () => onOpenTool("chat"), children: "Abrir Chat" }),
+          /* @__PURE__ */ jsx46(Button21, { variant: "outlined", size: "large", onClick: () => onOpenTool("config", "prompts"), children: "Ir a Config" })
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs39("section", { className: "paty-welcome__tools", "aria-labelledby": "paty-welcome-tools-title", children: [
+      /* @__PURE__ */ jsx46(Typography28, { id: "paty-welcome-tools-title", component: "h2", className: "paty-welcome__section-title", children: "Herramientas" }),
+      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", children: "Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producci\xF3n)." }),
+      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => /* @__PURE__ */ jsxs39(
+        "button",
+        {
+          type: "button",
+          className: "paty-welcome__tool",
+          onClick: () => onOpenTool(t.id, t.pane),
+          children: [
+            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-icon", "aria-hidden": "true", children: /* @__PURE__ */ jsx46(Icon26, { icon: t.icon, size: 28 }) }),
+            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-title", children: t.title }),
+            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-blurb", children: t.blurb })
+          ]
+        },
+        `${t.id}-${t.title}`
+      )) })
+    ] }),
+    /* @__PURE__ */ jsx46("footer", { className: "paty-welcome__foot", children: /* @__PURE__ */ jsxs39(Typography28, { variant: "body2", children: [
+      "Estado de proveedores:",
+      " ",
+      /* @__PURE__ */ jsx46(Link, { href: "https://status.openai.com/", target: "_blank", rel: "noreferrer", children: "status.openai.com" }),
+      " \xB7 ",
+      "La marca PatyIA vuelve aqu\xED y limpia ",
+      /* @__PURE__ */ jsx46("code", { children: "?s=" }),
+      "."
+    ] }) })
+  ] });
+}
+
 // js/app/App.jsx
 init_IssTargetSwitch();
 
 // js/components/ViewAsRoleControl.jsx
 init_platform();
 init_sessionApi();
-import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
+import { jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
 var { useState: useState33, useEffect: useEffect29 } = getReact();
 var { Box: Box32, Select: Select9, MenuItem: MenuItem9, IconButton: IconButton13 } = getMaterialUI();
 var { Icon: Icon25 } = UI;
@@ -19702,15 +19962,15 @@ function ViewAsRoleMenu({ onPicked } = {}) {
     stopViewAsRole();
     onPicked?.();
   }
-  return /* @__PURE__ */ jsx46(
+  return /* @__PURE__ */ jsx47(
     MenuItem9,
     {
       disableRipple: true,
       sx: MENU_ITEM_SX,
       onClick: (e) => e.stopPropagation(),
       title: "Solo roles dev. Simula otro rol en la UI (solo puede quitar accesos; nunca a\xF1ade los que tu login no tiene).",
-      children: /* @__PURE__ */ jsxs39(Box32, { sx: { display: "flex", alignItems: "center", gap: 0.75, width: "100%", minHeight: 36 }, children: [
-        isSimulating ? /* @__PURE__ */ jsx46(
+      children: /* @__PURE__ */ jsxs40(Box32, { sx: { display: "flex", alignItems: "center", gap: 0.75, width: "100%", minHeight: 36 }, children: [
+        isSimulating ? /* @__PURE__ */ jsx47(
           IconButton13,
           {
             size: "small",
@@ -19718,10 +19978,10 @@ function ViewAsRoleMenu({ onPicked } = {}) {
             "aria-label": "Restaurar rol original",
             title: "Restaurar rol original",
             sx: { p: 0.25, color: accent },
-            children: /* @__PURE__ */ jsx46(Icon25, { icon: "mdi:restart", size: 18 })
+            children: /* @__PURE__ */ jsx47(Icon25, { icon: "mdi:restart", size: 18 })
           }
-        ) : /* @__PURE__ */ jsx46(Icon25, { icon: "mdi:account-eye-outline", size: 18, style: { color: "inherit", opacity: 0.85 } }),
-        /* @__PURE__ */ jsxs39(
+        ) : /* @__PURE__ */ jsx47(Icon25, { icon: "mdi:account-eye-outline", size: 18, style: { color: "inherit", opacity: 0.85 } }),
+        /* @__PURE__ */ jsxs40(
           Select9,
           {
             value,
@@ -19744,8 +20004,8 @@ function ViewAsRoleMenu({ onPicked } = {}) {
             },
             renderValue: (v) => v ? roleOptionLabel(formatViewAsRoleLabel(v), v) : roleOptionLabel(realLabel, primaryId),
             children: [
-              /* @__PURE__ */ jsx46(MenuItem9, { value: "", children: roleOptionLabel(realLabel, primaryId) }),
-              VIEW_AS_ROLE_OPTIONS.map((opt) => /* @__PURE__ */ jsx46(MenuItem9, { value: opt.id, children: roleOptionLabel(opt.label, opt.id) }, opt.id))
+              /* @__PURE__ */ jsx47(MenuItem9, { value: "", children: roleOptionLabel(realLabel, primaryId) }),
+              VIEW_AS_ROLE_OPTIONS.map((opt) => /* @__PURE__ */ jsx47(MenuItem9, { value: opt.id, children: roleOptionLabel(opt.label, opt.id) }, opt.id))
             ]
           }
         )
@@ -19756,7 +20016,7 @@ function ViewAsRoleMenu({ onPicked } = {}) {
 
 // js/app/App.jsx
 init_sessionApi();
-import { Fragment as Fragment17, jsx as jsx47, jsxs as jsxs40 } from "react/jsx-runtime";
+import { Fragment as Fragment17, jsx as jsx48, jsxs as jsxs41 } from "react/jsx-runtime";
 (function registerViewAsRoleMenu() {
   const ui = window.ISA?.UI;
   if (!ui) return;
@@ -19775,8 +20035,8 @@ var ALL_TOOLS = [
   { id: "config", label: "Config", icon: "mdi:cog-outline" }
 ];
 var CHAT_PANES = [
-  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
-  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" }
+  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" },
+  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" }
 ];
 var CONFIG_PANES = [
   { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
@@ -19800,17 +20060,17 @@ function readChatPane(boot) {
 function readConfigPane(boot) {
   const pane = boot?.config?.pane;
   if (pane === "permisos" || pane === "prompts" || pane === "sistema") return pane;
-  return "sistema";
+  return "prompts";
 }
 function LocalIssBadge() {
-  return /* @__PURE__ */ jsx47(IssTargetChip, {});
+  return /* @__PURE__ */ jsx48(IssTargetChip, {});
 }
 function App() {
   const { useState: useState34, useEffect: useEffect30, useMemo: useMemo21 } = getReact();
   const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState34(boot);
-  const [tool, setTool] = useState34(() => boot.tool || "chat");
+  const [tool, setTool] = useState34(() => boot.tool || "home");
   const [chatPane, setChatPane] = useState34(() => readChatPane(boot));
   const [configPane, setConfigPane] = useState34(() => readConfigPane(boot));
   const [authOpen, setAuthOpen] = useState34(false);
@@ -19849,12 +20109,13 @@ function App() {
     return subscribe(() => {
       const snap = getSnapshot();
       setAppBoot(snap);
-      setTool(snap.tool || "chat");
+      setTool(snap.tool || "home");
       setChatPane(readChatPane(snap));
       setConfigPane(readConfigPane(snap));
     });
   }, []);
   useEffect30(() => {
+    if (tool === "home") Assets.ensureWelcomeCss();
     if (tool === "chat") Assets.ensureChatStagingCss();
     if (tool === "todos" || publicScrumView) Assets.ensureTodosCss();
   }, [tool, publicScrumView]);
@@ -19906,7 +20167,7 @@ function App() {
   useEffect30(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
-      setTool("chat");
+      setTool("home");
       setChatPane("conv");
       setHomeTick((n) => n + 1);
     }
@@ -19918,10 +20179,26 @@ function App() {
     if (id === "chat") {
       mergePartial({ tool: id, chat: { pane: chatPane || "conv" } });
     } else if (id === "config") {
-      mergePartial({ tool: id, config: { pane: configPane || "sistema" } });
+      mergePartial({ tool: id, config: { pane: configPane || "prompts" } });
+    } else if (id === "home") {
+      mergePartial({ tool: "home" });
     } else {
       mergePartial({ tool: id });
     }
+  }
+  function openFromWelcome(id, pane) {
+    if (id === "config") {
+      const p = pane === "permisos" || pane === "prompts" || pane === "sistema" ? pane : "prompts";
+      setConfigPane(p);
+      setTool("config");
+      mergePartial({ tool: "config", config: { pane: p } });
+      try {
+        localStorage.setItem("isa-patyia:config-tab", p);
+      } catch {
+      }
+      return;
+    }
+    selectTool(id === "chat" ? "chat" : id);
   }
   function selectChatPane(id) {
     const pane = id === "logs" ? "logs" : "conv";
@@ -19930,7 +20207,7 @@ function App() {
     mergePartial({ tool: "chat", chat: { pane } });
   }
   function selectConfigPane(id) {
-    const pane = id === "permisos" ? "permisos" : id === "prompts" ? "prompts" : "sistema";
+    const pane = id === "permisos" ? "permisos" : id === "sistema" ? "sistema" : "prompts";
     setConfigPane(pane);
     setTool("config");
     mergePartial({ tool: "config", config: { pane } });
@@ -19941,9 +20218,9 @@ function App() {
   }
   const Shell = window.ISAFront?.Layout?.AppShell;
   if (!Shell) throw new Error("AppShell no cargado \u2014 revisar loader.mjs");
-  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsxs40(Stack25, { direction: "row", spacing: 0.75, alignItems: "center", className: "header-session-wrap", children: [
-    /* @__PURE__ */ jsx47(LocalIssBadge, {}),
-    /* @__PURE__ */ jsx47(
+  const toolbarTools = publicScrumView ? null : /* @__PURE__ */ jsxs41(Stack25, { direction: "row", spacing: 0.75, alignItems: "center", className: "header-session-wrap", children: [
+    /* @__PURE__ */ jsx48(LocalIssBadge, {}),
+    /* @__PURE__ */ jsx48(
       LoginButton,
       {
         loginOpen: authOpen,
@@ -19958,7 +20235,7 @@ function App() {
   const navRows = publicScrumView ? [
     { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) }
   ] : [
-    { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
+    { id: "tool", tier: "primary", value: tool === "home" ? "" : tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
     ...tool === "chat" ? [{
       id: "chat-pane",
       tier: "secondary",
@@ -19978,7 +20255,7 @@ function App() {
       tabHref: (id) => hrefFor({ tool: "config", config: { pane: id } })
     }] : []
   ];
-  return /* @__PURE__ */ jsx47(
+  return /* @__PURE__ */ jsx48(
     Shell,
     {
       ns: "ISA",
@@ -19988,16 +20265,16 @@ function App() {
       chromeless: publicScrumView,
       toolbarExtra: toolbarTools,
       navRows,
-      children: authDownReason && !publicScrumView ? /* @__PURE__ */ jsx47("div", { className: "isa-auth-down-overlay", role: "alert", "aria-live": "assertive", children: /* @__PURE__ */ jsxs40("div", { className: "isa-auth-down-card", children: [
-        /* @__PURE__ */ jsx47("div", { className: "isa-auth-down-icon", "aria-hidden": "true", children: "\u26A0" }),
-        /* @__PURE__ */ jsx47("h2", { className: "isa-auth-down-title", children: "Servidor de autenticaci\xF3n no disponible" }),
-        /* @__PURE__ */ jsx47("p", { className: "isa-auth-down-reason", children: authDownReason }),
-        /* @__PURE__ */ jsxs40("p", { className: "isa-auth-down-target", children: [
-          /* @__PURE__ */ jsx47("span", { className: "isa-auth-down-target-label", children: "Servidor intentado:" }),
-          /* @__PURE__ */ jsx47("code", { className: "isa-auth-down-target-url", children: authDownTarget })
+      children: authDownReason && !publicScrumView ? /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-overlay", role: "alert", "aria-live": "assertive", children: /* @__PURE__ */ jsxs41("div", { className: "isa-auth-down-card", children: [
+        /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-icon", "aria-hidden": "true", children: "\u26A0" }),
+        /* @__PURE__ */ jsx48("h2", { className: "isa-auth-down-title", children: "Servidor de autenticaci\xF3n no disponible" }),
+        /* @__PURE__ */ jsx48("p", { className: "isa-auth-down-reason", children: authDownReason }),
+        /* @__PURE__ */ jsxs41("p", { className: "isa-auth-down-target", children: [
+          /* @__PURE__ */ jsx48("span", { className: "isa-auth-down-target-label", children: "Servidor intentado:" }),
+          /* @__PURE__ */ jsx48("code", { className: "isa-auth-down-target-url", children: authDownTarget })
         ] }),
-        /* @__PURE__ */ jsx47("p", { className: "isa-auth-down-hint", children: "PatyIA requiere conexi\xF3n con el servidor de autenticaci\xF3n para operar. Reintente autom\xE1ticamente o haga una recarga manual cuando el servicio se haya recuperado." }),
-        /* @__PURE__ */ jsx47("div", { className: "isa-auth-down-actions", children: /* @__PURE__ */ jsx47(
+        /* @__PURE__ */ jsx48("p", { className: "isa-auth-down-hint", children: "PatyIA requiere conexi\xF3n con el servidor de autenticaci\xF3n para operar. Reintente autom\xE1ticamente o haga una recarga manual cuando el servicio se haya recuperado." }),
+        /* @__PURE__ */ jsx48("div", { className: "isa-auth-down-actions", children: /* @__PURE__ */ jsx48(
           "button",
           {
             type: "button",
@@ -20006,12 +20283,13 @@ function App() {
             children: "Reintentar ahora"
           }
         ) })
-      ] }) }) : publicScrumView ? /* @__PURE__ */ jsx47(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs40(Fragment17, { children: [
-        tool === "chat" && chatPane === "logs" && /* @__PURE__ */ jsx47(LogViewer, { bootLog: appBoot.log || getSnapshot().log || {} }, `logs-${homeTick}`),
-        tool === "chat" && chatPane !== "logs" && /* @__PURE__ */ jsx47(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx47(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
-        tool === "config" && configPane === "prompts" && /* @__PURE__ */ jsx47(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
-        tool === "config" && (configPane === "permisos" || configPane === "sistema") && /* @__PURE__ */ jsx47(ConfigTool, { pane: configPane, onNeedLogin: () => setAuthOpen(true) }, homeTick)
+      ] }) }) : publicScrumView ? /* @__PURE__ */ jsx48(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick) : /* @__PURE__ */ jsxs41(Fragment17, { children: [
+        tool === "home" && /* @__PURE__ */ jsx48(WelcomeHome, { onOpenTool: openFromWelcome }, `home-${homeTick}`),
+        tool === "chat" && chatPane === "logs" && /* @__PURE__ */ jsx48(LogViewer, { bootLog: appBoot.log || getSnapshot().log || {} }, `logs-${homeTick}`),
+        tool === "chat" && chatPane !== "logs" && /* @__PURE__ */ jsx48(ChatTool, { bootChat: getSnapshot().chat || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "todos" && DEVFLOW_NAV_ENABLED && /* @__PURE__ */ jsx48(TodosTool, { bootTodos: appBoot.todos || {}, onNeedLogin: () => setAuthOpen(true) }, `${homeTick}-${authTick}`),
+        tool === "config" && configPane === "prompts" && /* @__PURE__ */ jsx48(PromptsSqlTool, { bootPrompts: appBoot.prompts || {}, onNeedLogin: () => setAuthOpen(true) }, homeTick),
+        tool === "config" && (configPane === "permisos" || configPane === "sistema") && /* @__PURE__ */ jsx48(ConfigTool, { pane: configPane, onNeedLogin: () => setAuthOpen(true) }, homeTick)
       ] })
     }
   );
