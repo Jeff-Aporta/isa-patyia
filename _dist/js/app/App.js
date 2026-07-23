@@ -2621,15 +2621,24 @@ function formatMsgFecha(v) {
     const raw = String(v ?? "").trim();
     return { label: raw ? raw.slice(0, 40) : "", iso: "" };
   }
-  const label = d.toLocaleString("es-CO", {
+  const datePart = d.toLocaleDateString("es-CO", {
     day: "numeric",
     month: "short",
-    year: "numeric",
+    year: "numeric"
+  });
+  const tenth = Math.floor(d.getMilliseconds() / 100);
+  const timeParts = new Intl.DateTimeFormat("es-CO", {
     hour: "numeric",
     minute: "2-digit",
+    second: "2-digit",
     hour12: true
-  });
-  return { label, iso: d.toISOString() };
+  }).formatToParts(d);
+  let timePart = "";
+  for (const p of timeParts) {
+    timePart += p.value;
+    if (p.type === "second") timePart += `.${tenth}`;
+  }
+  return { label: `${datePart}, ${timePart}`, iso: d.toISOString() };
 }
 function formatTs(v) {
   return formatMsgFecha(v).label;
@@ -19871,7 +19880,7 @@ function WelcomeHome({ onOpenTool }) {
       orbs: true,
       sx: { px: 0, pt: 0, pb: { xs: 1.5, sm: 2, md: 3 }, height: "100%", minHeight: 0 },
       children: [
-        /* @__PURE__ */ jsx46(GlassHero, { className: "paty-welcome__hero", sx: { mb: 2.5, borderRadius: 0, width: "100%" }, children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-grid", children: [
+        /* @__PURE__ */ jsx46(GlassHero, { className: "paty-welcome__hero", sx: { mb: 2.5, borderRadius: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }, children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-grid", children: [
           /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-copy", children: [
             /* @__PURE__ */ jsxs39(Typography28, { className: "paty-welcome__eyebrow", component: "p", children: [
               /* @__PURE__ */ jsx46(Icon26, { icon: "solar:buildings-2-bold-duotone", size: 16 }),
@@ -19962,6 +19971,7 @@ function WelcomeHome({ onOpenTool }) {
             accent: NEON_COLORS.cyan,
             icon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:widget-4-bold-duotone", size: 18 }),
             bodySx: { pt: 2 },
+            sx: { mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" },
             children: [
               /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", component: "p", children: "Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producci\xF3n)." }),
               /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => {
