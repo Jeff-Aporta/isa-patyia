@@ -1,7 +1,7 @@
 import { getReact, getMaterialUI, UI, getGlass } from "../core/platform.ts";
-import { fetchOpenAiStatus, openAiStatusIsDegraded, type OpenAiStatusSnapshot } from "../api/openaiStatusApi.ts";
+import { fetchOpenAiStatus, openAiStatusIsDegraded, openAiStatusLooksOperational, type OpenAiStatusSnapshot } from "../api/openaiStatusApi.ts";
 
-const POLL_MS = 10_000;
+const POLL_MS = 45_000;
 
 const TOOLS = [
   {
@@ -55,6 +55,7 @@ const ILLUSTRATION_ORBITS = [
 function statusToneKey(status, degraded) {
   if (!status) return "loading";
   if (status.error) return "warn";
+  if (openAiStatusLooksOperational(status)) return "ok";
   if (status.indicator === "critical" || status.indicator === "major") return "err";
   if (degraded) return "warn";
   return "ok";
@@ -91,11 +92,15 @@ export function WelcomeHome({ onOpenTool }) {
   const { Icon } = UI;
   const { GlassPageSurface, GlassHero, GlassCard, GlassSection, NEON_COLORS } = getGlass();
   const [status, setStatus] = useState(/** @type {OpenAiStatusSnapshot | null} */ (null));
+  const [pollProgress, setPollProgress] = useState(0);
   const abortRef = useRef(/** @type {AbortController | null} */ (null));
+  const cycleStartRef = useRef(Date.now());
 
   useEffect(() => {
     let alive = true;
     async function pull() {
+      cycleStartRef.current = Date.now();
+      if (alive) setPollProgress(0);
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -126,21 +131,39 @@ export function WelcomeHome({ onOpenTool }) {
     };
   }, []);
 
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const elapsed = Date.now() - cycleStartRef.current;
+      setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
+      raf = window.requestAnimationFrame(tick);
+    };
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
+
   const degraded = openAiStatusIsDegraded(status);
+  const operational = openAiStatusLooksOperational(status);
   const statusTone = statusToneKey(status, degraded);
   const statusTitle = !status
     ? "Consultando OpenAI Status…"
     : status.error
       ? "No se pudo leer OpenAI Status"
-      : degraded
-        ? status.description
-        : "OpenAI operacional";
+      : operational || !degraded
+        ? (status.description || "OpenAI operacional")
+        : status.description;
   const statusDetail = !status
-    ? "Actualización automática cada 10 s."
+    ? "Actualización automática cada 45 s."
     : status.error
       ? status.error
-      : status.incidents[0]?.name || (degraded ? "Revisa status.openai.com para más detalle." : "Sin incidentes activos.");
+      : operational || !degraded
+        ? "Sin incidentes activos."
+        : status.incidents[0]?.name || "Revisa status.openai.com para más detalle.";
   const accent = statusAccent(NEON_COLORS, statusTone);
+  const secsLeft = Math.max(0, Math.ceil((1 - pollProgress) * (POLL_MS / 1000)));
+  const ringR = 15.5;
+  const ringC = 2 * Math.PI * ringR;
+  const ringOffset = ringC * (1 - pollProgress);
 
   return (
     <GlassPageSurface
@@ -219,8 +242,28 @@ export function WelcomeHome({ onOpenTool }) {
         aria-live="polite"
       >
         <Box className="paty-welcome__status-row">
-          <Box className="paty-welcome__status-icon" sx={{ "--pw-status-accent": accent }} aria-hidden>
-            <Icon icon={statusIcon(statusTone)} size={30} />
+          <Box
+            className="paty-welcome__status-icon"
+            sx={{ "--pw-status-accent": accent }}
+            title={`Próxima actualización en ${secsLeft}s`}
+            aria-label={`Próxima actualización de OpenAI Status en ${secsLeft} segundos`}
+          >
+            <svg className="paty-welcome__status-ring" viewBox="0 0 36 36" aria-hidden="true">
+              <circle className="paty-welcome__status-ring-track" cx="18" cy="18" r={ringR} />
+              <circle
+                className="paty-welcome__status-ring-prog"
+                cx="18"
+                cy="18"
+                r={ringR}
+                style={{
+                  strokeDasharray: `${ringC} ${ringC}`,
+                  strokeDashoffset: ringOffset,
+                }}
+              />
+            </svg>
+            <span className="paty-welcome__status-icon-glyph">
+              <Icon icon={statusIcon(statusTone)} size={22} />
+            </span>
           </Box>
           <Box className="paty-welcome__status-body" sx={{ flex: 1, minWidth: 0 }}>
             <Typography className="paty-welcome__status-kicker" component="p">

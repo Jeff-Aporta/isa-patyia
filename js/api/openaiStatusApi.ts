@@ -78,6 +78,16 @@ export async function fetchOpenAiStatus(signal?: AbortSignal): Promise<OpenAiSta
 
 export function openAiStatusIsDegraded(snap: OpenAiStatusSnapshot | null | undefined): boolean {
   if (!snap) return false;
+  // Statuspage: indicator "none" = operacional (lista de incidents puede ir rezagada).
+  if (snap.indicator === "none") return false;
   if (snap.indicator === "minor" || snap.indicator === "major" || snap.indicator === "critical") return true;
   return (snap.incidents?.length ?? 0) > 0;
+}
+
+/** Descripción tipica de Statuspage cuando todo está bien. */
+export function openAiStatusLooksOperational(snap: OpenAiStatusSnapshot | null | undefined): boolean {
+  if (!snap || snap.error) return false;
+  if (snap.indicator === "none") return true;
+  const d = String(snap.description || "").trim().toLowerCase();
+  return /all systems operational|operacional|operational/.test(d) && snap.indicator !== "minor" && snap.indicator !== "major" && snap.indicator !== "critical";
 }
