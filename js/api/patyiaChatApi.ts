@@ -235,9 +235,25 @@ function isLegacyDataUrl(s: string): boolean {
   return v.startsWith("data:audio/") || v.startsWith("data:image/");
 }
 
+/**
+ * Texto a enviar en chat. Solo acepta string: si llega un Event/objeto
+ * (p. ej. onClick={onSend} → SyntheticEvent), se ignora y se usa el draft.
+ * Evita persistir literalmente "[object Object]" en CONVERSACIONES/log.
+ */
+export function resolveChatSendText(overrideText: unknown, draft: unknown = ""): string {
+  if (typeof overrideText === "string") return overrideText.trim();
+  if (typeof draft === "string") return draft.trim();
+  return "";
+}
+
+/** Prompt seguro para el body: nunca String(obj) → "[object Object]". */
+export function coerceConversacionPrompt(prompt: unknown): string {
+  return typeof prompt === "string" ? prompt.trim() : "";
+}
+
 /** Cuerpo JSON del POST /conversacion (URLs R2 firmadas; sin base64). */
 export function buildConversacionPostBody(input: SendMessageInput): Record<string, unknown> {
-  const text = String(input.prompt || "").trim();
+  const text = coerceConversacionPrompt(input.prompt);
   const imagenes = (input.imagenes || [])
     .map((s) => String(s || "").trim())
     .filter((s) => isHttpUrl(s) || isLegacyDataUrl(s));

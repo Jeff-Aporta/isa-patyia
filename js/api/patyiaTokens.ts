@@ -3,7 +3,7 @@
  *
  * | Kind | Token              | Origen              | Uso |
  * | app  | AppSession JWT     | system-login        | Gateway, bridge MSSQL, publish instrucciones, portal-jwt BD, permisos |
- * | paty | JWT portal InSoft  | soporte-staging     | Chat directo AyudasCP-IA (conversaciones, mensajes SSE) |
+ * | paty | JWT portal InSoft  | ContaPyme (staging=prod) | Chat directo AyudasCP-IA (conversaciones, mensajes SSE) |
  *
  * Regla: nunca enviar el JWT Paty al orquestador/bridge ni el AppSession a ayudascp-ia-staging.
  */
@@ -46,6 +46,6 @@ export function assertAppSession(): void {
 
 export function assertPatyJwt(jwt: PatyJwtRecord | null | undefined): asserts jwt is PatyJwtRecord {
   if (!jwt?.token?.trim()) {
-    throw new Error("Configura el JWT de soporte-staging para usar el chat Paty");
+    throw new Error("Inicia sesión o configura un JWT ContaPyme para usar el chat Paty");
   }
 }

@@ -18,6 +18,7 @@ import {
   deleteConversacion,
   sendConversacionStream,
   buildConversacionPostBody,
+  resolveChatSendText,
   postMensajeCalificado,
 } from "../../api/patyiaChatApi.ts";
 import { uploadAudios, uploadImagenes, type AdjuntoSubido } from "../../api/adjuntosApi.ts";
@@ -811,7 +812,8 @@ export function useChatTool({ bootChat }: { bootChat?: UseChatToolBoot }) {
 
   async function onSend(overrideText?: string) {
     if (!canSend || !jwt) return;
-    const text = String(overrideText ?? draft).trim();
+    // onClick={onSend} pasa SyntheticEvent — solo override string explícito (Enter / login).
+    const text = resolveChatSendText(overrideText, draft);
     if (!text && !images.length && !audios.length) return;
     if (selectedId && !convBelongsToJwtResolved(
       detail,

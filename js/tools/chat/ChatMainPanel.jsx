@@ -88,11 +88,8 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
             </Button>
           )}
         >
-          Modo lectura — puedes explorar conversaciones. Configura el JWT de{" "}
-          <Typography component="a" href="https://www.contapyme.com/soporte-staging/" target="_blank" rel="noreferrer" variant="inherit">
-            soporte-staging
-          </Typography>
-          {" "}para enviar mensajes.
+          Modo lectura — puedes explorar conversaciones. Para enviar mensajes inicia sesión
+          con tu cuenta ContaPyme o configura un JWT de portal (válido en staging y producción).
         </Alert>
       )}
       {viewingAuditOther && (
@@ -120,7 +117,7 @@ export function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, de
               {canSend
                 ? "Escribe un mensaje abajo para iniciar una conversación."
                 : needsJwt
-                  ? "Selecciona una conversación del listado o configura JWT para chatear."
+                  ? "Selecciona una conversación del listado o inicia sesión / configura JWT para chatear."
                   : "Selecciona una conversación o crea una nueva."}
             </Typography>
           </Box>
