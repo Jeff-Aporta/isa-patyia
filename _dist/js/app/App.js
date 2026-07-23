@@ -4530,7 +4530,8 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
           return {
             ...base,
             borderColor: theme2.palette.action.disabled,
-            bgcolor: theme2.palette.action.hover,
+            bgcolor: "transparent",
+            background: isLight ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.08)",
             boxShadow: "none",
             transition: "none"
           };
@@ -4538,22 +4539,28 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
         if (isLight) {
           return {
             ...base,
-            borderColor: `${color}52`,
-            bgcolor: operativa ? "#fffbeb" : "#ffffff",
-            boxShadow: "none",
+            borderColor: `${color}40`,
+            bgcolor: "transparent",
+            background: operativa ? `linear-gradient(165deg, ${color}18 0%, rgba(255,251,235,0.72) 42%, rgba(255,255,255,0.55) 100%)` : `linear-gradient(165deg, ${color}14 0%, rgba(255,255,255,0.72) 48%, rgba(248,250,252,0.55) 100%)`,
+            boxShadow: "0 1px 0 rgba(255,255,255,0.65) inset, 0 8px 28px rgba(15,23,42,0.06)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
             transition: "none"
           };
         }
         return {
           ...base,
-          borderColor: `${color}40`,
-          bgcolor: "background.paper",
-          boxShadow: fullNeon ? `0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px ${color}28` : operativa ? `0 4px 20px ${color}18` : `0 4px 24px rgba(0, 0, 0, 0.22), 0 0 0 1px ${color}22`,
+          borderColor: `${color}32`,
+          bgcolor: "transparent",
+          background: operativa ? `linear-gradient(165deg, ${color}1f 0%, rgba(15,23,42,0.28) 52%, rgba(11,18,32,0.14) 100%)` : `linear-gradient(165deg, ${color}16 0%, rgba(15,34,54,0.28) 46%, rgba(11,18,32,0.14) 100%)`,
+          boxShadow: fullNeon ? `0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 22px rgba(0,0,0,0.16), 0 0 0 1px ${color}1a` : `0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px ${color}14`,
+          backdropFilter: "blur(14px) saturate(1.15)",
+          WebkitBackdropFilter: "blur(14px) saturate(1.15)",
           transition: fullNeon ? "transform 0.2s ease, box-shadow 0.2s ease" : "none",
           ...fullNeon ? {
             "&:hover": {
-              transform: { sm: "translateY(-2px)" },
-              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.35), 0 0 24px ${color}22`
+              transform: { sm: "translateY(-1px)" },
+              boxShadow: `0 1px 0 rgba(255,255,255,0.07) inset, 0 10px 28px rgba(0,0,0,0.2), 0 0 18px ${color}14`
             }
           } : {}
         };
@@ -4575,14 +4582,18 @@ function SectionCard({ icon, title, titleCaption, accent, children, id, onMeta, 
                 if (isLight) {
                   return {
                     ...base,
-                    bgcolor: `${color}12`,
-                    ...isRight ? { borderRight: 4, borderRightColor: color } : { borderLeft: 4, borderLeftColor: color }
+                    bgcolor: "transparent",
+                    background: `${color}14`,
+                    borderColor: "rgba(148,163,184,0.18)",
+                    ...isRight ? { borderRight: 3, borderRightColor: color } : { borderLeft: 3, borderLeftColor: color }
                   };
                 }
                 return {
                   ...base,
-                  background: isRight ? `linear-gradient(270deg, ${color}28, transparent 72%)` : `linear-gradient(90deg, ${color}28, transparent 72%)`,
-                  ...isRight ? { borderRight: 4, borderRightColor: color } : { borderLeft: 4, borderLeftColor: color }
+                  bgcolor: "transparent",
+                  borderColor: "rgba(148,163,184,0.12)",
+                  background: isRight ? `linear-gradient(270deg, ${color}24, transparent 78%)` : `linear-gradient(90deg, ${color}24, transparent 78%)`,
+                  ...isRight ? { borderRight: 3, borderRightColor: color } : { borderLeft: 3, borderLeftColor: color }
                 };
               }
               if (operativa) {
@@ -12286,14 +12297,14 @@ function LlmProviderSwitch({ provider, onChange }) {
     Button4,
     {
       size: "small",
-      variant: isMm ? "contained" : "outlined",
-      color: isMm ? "secondary" : "inherit",
+      variant: "text",
+      color: "inherit",
       className: `paty-chat-provider-btn${isMm ? " paty-chat-provider-btn--minimax" : ""}`,
       onClick: () => onChange?.(isMm ? CHAT_PROVIDER_OPENAI : CHAT_PROVIDER_MINIMAX),
       "aria-label": title,
       "aria-pressed": isMm,
       startIcon: /* @__PURE__ */ jsx19(Icon4, { icon, size: 16 }),
-      sx: { textTransform: "none", minWidth: 0, px: 1, py: 0.25, fontWeight: 700, fontSize: "0.75rem", lineHeight: 1.2 },
+      sx: { textTransform: "none", minWidth: 0, px: 0.75, py: 0.25, fontWeight: 600, fontSize: "0.75rem", lineHeight: 1.2, bgcolor: "transparent", boxShadow: "none", "&:hover": { bgcolor: "transparent" } },
       children: isMm ? "MiniMax" : "OpenAI"
     }
   ) });
@@ -12945,15 +12956,14 @@ function RefreshConvButton({ onClick, busy = false }) {
 function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, canSend, loadingThread, refreshingThread = false, sending, showThread, logError, displayMensajes, chatUserDisplayName, chatUserNick, ratingMsgId, threadScrollRef, onThreadScroll, onOpenJwt, onClearAuditFilter, onRefreshConv, draft, images, audios, isRecording, payloadPreviewOpen, postBodyPreview, inputRef, attachInputRef, onDraftChange, onPaste, onSend, onTogglePayloadPreview, onAttachClick, onAttachChange, onToggleVoiceRecord, onRemoveImage, onRemoveAudio, onMeta, onRateMessage, onOpenSidebar, messageSource = "logs", mode, llmProvider = "openai", onMessageSourceChange, onChatModeChange, onLlmProviderChange, onContapymeLoginDone = null }) {
   const isProdView = messageSource === "prod";
   const hasThread = Boolean(selectedId || detail);
+  const providerBtn = onLlmProviderChange ? /* @__PURE__ */ jsx22(LlmProviderSwitch, { provider: llmProvider, onChange: onLlmProviderChange }) : null;
   const headerActions = /* @__PURE__ */ jsx22(
     ChatSidebarHeaderActions,
     {
       messageSource,
       mode,
-      llmProvider,
       onMessageSourceChange,
-      onChatModeChange,
-      onLlmProviderChange
+      onChatModeChange
     }
   );
   return /* @__PURE__ */ jsxs19(Box11, { sx: { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }, children: [
@@ -12967,6 +12977,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         sx: { px: 1, py: 0.5, minHeight: 40, flexShrink: 0 },
         children: [
           /* @__PURE__ */ jsx22(Tooltip4, { title: "Conversaciones", arrow: true, children: /* @__PURE__ */ jsx22(IconButton5, { size: "small", onClick: onOpenSidebar, "aria-label": "Abrir conversaciones", children: /* @__PURE__ */ jsx22(Icon7, { icon: "mdi:menu-open", size: 20 }) }) }),
+          providerBtn,
           /* @__PURE__ */ jsx22(Typography10, { variant: "subtitle2", sx: { fontWeight: 700, flex: 1, minWidth: 0 }, noWrap: true, children: "Conversaciones" }),
           headerActions,
           hasThread ? /* @__PURE__ */ jsx22(RefreshConvButton, { onClick: onRefreshConv, busy: refreshingThread }) : null
@@ -12981,6 +12992,7 @@ function ChatMainPanel({ jwt, needsJwt, viewingAuditOther, selectedId, detail, c
         className: "paty-chat-main-toolbar paty-chat-main-toolbar--desktop",
         sx: { px: 2, py: 0.75, flexShrink: 0 },
         children: [
+          providerBtn,
           /* @__PURE__ */ jsx22(Box11, { sx: { flex: 1 } }),
           headerActions,
           hasThread ? /* @__PURE__ */ jsx22(RefreshConvButton, { onClick: onRefreshConv, busy: refreshingThread }) : null
