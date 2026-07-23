@@ -174,12 +174,20 @@ Cache `ME_CAPS` desde `GET /api/permissions/me` → `capsFromPermisosEfectivos` 
 
 | Slot | `/api/permissions/me` | Front |
 |------|----------------------|-------|
-| **Staging** | v5 + `permsOpen` | mapa `permisosEfectivos` (wildcards) |
-| **Prod** | **v2** `roles:[dev_lead]` + `capabilities{}` + mapa explícito | hidratar **mapa ∪ capabilities** (no solo mapa); `FORCE_PERMS_OPEN` provisional |
+| **Staging** | v5 + SEG real (`permsOpen` false en BD) | mapa `permisosEfectivos` (wildcards) |
+| **Prod** | **v2** / ISS aún no alineado | `forcePermsOpen()` → true (UI abierta, solo front) |
 
 **NO** usar `Session.blockReason("patyia.instrucciones.publish")` para gates/title de prompts (legacy `denyForbidden` aunque ME diga `canEditInstrucciones: true`).
 
-**Provisional:** `FORCE_PERMS_OPEN` solo front. «Ver como» sigue clampando. `dev_lead` no abre view-as (solo puente edición si ME no hidrató).
+### forcePermsOpen / prod — NO DESACTIVAR hasta orden explícita
+
+> **Estado vigente (23-jul-2026):** con chip **Producción**, el front actúa como `permsOpen: true` **solo en UI** (`js/api/sessionApi.ts` → `forcePermsOpen()` = `getIssTarget() === "production"`). Staging/local = SEG real. El ISS de prod **no** debe “arreglarse” quitando este bypass desde el front.
+
+**Regla fija:** no cambiar, acotar ni apagar `forcePermsOpen` hasta que alguien indique **explícitamente**:
+1. que **producción ISS ya está actualizada** (mismo modelo de permisos que staging), **y**
+2. que se **desactive** el bypass de UI en prod.
+
+Hasta entonces: dejarlo. «Ver como rol» sigue clampando. `dev_lead` no abre view-as (solo puente edición si ME no hidrató).
 
 - **`canSwitchTarget()`**: sin cambio (la capability `infra.target.switch` sí está en legacy y corresponde).
 

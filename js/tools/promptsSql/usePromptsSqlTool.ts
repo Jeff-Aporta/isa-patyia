@@ -52,7 +52,7 @@ export function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
       return LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
     }
     // FORCE / ME v2+v5 / hint GET instrucciones — nunca Session.can legacy (tooltip denyForbidden falso).
-    if (LabSession.FORCE_PERMS_OPEN) return true;
+    if (LabSession.forcePermsOpen()) return true;
     return instruccionesCanEdit || LabSession.canEditInstrucciones() || LabSession.canEditPromptsOperativos();
   }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo(() => LabSession.isLoggedIn(), [authTick]);

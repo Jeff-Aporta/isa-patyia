@@ -83,6 +83,8 @@ export function getIssTarget(): IssTarget {
 export function setIssTarget(target: IssTarget): void {
   try { localStorage.setItem(PATYIA_ISS_TARGET_LS_KEY, target); } catch { /* ignore */ }
   try { window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } })); } catch { /* ignore */ }
+  // forcePermsOpen() depende del target: re-evaluar caps UI (prod abierto vs SEG en staging/local).
+  try { window.dispatchEvent(new Event("patyia-apptools:caps-changed")); } catch { /* ignore */ }
 }
 
 /** @deprecated Mantener para compatibilidad — el switch real es setIssTarget. */

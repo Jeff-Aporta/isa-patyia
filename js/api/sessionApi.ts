@@ -9,6 +9,7 @@
  */
 import { Session } from "../core/platform.ts";
 import { toastError, toastWarning } from "../core/platform.ts";
+import { getIssTarget } from "../core/patyia.ts";
 import { fetchPermissionsMe, invalidatePermisosCache } from "./systemConfigApi.ts";
 import { capsFromPermisosEfectivos } from "../tools/permAccessFromMap.js";
 import { canonicalRoleMeta } from "../tools/roleCanonicalMeta.js";
@@ -76,10 +77,23 @@ export const INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
 export const TARGET_SWITCH_CAP = "infra.target.switch";
 
 /**
- * Provisional: UI sin comprobación real de caps SEG (equiv. permsOpen ISS).
- * Solo front — ISS usa SYS_VALUES config/runtime.permsOpen. false = probar SEG ClientesIS.
+ * UI sin bloqueos de caps (equiv. permsOpen) — solo front y solo target Producción.
+ * Staging/local usan SEG real. ISS config/runtime.permsOpen no se toca.
+ *
+ * POLÍTICA (no apagar sin orden explícita):
+ * Mientras producción ISS no esté actualizada al modelo de permisos de staging,
+ * `forcePermsOpen()` DEBE seguir devolviendo true en target "production".
+ * No cambiar ni desactivar hasta que se indique explícitamente:
+ *   1) que prod ya está actualizada, y
+ *   2) que se desactive este bypass de UI.
+ * Ver `frontend/llm.md` § «forcePermsOpen / prod».
  */
-export const FORCE_PERMS_OPEN = false;
+export function forcePermsOpen(): boolean {
+  return getIssTarget() === "production";
+}
+
+/** @deprecated Preferir forcePermsOpen(); se mantiene como función (antes era boolean fijo). */
+export const FORCE_PERMS_OPEN = forcePermsOpen;
 
 /** Cache local de capabilities devueltas por GET /api/permissions/me.
  *  La fuente canónica es el endpoint; este cache es solo espejo en memoria. */
@@ -163,7 +177,7 @@ function localMeCaps(): MeCapabilities {
   const key = sessionCacheKey();
   const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
   // FORCE gana sobre falsos de ME (prod v2/SEG parcial); «ver como» sigue clampando abajo.
-  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
+  const real = forcePermsOpen() ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   // Solo UI: preset ∩ caps reales. El ISS sigue usando JWT/roles reales (ME_CAPS crudo).
   if (viewAs && canViewAsRole()) {
@@ -256,7 +270,7 @@ export function meCapsHydrated(): boolean {
 /** Edición config: ME_CAPS ∪ hint servidor ∪ puente Dev ISS si ME aún vacío (prod ISS viejo). */
 function resolveEditCap(meFlag: boolean | undefined, serverHint?: boolean | null): boolean {
   if (isViewingAsRole()) return !!meFlag;
-  if (FORCE_PERMS_OPEN) return true;
+  if (forcePermsOpen()) return true;
   if (meFlag) return true;
   if (serverHint === true) return true;
   // ME no hidrató: no bloquear Dev ISS / prod v2 dev_lead.
@@ -280,7 +294,7 @@ export function canOverrideSampling(): boolean { return !!localMeCaps().canOverr
 export function canManagePermissions(): boolean { return !!localMeCaps().canManagePermissions; }
 export function canAssignUserRoles(): boolean { return !!localMeCaps().canAssignUserRoles; }
 export function canAccessOthers(): boolean {
-  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
+  if (forcePermsOpen() && !isViewingAsRole()) return true;
   if (localMeCaps().canAccessOthers) return true;
   // Mientras SEG/permissions/me falla: no bloquear Dev ISS / prod v2 dev_lead.
   if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
