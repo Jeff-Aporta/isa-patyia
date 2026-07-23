@@ -87,6 +87,7 @@ html[data-mui-color-scheme="light"] .paty-welcome__tools.isa-glass-section {
 }
 
 .paty-welcome__status-icon {
+  position: relative;
   display: grid;
   place-items: center;
   width: 3rem;
@@ -99,6 +100,40 @@ html[data-mui-color-scheme="light"] .paty-welcome__tools.isa-glass-section {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 35%, transparent),
     0 8px 24px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 22%, transparent);
+}
+
+.paty-welcome__status-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.paty-welcome__status-ring-track,
+.paty-welcome__status-ring-prog {
+  fill: none;
+  stroke-width: 2.75;
+}
+
+.paty-welcome__status-ring-track {
+  stroke: color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 22%, transparent);
+}
+
+.paty-welcome__status-ring-prog {
+  stroke: var(--pw-status-accent, var(--pw-cyan));
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 55%, transparent));
+  transition: stroke-dashoffset 0.08s linear;
+}
+
+.paty-welcome__status-icon-glyph {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  line-height: 0;
 }
 
 .paty-welcome__status-kicker {
@@ -428,7 +463,8 @@ html[data-mui-color-scheme="light"] .paty-welcome__orbit {
   .paty-welcome__tools,
   .paty-welcome__art-ring,
   .paty-welcome__art-core,
-  .paty-welcome__tool-go {
+  .paty-welcome__tool-go,
+  .paty-welcome__status-ring-prog {
     animation: none !important;
     transition: none !important;
   }

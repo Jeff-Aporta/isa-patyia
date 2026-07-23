@@ -52,10 +52,18 @@ async function fetchOpenAiStatus(signal) {
 }
 function openAiStatusIsDegraded(snap) {
   if (!snap) return false;
+  if (snap.indicator === "none") return false;
   if (snap.indicator === "minor" || snap.indicator === "major" || snap.indicator === "critical") return true;
   return (snap.incidents?.length ?? 0) > 0;
 }
+function openAiStatusLooksOperational(snap) {
+  if (!snap || snap.error) return false;
+  if (snap.indicator === "none") return true;
+  const d = String(snap.description || "").trim().toLowerCase();
+  return /all systems operational|operacional|operational/.test(d) && snap.indicator !== "minor" && snap.indicator !== "major" && snap.indicator !== "critical";
+}
 export {
   fetchOpenAiStatus,
-  openAiStatusIsDegraded
+  openAiStatusIsDegraded,
+  openAiStatusLooksOperational
 };

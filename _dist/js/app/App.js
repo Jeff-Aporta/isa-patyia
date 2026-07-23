@@ -19742,13 +19742,14 @@ async function fetchOpenAiStatus(signal) {
 }
 function openAiStatusIsDegraded(snap) {
   if (!snap) return false;
+  if (snap.indicator === "none") return false;
   if (snap.indicator === "minor" || snap.indicator === "major" || snap.indicator === "critical") return true;
   return (snap.incidents?.length ?? 0) > 0;
 }
 
 // js/tools/WelcomeHome.jsx
 import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
-var POLL_MS = 1e4;
+var POLL_MS = 45e3;
 var TOOLS = [
   {
     id: "chat",
@@ -19829,13 +19830,17 @@ function WelcomeHome({ onOpenTool }) {
     /** @type {OpenAiStatusSnapshot | null} */
     null
   );
+  const [pollProgress, setPollProgress] = useState34(0);
   const abortRef = useRef17(
     /** @type {AbortController | null} */
     null
   );
+  const cycleStartRef = useRef17(Date.now());
   useEffect30(() => {
     let alive = true;
     async function pull() {
+      cycleStartRef.current = Date.now();
+      if (alive) setPollProgress(0);
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -19867,11 +19872,25 @@ function WelcomeHome({ onOpenTool }) {
       abortRef.current?.abort();
     };
   }, []);
+  useEffect30(() => {
+    let raf = 0;
+    const tick = () => {
+      const elapsed = Date.now() - cycleStartRef.current;
+      setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
+      raf = window.requestAnimationFrame(tick);
+    };
+    raf = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
   const degraded = openAiStatusIsDegraded(status);
   const statusTone = statusToneKey(status, degraded);
   const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : degraded ? status.description : "OpenAI operacional";
   const statusDetail = !status ? "Actualizaci\xF3n autom\xE1tica cada 10 s." : status.error ? status.error : status.incidents[0]?.name || (degraded ? "Revisa status.openai.com para m\xE1s detalle." : "Sin incidentes activos.");
   const accent = statusAccent(NEON_COLORS, statusTone);
+  const secsLeft = Math.max(0, Math.ceil((1 - pollProgress) * (POLL_MS / 1e3)));
+  const ringR = 15.5;
+  const ringC = 2 * Math.PI * ringR;
+  const ringOffset = ringC * (1 - pollProgress);
   return /* @__PURE__ */ jsxs39(
     GlassPageSurface,
     {
@@ -19940,7 +19959,34 @@ function WelcomeHome({ onOpenTool }) {
             sx: { mb: 2.5, p: 0, overflow: "hidden" },
             "aria-live": "polite",
             children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-row", children: [
-              /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__status-icon", sx: { "--pw-status-accent": accent }, "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: statusIcon(statusTone), size: 30 }) }),
+              /* @__PURE__ */ jsxs39(
+                Box33,
+                {
+                  className: "paty-welcome__status-icon",
+                  sx: { "--pw-status-accent": accent },
+                  title: `Pr\xF3xima actualizaci\xF3n en ${secsLeft}s`,
+                  "aria-label": `Pr\xF3xima actualizaci\xF3n de OpenAI Status en ${secsLeft} segundos`,
+                  children: [
+                    /* @__PURE__ */ jsxs39("svg", { className: "paty-welcome__status-ring", viewBox: "0 0 36 36", "aria-hidden": "true", children: [
+                      /* @__PURE__ */ jsx46("circle", { className: "paty-welcome__status-ring-track", cx: "18", cy: "18", r: ringR }),
+                      /* @__PURE__ */ jsx46(
+                        "circle",
+                        {
+                          className: "paty-welcome__status-ring-prog",
+                          cx: "18",
+                          cy: "18",
+                          r: ringR,
+                          style: {
+                            strokeDasharray: `${ringC} ${ringC}`,
+                            strokeDashoffset: ringOffset
+                          }
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ jsx46("span", { className: "paty-welcome__status-icon-glyph", children: /* @__PURE__ */ jsx46(Icon26, { icon: statusIcon(statusTone), size: 22 }) })
+                  ]
+                }
+              ),
               /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-body", sx: { flex: 1, minWidth: 0 }, children: [
                 /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-kicker", component: "p", children: "OpenAI Status" }),
                 /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-title", component: "h2", children: statusTitle }),
