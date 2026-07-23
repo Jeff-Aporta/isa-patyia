@@ -4536,3 +4536,25 @@ html {
   font-size: 12px;
   word-break: break-all;
 }
+
+/* Chip target ISS (Producción): dark mode más brillante; light queda en MUI success */
+html[data-mui-color-scheme="dark"] .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess,
+html:not([data-mui-color-scheme="light"]) .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.7);
+  background-color: rgba(34, 197, 94, 0.22);
+  font-weight: 600;
+}
+html[data-mui-color-scheme="dark"] .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess .MuiChip-icon,
+html:not([data-mui-color-scheme="light"]) .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess .MuiChip-icon,
+html[data-mui-color-scheme="dark"] .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess .MuiChip-label,
+html:not([data-mui-color-scheme="light"]) .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess .MuiChip-label {
+  color: inherit;
+}
+html[data-mui-color-scheme="dark"] .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess.MuiChip-clickable:hover,
+html:not([data-mui-color-scheme="light"]) .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess.MuiChip-clickable:hover,
+html[data-mui-color-scheme="dark"] .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess.MuiChip-clickable:focus-visible,
+html:not([data-mui-color-scheme="light"]) .isa-layout-root .iss-target-chip--production.MuiChip-outlinedSuccess.MuiChip-clickable:focus-visible {
+  background-color: rgba(34, 197, 94, 0.34);
+  border-color: rgba(187, 247, 208, 0.85);
+}

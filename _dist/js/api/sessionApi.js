@@ -649,6 +649,9 @@ function resolvePrimaryIssRoleId() {
   const sl = Session.current()?.role;
   return sl ? String(sl).trim().toUpperCase() : "";
 }
+function forcePermsOpen() {
+  return getIssTarget() === "production";
+}
 function capsFromPermissionsMe(me) {
   if (!me) return null;
   const map = me.permisosEfectivos ?? me.permisos;
@@ -671,7 +674,7 @@ function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
   const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
-  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
+  const real = forcePermsOpen() ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   if (viewAs && canViewAsRole()) {
     const preset = capsForViewAsRole(viewAs);
@@ -757,7 +760,7 @@ function meCapsHydrated() {
 }
 function resolveEditCap(meFlag, serverHint) {
   if (isViewingAsRole()) return !!meFlag;
-  if (FORCE_PERMS_OPEN) return true;
+  if (forcePermsOpen()) return true;
   if (meFlag) return true;
   if (serverHint === true) return true;
   if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
@@ -794,7 +797,7 @@ function canAssignUserRoles() {
   return !!localMeCaps().canAssignUserRoles;
 }
 function canAccessOthers2() {
-  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
+  if (forcePermsOpen() && !isViewingAsRole()) return true;
   if (localMeCaps().canAccessOthers) return true;
   if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
   try {
@@ -924,6 +927,7 @@ var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
     init_platform();
+    init_patyia();
     init_systemConfigApi();
     init_permAccessFromMap();
     init_roleCanonicalMeta();
@@ -931,7 +935,7 @@ var init_sessionApi = __esm({
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
     TARGET_SWITCH_CAP = "infra.target.switch";
-    FORCE_PERMS_OPEN = false;
+    FORCE_PERMS_OPEN = forcePermsOpen;
     OPEN_ME_CAPS = {
       canEditInstrucciones: true,
       canEditOpenAiConfig: true,
@@ -1018,6 +1022,7 @@ export {
   canViewLogs,
   canViewPrompts,
   clearSession,
+  forcePermsOpen,
   formatViewAsRoleLabel,
   getSession,
   getViewAsRole,

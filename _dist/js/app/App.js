@@ -48,6 +48,10 @@ function setIssTarget(target) {
     window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } }));
   } catch {
   }
+  try {
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
 }
 function isDevHost() {
   try {
@@ -1565,6 +1569,9 @@ function resolvePrimaryIssRoleId() {
   const sl = Session.current()?.role;
   return sl ? String(sl).trim().toUpperCase() : "";
 }
+function forcePermsOpen() {
+  return getIssTarget() === "production";
+}
 function capsFromPermissionsMe(me) {
   if (!me) return null;
   const map = me.permisosEfectivos ?? me.permisos;
@@ -1587,7 +1594,7 @@ function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
   const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
-  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
+  const real = forcePermsOpen() ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   if (viewAs && canViewAsRole()) {
     const preset = capsForViewAsRole(viewAs);
@@ -1658,7 +1665,7 @@ function meCapsHydrated() {
 }
 function resolveEditCap(meFlag, serverHint) {
   if (isViewingAsRole()) return !!meFlag;
-  if (FORCE_PERMS_OPEN) return true;
+  if (forcePermsOpen()) return true;
   if (meFlag) return true;
   if (serverHint === true) return true;
   if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
@@ -1680,7 +1687,7 @@ function canEditPromptsOperativos() {
   return resolveEditCap(localMeCaps().canEditPromptsOperativos);
 }
 function canAccessOthers2() {
-  if (FORCE_PERMS_OPEN && !isViewingAsRole()) return true;
+  if (forcePermsOpen() && !isViewingAsRole()) return true;
   if (localMeCaps().canAccessOthers) return true;
   if (roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
   try {
@@ -1784,18 +1791,18 @@ function humanPermissionError(err, cap) {
 function handleApiError(err, cap) {
   window.ISAFront.handleApiError(err, cap, { blockReason, clearSession, toastWarning, toastError });
 }
-var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, FORCE_PERMS_OPEN, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
 var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
     init_platform();
+    init_patyia();
     init_systemConfigApi();
     init_permAccessFromMap();
     init_roleCanonicalMeta();
     init_viewAsRole();
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-    FORCE_PERMS_OPEN = false;
     OPEN_ME_CAPS = {
       canEditInstrucciones: true,
       canEditOpenAiConfig: true,
@@ -2197,6 +2204,7 @@ function IssTargetChip() {
           size: "small",
           color: meta.color,
           variant: "outlined",
+          className: `iss-target-chip iss-target-chip--${meta.id}`,
           icon: Icon24 ? React2.createElement(Icon24, { icon: meta.icon, size: 16 }) : void 0,
           label: meta.label,
           onClick: (e) => setAnchor(e.currentTarget),
@@ -7517,7 +7525,7 @@ function urlDraftTipoSet(bootPrompts) {
   return new Set(listed);
 }
 function ensurePublishCap(onNeedLogin) {
-  if (FORCE_PERMS_OPEN && !isViewingAsRole() && isLoggedIn()) return true;
+  if (forcePermsOpen() && !isViewingAsRole() && isLoggedIn()) return true;
   const cap = instruccionesPublishCap();
   if (cap) return true;
   const reason = "Sin permiso para publicar instrucciones";
@@ -7947,7 +7955,7 @@ function usePromptsSqlTool({ bootPrompts = {}, onNeedLogin }) {
     if (isViewingAsRole()) {
       return canEditInstrucciones() || canEditPromptsOperativos();
     }
-    if (FORCE_PERMS_OPEN) return true;
+    if (forcePermsOpen()) return true;
     return instruccionesCanEdit || canEditInstrucciones() || canEditPromptsOperativos();
   }, [authTick, instruccionesCanEdit]);
   const loggedIn = useMemo4(() => isLoggedIn(), [authTick]);

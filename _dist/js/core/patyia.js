@@ -47,6 +47,10 @@ function setIssTarget(target) {
     window.dispatchEvent(new CustomEvent("patyia-apptools:iss-target-changed", { detail: { target } }));
   } catch {
   }
+  try {
+    window.dispatchEvent(new Event("patyia-apptools:caps-changed"));
+  } catch {
+  }
 }
 function setLocalMode(_on) {
   return true;
