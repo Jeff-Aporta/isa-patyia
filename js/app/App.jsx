@@ -5,6 +5,7 @@ import { PromptsSqlTool } from "../tools/PromptsSqlTool.jsx";
 import { ChatTool } from "../tools/ChatTool.jsx";
 import { TodosTool } from "../tools/TodosTool.jsx";
 import { ConfigTool } from "../tools/ConfigTool.jsx";
+import { WelcomeHome } from "../tools/WelcomeHome.jsx";
 import { IssTargetChip } from "../components/IssTargetSwitch.jsx";
 import { ViewAsRoleMenu } from "../components/ViewAsRoleControl.jsx";
 import * as SessionApi from "../api/sessionApi.ts";
@@ -32,10 +33,10 @@ const ALL_TOOLS = [
   { id: "config", label: "Config", icon: "mdi:cog-outline" },
 ];
 
-/** Sub-nav de Chat: logs primero, luego conversaciones. */
+/** Sub-nav de Chat: conversaciones a la izquierda, logs a la derecha. */
 const CHAT_PANES = [
-  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
   { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" },
+  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
 ];
 
 /** Sub-nav de Config: prompts, sistema, permisos. */
@@ -66,7 +67,7 @@ function readChatPane(boot) {
 function readConfigPane(boot) {
   const pane = boot?.config?.pane;
   if (pane === "permisos" || pane === "prompts" || pane === "sistema") return pane;
-  return "sistema";
+  return "prompts";
 }
 
 function LocalIssBadge() {
@@ -78,7 +79,7 @@ export function App() {
   const { LoginButton } = UI;
   const boot = bootState;
   const [appBoot, setAppBoot] = useState(boot);
-  const [tool, setTool] = useState(() => boot.tool || "chat");
+  const [tool, setTool] = useState(() => boot.tool || "home");
   const [chatPane, setChatPane] = useState(() => readChatPane(boot));
   const [configPane, setConfigPane] = useState(() => readConfigPane(boot));
   const [authOpen, setAuthOpen] = useState(false);
@@ -116,13 +117,14 @@ export function App() {
     return subscribe(() => {
       const snap = getSnapshot();
       setAppBoot(snap);
-      setTool(snap.tool || "chat");
+      setTool(snap.tool || "home");
       setChatPane(readChatPane(snap));
       setConfigPane(readConfigPane(snap));
     });
   }, []);
 
   useEffect(() => {
+    if (tool === "home") Assets.ensureWelcomeCss();
     if (tool === "chat") Assets.ensureChatStagingCss();
     if (tool === "todos" || publicScrumView) Assets.ensureTodosCss();
   }, [tool, publicScrumView]);
@@ -180,7 +182,7 @@ export function App() {
   useEffect(() => {
     function onBrandHome() {
       setAppBoot(getSnapshot());
-      setTool("chat");
+      setTool("home");
       setChatPane("conv");
       setHomeTick((n) => n + 1);
     }
@@ -193,10 +195,24 @@ export function App() {
     if (id === "chat") {
       mergePartial({ tool: id, chat: { pane: chatPane || "conv" } });
     } else if (id === "config") {
-      mergePartial({ tool: id, config: { pane: configPane || "sistema" } });
+      mergePartial({ tool: id, config: { pane: configPane || "prompts" } });
+    } else if (id === "home") {
+      mergePartial({ tool: "home" });
     } else {
       mergePartial({ tool: id });
     }
+  }
+
+  function openFromWelcome(id, pane) {
+    if (id === "config") {
+      const p = pane === "permisos" || pane === "prompts" || pane === "sistema" ? pane : "prompts";
+      setConfigPane(p);
+      setTool("config");
+      mergePartial({ tool: "config", config: { pane: p } });
+      try { localStorage.setItem("isa-patyia:config-tab", p); } catch { /* ignore */ }
+      return;
+    }
+    selectTool(id === "chat" ? "chat" : id);
   }
 
   function selectChatPane(id) {
@@ -207,7 +223,7 @@ export function App() {
   }
 
   function selectConfigPane(id) {
-    const pane = id === "permisos" ? "permisos" : id === "prompts" ? "prompts" : "sistema";
+    const pane = id === "permisos" ? "permisos" : id === "sistema" ? "sistema" : "prompts";
     setConfigPane(pane);
     setTool("config");
     mergePartial({ tool: "config", config: { pane } });
@@ -236,7 +252,7 @@ export function App() {
         { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: PUBLIC_SCRUM_TOOLS, tabHref: (id) => hrefFor({ tool: id }) },
       ]
     : [
-        { id: "tool", tier: "primary", value: tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
+        { id: "tool", tier: "primary", value: tool === "home" ? "" : tool, onChange: selectTool, tabs: toolTabs, tabHref: (id) => hrefFor({ tool: id }) },
         ...(tool === "chat"
           ? [{
               id: "chat-pane",
@@ -298,6 +314,9 @@ export function App() {
         <TodosTool key={homeTick} bootTodos={appBoot.todos || {}} onNeedLogin={() => setAuthOpen(true)} />
       ) : (
         <>
+          {tool === "home" && (
+            <WelcomeHome key={`home-${homeTick}`} onOpenTool={openFromWelcome} />
+          )}
           {tool === "chat" && chatPane === "logs" && (
             <LogViewer key={`logs-${homeTick}`} bootLog={appBoot.log || getSnapshot().log || {}} />
           )}

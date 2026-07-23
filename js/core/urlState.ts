@@ -12,7 +12,7 @@ function normalizeLog(raw: unknown) {
   return o;
 }
 
-function initial() { return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } }; }
+function initial() { return { v: STATE_VERSION, tool: "home", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "prompts" } }; }
 
 function normalizeChatPane(raw: unknown): "conv" | "logs" {
   return raw === "logs" ? "logs" : "conv";
@@ -20,18 +20,18 @@ function normalizeChatPane(raw: unknown): "conv" | "logs" {
 
 function normalizeConfigPane(raw: unknown): "sistema" | "permisos" | "prompts" {
   if (raw === "permisos") return "permisos";
-  if (raw === "prompts") return "prompts";
-  return "sistema";
+  if (raw === "sistema") return "sistema";
+  return "prompts";
 }
 
 /** Lee tab Config legacy en LS (antes vivía fuera de ?s=). */
 function legacyConfigPaneFromLs(): "sistema" | "permisos" | "prompts" {
   try {
     const v = localStorage.getItem("isa-patyia:config-tab");
-    if (v === "permisos" || v === "prompts") return v;
-    return "sistema";
+    if (v === "permisos" || v === "sistema" || v === "prompts") return v;
+    return "prompts";
   } catch {
-    return "sistema";
+    return "prompts";
   }
 }
 
@@ -39,10 +39,11 @@ function normalizeTool(raw: unknown) {
   // Legacy: tool=log → chat + pane=logs; tool=prompts → config + pane=prompts.
   if (raw === "log") return "chat";
   if (raw === "prompts") return "config";
+  if (raw === "home") return "home";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "chat";
+  return "home";
 }
 
 function normalizeChatBag(chat: unknown, legacyTool?: unknown) {

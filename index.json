@@ -28,7 +28,8 @@
     "local:css/boot-loading.css",
     "local:css/theme.css",
     "local:css/neon-glass-bridge.css",
-    "local:css/app.css"
+    "local:css/app.css",
+    "local:css/welcome-home.css"
   ],
   "preconnect": [],
   "libs": [

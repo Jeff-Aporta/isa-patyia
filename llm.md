@@ -1143,3 +1143,53 @@ Con chip **Producción** + `forcePermsOpen()` la UI deja editar instrucciones, p
 | Volver a `noauthorization` con sMsg custom | Health `iss-auth · noauthorization no lleva sMsg` |
 
 Health: `iss-no-orchestrator.test.ts` (scan `Rst401(noauthorization,`).
+
+---
+
+## Sesión 23-jul-2026 — Chat muestra `[object Object]` en burbuja usuario
+
+### Causa
+`ChatComposer` tenía `onClick={onSend}`. React pasa el **SyntheticEvent** como 1.er arg. `onSend` hacía `String(overrideText ?? draft)` → `"\[object Object\]"` y eso se mandaba en `prompt` al ISS (conv 5091, imensaje 4001/6001).
+
+Enter (`onSend()`) y `onSend("ya inicié sesión")` sí funcionaban.
+
+### Fix
+| Archivo | Cambio |
+|---------|--------|
+| `ChatComposer.jsx` | `onClick={() => onSend()}` |
+| `useChatTool.ts` | `resolveChatSendText(override, draft)` — solo string |
+| `patyiaChatApi.ts` | `coerceConversacionPrompt` — no `String(obj)` |
+
+QA local (gitignore `tests/`): `node tests/chat-send-object-object.test.mjs`
+
+---
+
+## Sesión 23-jul-2026 — Alert JWT «soporte-staging» con sesión viva
+
+### Diagnóstico (front, no ISS)
+1. Sesión ISA tenía JWT ContaPyme válido (`itercero`, sin `exp`).
+2. Caché `isa-patyia:paty-jwt` vacía → alert «Configura JWT de soporte-staging».
+3. `hydratePatyJwtFromServer` iba a BD_AUTH vía orchestrator; Neon respondió **402 quota** → sin fallback a `Session.token`.
+4. El JWT ContaPyme es el mismo para staging y prod; el id `soporte-staging` es solo clave histórica en BD_AUTH.
+
+### Fix
+- `syncPatyJwtFromSession()` + hydrate: caché → sesión → BD (BD no borra si falla).
+- `samePatyUser` (email ↔ nick).
+- Alert/errores genéricos (staging y producción).
+
+QA: `node tests/jwt-session-sync.test.mjs`
+
+---
+
+## Sesión 23-jul-2026 — Home de bienvenida + OpenAI Status
+
+Al clic en marca **PatyIA** (`isa:brand-home` → `brandHomeReset`) la URL queda limpia y `tool=home`.
+
+| Pieza | Rol |
+|-------|-----|
+| `WelcomeHome.jsx` | Hero PatyIA + grid herramientas + CTA |
+| `openaiStatusApi.ts` | `GET https://status.openai.com/api/v2/summary.json` (CORS `*`) |
+| Poll | Solo en vista home, cada **10 s** |
+| Alert sticky | Si `indicator` ≠ none o hay incidentes abiertos |
+
+QA: `node tests/openai-status-home.test.mjs`

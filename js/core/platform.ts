@@ -90,6 +90,14 @@ export const Assets = {
       console.warn("todos-staging.css:", err);
     });
   },
+  ensureWelcomeCss: () => {
+    const api = frontSharedLazy();
+    if (!api) return;
+    const prefix = typeof window !== "undefined" && (window as Window & { __ISA_DIST__?: boolean }).__ISA_DIST__ ? "_dist/" : "";
+    api.ensureLazyStylesheet!(`${prefix}css/welcome-home.css`).catch((err) => {
+      console.warn("welcome-home.css:", err);
+    });
+  },
 };
 
 export function mdToHtml(src: string): string {
