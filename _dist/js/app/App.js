@@ -19935,7 +19935,22 @@ function OpenAiStatusRing({
     }
   );
   if (!link) return ring;
-  return /* @__PURE__ */ jsx46(Tooltip15, { title: tooltip, enterDelay: 200, describeChild: true, children: /* @__PURE__ */ jsx46(
+  const silenceBrandTitle = (el, on) => {
+    const brand = el?.closest?.(".isa-app-brand");
+    if (!brand) return;
+    if (on) {
+      if (brand.dataset.patyTitleBackup == null) {
+        brand.dataset.patyTitleBackup = brand.getAttribute("title") || "";
+      }
+      brand.removeAttribute("title");
+      return;
+    }
+    const backup = brand.dataset.patyTitleBackup;
+    if (backup) brand.setAttribute("title", backup);
+    else brand.removeAttribute("title");
+    delete brand.dataset.patyTitleBackup;
+  };
+  return /* @__PURE__ */ jsx46(Tooltip15, { title: tooltip, enterDelay: 200, disableInteractive: true, children: /* @__PURE__ */ jsx46(
     "a",
     {
       className: "paty-openai-status-ring__anchor",
@@ -19943,11 +19958,25 @@ function OpenAiStatusRing({
       target: "_blank",
       rel: "noreferrer",
       "aria-label": aria,
+      title: "",
       onClick: (e) => {
         e.stopPropagation();
       },
       onKeyDown: (e) => {
         e.stopPropagation();
+      },
+      onMouseEnter: (e) => {
+        e.currentTarget.setAttribute("title", "");
+        silenceBrandTitle(e.currentTarget, true);
+      },
+      onMouseLeave: (e) => {
+        silenceBrandTitle(e.currentTarget, false);
+      },
+      onFocus: (e) => {
+        silenceBrandTitle(e.currentTarget, true);
+      },
+      onBlur: (e) => {
+        silenceBrandTitle(e.currentTarget, false);
       },
       children: ring
     }

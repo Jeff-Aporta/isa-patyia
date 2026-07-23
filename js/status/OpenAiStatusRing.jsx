@@ -87,19 +87,51 @@ export function OpenAiStatusRing({
 
   if (!link) return ring;
 
+  // El brand del shell lleva title="Inicio"; al hover del anillo hay que silenciarlo
+  // o el tooltip nativo tapa el Tooltip MUI.
+  const silenceBrandTitle = (el, on) => {
+    const brand = el?.closest?.(".isa-app-brand");
+    if (!brand) return;
+    if (on) {
+      if (brand.dataset.patyTitleBackup == null) {
+        brand.dataset.patyTitleBackup = brand.getAttribute("title") || "";
+      }
+      brand.removeAttribute("title");
+      return;
+    }
+    const backup = brand.dataset.patyTitleBackup;
+    if (backup) brand.setAttribute("title", backup);
+    else brand.removeAttribute("title");
+    delete brand.dataset.patyTitleBackup;
+  };
+
   return (
-    <Tooltip title={tooltip} enterDelay={200} describeChild>
+    <Tooltip title={tooltip} enterDelay={200} disableInteractive>
       <a
         className="paty-openai-status-ring__anchor"
         href={href}
         target="_blank"
         rel="noreferrer"
         aria-label={aria}
+        title=""
         onClick={(e) => {
           e.stopPropagation();
         }}
         onKeyDown={(e) => {
           e.stopPropagation();
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.setAttribute("title", "");
+          silenceBrandTitle(e.currentTarget, true);
+        }}
+        onMouseLeave={(e) => {
+          silenceBrandTitle(e.currentTarget, false);
+        }}
+        onFocus={(e) => {
+          silenceBrandTitle(e.currentTarget, true);
+        }}
+        onBlur={(e) => {
+          silenceBrandTitle(e.currentTarget, false);
         }}
       >
         {ring}
