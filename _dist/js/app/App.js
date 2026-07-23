@@ -19746,6 +19746,12 @@ function openAiStatusIsDegraded(snap) {
   if (snap.indicator === "minor" || snap.indicator === "major" || snap.indicator === "critical") return true;
   return (snap.incidents?.length ?? 0) > 0;
 }
+function openAiStatusLooksOperational(snap) {
+  if (!snap || snap.error) return false;
+  if (snap.indicator === "none") return true;
+  const d = String(snap.description || "").trim().toLowerCase();
+  return /all systems operational|operacional|operational/.test(d) && snap.indicator !== "minor" && snap.indicator !== "major" && snap.indicator !== "critical";
+}
 
 // js/tools/WelcomeHome.jsx
 import { jsx as jsx46, jsxs as jsxs39 } from "react/jsx-runtime";
@@ -19754,7 +19760,7 @@ var TOOLS = [
   {
     id: "chat",
     title: "Chat",
-    blurb: "Conversaciones con Paty, logs de turnos y trazas file_search.",
+    blurb: "Conversaciones con Paty, logs de turnos y trazas de consulta.",
     icon: "solar:chat-round-line-bold-duotone",
     accentKey: "cyan",
     pane: null
@@ -19770,7 +19776,7 @@ var TOOLS = [
   {
     id: "config",
     title: "Sistema",
-    blurb: "Modelos OpenAI, max_num_results y prompts operativos.",
+    blurb: "Modelos, par\xE1metros operativos y ajustes del asistente.",
     icon: "solar:settings-bold-duotone",
     accentKey: "purple",
     pane: "sistema"
@@ -19785,7 +19791,7 @@ var TOOLS = [
   }
 ];
 var HERO_PILLS = [
-  { label: "Chat RAG", icon: "solar:magic-stick-3-bold-duotone" },
+  { label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
   { label: "Prompts", icon: "solar:document-text-bold-duotone" },
   { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
   { label: "Trazas", icon: "solar:graph-up-bold-duotone" }
@@ -19799,6 +19805,7 @@ var ILLUSTRATION_ORBITS = [
 function statusToneKey(status, degraded) {
   if (!status) return "loading";
   if (status.error) return "warn";
+  if (openAiStatusLooksOperational(status)) return "ok";
   if (status.indicator === "critical" || status.indicator === "major") return "err";
   if (degraded) return "warn";
   return "ok";
@@ -19838,10 +19845,29 @@ function WelcomeHome({ onOpenTool }) {
   const cycleStartRef = useRef17(Date.now());
   useEffect30(() => {
     let alive = true;
+    let nextPullId = 0;
+    let tickId = 0;
+    const clearTimers = () => {
+      window.clearTimeout(nextPullId);
+      window.clearTimeout(tickId);
+      nextPullId = 0;
+      tickId = 0;
+    };
+    const scheduleTick = () => {
+      window.clearTimeout(tickId);
+      if (!alive) return;
+      tickId = window.setTimeout(() => {
+        if (!alive) return;
+        const elapsed = Date.now() - cycleStartRef.current;
+        setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
+        scheduleTick();
+      }, 120);
+    };
     async function pull() {
+      if (!alive) return;
+      window.clearTimeout(nextPullId);
       cycleStartRef.current = Date.now();
-      if (alive) setPollProgress(0);
-      abortRef.current?.abort();
+      setPollProgress(0);
       const ac = new AbortController();
       abortRef.current = ac;
       try {
@@ -19860,32 +19886,29 @@ function WelcomeHome({ onOpenTool }) {
             sourceUrl: "https://status.openai.com/"
           });
         }
+      } finally {
+        if (!alive) return;
+        nextPullId = window.setTimeout(() => {
+          void pull();
+        }, POLL_MS);
       }
     }
+    cycleStartRef.current = Date.now();
+    setPollProgress(0);
+    scheduleTick();
     void pull();
-    const id = window.setInterval(() => {
-      void pull();
-    }, POLL_MS);
     return () => {
       alive = false;
-      window.clearInterval(id);
+      clearTimers();
       abortRef.current?.abort();
+      abortRef.current = null;
     };
-  }, []);
-  useEffect30(() => {
-    let raf = 0;
-    const tick = () => {
-      const elapsed = Date.now() - cycleStartRef.current;
-      setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
-      raf = window.requestAnimationFrame(tick);
-    };
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
   }, []);
   const degraded = openAiStatusIsDegraded(status);
+  const operational = openAiStatusLooksOperational(status);
   const statusTone = statusToneKey(status, degraded);
-  const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : degraded ? status.description : "OpenAI operacional";
-  const statusDetail = !status ? "Actualizaci\xF3n autom\xE1tica cada 10 s." : status.error ? status.error : status.incidents[0]?.name || (degraded ? "Revisa status.openai.com para m\xE1s detalle." : "Sin incidentes activos.");
+  const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : operational || !degraded ? status.description || "OpenAI operacional" : status.description;
+  const statusDetail = !status ? "Actualizaci\xF3n autom\xE1tica cada 45 s." : status.error ? status.error : operational || !degraded ? "Sin incidentes activos." : status.incidents[0]?.name || "Revisa status.openai.com para m\xE1s detalle.";
   const accent = statusAccent(NEON_COLORS, statusTone);
   const secsLeft = Math.max(0, Math.ceil((1 - pollProgress) * (POLL_MS / 1e3)));
   const ringR = 15.5;

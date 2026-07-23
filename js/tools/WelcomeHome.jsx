@@ -7,7 +7,7 @@ const TOOLS = [
   {
     id: "chat",
     title: "Chat",
-    blurb: "Conversaciones con Paty, logs de turnos y trazas file_search.",
+    blurb: "Conversaciones con Paty, logs de turnos y trazas de consulta.",
     icon: "solar:chat-round-line-bold-duotone",
     accentKey: "cyan",
     pane: null,
@@ -23,7 +23,7 @@ const TOOLS = [
   {
     id: "config",
     title: "Sistema",
-    blurb: "Modelos OpenAI, max_num_results y prompts operativos.",
+    blurb: "Modelos, parámetros operativos y ajustes del asistente.",
     icon: "solar:settings-bold-duotone",
     accentKey: "purple",
     pane: "sistema",
@@ -39,7 +39,7 @@ const TOOLS = [
 ];
 
 const HERO_PILLS = [
-  { label: "Chat RAG", icon: "solar:magic-stick-3-bold-duotone" },
+  { label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
   { label: "Prompts", icon: "solar:document-text-bold-duotone" },
   { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
   { label: "Trazas", icon: "solar:graph-up-bold-duotone" },
@@ -96,12 +96,35 @@ export function WelcomeHome({ onOpenTool }) {
   const abortRef = useRef(/** @type {AbortController | null} */ (null));
   const cycleStartRef = useRef(Date.now());
 
+  // Poll + anillo solo mientras Home está montada (al salir se cancela todo).
   useEffect(() => {
     let alive = true;
+    let nextPullId = 0;
+    let tickId = 0;
+
+    const clearTimers = () => {
+      window.clearTimeout(nextPullId);
+      window.clearTimeout(tickId);
+      nextPullId = 0;
+      tickId = 0;
+    };
+
+    const scheduleTick = () => {
+      window.clearTimeout(tickId);
+      if (!alive) return;
+      tickId = window.setTimeout(() => {
+        if (!alive) return;
+        const elapsed = Date.now() - cycleStartRef.current;
+        setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
+        scheduleTick();
+      }, 120);
+    };
+
     async function pull() {
+      if (!alive) return;
+      window.clearTimeout(nextPullId);
       cycleStartRef.current = Date.now();
-      if (alive) setPollProgress(0);
-      abortRef.current?.abort();
+      setPollProgress(0);
       const ac = new AbortController();
       abortRef.current = ac;
       try {
@@ -120,26 +143,24 @@ export function WelcomeHome({ onOpenTool }) {
             sourceUrl: "https://status.openai.com/",
           });
         }
+      } finally {
+        if (!alive) return;
+        // Próximo fetch solo si seguimos en home.
+        nextPullId = window.setTimeout(() => { void pull(); }, POLL_MS);
       }
     }
+
+    cycleStartRef.current = Date.now();
+    setPollProgress(0);
+    scheduleTick();
     void pull();
-    const id = window.setInterval(() => { void pull(); }, POLL_MS);
+
     return () => {
       alive = false;
-      window.clearInterval(id);
+      clearTimers();
       abortRef.current?.abort();
+      abortRef.current = null;
     };
-  }, []);
-
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const elapsed = Date.now() - cycleStartRef.current;
-      setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
-      raf = window.requestAnimationFrame(tick);
-    };
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
   }, []);
 
   const degraded = openAiStatusIsDegraded(status);
@@ -183,7 +204,7 @@ export function WelcomeHome({ onOpenTool }) {
               PatyIA
             </Typography>
             <Typography className="paty-welcome__tagline">
-              Consola de soporte con IA: chat RAG, prompts, permisos y trazas — contra staging o producción.
+              Consola de QA con IA para ContaPyme: conversaciones, configuración, permisos y trazas en un solo lugar.
             </Typography>
             <Stack direction="row" spacing={1} className="paty-welcome__pills" flexWrap="wrap" useFlexGap>
               {HERO_PILLS.map((p) => (
@@ -298,7 +319,7 @@ export function WelcomeHome({ onOpenTool }) {
         sx={{ mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" }}
       >
         <Typography className="paty-welcome__section-lead" component="p">
-          Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producción).
+          Un solo espacio de trabajo. Elige el panel; el entorno del chip define contra qué instancia pruebas.
         </Typography>
         <Box className="paty-welcome__tool-grid">
           {TOOLS.map((t) => {
