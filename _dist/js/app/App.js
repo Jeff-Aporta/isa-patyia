@@ -19929,7 +19929,7 @@ function WelcomeHome({ onOpenTool }) {
               "InSoft \xB7 ContaPyme"
             ] }),
             /* @__PURE__ */ jsx46(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
-            /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de soporte con IA: chat RAG, prompts, permisos y trazas \u2014 contra staging o producci\xF3n." }),
+            /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de QA con IA para ContaPyme: conversaciones, configuraci\xF3n, permisos y trazas en un solo lugar." }),
             /* @__PURE__ */ jsx46(Stack26, { direction: "row", spacing: 1, className: "paty-welcome__pills", flexWrap: "wrap", useFlexGap: true, children: HERO_PILLS.map((p) => /* @__PURE__ */ jsx46(
               Chip19,
               {
@@ -20042,7 +20042,7 @@ function WelcomeHome({ onOpenTool }) {
             bodySx: { pt: 2 },
             sx: { mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" },
             children: [
-              /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", component: "p", children: "Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producci\xF3n)." }),
+              /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", component: "p", children: "Un solo espacio de trabajo. Elige el panel; el entorno del chip define contra qu\xE9 instancia pruebas." }),
               /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => {
                 const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
                 return /* @__PURE__ */ jsxs39(
