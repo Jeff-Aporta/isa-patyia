@@ -1,4 +1,4 @@
-import { getReact, getMaterialUI, UI } from "../core/platform.ts";
+import { getReact, getMaterialUI, UI, getGlass } from "../core/platform.ts";
 import { fetchOpenAiStatus, openAiStatusIsDegraded, type OpenAiStatusSnapshot } from "../api/openaiStatusApi.ts";
 
 const POLL_MS = 10_000;
@@ -8,42 +8,89 @@ const TOOLS = [
     id: "chat",
     title: "Chat",
     blurb: "Conversaciones con Paty, logs de turnos y trazas file_search.",
-    icon: "mdi:chat-outline",
+    icon: "solar:chat-round-line-bold-duotone",
+    accentKey: "cyan",
     pane: null,
   },
   {
     id: "config",
     title: "Prompts",
     blurb: "Instrucciones MSSQL, borradores y publicación hacia el ISS.",
-    icon: "mdi:database-export",
+    icon: "solar:database-bold-duotone",
+    accentKey: "blue",
     pane: "prompts",
   },
   {
     id: "config",
     title: "Sistema",
     blurb: "Modelos OpenAI, max_num_results y prompts operativos.",
-    icon: "mdi:tune-vertical",
+    icon: "solar:settings-bold-duotone",
+    accentKey: "purple",
     pane: "sistema",
   },
   {
     id: "config",
     title: "Permisos",
     blurb: "Roles SEG, jerarquía y capacidades por usuario.",
-    icon: "mdi:shield-key-outline",
+    icon: "solar:shield-keyhole-bold-duotone",
+    accentKey: "magenta",
     pane: "permisos",
   },
 ];
 
+const HERO_PILLS = [
+  { label: "Chat RAG", icon: "solar:magic-stick-3-bold-duotone" },
+  { label: "Prompts", icon: "solar:document-text-bold-duotone" },
+  { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
+  { label: "Trazas", icon: "solar:graph-up-bold-duotone" },
+];
+
+const ILLUSTRATION_ORBITS = [
+  { icon: "solar:chat-round-dots-bold-duotone", cls: "paty-welcome__orbit--a", size: 36 },
+  { icon: "solar:cpu-bolt-bold-duotone", cls: "paty-welcome__orbit--b", size: 32 },
+  { icon: "solar:database-bold-duotone", cls: "paty-welcome__orbit--c", size: 30 },
+  { icon: "solar:shield-check-bold-duotone", cls: "paty-welcome__orbit--d", size: 28 },
+];
+
+function statusToneKey(status, degraded) {
+  if (!status) return "loading";
+  if (status.error) return "warn";
+  if (status.indicator === "critical" || status.indicator === "major") return "err";
+  if (degraded) return "warn";
+  return "ok";
+}
+
+function glassToneForStatus(tone) {
+  if (tone === "ok") return "success";
+  if (tone === "err") return "err";
+  if (tone === "warn") return "warn";
+  return "blue";
+}
+
+function statusAccent(NEON_COLORS, tone) {
+  if (tone === "ok") return NEON_COLORS.green;
+  if (tone === "err") return NEON_COLORS.red;
+  if (tone === "warn") return NEON_COLORS.amber;
+  return NEON_COLORS.cyan;
+}
+
+function statusIcon(tone) {
+  if (tone === "ok") return "solar:check-circle-bold-duotone";
+  if (tone === "loading") return "svg-spinners:ring-resize";
+  if (tone === "err") return "solar:danger-triangle-bold-duotone";
+  return "solar:danger-circle-bold-duotone";
+}
+
 /**
  * Home al pulsar marca PatyIA (URL limpia sin ?s=).
- * Hero + mapa de herramientas + monitor OpenAI Status cada 10s.
+ * Neon-glass + Iconify: hero, estado OpenAI y mapa de herramientas.
  */
 export function WelcomeHome({ onOpenTool }) {
   const { useState, useEffect, useRef } = getReact();
-  const { Box, Typography, Button, Stack, Link } = getMaterialUI();
+  const { Box, Typography, Button, Stack, Link, Chip } = getMaterialUI();
   const { Icon } = UI;
+  const { GlassPageSurface, GlassHero, GlassCard, GlassSection, NEON_COLORS } = getGlass();
   const [status, setStatus] = useState(/** @type {OpenAiStatusSnapshot | null} */ (null));
-  const [tick, setTick] = useState(0);
   const abortRef = useRef(/** @type {AbortController | null} */ (null));
 
   useEffect(() => {
@@ -54,10 +101,7 @@ export function WelcomeHome({ onOpenTool }) {
       abortRef.current = ac;
       try {
         const snap = await fetchOpenAiStatus(ac.signal);
-        if (alive) {
-          setStatus(snap);
-          setTick((n) => n + 1);
-        }
+        if (alive) setStatus(snap);
       } catch (e) {
         if ((e as { name?: string })?.name === "AbortError") return;
         if (alive) {
@@ -83,18 +127,7 @@ export function WelcomeHome({ onOpenTool }) {
   }, []);
 
   const degraded = openAiStatusIsDegraded(status);
-  const lastAgo = status?.fetchedAt
-    ? Math.max(0, Math.round((Date.now() - status.fetchedAt) / 1000))
-    : null;
-  const statusTone = !status
-    ? "loading"
-    : status.error
-      ? "warn"
-      : status.indicator === "critical" || status.indicator === "major"
-        ? "err"
-        : degraded
-          ? "warn"
-          : "ok";
+  const statusTone = statusToneKey(status, degraded);
   const statusTitle = !status
     ? "Consultando OpenAI Status…"
     : status.error
@@ -103,104 +136,167 @@ export function WelcomeHome({ onOpenTool }) {
         ? status.description
         : "OpenAI operacional";
   const statusDetail = !status
-    ? "Poll cada 10 s en esta vista."
+    ? "Actualización automática cada 10 s."
     : status.error
       ? status.error
-      : [
-          status.incidents[0]?.name,
-          status.indicator !== "none" ? `indicator: ${status.indicator}` : null,
-          lastAgo != null ? `actualizado hace ${lastAgo}s` : null,
-          `poll #${tick}`,
-        ].filter(Boolean).join(" · ");
+      : status.incidents[0]?.name || (degraded ? "Revisa status.openai.com para más detalle." : "Sin incidentes activos.");
+  const accent = statusAccent(NEON_COLORS, statusTone);
 
   return (
-    <Box className="paty-welcome" component="main">
-      <section className="paty-welcome__status-wrap" aria-live="polite">
-        <article className={`paty-welcome__status-card paty-welcome__status-card--${statusTone}`}>
-          <div className="paty-welcome__status-icon" aria-hidden="true">
-            <Icon
-              icon={
-                statusTone === "ok"
-                  ? "mdi:check-circle-outline"
-                  : statusTone === "loading"
-                    ? "mdi:loading"
-                    : "mdi:alert-outline"
-              }
-              size={28}
-            />
-          </div>
-          <div className="paty-welcome__status-body">
-            <p className="paty-welcome__status-kicker">OpenAI Status</p>
-            <h2 className="paty-welcome__status-title">{statusTitle}</h2>
-            <p className="paty-welcome__status-detail">{statusDetail}</p>
-          </div>
-          <a
+    <GlassPageSurface
+      className="paty-welcome"
+      component="main"
+      orbs
+      sx={{ px: 0, pt: 0, pb: { xs: 1.5, sm: 2, md: 3 }, height: "100%", minHeight: 0 }}
+    >
+      <GlassHero className="paty-welcome__hero" sx={{ mb: 2.5, borderRadius: 0, width: "100%" }}>
+        <Box className="paty-welcome__hero-grid">
+          <Box className="paty-welcome__hero-copy">
+            <Typography className="paty-welcome__eyebrow" component="p">
+              <Icon icon="solar:buildings-2-bold-duotone" size={16} />
+              InSoft · ContaPyme
+            </Typography>
+            <Typography component="h1" className="paty-welcome__brand">
+              PatyIA
+            </Typography>
+            <Typography className="paty-welcome__tagline">
+              Consola de soporte con IA: chat RAG, prompts, permisos y trazas — contra staging o producción.
+            </Typography>
+            <Stack direction="row" spacing={1} className="paty-welcome__pills" flexWrap="wrap" useFlexGap>
+              {HERO_PILLS.map((p) => (
+                <Chip
+                  key={p.label}
+                  size="small"
+                  className="paty-welcome__pill"
+                  icon={<Icon icon={p.icon} size={15} />}
+                  label={p.label}
+                />
+              ))}
+            </Stack>
+            <Stack direction="row" spacing={1.5} className="paty-welcome__cta" flexWrap="wrap" useFlexGap>
+              <Button
+                variant="contained"
+                size="large"
+                className="paty-welcome__cta-primary"
+                startIcon={<Icon icon="solar:chat-round-line-bold-duotone" size={20} />}
+                onClick={() => onOpenTool("chat")}
+              >
+                Abrir Chat
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                className="paty-welcome__cta-ghost"
+                startIcon={<Icon icon="solar:settings-bold-duotone" size={20} />}
+                onClick={() => onOpenTool("config", "prompts")}
+              >
+                Ir a Config
+              </Button>
+            </Stack>
+          </Box>
+
+          <Box className="paty-welcome__hero-art" aria-hidden="true">
+            <Box className="paty-welcome__art-ring paty-welcome__art-ring--outer" />
+            <Box className="paty-welcome__art-ring paty-welcome__art-ring--mid" />
+            <Box className="paty-welcome__art-core">
+              <Icon icon="ph:robot-duotone" size={88} />
+            </Box>
+            {ILLUSTRATION_ORBITS.map((o) => (
+              <Box key={o.cls} className={`paty-welcome__orbit ${o.cls}`}>
+                <Icon icon={o.icon} size={o.size} />
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      </GlassHero>
+
+      <GlassCard
+        className="paty-welcome__status-card"
+        tone={glassToneForStatus(statusTone)}
+        accent={accent}
+        hover={false}
+        sx={{ mb: 2.5, p: 0, overflow: "hidden" }}
+        aria-live="polite"
+      >
+        <Box className="paty-welcome__status-row">
+          <Box className="paty-welcome__status-icon" sx={{ "--pw-status-accent": accent }} aria-hidden>
+            <Icon icon={statusIcon(statusTone)} size={30} />
+          </Box>
+          <Box className="paty-welcome__status-body" sx={{ flex: 1, minWidth: 0 }}>
+            <Typography className="paty-welcome__status-kicker" component="p">
+              OpenAI Status
+            </Typography>
+            <Typography className="paty-welcome__status-title" component="h2">
+              {statusTitle}
+            </Typography>
+            <Typography className="paty-welcome__status-detail" component="p">
+              {statusDetail}
+            </Typography>
+          </Box>
+          <Link
             className="paty-welcome__status-link"
             href={status?.sourceUrl || "https://status.openai.com/"}
             target="_blank"
             rel="noreferrer"
+            underline="hover"
           >
-            status.openai.com
-          </a>
-        </article>
-      </section>
-
-      <section className="paty-welcome__hero">
-        <div className="paty-welcome__hero-glow" aria-hidden="true" />
-        <div className="paty-welcome__hero-inner">
-          <p className="paty-welcome__eyebrow">InSoft · ContaPyme</p>
-          <Typography component="h1" className="paty-welcome__brand">
-            PatyIA
-          </Typography>
-          <Typography className="paty-welcome__tagline">
-            Consola de soporte con IA: chat RAG, prompts, permisos y trazas — contra staging o producción.
-          </Typography>
-          <Stack direction="row" spacing={1.5} className="paty-welcome__cta" flexWrap="wrap" useFlexGap>
-            <Button variant="contained" size="large" onClick={() => onOpenTool("chat")}>
-              Abrir Chat
-            </Button>
-            <Button variant="outlined" size="large" onClick={() => onOpenTool("config", "prompts")}>
-              Ir a Config
-            </Button>
-          </Stack>
-        </div>
-      </section>
-
-      <section className="paty-welcome__tools" aria-labelledby="paty-welcome-tools-title">
-        <Typography id="paty-welcome-tools-title" component="h2" className="paty-welcome__section-title">
-          Herramientas
-        </Typography>
-        <Typography className="paty-welcome__section-lead">
-          Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producción).
-        </Typography>
-        <div className="paty-welcome__tool-grid">
-          {TOOLS.map((t) => (
-            <button
-              key={`${t.id}-${t.title}`}
-              type="button"
-              className="paty-welcome__tool"
-              onClick={() => onOpenTool(t.id, t.pane)}
-            >
-              <span className="paty-welcome__tool-icon" aria-hidden="true">
-                <Icon icon={t.icon} size={28} />
-              </span>
-              <span className="paty-welcome__tool-title">{t.title}</span>
-              <span className="paty-welcome__tool-blurb">{t.blurb}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <footer className="paty-welcome__foot">
-        <Typography variant="body2">
-          Estado de proveedores:{" "}
-          <Link href="https://status.openai.com/" target="_blank" rel="noreferrer">
+            <Icon icon="solar:link-round-bold-duotone" size={16} />
             status.openai.com
           </Link>
-          {" · "}
-          La marca PatyIA vuelve aquí y limpia <code>?s=</code>.
+        </Box>
+      </GlassCard>
+
+      <GlassSection
+        className="paty-welcome__tools"
+        title="Herramientas"
+        accent={NEON_COLORS.cyan}
+        icon={<Icon icon="solar:widget-4-bold-duotone" size={18} />}
+        bodySx={{ pt: 2 }}
+      >
+        <Typography className="paty-welcome__section-lead" component="p">
+          Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producción).
         </Typography>
-      </footer>
-    </Box>
+        <Box className="paty-welcome__tool-grid">
+          {TOOLS.map((t) => {
+            const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
+            return (
+              <GlassCard
+                key={`${t.id}-${t.title}`}
+                className="paty-welcome__tool isa-neon-accent-stripe"
+                accent={toolAccent}
+                hover
+                component="button"
+                type="button"
+                onClick={() => onOpenTool(t.id, t.pane)}
+                sx={{
+                  "--stripe-accent": toolAccent,
+                  "--card-accent": toolAccent,
+                  p: 2,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                  border: "none",
+                  font: "inherit",
+                  color: "inherit",
+                }}
+              >
+                <Box className="paty-welcome__tool-icon" sx={{ "--pw-tool-accent": toolAccent }} aria-hidden>
+                  <Icon icon={t.icon} size={32} />
+                </Box>
+                <Typography className="paty-welcome__tool-title" component="span">
+                  {t.title}
+                </Typography>
+                <Typography className="paty-welcome__tool-blurb" component="span">
+                  {t.blurb}
+                </Typography>
+                <Box className="paty-welcome__tool-go" aria-hidden>
+                  <Icon icon="solar:arrow-right-bold-duotone" size={18} />
+                </Box>
+              </GlassCard>
+            );
+          })}
+        </Box>
+      </GlassSection>
+    </GlassPageSurface>
   );
 }
