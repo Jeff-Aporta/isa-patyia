@@ -20,13 +20,30 @@ function systemApiBase(): string {
   return resolveIssApiBase();
 }
 
-/** Local ISS (:8802) → modo is + JWT InSoft (Paty). Remoto → modo w + AppSession (orchestrator). */
+/** Local ISS → is; remoto → w (diagnóstico; el Bearer real es JWT InSoft si hay caché). */
 function resolveIssAuthMode(): "w" | "is" {
   const base = systemApiBase();
   if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
   return "w";
 }
 
+/** ispserver TErr401.noauthorization ignora sMsg y muestra este boilerplate ContaPyme (401020). */
+const CONTAPYME_NOAUTH_RX = /par[aá]metro de autenticaci[oó]n|enviando el header.*authorization/i;
+
+/** Traduce el 401020 mentiroso a causa real probable (SEG / JWT / deploy). */
+export function humanizeIssAuthMessage(msg: string): string {
+  const m = String(msg ?? "").trim();
+  if (!m) return m;
+  if (!CONTAPYME_NOAUTH_RX.test(m)) return m;
+  return (
+    "El servidor rechazó la operación (permiso SEG o JWT), no falta el header Authorization. " +
+    "Si estás en Producción: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT " +
+    "(SEG o permsOpen). Tras desplegar el fix ISS verás el mensaje real (p. ej. Sin PUT … en SEG)."
+  );
+}
+
+/** Headers hacia ISS: siempre preferir JWT InSoft (Paty) si hay caché válida.
+ *  Staging/prod y local usan la misma firma; Session.authHeader solo como fallback. */
 function systemApiHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const mode = resolveIssAuthMode();
   const h: Record<string, string> = {
@@ -34,20 +51,15 @@ function systemApiHeaders(extra: Record<string, string> = {}): Record<string, st
     "X-Patyia-Auth-Mode": mode,
     ...extra,
   };
-  if (mode === "is") {
-    // Preferir JWT portal InSoft (firma ISS); AppSession system-login NO sirve en modo is
-    const paty = loadPatyJwt();
-    if (paty?.token && !isPatyJwtExpired(paty.token)) {
-      h.Authorization = `Bearer ${paty.token}`;
-      if (Session.isLoggedIn()) {
-        const app = { ...Session.appHeader() };
-        for (const k of Object.keys(app)) {
-          if (/^authorization$/i.test(k)) delete app[k];
-        }
-        Object.assign(h, app);
+  const paty = loadPatyJwt();
+  if (paty?.token && !isPatyJwtExpired(paty.token)) {
+    h.Authorization = `Bearer ${paty.token}`;
+    if (Session.isLoggedIn()) {
+      const app = { ...Session.appHeader() };
+      for (const k of Object.keys(app)) {
+        if (/^authorization$/i.test(k)) delete app[k];
       }
-    } else if (Session.isLoggedIn()) {
-      Object.assign(h, Session.authHeader(), Session.appHeader());
+      Object.assign(h, app);
     }
   } else if (Session.isLoggedIn()) {
     Object.assign(h, Session.authHeader(), Session.appHeader());
@@ -61,7 +73,7 @@ function unwrapBody<T>(data: unknown): T {
   if (enc && typeof enc === "object" && !Array.isArray(enc) && (enc as { resultado?: boolean }).resultado === false) {
     const e = enc as { mensaje?: unknown; imensaje?: unknown };
     const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
+    throw new Error(humanizeIssAuthMessage(msg) || "Error en la respuesta del servidor");
   }
   let inner: unknown = d;
   if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
@@ -92,7 +104,7 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
         }
       } catch { /* ignore */ }
     }
-    throw new Error(msg || `HTTP ${res.status}`);
+    throw new Error(humanizeIssAuthMessage(msg) || `HTTP ${res.status}`);
   }
   if (!ct.includes("json")) {
     throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);

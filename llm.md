@@ -112,9 +112,12 @@ Domain wrappers en `js/api/`:
 ## Build local
 
 ```bash
-# Regenerar bundles _dist/ para archivos modificados
+# Bundles JS/JSX listados en paty_build.mjs (App, sessionApi, IssTargetSwitch, …)
 cd "C:\ContaPyme\Personal\apps\isa-patyia\frontend"
 node paty_build.mjs
+
+# CSS / boot / módulos NO listados en paty_build: sync puntual o gen-front-dist
+# ¡Cuidado! gen-front-dist sobreescribe App.js y rompe el bundle — ver § 23-jul-2026
 
 # Server estático local (front solo, sin backend)
 npx serve .      # o: http-server -p 8766 .
@@ -125,6 +128,12 @@ npm run start    # :8802
 ```
 
 `paty_build.mjs` lista hardcoded `jobs[]` (línea 56). Si añadís `.jsx`/`.ts`/`.tsx` en `js/`, agregalo a `jobs[]` o no se compila para deploy.
+
+**Invariantes locales (gitignore `tests/`):**
+
+```bash
+node --test tests/invariants-2026-07-23-force-perms-and-dist.test.mjs
+```
 
 ## Deploy
 
@@ -1101,3 +1110,34 @@ ISS pide login ContaPyme® (MCP `pagina_login_asw`) y el mensaje trae URL `https
 | Commitear `tests/` del front | gitignore a propósito; health productivo ISS = `src/health/` |
 
 Tras cambios: `node paty_build.mjs` (App bundle incluye ConvLogWebView).
+
+---
+
+## Sesión 23-jul-2026 — 401 «parámetro authorization» al guardar en Producción
+
+### Qué pasó
+Con chip **Producción** + `forcePermsOpen()` la UI deja editar instrucciones, pero el **PUT** al ISS de prod fallaba con el texto ContaPyme:
+
+> No se ha definido el parámetro de autenticación… header… `authorization`
+
+### Causa real (NO falta el header)
+`ispserver` `TErr401.noauthorization` (**401020**) **ignora** el `sMsg`. El ISS tiraba `Rst401(noauthorization, "Sin PUT … en SEG")` y el cliente solo veía el boilerplate.
+
+Además: `forcePermsOpen` **solo abre UI**. El servidor de prod sigue exigiendo SEG (o `permsOpen` en `config/runtime`). Sin eso el PUT se niega aunque el front diga “editable”.
+
+### Qué HAY que hacer
+| Capa | Acción |
+|------|--------|
+| ISS | Denegaciones con mensaje → `Rst401(TErr401.unauthorized, sMsg)` — **nunca** `noauthorization` con sMsg |
+| Front | `systemApiHeaders`: Bearer JWT InSoft (`loadPatyJwt`) en **todos** los targets; fallback Session |
+| Front | `humanizeIssAuthMessage` si llega el 401020 |
+| Prod escritura | SEG PUT real **o** `config/runtime.permsOpen=true` en BD prod **y** ISS desplegado que lo lea |
+
+### Qué NO hacer
+| No hacer | Por qué |
+|----------|---------|
+| Tratar el 401020 como “falta Authorization” | Mentira de ispserver; el Bearer suele ir |
+| Creer que `forcePermsOpen` autoriza el PUT | Solo UI |
+| Volver a `noauthorization` con sMsg custom | Health `iss-auth · noauthorization no lleva sMsg` |
+
+Health: `iss-no-orchestrator.test.ts` (scan `Rst401(noauthorization,`).

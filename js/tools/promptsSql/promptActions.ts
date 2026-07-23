@@ -1,6 +1,7 @@
 import * as PromptsSql from "../../api/promptsSql.ts";
 import * as LabApi from "../../api/labApi.ts";
 import * as LabSession from "../../api/sessionApi.ts";
+import { humanizeIssAuthMessage } from "../../api/systemConfigApi.ts";
 import { hasInstruccionTipoSlot, preparePromptBodyForSave } from "../../core/promptVariables.ts";
 import {
   toastWarning, toastSuccess, toastError, toastInfo, requestConfirm,
@@ -82,12 +83,13 @@ export async function saveAllPrompts({
     applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
     toastSuccess(`${savedTipos.length} instrucción(es) guardada(s) en Paty`);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const msg = humanizeIssAuthMessage(raw);
     setLoadErr(msg);
     if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
       LabSession.handleApiError(e, LabSession.INSTRUCCIONES_WRITE_CAP);
-    } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-      toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP));
+    } else if (/permiso|autoriz|403|503|verify-access|SEG|JWT/i.test(msg)) {
+      toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP) || msg);
     } else {
       toastError(msg);
     }
@@ -134,12 +136,13 @@ export async function saveOnePrompt({
     applyCloudRows(rows, { onlyTipos: [key], ignoreUrl: true });
     toastSuccess(`${key.replace(/_/g, " ")} guardada en Paty`);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const msg = humanizeIssAuthMessage(raw);
     setLoadErr(msg);
     if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
       LabSession.handleApiError(e, LabSession.INSTRUCCIONES_WRITE_CAP);
-    } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-      toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP));
+    } else if (/permiso|autoriz|403|503|verify-access|SEG|JWT/i.test(msg)) {
+      toastWarning(LabSession.humanPermissionError(e, LabSession.INSTRUCCIONES_WRITE_CAP) || msg);
     } else {
       toastError(msg);
     }
