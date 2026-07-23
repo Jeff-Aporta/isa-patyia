@@ -1,0 +1,298 @@
+/* Welcome home — marca PatyIA / URL limpia */
+
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600&display=swap");
+
+.paty-welcome {
+  --pw-blue: #1e90ff;
+  --pw-cyan: #00e5ff;
+  --pw-ink: #0a1628;
+  --pw-muted: rgba(10, 22, 40, 0.62);
+  --pw-card: rgba(255, 255, 255, 0.72);
+  --pw-line: rgba(30, 144, 255, 0.22);
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  font-family: "Figtree", system-ui, sans-serif;
+  color: var(--pw-ink);
+  background:
+    radial-gradient(1200px 520px at 12% -10%, rgba(30, 144, 255, 0.28), transparent 55%),
+    radial-gradient(900px 480px at 92% 8%, rgba(0, 229, 255, 0.18), transparent 50%),
+    linear-gradient(180deg, #e8f3ff 0%, #f4f8fc 42%, #eef2f7 100%);
+}
+
+html[data-mui-color-scheme="dark"] .paty-welcome {
+  --pw-ink: #e8f1ff;
+  --pw-muted: rgba(232, 241, 255, 0.62);
+  --pw-card: rgba(12, 28, 48, 0.72);
+  --pw-line: rgba(0, 229, 255, 0.28);
+  background:
+    radial-gradient(1000px 480px at 10% -8%, rgba(30, 144, 255, 0.35), transparent 55%),
+    radial-gradient(800px 420px at 95% 0%, rgba(0, 229, 255, 0.16), transparent 48%),
+    linear-gradient(180deg, #071018 0%, #0b1a2c 48%, #0a1420 100%);
+}
+
+.paty-welcome__status-wrap {
+  padding: 1rem clamp(1.25rem, 4vw, 3.5rem) 0;
+  animation: paty-welcome-in 0.55s ease both;
+}
+
+.paty-welcome__status-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.9rem 1.1rem;
+  align-items: center;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  border: 1px solid var(--pw-line);
+  background: var(--pw-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(14, 40, 80, 0.08);
+}
+
+.paty-welcome__status-card--ok {
+  border-color: rgba(34, 197, 94, 0.35);
+  box-shadow: 0 12px 32px rgba(34, 197, 94, 0.08);
+}
+
+.paty-welcome__status-card--warn {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.12);
+}
+
+.paty-welcome__status-card--err {
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.12);
+}
+
+.paty-welcome__status-icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 12px;
+  color: var(--pw-blue);
+  background: rgba(30, 144, 255, 0.12);
+}
+
+.paty-welcome__status-card--ok .paty-welcome__status-icon {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.paty-welcome__status-card--warn .paty-welcome__status-icon {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.paty-welcome__status-card--err .paty-welcome__status-icon {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.paty-welcome__status-kicker {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--pw-muted);
+}
+
+.paty-welcome__status-title {
+  margin: 0;
+  font-family: "Syne", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.paty-welcome__status-detail {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--pw-muted);
+  line-height: 1.35;
+}
+
+.paty-welcome__status-link {
+  justify-self: end;
+  align-self: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pw-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.paty-welcome__status-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .paty-welcome__status-card {
+    grid-template-columns: auto 1fr;
+  }
+  .paty-welcome__status-link {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.paty-welcome__hero {
+  position: relative;
+  isolation: isolate;
+  min-height: min(72vh, 640px);
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(2.5rem, 6vw, 5rem) clamp(1.25rem, 4vw, 3.5rem) clamp(2rem, 4vw, 3rem);
+  overflow: hidden;
+}
+
+.paty-welcome__hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, rgba(30, 144, 255, 0.12) 0%, transparent 42%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.paty-welcome__hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 42rem;
+  animation: paty-welcome-in 0.7s ease both;
+}
+
+.paty-welcome__eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pw-muted);
+  font-weight: 600;
+}
+
+.paty-welcome__brand {
+  margin: 0 0 0.85rem !important;
+  font-family: "Syne", sans-serif !important;
+  font-weight: 800 !important;
+  font-size: clamp(3.2rem, 9vw, 5.6rem) !important;
+  line-height: 0.95 !important;
+  letter-spacing: -0.03em !important;
+  background: linear-gradient(105deg, var(--pw-blue) 0%, var(--pw-cyan) 55%, #7dd3fc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+.paty-welcome__tagline {
+  margin: 0 0 1.75rem !important;
+  font-size: clamp(1.05rem, 2.2vw, 1.25rem) !important;
+  line-height: 1.45 !important;
+  color: var(--pw-muted) !important;
+  max-width: 34rem;
+}
+
+.paty-welcome__cta {
+  margin-bottom: 1.25rem;
+}
+
+.paty-welcome__poll-hint {
+  color: var(--pw-muted) !important;
+}
+
+.paty-welcome__tools {
+  padding: 0 clamp(1.25rem, 4vw, 3.5rem) clamp(2.5rem, 5vw, 4rem);
+  animation: paty-welcome-in 0.85s 0.12s ease both;
+}
+
+.paty-welcome__section-title {
+  margin: 0 0 0.4rem !important;
+  font-family: "Syne", sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 1.55rem !important;
+}
+
+.paty-welcome__section-lead {
+  margin: 0 0 1.5rem !important;
+  color: var(--pw-muted) !important;
+  max-width: 36rem;
+}
+
+.paty-welcome__tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.paty-welcome__tool {
+  appearance: none;
+  border: 1px solid var(--pw-line);
+  border-radius: 16px;
+  padding: 1.15rem 1.2rem 1.25rem;
+  text-align: left;
+  cursor: pointer;
+  background: var(--pw-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(14, 40, 80, 0.06);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: inherit;
+  font: inherit;
+}
+
+.paty-welcome__tool:hover {
+  transform: translateY(-3px);
+  border-color: rgba(30, 144, 255, 0.55);
+  box-shadow: 0 16px 36px rgba(30, 144, 255, 0.14);
+}
+
+.paty-welcome__tool:focus-visible {
+  outline: 2px solid var(--pw-blue);
+  outline-offset: 2px;
+}
+
+.paty-welcome__tool-icon {
+  color: var(--pw-blue);
+  margin-bottom: 0.2rem;
+}
+
+.paty-welcome__tool-title {
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.paty-welcome__tool-blurb {
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--pw-muted);
+}
+
+.paty-welcome__foot {
+  padding: 0 clamp(1.25rem, 4vw, 3.5rem) 2rem;
+  color: var(--pw-muted);
+}
+
+.paty-welcome__foot code {
+  font-size: 0.85em;
+}
+
+@keyframes paty-welcome-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paty-welcome__hero-inner,
+  .paty-welcome__tools,
+  .paty-welcome__tool {
+    animation: none !important;
+    transition: none !important;
+  }
+}
