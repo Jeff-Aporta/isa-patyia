@@ -1256,7 +1256,7 @@ async function fetchTercerosAuditFromLocalConversaciones(input) {
 async function fetchConversacionesBridge(input, jwt) {
   const tokenJwt = jwt ?? loadPatyJwt();
   if (!tokenJwt?.token) {
-    throw new Error("Configura el JWT de soporte-staging para listar conversaciones");
+    throw new Error("Inicia sesi\xF3n o configura un JWT ContaPyme para listar conversaciones");
   }
   const res = await listConversaciones(tokenJwt, {
     page: input.page,

@@ -1779,6 +1779,14 @@ var init_platform = __esm({
         api.ensureLazyStylesheet(`${prefix}css/todos-staging.css`).catch((err) => {
           console.warn("todos-staging.css:", err);
         });
+      },
+      ensureWelcomeCss: () => {
+        const api = frontSharedLazy();
+        if (!api) return;
+        const prefix = typeof window !== "undefined" && window.__ISA_DIST__ ? "_dist/" : "";
+        api.ensureLazyStylesheet(`${prefix}css/welcome-home.css`).catch((err) => {
+          console.warn("welcome-home.css:", err);
+        });
       }
     };
     Tokens = {

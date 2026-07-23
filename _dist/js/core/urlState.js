@@ -66,32 +66,33 @@ function normalizeLog(raw) {
   return o;
 }
 function initial() {
-  return { v: STATE_VERSION, tool: "chat", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "sistema" } };
+  return { v: STATE_VERSION, tool: "home", log: {}, prompts: {}, chat: { pane: "conv" }, todos: {}, config: { pane: "prompts" } };
 }
 function normalizeChatPane(raw) {
   return raw === "logs" ? "logs" : "conv";
 }
 function normalizeConfigPane(raw) {
   if (raw === "permisos") return "permisos";
-  if (raw === "prompts") return "prompts";
-  return "sistema";
+  if (raw === "sistema") return "sistema";
+  return "prompts";
 }
 function legacyConfigPaneFromLs() {
   try {
     const v = localStorage.getItem("isa-patyia:config-tab");
-    if (v === "permisos" || v === "prompts") return v;
-    return "sistema";
+    if (v === "permisos" || v === "sistema" || v === "prompts") return v;
+    return "prompts";
   } catch {
-    return "sistema";
+    return "prompts";
   }
 }
 function normalizeTool(raw) {
   if (raw === "log") return "chat";
   if (raw === "prompts") return "config";
+  if (raw === "home") return "home";
   if (raw === "chat") return "chat";
   if (raw === "todos") return "todos";
   if (raw === "config") return "config";
-  return "chat";
+  return "home";
 }
 function normalizeChatBag(chat, legacyTool) {
   const bag = chat && typeof chat === "object" ? { ...chat } : {};
