@@ -1,5 +1,87 @@
 /* Welcome home - neon-glass + Iconify (layout / ilustracion; superficies via kit) */
 
+/* Brand + OpenAI status ring (app-wide, junto a PatyIA) */
+.paty-brand-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.paty-brand-title__text {
+  display: inline;
+}
+
+.paty-openai-status-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.paty-openai-status-ring__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.paty-openai-status-ring__track,
+.paty-openai-status-ring__prog {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.paty-openai-status-ring__track {
+  stroke: color-mix(in srgb, var(--oa-ring-accent, #22d3ee) 28%, transparent);
+}
+
+.paty-openai-status-ring__prog {
+  stroke: var(--oa-ring-accent, #22d3ee);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--oa-ring-accent, #22d3ee) 50%, transparent));
+  transition: stroke-dashoffset 0.08s linear;
+}
+
+.paty-openai-status-ring__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.paty-openai-status-ring__anchor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+
+.paty-openai-status-ring__anchor:hover .paty-openai-status-ring,
+.paty-openai-status-ring__anchor:focus-visible .paty-openai-status-ring {
+  filter: brightness(1.15);
+}
+
+.paty-openai-status-ring__anchor:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--oa-ring-accent, #22d3ee) 55%, transparent);
+}
+
+.paty-brand-title__status.paty-openai-status-ring .paty-openai-status-ring__track,
+.paty-brand-title__status.paty-openai-status-ring .paty-openai-status-ring__prog {
+  stroke-width: 4.75;
+}
+
 .paty-welcome {
   --pw-blue: var(--neon-blue, #1e90ff);
   --pw-cyan: var(--neon-cyan, #00e5ff);
@@ -102,6 +184,26 @@ html[data-mui-color-scheme="light"] .paty-welcome__tools.isa-glass-section {
     0 8px 24px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 22%, transparent);
 }
 
+.paty-welcome__status-ring-wrap {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.paty-welcome__status-ring-wrap .paty-openai-status-ring__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.paty-welcome__status-ring-wrap .paty-openai-status-ring__inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Legacy ring classes kept for safety if old HTML remains */
 .paty-welcome__status-ring {
   position: absolute;
   inset: 0;
@@ -365,14 +467,6 @@ html[data-mui-color-scheme="light"] .paty-welcome__orbit {
 .paty-welcome__orbit--b { top: 38%; right: 2%; color: #a5b4fc; }
 .paty-welcome__orbit--c { bottom: 12%; left: 12%; color: var(--pw-blue); }
 .paty-welcome__orbit--d { bottom: 28%; right: 14%; color: #c084fc; }
-
-.paty-welcome__section-lead {
-  margin: 0 0 1.25rem !important;
-  opacity: 0.75;
-  max-width: 40rem;
-  font-size: 0.95rem !important;
-  line-height: 1.45 !important;
-}
 
 .paty-welcome__tool-grid {
   display: grid;
