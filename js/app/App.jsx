@@ -8,6 +8,8 @@ import { ConfigTool } from "../tools/ConfigTool.jsx";
 import { WelcomeHome } from "../tools/WelcomeHome.jsx";
 import { IssTargetChip } from "../components/IssTargetSwitch.jsx";
 import { ViewAsRoleMenu } from "../components/ViewAsRoleControl.jsx";
+import { OpenAiStatusRing } from "../status/OpenAiStatusRing.jsx";
+import { startOpenAiStatusPolling, stopOpenAiStatusPolling } from "../api/openaiStatusApi.ts";
 import * as SessionApi from "../api/sessionApi.ts";
 
 /** Mismo grafo que bootMeCaps — evita ViewAsRoleMenu en platform.js con cache ME vacío. */
@@ -78,6 +80,12 @@ export function App() {
   const { useState, useEffect, useMemo } = getReact();
   const { LoginButton } = UI;
   const boot = bootState;
+
+  // OpenAI Status: poll app-wide (60s), no solo en home.
+  useEffect(() => {
+    startOpenAiStatusPolling();
+    return () => { stopOpenAiStatusPolling(); };
+  }, []);
   const [appBoot, setAppBoot] = useState(boot);
   const [tool, setTool] = useState(() => boot.tool || "home");
   const [chatPane, setChatPane] = useState(() => readChatPane(boot));
@@ -212,7 +220,14 @@ export function App() {
       try { localStorage.setItem("isa-patyia:config-tab", p); } catch { /* ignore */ }
       return;
     }
-    selectTool(id === "chat" ? "chat" : id);
+    if (id === "chat") {
+      const p = pane === "logs" ? "logs" : "conv";
+      setChatPane(p);
+      setTool("chat");
+      mergePartial({ tool: "chat", chat: { pane: p } });
+      return;
+    }
+    selectTool(id);
   }
 
   function selectChatPane(id) {
@@ -277,10 +292,17 @@ export function App() {
           : []),
       ];
 
+  const brandTitle = (
+    <span className="paty-brand-title">
+      <span className="paty-brand-title__text">PatyIA</span>
+      <OpenAiStatusRing size={14} className="paty-brand-title__status" link />
+    </span>
+  );
+
   return (
     <Shell
       ns="ISA"
-      title="PatyIA"
+      title={brandTitle}
       showTarget={false}
       mobileBreakpoint="xs"
       chromeless={publicScrumView}
