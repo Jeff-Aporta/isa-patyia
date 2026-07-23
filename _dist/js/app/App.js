@@ -19745,40 +19745,81 @@ var TOOLS = [
     id: "chat",
     title: "Chat",
     blurb: "Conversaciones con Paty, logs de turnos y trazas file_search.",
-    icon: "mdi:chat-outline",
+    icon: "solar:chat-round-line-bold-duotone",
+    accentKey: "cyan",
     pane: null
   },
   {
     id: "config",
     title: "Prompts",
     blurb: "Instrucciones MSSQL, borradores y publicaci\xF3n hacia el ISS.",
-    icon: "mdi:database-export",
+    icon: "solar:database-bold-duotone",
+    accentKey: "blue",
     pane: "prompts"
   },
   {
     id: "config",
     title: "Sistema",
     blurb: "Modelos OpenAI, max_num_results y prompts operativos.",
-    icon: "mdi:tune-vertical",
+    icon: "solar:settings-bold-duotone",
+    accentKey: "purple",
     pane: "sistema"
   },
   {
     id: "config",
     title: "Permisos",
     blurb: "Roles SEG, jerarqu\xEDa y capacidades por usuario.",
-    icon: "mdi:shield-key-outline",
+    icon: "solar:shield-keyhole-bold-duotone",
+    accentKey: "magenta",
     pane: "permisos"
   }
 ];
+var HERO_PILLS = [
+  { label: "Chat RAG", icon: "solar:magic-stick-3-bold-duotone" },
+  { label: "Prompts", icon: "solar:document-text-bold-duotone" },
+  { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
+  { label: "Trazas", icon: "solar:graph-up-bold-duotone" }
+];
+var ILLUSTRATION_ORBITS = [
+  { icon: "solar:chat-round-dots-bold-duotone", cls: "paty-welcome__orbit--a", size: 36 },
+  { icon: "solar:cpu-bolt-bold-duotone", cls: "paty-welcome__orbit--b", size: 32 },
+  { icon: "solar:database-bold-duotone", cls: "paty-welcome__orbit--c", size: 30 },
+  { icon: "solar:shield-check-bold-duotone", cls: "paty-welcome__orbit--d", size: 28 }
+];
+function statusToneKey(status, degraded) {
+  if (!status) return "loading";
+  if (status.error) return "warn";
+  if (status.indicator === "critical" || status.indicator === "major") return "err";
+  if (degraded) return "warn";
+  return "ok";
+}
+function glassToneForStatus(tone) {
+  if (tone === "ok") return "success";
+  if (tone === "err") return "err";
+  if (tone === "warn") return "warn";
+  return "blue";
+}
+function statusAccent(NEON_COLORS, tone) {
+  if (tone === "ok") return NEON_COLORS.green;
+  if (tone === "err") return NEON_COLORS.red;
+  if (tone === "warn") return NEON_COLORS.amber;
+  return NEON_COLORS.cyan;
+}
+function statusIcon(tone) {
+  if (tone === "ok") return "solar:check-circle-bold-duotone";
+  if (tone === "loading") return "svg-spinners:ring-resize";
+  if (tone === "err") return "solar:danger-triangle-bold-duotone";
+  return "solar:danger-circle-bold-duotone";
+}
 function WelcomeHome({ onOpenTool }) {
   const { useState: useState34, useEffect: useEffect30, useRef: useRef17 } = getReact();
-  const { Box: Box33, Typography: Typography28, Button: Button21, Stack: Stack26, Link } = getMaterialUI();
+  const { Box: Box33, Typography: Typography28, Button: Button21, Stack: Stack26, Link, Chip: Chip19 } = getMaterialUI();
   const { Icon: Icon26 } = UI;
+  const { GlassPageSurface, GlassHero, GlassCard, GlassSection, NEON_COLORS } = getGlass();
   const [status, setStatus] = useState34(
     /** @type {OpenAiStatusSnapshot | null} */
     null
   );
-  const [tick, setTick] = useState34(0);
   const abortRef = useRef17(
     /** @type {AbortController | null} */
     null
@@ -19791,10 +19832,7 @@ function WelcomeHome({ onOpenTool }) {
       abortRef.current = ac;
       try {
         const snap = await fetchOpenAiStatus(ac.signal);
-        if (alive) {
-          setStatus(snap);
-          setTick((n) => n + 1);
-        }
+        if (alive) setStatus(snap);
       } catch (e) {
         if (e?.name === "AbortError") return;
         if (alive) {
@@ -19821,80 +19859,149 @@ function WelcomeHome({ onOpenTool }) {
     };
   }, []);
   const degraded = openAiStatusIsDegraded(status);
-  const lastAgo = status?.fetchedAt ? Math.max(0, Math.round((Date.now() - status.fetchedAt) / 1e3)) : null;
-  const statusTone = !status ? "loading" : status.error ? "warn" : status.indicator === "critical" || status.indicator === "major" ? "err" : degraded ? "warn" : "ok";
+  const statusTone = statusToneKey(status, degraded);
   const statusTitle = !status ? "Consultando OpenAI Status\u2026" : status.error ? "No se pudo leer OpenAI Status" : degraded ? status.description : "OpenAI operacional";
-  const statusDetail = !status ? "Poll cada 10 s en esta vista." : status.error ? status.error : [
-    status.incidents[0]?.name,
-    status.indicator !== "none" ? `indicator: ${status.indicator}` : null,
-    lastAgo != null ? `actualizado hace ${lastAgo}s` : null,
-    `poll #${tick}`
-  ].filter(Boolean).join(" \xB7 ");
-  return /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome", component: "main", children: [
-    /* @__PURE__ */ jsx46("section", { className: "paty-welcome__status-wrap", "aria-live": "polite", children: /* @__PURE__ */ jsxs39("article", { className: `paty-welcome__status-card paty-welcome__status-card--${statusTone}`, children: [
-      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__status-icon", "aria-hidden": "true", children: /* @__PURE__ */ jsx46(
-        Icon26,
-        {
-          icon: statusTone === "ok" ? "mdi:check-circle-outline" : statusTone === "loading" ? "mdi:loading" : "mdi:alert-outline",
-          size: 28
-        }
-      ) }),
-      /* @__PURE__ */ jsxs39("div", { className: "paty-welcome__status-body", children: [
-        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__status-kicker", children: "OpenAI Status" }),
-        /* @__PURE__ */ jsx46("h2", { className: "paty-welcome__status-title", children: statusTitle }),
-        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__status-detail", children: statusDetail })
-      ] }),
-      /* @__PURE__ */ jsx46(
-        "a",
-        {
-          className: "paty-welcome__status-link",
-          href: status?.sourceUrl || "https://status.openai.com/",
-          target: "_blank",
-          rel: "noreferrer",
-          children: "status.openai.com"
-        }
-      )
-    ] }) }),
-    /* @__PURE__ */ jsxs39("section", { className: "paty-welcome__hero", children: [
-      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__hero-glow", "aria-hidden": "true" }),
-      /* @__PURE__ */ jsxs39("div", { className: "paty-welcome__hero-inner", children: [
-        /* @__PURE__ */ jsx46("p", { className: "paty-welcome__eyebrow", children: "InSoft \xB7 ContaPyme" }),
-        /* @__PURE__ */ jsx46(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
-        /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de soporte con IA: chat RAG, prompts, permisos y trazas \u2014 contra staging o producci\xF3n." }),
-        /* @__PURE__ */ jsxs39(Stack26, { direction: "row", spacing: 1.5, className: "paty-welcome__cta", flexWrap: "wrap", useFlexGap: true, children: [
-          /* @__PURE__ */ jsx46(Button21, { variant: "contained", size: "large", onClick: () => onOpenTool("chat"), children: "Abrir Chat" }),
-          /* @__PURE__ */ jsx46(Button21, { variant: "outlined", size: "large", onClick: () => onOpenTool("config", "prompts"), children: "Ir a Config" })
-        ] })
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxs39("section", { className: "paty-welcome__tools", "aria-labelledby": "paty-welcome-tools-title", children: [
-      /* @__PURE__ */ jsx46(Typography28, { id: "paty-welcome-tools-title", component: "h2", className: "paty-welcome__section-title", children: "Herramientas" }),
-      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", children: "Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producci\xF3n)." }),
-      /* @__PURE__ */ jsx46("div", { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => /* @__PURE__ */ jsxs39(
-        "button",
-        {
-          type: "button",
-          className: "paty-welcome__tool",
-          onClick: () => onOpenTool(t.id, t.pane),
-          children: [
-            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-icon", "aria-hidden": "true", children: /* @__PURE__ */ jsx46(Icon26, { icon: t.icon, size: 28 }) }),
-            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-title", children: t.title }),
-            /* @__PURE__ */ jsx46("span", { className: "paty-welcome__tool-blurb", children: t.blurb })
-          ]
-        },
-        `${t.id}-${t.title}`
-      )) })
-    ] }),
-    /* @__PURE__ */ jsx46("footer", { className: "paty-welcome__foot", children: /* @__PURE__ */ jsxs39(Typography28, { variant: "body2", children: [
-      "Estado de proveedores:",
-      " ",
-      /* @__PURE__ */ jsx46(Link, { href: "https://status.openai.com/", target: "_blank", rel: "noreferrer", children: "status.openai.com" }),
-      " \xB7 ",
-      "La marca PatyIA vuelve aqu\xED y limpia ",
-      /* @__PURE__ */ jsx46("code", { children: "?s=" }),
-      "."
-    ] }) })
-  ] });
+  const statusDetail = !status ? "Actualizaci\xF3n autom\xE1tica cada 10 s." : status.error ? status.error : status.incidents[0]?.name || (degraded ? "Revisa status.openai.com para m\xE1s detalle." : "Sin incidentes activos.");
+  const accent = statusAccent(NEON_COLORS, statusTone);
+  return /* @__PURE__ */ jsxs39(
+    GlassPageSurface,
+    {
+      className: "paty-welcome",
+      component: "main",
+      orbs: true,
+      sx: { px: 0, pt: 0, pb: { xs: 1.5, sm: 2, md: 3 }, height: "100%", minHeight: 0 },
+      children: [
+        /* @__PURE__ */ jsx46(GlassHero, { className: "paty-welcome__hero", sx: { mb: 2.5, borderRadius: 0, width: "100%" }, children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-grid", children: [
+          /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-copy", children: [
+            /* @__PURE__ */ jsxs39(Typography28, { className: "paty-welcome__eyebrow", component: "p", children: [
+              /* @__PURE__ */ jsx46(Icon26, { icon: "solar:buildings-2-bold-duotone", size: 16 }),
+              "InSoft \xB7 ContaPyme"
+            ] }),
+            /* @__PURE__ */ jsx46(Typography28, { component: "h1", className: "paty-welcome__brand", children: "PatyIA" }),
+            /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tagline", children: "Consola de soporte con IA: chat RAG, prompts, permisos y trazas \u2014 contra staging o producci\xF3n." }),
+            /* @__PURE__ */ jsx46(Stack26, { direction: "row", spacing: 1, className: "paty-welcome__pills", flexWrap: "wrap", useFlexGap: true, children: HERO_PILLS.map((p) => /* @__PURE__ */ jsx46(
+              Chip19,
+              {
+                size: "small",
+                className: "paty-welcome__pill",
+                icon: /* @__PURE__ */ jsx46(Icon26, { icon: p.icon, size: 15 }),
+                label: p.label
+              },
+              p.label
+            )) }),
+            /* @__PURE__ */ jsxs39(Stack26, { direction: "row", spacing: 1.5, className: "paty-welcome__cta", flexWrap: "wrap", useFlexGap: true, children: [
+              /* @__PURE__ */ jsx46(
+                Button21,
+                {
+                  variant: "contained",
+                  size: "large",
+                  className: "paty-welcome__cta-primary",
+                  startIcon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:chat-round-line-bold-duotone", size: 20 }),
+                  onClick: () => onOpenTool("chat"),
+                  children: "Abrir Chat"
+                }
+              ),
+              /* @__PURE__ */ jsx46(
+                Button21,
+                {
+                  variant: "outlined",
+                  size: "large",
+                  className: "paty-welcome__cta-ghost",
+                  startIcon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:settings-bold-duotone", size: 20 }),
+                  onClick: () => onOpenTool("config", "prompts"),
+                  children: "Ir a Config"
+                }
+              )
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__hero-art", "aria-hidden": "true", children: [
+            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--outer" }),
+            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-ring paty-welcome__art-ring--mid" }),
+            /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__art-core", children: /* @__PURE__ */ jsx46(Icon26, { icon: "ph:robot-duotone", size: 88 }) }),
+            ILLUSTRATION_ORBITS.map((o) => /* @__PURE__ */ jsx46(Box33, { className: `paty-welcome__orbit ${o.cls}`, children: /* @__PURE__ */ jsx46(Icon26, { icon: o.icon, size: o.size }) }, o.cls))
+          ] })
+        ] }) }),
+        /* @__PURE__ */ jsx46(
+          GlassCard,
+          {
+            className: "paty-welcome__status-card",
+            tone: glassToneForStatus(statusTone),
+            accent,
+            hover: false,
+            sx: { mb: 2.5, p: 0, overflow: "hidden" },
+            "aria-live": "polite",
+            children: /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-row", children: [
+              /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__status-icon", sx: { "--pw-status-accent": accent }, "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: statusIcon(statusTone), size: 30 }) }),
+              /* @__PURE__ */ jsxs39(Box33, { className: "paty-welcome__status-body", sx: { flex: 1, minWidth: 0 }, children: [
+                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-kicker", component: "p", children: "OpenAI Status" }),
+                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-title", component: "h2", children: statusTitle }),
+                /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__status-detail", component: "p", children: statusDetail })
+              ] }),
+              /* @__PURE__ */ jsxs39(
+                Link,
+                {
+                  className: "paty-welcome__status-link",
+                  href: status?.sourceUrl || "https://status.openai.com/",
+                  target: "_blank",
+                  rel: "noreferrer",
+                  underline: "hover",
+                  children: [
+                    /* @__PURE__ */ jsx46(Icon26, { icon: "solar:link-round-bold-duotone", size: 16 }),
+                    "status.openai.com"
+                  ]
+                }
+              )
+            ] })
+          }
+        ),
+        /* @__PURE__ */ jsxs39(
+          GlassSection,
+          {
+            className: "paty-welcome__tools",
+            title: "Herramientas",
+            accent: NEON_COLORS.cyan,
+            icon: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:widget-4-bold-duotone", size: 18 }),
+            bodySx: { pt: 2 },
+            children: [
+              /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__section-lead", component: "p", children: "Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producci\xF3n)." }),
+              /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-grid", children: TOOLS.map((t) => {
+                const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
+                return /* @__PURE__ */ jsxs39(
+                  GlassCard,
+                  {
+                    className: "paty-welcome__tool isa-neon-accent-stripe",
+                    accent: toolAccent,
+                    hover: true,
+                    component: "button",
+                    type: "button",
+                    onClick: () => onOpenTool(t.id, t.pane),
+                    sx: {
+                      "--stripe-accent": toolAccent,
+                      "--card-accent": toolAccent,
+                      p: 2,
+                      textAlign: "left",
+                      cursor: "pointer",
+                      width: "100%",
+                      border: "none",
+                      font: "inherit",
+                      color: "inherit"
+                    },
+                    children: [
+                      /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-icon", sx: { "--pw-tool-accent": toolAccent }, "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: t.icon, size: 32 }) }),
+                      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tool-title", component: "span", children: t.title }),
+                      /* @__PURE__ */ jsx46(Typography28, { className: "paty-welcome__tool-blurb", component: "span", children: t.blurb }),
+                      /* @__PURE__ */ jsx46(Box33, { className: "paty-welcome__tool-go", "aria-hidden": true, children: /* @__PURE__ */ jsx46(Icon26, { icon: "solar:arrow-right-bold-duotone", size: 18 }) })
+                    ]
+                  },
+                  `${t.id}-${t.title}`
+                );
+              }) })
+            ]
+          }
+        )
+      ]
+    }
+  );
 }
 
 // js/app/App.jsx
@@ -20030,21 +20137,21 @@ var { Stack: Stack25 } = getMaterialUI();
 var BRAND_HOME_EVENT = "isa:brand-home";
 var DEVFLOW_NAV_ENABLED = false;
 var ALL_TOOLS = [
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column", devflow: true },
-  { id: "config", label: "Config", icon: "mdi:cog-outline" }
+  { id: "chat", label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
+  { id: "todos", label: "DevFlow", icon: "solar:widget-4-bold-duotone", devflow: true },
+  { id: "config", label: "Config", icon: "solar:settings-bold-duotone" }
 ];
 var CHAT_PANES = [
-  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" },
-  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" }
+  { id: "conv", label: "Conversaciones", icon: "solar:users-group-rounded-bold-duotone" },
+  { id: "logs", label: "Logs", icon: "solar:clipboard-list-bold-duotone" }
 ];
 var CONFIG_PANES = [
-  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
-  { id: "sistema", label: "Sistema", icon: "mdi:tune-vertical" },
-  { id: "permisos", label: "Permisos", icon: "mdi:shield-key-outline" }
+  { id: "prompts", label: "Prompts", icon: "solar:database-bold-duotone" },
+  { id: "sistema", label: "Sistema", icon: "solar:tuning-2-bold-duotone" },
+  { id: "permisos", label: "Permisos", icon: "solar:shield-keyhole-bold-duotone" }
 ];
 var PUBLIC_SCRUM_TOOLS = [
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column" }
+  { id: "todos", label: "DevFlow", icon: "solar:widget-4-bold-duotone" }
 ];
 function navTabs(tabs) {
   return tabs.map(({ id, label, icon }) => ({ id, label, icon }));
