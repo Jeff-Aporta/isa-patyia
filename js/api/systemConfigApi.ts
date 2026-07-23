@@ -20,35 +20,26 @@ function systemApiBase(): string {
   return resolveIssApiBase();
 }
 
-/** Local ISS → is; remoto → w (diagnóstico; el Bearer real es JWT InSoft si hay caché). */
-function resolveIssAuthMode(): "w" | "is" {
-  const base = systemApiBase();
-  if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
-  return "w";
-}
-
 /** ispserver TErr401.noauthorization ignora sMsg y muestra este boilerplate ContaPyme (401020). */
 const CONTAPYME_NOAUTH_RX = /par[aá]metro de autenticaci[oó]n|enviando el header.*authorization/i;
 
-/** Traduce el 401020 mentiroso a causa real probable (SEG / JWT / deploy). */
+/** Traduce el 401020 mentiroso a causa real probable (SEG / JWT / header legacy). */
 export function humanizeIssAuthMessage(msg: string): string {
   const m = String(msg ?? "").trim();
   if (!m) return m;
   if (!CONTAPYME_NOAUTH_RX.test(m)) return m;
   return (
-    "El servidor rechazó la operación (permiso SEG o JWT), no falta el header Authorization. " +
+    "El servidor rechazó la operación (permiso SEG, JWT o cabecera inválida), no falta el header Authorization. " +
     "Si estás en Producción: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT " +
-    "(SEG o permsOpen). Tras desplegar el fix ISS verás el mensaje real (p. ej. Sin PUT … en SEG)."
+    "(SEG o permsOpen). No envíes X-Patyia-Auth-Mode=w (rompe auth ContaPyme en prod)."
   );
 }
 
-/** Headers hacia ISS: siempre preferir JWT InSoft (Paty) si hay caché válida.
- *  Staging/prod y local usan la misma firma; Session.authHeader solo como fallback. */
+/** Headers hacia ISS: JWT InSoft (Paty) si hay caché válida; Session solo como fallback.
+ *  No enviar X-Patyia-Auth-Mode: en prod ContaPyme, el valor "w" dispara 401020 falso. */
 function systemApiHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const mode = resolveIssAuthMode();
   const h: Record<string, string> = {
     Accept: "application/json",
-    "X-Patyia-Auth-Mode": mode,
     ...extra,
   };
   const paty = loadPatyJwt();

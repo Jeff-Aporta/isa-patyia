@@ -1020,22 +1020,15 @@ var init_permAccessFromMap = __esm({
 function systemApiBase() {
   return resolveIssApiBase();
 }
-function resolveIssAuthMode() {
-  const base = systemApiBase();
-  if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
-  return "w";
-}
 function humanizeIssAuthMessage(msg) {
   const m = String(msg ?? "").trim();
   if (!m) return m;
   if (!CONTAPYME_NOAUTH_RX.test(m)) return m;
-  return "El servidor rechaz\xF3 la operaci\xF3n (permiso SEG o JWT), no falta el header Authorization. Si est\xE1s en Producci\xF3n: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT (SEG o permsOpen). Tras desplegar el fix ISS ver\xE1s el mensaje real (p. ej. Sin PUT \u2026 en SEG).";
+  return "El servidor rechaz\xF3 la operaci\xF3n (permiso SEG, JWT o cabecera inv\xE1lida), no falta el header Authorization. Si est\xE1s en Producci\xF3n: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT (SEG o permsOpen). No env\xEDes X-Patyia-Auth-Mode=w (rompe auth ContaPyme en prod).";
 }
 function systemApiHeaders(extra = {}) {
-  const mode = resolveIssAuthMode();
   const h = {
     Accept: "application/json",
-    "X-Patyia-Auth-Mode": mode,
     ...extra
   };
   const paty = loadPatyJwt();

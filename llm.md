@@ -1120,23 +1120,25 @@ Con chip **Producción** + `forcePermsOpen()` la UI deja editar instrucciones, p
 
 > No se ha definido el parámetro de autenticación… header… `authorization`
 
-### Causa real (NO falta el header)
-`ispserver` `TErr401.noauthorization` (**401020**) **ignora** el `sMsg`. El ISS tiraba `Rst401(noauthorization, "Sin PUT … en SEG")` y el cliente solo veía el boilerplate.
-
-Además: `forcePermsOpen` **solo abre UI**. El servidor de prod sigue exigiendo SEG (o `permsOpen` en `config/runtime`). Sin eso el PUT se niega aunque el front diga “editable”.
+### Causas reales (NO falta el header)
+1. **Header legacy `X-Patyia-Auth-Mode: w`** (remoto): en ISS **prod** ContaPyme responde **401020** si va ese valor. Bearer solo / `mode=r` / sin el header → PUT **202**. El front lo enviaba siempre en remoto; **ya no se envía**.
+2. `ispserver` `TErr401.noauthorization` (**401020**) **ignora** el `sMsg`. Si el ISS niega con `Rst401(noauthorization, "Sin PUT…")` el cliente solo ve el boilerplate ContaPyme.
+3. `forcePermsOpen` **solo abre UI**. Sin SEG PUT o `config/runtime.permsOpen=true` en BD prod el servidor niega aunque la UI diga editable.
 
 ### Qué HAY que hacer
 | Capa | Acción |
 |------|--------|
-| ISS | Denegaciones con mensaje → `Rst401(TErr401.unauthorized, sMsg)` — **nunca** `noauthorization` con sMsg |
-| Front | `systemApiHeaders`: Bearer JWT InSoft (`loadPatyJwt`) en **todos** los targets; fallback Session |
+| Front | **No** enviar `X-Patyia-Auth-Mode` (sobre todo nunca `w` en remoto) |
+| Front | `systemApiHeaders`: Bearer JWT InSoft (`loadPatyJwt`); fallback Session |
 | Front | `humanizeIssAuthMessage` si llega el 401020 |
-| Prod escritura | SEG PUT real **o** `config/runtime.permsOpen=true` en BD prod **y** ISS desplegado que lo lea |
+| ISS | Denegaciones con mensaje → `Rst401(TErr401.unauthorized, sMsg)` — **nunca** `noauthorization` con sMsg |
+| Prod escritura | SEG PUT real **o** `config/runtime.permsOpen=true` en BD prod |
 
 ### Qué NO hacer
 | No hacer | Por qué |
 |----------|---------|
-| Tratar el 401020 como “falta Authorization” | Mentira de ispserver; el Bearer suele ir |
+| Reintroducir `X-Patyia-Auth-Mode: w` | Rompe PUT en prod con 401020 falso |
+| Tratar el 401020 como “falta Authorization” | Mentira de ispserver / ContaPyme; el Bearer suele ir |
 | Creer que `forcePermsOpen` autoriza el PUT | Solo UI |
 | Volver a `noauthorization` con sMsg custom | Health `iss-auth · noauthorization no lleva sMsg` |
 

@@ -415,31 +415,26 @@ var init_permAccessFromMap = __esm({
 function systemApiBase() {
   return resolveIssApiBase();
 }
-function resolveIssAuthMode() {
-  const base = systemApiBase();
-  if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
-  return "w";
+function humanizeIssAuthMessage(msg) {
+  const m = String(msg ?? "").trim();
+  if (!m) return m;
+  if (!CONTAPYME_NOAUTH_RX.test(m)) return m;
+  return "El servidor rechaz\xF3 la operaci\xF3n (permiso SEG, JWT o cabecera inv\xE1lida), no falta el header Authorization. Si est\xE1s en Producci\xF3n: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT (SEG o permsOpen). No env\xEDes X-Patyia-Auth-Mode=w (rompe auth ContaPyme en prod).";
 }
 function systemApiHeaders(extra = {}) {
-  const mode = resolveIssAuthMode();
   const h = {
     Accept: "application/json",
-    "X-Patyia-Auth-Mode": mode,
     ...extra
   };
-  if (mode === "is") {
-    const paty = loadPatyJwt();
-    if (paty?.token && !isPatyJwtExpired(paty.token)) {
-      h.Authorization = `Bearer ${paty.token}`;
-      if (Session.isLoggedIn()) {
-        const app = { ...Session.appHeader() };
-        for (const k of Object.keys(app)) {
-          if (/^authorization$/i.test(k)) delete app[k];
-        }
-        Object.assign(h, app);
+  const paty = loadPatyJwt();
+  if (paty?.token && !isPatyJwtExpired(paty.token)) {
+    h.Authorization = `Bearer ${paty.token}`;
+    if (Session.isLoggedIn()) {
+      const app = { ...Session.appHeader() };
+      for (const k of Object.keys(app)) {
+        if (/^authorization$/i.test(k)) delete app[k];
       }
-    } else if (Session.isLoggedIn()) {
-      Object.assign(h, Session.authHeader(), Session.appHeader());
+      Object.assign(h, app);
     }
   } else if (Session.isLoggedIn()) {
     Object.assign(h, Session.authHeader(), Session.appHeader());
@@ -452,7 +447,7 @@ function unwrapBody2(data) {
   if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
     const e = enc;
     const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
+    throw new Error(humanizeIssAuthMessage(msg) || "Error en la respuesta del servidor");
   }
   let inner = d;
   if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
@@ -483,7 +478,7 @@ async function jsonFetch2(path, init) {
       } catch {
       }
     }
-    throw new Error(msg || `HTTP ${res.status}`);
+    throw new Error(humanizeIssAuthMessage(msg) || `HTTP ${res.status}`);
   }
   if (!ct.includes("json")) {
     throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
@@ -569,13 +564,14 @@ function invalidatePermisosCache() {
   PERMISOS_LIST_INFLIGHT.clear();
   clearPermissionsMeCache();
 }
-var PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
+var CONTAPYME_NOAUTH_RX, PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
 var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
     init_patyia();
     init_patyia_jwt();
     init_permAccessFromMap();
+    CONTAPYME_NOAUTH_RX = /par[aá]metro de autenticaci[oó]n|enviando el header.*authorization/i;
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
     PERMISSIONS_ME_INFLIGHT = null;
     PERMISOS_LIST_CACHE = /* @__PURE__ */ new Map();
@@ -769,6 +765,9 @@ function resolvePrimaryIssRoleId() {
   const sl = Session.current()?.role;
   return sl ? String(sl).trim().toUpperCase() : "";
 }
+function forcePermsOpen() {
+  return getIssTarget() === "production";
+}
 function capsFromPermissionsMe(me) {
   if (!me) return null;
   const map = me.permisosEfectivos ?? me.permisos;
@@ -791,7 +790,7 @@ function localMeCaps() {
   if (!Session.isLoggedIn()) return {};
   const key = sessionCacheKey();
   const hydrated = key === ME_CAPS_KEY ? ME_CAPS : {};
-  const real = FORCE_PERMS_OPEN ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
+  const real = forcePermsOpen() ? { ...hydrated, ...OPEN_ME_CAPS } : hydrated;
   const viewAs = readViewAsRole();
   if (viewAs && canViewAsRole()) {
     const preset = capsForViewAsRole(viewAs);
@@ -862,7 +861,7 @@ function meCapsHydrated() {
 }
 function resolveEditCap(meFlag, serverHint) {
   if (isViewingAsRole()) return !!meFlag;
-  if (FORCE_PERMS_OPEN) return true;
+  if (forcePermsOpen()) return true;
   if (meFlag) return true;
   if (serverHint === true) return true;
   if (!meCapsHydrated() && roleLooksLikeElevatedEdit(Session.current?.()?.role)) return true;
@@ -956,18 +955,18 @@ function getSession() {
     capabilities: Session.capabilities()
   };
 }
-var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, FORCE_PERMS_OPEN, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
+var ROLE_PRIORITY, INSTRUCCIONES_WRITE_CAP, OPEN_ME_CAPS, ME_CAP_KEYS, ME_CAPS, ME_CAPS_KEY, ME_ISS_ROLES, ME_LOGIN_ROLE, ME_CAPS_BOOTSTRAP_TS, ME_CAPS_INFLIGHT, ME_CAPS_RETRY_TIMER, ME_SERVER_INSTRUCCIONES_EDIT, ME_CAPS_FETCH_GUARD_MS, ME_CAPS_REENTRY_GUARD_MS, isLoggedIn, can, blockReason, clearSession;
 var init_sessionApi = __esm({
   "js/api/sessionApi.ts"() {
     init_platform();
     init_platform();
+    init_patyia();
     init_systemConfigApi();
     init_permAccessFromMap();
     init_roleCanonicalMeta();
     init_viewAsRole();
     ROLE_PRIORITY = ["DEVISS", "ADMN", "AUDITOR", "USR"];
     INSTRUCCIONES_WRITE_CAP = "patyia.instrucciones.publish";
-    FORCE_PERMS_OPEN = false;
     OPEN_ME_CAPS = {
       canEditInstrucciones: true,
       canEditOpenAiConfig: true,
