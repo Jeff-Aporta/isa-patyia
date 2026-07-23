@@ -1025,6 +1025,12 @@ function resolveIssAuthMode() {
   if (/127\.0\.0\.1|localhost|:8802/i.test(base)) return "is";
   return "w";
 }
+function humanizeIssAuthMessage(msg) {
+  const m = String(msg ?? "").trim();
+  if (!m) return m;
+  if (!CONTAPYME_NOAUTH_RX.test(m)) return m;
+  return "El servidor rechaz\xF3 la operaci\xF3n (permiso SEG o JWT), no falta el header Authorization. Si est\xE1s en Producci\xF3n: el bypass del front solo abre la UI; el ISS de prod debe permitir PUT (SEG o permsOpen). Tras desplegar el fix ISS ver\xE1s el mensaje real (p. ej. Sin PUT \u2026 en SEG).";
+}
 function systemApiHeaders(extra = {}) {
   const mode = resolveIssAuthMode();
   const h = {
@@ -1032,19 +1038,15 @@ function systemApiHeaders(extra = {}) {
     "X-Patyia-Auth-Mode": mode,
     ...extra
   };
-  if (mode === "is") {
-    const paty = loadPatyJwt();
-    if (paty?.token && !isPatyJwtExpired(paty.token)) {
-      h.Authorization = `Bearer ${paty.token}`;
-      if (Session.isLoggedIn()) {
-        const app = { ...Session.appHeader() };
-        for (const k of Object.keys(app)) {
-          if (/^authorization$/i.test(k)) delete app[k];
-        }
-        Object.assign(h, app);
+  const paty = loadPatyJwt();
+  if (paty?.token && !isPatyJwtExpired(paty.token)) {
+    h.Authorization = `Bearer ${paty.token}`;
+    if (Session.isLoggedIn()) {
+      const app = { ...Session.appHeader() };
+      for (const k of Object.keys(app)) {
+        if (/^authorization$/i.test(k)) delete app[k];
       }
-    } else if (Session.isLoggedIn()) {
-      Object.assign(h, Session.authHeader(), Session.appHeader());
+      Object.assign(h, app);
     }
   } else if (Session.isLoggedIn()) {
     Object.assign(h, Session.authHeader(), Session.appHeader());
@@ -1057,7 +1059,7 @@ function unwrapBody2(data) {
   if (enc && typeof enc === "object" && !Array.isArray(enc) && enc.resultado === false) {
     const e = enc;
     const msg = String(e.mensaje ?? e.imensaje ?? "").trim();
-    throw new Error(msg || "Error en la respuesta del servidor");
+    throw new Error(humanizeIssAuthMessage(msg) || "Error en la respuesta del servidor");
   }
   let inner = d;
   if (d?.respuesta && typeof d.respuesta === "object" && !Array.isArray(d.respuesta)) {
@@ -1088,7 +1090,7 @@ async function jsonFetch2(path, init) {
       } catch {
       }
     }
-    throw new Error(msg || `HTTP ${res.status}`);
+    throw new Error(humanizeIssAuthMessage(msg) || `HTTP ${res.status}`);
   }
   if (!ct.includes("json")) {
     throw new Error(`Respuesta no JSON (${res.status}) desde ${systemApiBase()}${path}`);
@@ -1348,7 +1350,7 @@ function requireAppSession(onNeedLogin) {
   onNeedLogin?.();
   return false;
 }
-var OPENAI_DEFAULTS, PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_TTL_MS, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
+var OPENAI_DEFAULTS, CONTAPYME_NOAUTH_RX, PERMISSIONS_ME_CACHE, PERMISSIONS_ME_INFLIGHT, PERMISOS_LIST_TTL_MS, PERMISOS_LIST_CACHE, PERMISOS_LIST_INFLIGHT;
 var init_systemConfigApi = __esm({
   "js/api/systemConfigApi.ts"() {
     init_platform();
@@ -1360,6 +1362,7 @@ var init_systemConfigApi = __esm({
       modeloOperativo: "gpt-4.1-nano",
       modeloConversacion: "gpt-5-nano"
     };
+    CONTAPYME_NOAUTH_RX = /par[aá]metro de autenticaci[oó]n|enviando el header.*authorization/i;
     PERMISSIONS_ME_CACHE = { value: null, iat: 0, ttlMs: 0, key: "" };
     PERMISSIONS_ME_INFLIGHT = null;
     PERMISOS_LIST_TTL_MS = 6e4;
@@ -7721,6 +7724,7 @@ function mergeCloudRows(prev, rows, { onlyTipo = null, onlyTipos = null, ignoreU
 
 // js/tools/promptsSql/promptActions.ts
 init_sessionApi();
+init_systemConfigApi();
 init_platform();
 async function discardAllPrompts({
   instruccionKeys,
@@ -7791,12 +7795,13 @@ async function saveAllPrompts({
     applyCloudRows(rows, { onlyTipos: savedTipos, ignoreUrl: true });
     toastSuccess(`${savedTipos.length} instrucci\xF3n(es) guardada(s) en Paty`);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const msg = humanizeIssAuthMessage(raw);
     setLoadErr(msg);
     if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
       handleApiError(e, INSTRUCCIONES_WRITE_CAP);
-    } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-      toastWarning(humanPermissionError(e, INSTRUCCIONES_WRITE_CAP));
+    } else if (/permiso|autoriz|403|503|verify-access|SEG|JWT/i.test(msg)) {
+      toastWarning(humanPermissionError(e, INSTRUCCIONES_WRITE_CAP) || msg);
     } else {
       toastError(msg);
     }
@@ -7842,12 +7847,13 @@ async function saveOnePrompt({
     applyCloudRows(rows, { onlyTipos: [key], ignoreUrl: true });
     toastSuccess(`${key.replace(/_/g, " ")} guardada en Paty`);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const msg = humanizeIssAuthMessage(raw);
     setLoadErr(msg);
     if (e?.code === "FORBIDDEN" || e?.code === "NO_SESSION") {
       handleApiError(e, INSTRUCCIONES_WRITE_CAP);
-    } else if (/permiso|autoriz|403|503|verify-access/i.test(msg)) {
-      toastWarning(humanPermissionError(e, INSTRUCCIONES_WRITE_CAP));
+    } else if (/permiso|autoriz|403|503|verify-access|SEG|JWT/i.test(msg)) {
+      toastWarning(humanPermissionError(e, INSTRUCCIONES_WRITE_CAP) || msg);
     } else {
       toastError(msg);
     }
