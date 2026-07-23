@@ -1,16 +1,27 @@
 import { getReact, getMaterialUI, UI, getGlass } from "../core/platform.ts";
-import { fetchOpenAiStatus, openAiStatusIsDegraded, openAiStatusLooksOperational, type OpenAiStatusSnapshot } from "../api/openaiStatusApi.ts";
-
-const POLL_MS = 45_000;
+import {
+  openAiStatusIsDegraded,
+  openAiStatusLooksOperational,
+  openAiStatusTone,
+} from "../api/openaiStatusApi.ts";
+import { OpenAiStatusRing, useOpenAiStatus } from "../status/OpenAiStatusRing.jsx";
 
 const TOOLS = [
   {
     id: "chat",
     title: "Chat",
-    blurb: "Conversaciones con Paty, logs de turnos y trazas de consulta.",
+    blurb: "Conversaciones con Paty y consultas al asistente.",
     icon: "solar:chat-round-line-bold-duotone",
     accentKey: "cyan",
-    pane: null,
+    pane: "conv",
+  },
+  {
+    id: "chat",
+    title: "Logs",
+    blurb: "Turnos, trazas de consulta y historial de conversación.",
+    icon: "solar:clipboard-list-bold-duotone",
+    accentKey: "cyan",
+    pane: "logs",
   },
   {
     id: "config",
@@ -40,9 +51,9 @@ const TOOLS = [
 
 const HERO_PILLS = [
   { label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
+  { label: "Logs", icon: "solar:clipboard-list-bold-duotone" },
   { label: "Prompts", icon: "solar:document-text-bold-duotone" },
   { label: "Permisos", icon: "solar:lock-keyhole-bold-duotone" },
-  { label: "Trazas", icon: "solar:graph-up-bold-duotone" },
 ];
 
 const ILLUSTRATION_ORBITS = [
@@ -51,15 +62,6 @@ const ILLUSTRATION_ORBITS = [
   { icon: "solar:database-bold-duotone", cls: "paty-welcome__orbit--c", size: 30 },
   { icon: "solar:shield-check-bold-duotone", cls: "paty-welcome__orbit--d", size: 28 },
 ];
-
-function statusToneKey(status, degraded) {
-  if (!status) return "loading";
-  if (status.error) return "warn";
-  if (openAiStatusLooksOperational(status)) return "ok";
-  if (status.indicator === "critical" || status.indicator === "major") return "err";
-  if (degraded) return "warn";
-  return "ok";
-}
 
 function glassToneForStatus(tone) {
   if (tone === "ok") return "success";
@@ -85,87 +87,17 @@ function statusIcon(tone) {
 /**
  * Home al pulsar marca PatyIA (URL limpia sin ?s=).
  * Neon-glass + Iconify: hero, estado OpenAI y mapa de herramientas.
+ * El poll vive app-wide (ver openaiStatusApi / OpenAiStatusRing).
  */
 export function WelcomeHome({ onOpenTool }) {
-  const { useState, useEffect, useRef } = getReact();
   const { Box, Typography, Button, Stack, Link, Chip } = getMaterialUI();
   const { Icon } = UI;
   const { GlassPageSurface, GlassHero, GlassCard, GlassSection, NEON_COLORS } = getGlass();
-  const [status, setStatus] = useState(/** @type {OpenAiStatusSnapshot | null} */ (null));
-  const [pollProgress, setPollProgress] = useState(0);
-  const abortRef = useRef(/** @type {AbortController | null} */ (null));
-  const cycleStartRef = useRef(Date.now());
-
-  // Poll + anillo solo mientras Home está montada (al salir se cancela todo).
-  useEffect(() => {
-    let alive = true;
-    let nextPullId = 0;
-    let tickId = 0;
-
-    const clearTimers = () => {
-      window.clearTimeout(nextPullId);
-      window.clearTimeout(tickId);
-      nextPullId = 0;
-      tickId = 0;
-    };
-
-    const scheduleTick = () => {
-      window.clearTimeout(tickId);
-      if (!alive) return;
-      tickId = window.setTimeout(() => {
-        if (!alive) return;
-        const elapsed = Date.now() - cycleStartRef.current;
-        setPollProgress(Math.min(1, Math.max(0, elapsed / POLL_MS)));
-        scheduleTick();
-      }, 120);
-    };
-
-    async function pull() {
-      if (!alive) return;
-      window.clearTimeout(nextPullId);
-      cycleStartRef.current = Date.now();
-      setPollProgress(0);
-      const ac = new AbortController();
-      abortRef.current = ac;
-      try {
-        const snap = await fetchOpenAiStatus(ac.signal);
-        if (alive) setStatus(snap);
-      } catch (e) {
-        if ((e as { name?: string })?.name === "AbortError") return;
-        if (alive) {
-          setStatus({
-            ok: false,
-            indicator: "unknown",
-            description: "Sin datos",
-            incidents: [],
-            fetchedAt: Date.now(),
-            error: e instanceof Error ? e.message : String(e),
-            sourceUrl: "https://status.openai.com/",
-          });
-        }
-      } finally {
-        if (!alive) return;
-        // Próximo fetch solo si seguimos en home.
-        nextPullId = window.setTimeout(() => { void pull(); }, POLL_MS);
-      }
-    }
-
-    cycleStartRef.current = Date.now();
-    setPollProgress(0);
-    scheduleTick();
-    void pull();
-
-    return () => {
-      alive = false;
-      clearTimers();
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-  }, []);
+  const { status, progress, pollMs } = useOpenAiStatus();
 
   const degraded = openAiStatusIsDegraded(status);
   const operational = openAiStatusLooksOperational(status);
-  const statusTone = statusToneKey(status, degraded);
+  const statusTone = openAiStatusTone(status);
   const statusTitle = !status
     ? "Consultando OpenAI Status…"
     : status.error
@@ -174,17 +106,14 @@ export function WelcomeHome({ onOpenTool }) {
         ? (status.description || "OpenAI operacional")
         : status.description;
   const statusDetail = !status
-    ? "Actualización automática cada 45 s."
+    ? `Actualización automática cada ${Math.round(pollMs / 1000)} s.`
     : status.error
       ? status.error
       : operational || !degraded
         ? "Sin incidentes activos."
         : status.incidents[0]?.name || "Revisa status.openai.com para más detalle.";
   const accent = statusAccent(NEON_COLORS, statusTone);
-  const secsLeft = Math.max(0, Math.ceil((1 - pollProgress) * (POLL_MS / 1000)));
-  const ringR = 15.5;
-  const ringC = 2 * Math.PI * ringR;
-  const ringOffset = ringC * (1 - pollProgress);
+  const secsLeft = Math.max(0, Math.ceil((1 - progress) * (pollMs / 1000)));
 
   return (
     <GlassPageSurface
@@ -269,22 +198,9 @@ export function WelcomeHome({ onOpenTool }) {
             title={`Próxima actualización en ${secsLeft}s`}
             aria-label={`Próxima actualización de OpenAI Status en ${secsLeft} segundos`}
           >
-            <svg className="paty-welcome__status-ring" viewBox="0 0 36 36" aria-hidden="true">
-              <circle className="paty-welcome__status-ring-track" cx="18" cy="18" r={ringR} />
-              <circle
-                className="paty-welcome__status-ring-prog"
-                cx="18"
-                cy="18"
-                r={ringR}
-                style={{
-                  strokeDasharray: `${ringC} ${ringC}`,
-                  strokeDashoffset: ringOffset,
-                }}
-              />
-            </svg>
-            <span className="paty-welcome__status-icon-glyph">
+            <OpenAiStatusRing size={48} className="paty-welcome__status-ring-wrap">
               <Icon icon={statusIcon(statusTone)} size={22} />
-            </span>
+            </OpenAiStatusRing>
           </Box>
           <Box className="paty-welcome__status-body" sx={{ flex: 1, minWidth: 0 }}>
             <Typography className="paty-welcome__status-kicker" component="p">
@@ -318,9 +234,6 @@ export function WelcomeHome({ onOpenTool }) {
         bodySx={{ pt: 2 }}
         sx={{ mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" }}
       >
-        <Typography className="paty-welcome__section-lead" component="p">
-          Un solo espacio de trabajo. Elige el panel; el entorno del chip define contra qué instancia pruebas.
-        </Typography>
         <Box className="paty-welcome__tool-grid">
           {TOOLS.map((t) => {
             const toolAccent = NEON_COLORS[t.accentKey] || NEON_COLORS.blue;
