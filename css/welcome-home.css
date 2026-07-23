@@ -1,135 +1,107 @@
-/* Welcome home — marca PatyIA / URL limpia */
-
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600&display=swap");
+/* Welcome home - neon-glass + Iconify (layout / ilustracion; superficies via kit) */
 
 .paty-welcome {
-  --pw-blue: #1e90ff;
-  --pw-cyan: #00e5ff;
-  --pw-ink: #0a1628;
-  --pw-muted: rgba(10, 22, 40, 0.62);
-  --pw-card: rgba(255, 255, 255, 0.72);
-  --pw-line: rgba(30, 144, 255, 0.22);
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-  font-family: "Figtree", system-ui, sans-serif;
-  color: var(--pw-ink);
-  background:
-    radial-gradient(1200px 520px at 12% -10%, rgba(30, 144, 255, 0.28), transparent 55%),
-    radial-gradient(900px 480px at 92% 8%, rgba(0, 229, 255, 0.18), transparent 50%),
-    linear-gradient(180deg, #e8f3ff 0%, #f4f8fc 42%, #eef2f7 100%);
+  --pw-blue: var(--neon-blue, #1e90ff);
+  --pw-cyan: var(--neon-cyan, #00e5ff);
+  --pw-purple: var(--neon-purple, #6366f1);
+  --pw-magenta: var(--neon-magenta, #a855f7);
+  --pw-page-x: clamp(1.25rem, 4vw, 3rem);
+  color: inherit;
 }
 
-html[data-mui-color-scheme="dark"] .paty-welcome {
-  --pw-ink: #e8f1ff;
-  --pw-muted: rgba(232, 241, 255, 0.62);
-  --pw-card: rgba(12, 28, 48, 0.72);
-  --pw-line: rgba(0, 229, 255, 0.28);
-  background:
-    radial-gradient(1000px 480px at 10% -8%, rgba(30, 144, 255, 0.35), transparent 55%),
-    radial-gradient(800px 420px at 95% 0%, rgba(0, 229, 255, 0.16), transparent 48%),
-    linear-gradient(180deg, #071018 0%, #0b1a2c 48%, #0a1420 100%);
+/* Hero a full-bleed; el pad horizontal solo en el grid interno */
+.paty-welcome.isa-glass-page-surface {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
 }
 
-.paty-welcome__status-wrap {
-  padding: 1rem clamp(1.25rem, 4vw, 3.5rem) 0;
+.paty-welcome__hero {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  border-radius: 0 !important;
   animation: paty-welcome-in 0.55s ease both;
 }
 
-.paty-welcome__status-card {
+.paty-welcome__hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.85fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: center;
+  min-height: min(42vh, 360px);
+  padding-inline: var(--pw-page-x);
+  box-sizing: border-box;
+}
+
+.paty-welcome__status-card,
+.paty-welcome__tools {
+  margin-left: var(--pw-page-x);
+  margin-right: var(--pw-page-x);
+  width: auto;
+}
+
+.paty-welcome__status-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.9rem 1.1rem;
   align-items: center;
   padding: 1rem 1.15rem;
-  border-radius: 16px;
-  border: 1px solid var(--pw-line);
-  background: var(--pw-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 12px 32px rgba(14, 40, 80, 0.08);
-}
-
-.paty-welcome__status-card--ok {
-  border-color: rgba(34, 197, 94, 0.35);
-  box-shadow: 0 12px 32px rgba(34, 197, 94, 0.08);
-}
-
-.paty-welcome__status-card--warn {
-  border-color: rgba(245, 158, 11, 0.45);
-  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.12);
-}
-
-.paty-welcome__status-card--err {
-  border-color: rgba(239, 68, 68, 0.45);
-  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.12);
 }
 
 .paty-welcome__status-icon {
   display: grid;
   place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 12px;
-  color: var(--pw-blue);
-  background: rgba(30, 144, 255, 0.12);
-}
-
-.paty-welcome__status-card--ok .paty-welcome__status-icon {
-  color: #16a34a;
-  background: rgba(34, 197, 94, 0.14);
-}
-
-.paty-welcome__status-card--warn .paty-welcome__status-icon {
-  color: #d97706;
-  background: rgba(245, 158, 11, 0.16);
-}
-
-.paty-welcome__status-card--err .paty-welcome__status-icon {
-  color: #dc2626;
-  background: rgba(239, 68, 68, 0.14);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 14px;
+  color: var(--pw-status-accent, var(--pw-cyan));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 28%, transparent), transparent 70%),
+    color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 12%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 35%, transparent),
+    0 8px 24px color-mix(in srgb, var(--pw-status-accent, var(--pw-cyan)) 22%, transparent);
 }
 
 .paty-welcome__status-kicker {
-  margin: 0 0 0.15rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  margin: 0 0 0.15rem !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.12em !important;
   text-transform: uppercase;
-  font-weight: 600;
-  color: var(--pw-muted);
+  font-weight: 700 !important;
+  opacity: 0.72;
 }
 
 .paty-welcome__status-title {
-  margin: 0;
-  font-family: "Syne", sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1.25;
+  margin: 0 !important;
+  font-size: 1.12rem !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.01em;
 }
 
 .paty-welcome__status-detail {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
-  color: var(--pw-muted);
-  line-height: 1.35;
+  margin: 0.3rem 0 0 !important;
+  font-size: 0.9rem !important;
+  line-height: 1.35 !important;
+  opacity: 0.72;
 }
 
 .paty-welcome__status-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   justify-self: end;
-  align-self: center;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--pw-blue);
-  text-decoration: none;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
   white-space: nowrap;
-}
-
-.paty-welcome__status-link:hover {
-  text-decoration: underline;
+  color: var(--pw-cyan) !important;
 }
 
 @media (max-width: 640px) {
-  .paty-welcome__status-card {
+  .paty-welcome__status-row {
     grid-template-columns: auto 1fr;
   }
   .paty-welcome__status-link {
@@ -138,87 +110,190 @@ html[data-mui-color-scheme="dark"] .paty-welcome {
   }
 }
 
-.paty-welcome__hero {
-  position: relative;
-  isolation: isolate;
-  min-height: min(72vh, 640px);
-  display: flex;
-  align-items: flex-end;
-  padding: clamp(2.5rem, 6vw, 5rem) clamp(1.25rem, 4vw, 3.5rem) clamp(2rem, 4vw, 3rem);
-  overflow: hidden;
-}
-
-.paty-welcome__hero-glow {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(115deg, rgba(30, 144, 255, 0.12) 0%, transparent 42%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-}
-
-.paty-welcome__hero-inner {
-  position: relative;
-  z-index: 1;
-  max-width: 42rem;
-  animation: paty-welcome-in 0.7s ease both;
-}
-
 .paty-welcome__eyebrow {
-  margin: 0 0 0.75rem;
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.75rem !important;
+  font-size: 0.78rem !important;
+  letter-spacing: 0.14em !important;
   text-transform: uppercase;
-  color: var(--pw-muted);
-  font-weight: 600;
+  font-weight: 700 !important;
+  opacity: 0.85;
 }
 
 .paty-welcome__brand {
-  margin: 0 0 0.85rem !important;
-  font-family: "Syne", sans-serif !important;
+  margin: 0 0 0.75rem !important;
   font-weight: 800 !important;
-  font-size: clamp(3.2rem, 9vw, 5.6rem) !important;
+  font-size: clamp(2.75rem, 7vw, 4.6rem) !important;
   line-height: 0.95 !important;
   letter-spacing: -0.03em !important;
-  background: linear-gradient(105deg, var(--pw-blue) 0%, var(--pw-cyan) 55%, #7dd3fc 100%);
+  background: linear-gradient(105deg, #fff 0%, var(--pw-cyan) 42%, #7dd3fc 78%, var(--pw-purple) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent !important;
+  filter: drop-shadow(0 0 28px color-mix(in srgb, var(--pw-cyan) 45%, transparent));
+}
+
+html[data-mui-color-scheme="light"] .paty-welcome__brand {
+  background: linear-gradient(105deg, var(--pw-blue) 0%, var(--pw-cyan) 48%, var(--pw-purple) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--pw-blue) 22%, transparent));
 }
 
 .paty-welcome__tagline {
-  margin: 0 0 1.75rem !important;
-  font-size: clamp(1.05rem, 2.2vw, 1.25rem) !important;
+  margin: 0 0 1.1rem !important;
+  font-size: clamp(1rem, 2vw, 1.15rem) !important;
   line-height: 1.45 !important;
-  color: var(--pw-muted) !important;
   max-width: 34rem;
+  opacity: 0.9;
 }
 
-.paty-welcome__cta {
-  margin-bottom: 1.25rem;
+.paty-welcome__pills {
+  margin-bottom: 1.35rem !important;
 }
 
-.paty-welcome__poll-hint {
-  color: var(--pw-muted) !important;
+.paty-welcome__pill {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--pw-cyan) 28%, transparent) !important;
+  background: color-mix(in srgb, rgba(8, 18, 36, 0.35) 70%, transparent) !important;
+  color: inherit !important;
+  font-weight: 600 !important;
+  height: auto !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
 }
+
+.paty-welcome__pill .MuiChip-icon {
+  margin-left: 0 !important;
+  margin-right: 8px !important;
+}
+
+.paty-welcome__pill .MuiChip-label {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+html[data-mui-color-scheme="light"] .paty-welcome__pill {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: color-mix(in srgb, var(--pw-blue) 22%, transparent) !important;
+}
+
+.paty-welcome__cta-primary {
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--pw-blue) 38%, transparent) !important;
+}
+
+.paty-welcome__cta-ghost {
+  border-color: color-mix(in srgb, #fff 55%, transparent) !important;
+  color: #fff !important;
+  backdrop-filter: blur(8px);
+}
+
+html[data-mui-color-scheme="light"] .paty-welcome__cta-ghost {
+  border-color: color-mix(in srgb, var(--pw-blue) 45%, transparent) !important;
+  color: var(--pw-blue) !important;
+}
+
+/* Ilustración hero — anillos + órbitas Iconify */
+.paty-welcome__hero-art {
+  position: relative;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  display: grid;
+  place-items: center;
+}
+
+.paty-welcome__art-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--pw-cyan) 35%, transparent);
+  pointer-events: none;
+}
+
+.paty-welcome__art-ring--outer {
+  inset: 4%;
+  box-shadow:
+    0 0 40px color-mix(in srgb, var(--pw-blue) 25%, transparent),
+    inset 0 0 40px color-mix(in srgb, var(--pw-purple) 18%, transparent);
+  animation: paty-welcome-spin 28s linear infinite;
+}
+
+.paty-welcome__art-ring--mid {
+  inset: 18%;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--pw-magenta) 40%, transparent);
+  animation: paty-welcome-spin 18s linear infinite reverse;
+}
+
+.paty-welcome__art-core {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 30%;
+  color: #f0fbff;
+  background:
+    linear-gradient(145deg, #1e90ff 0%, #00e5ff 42%, #6366f1 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 34%, transparent),
+    0 18px 52px color-mix(in srgb, var(--pw-blue) 55%, transparent),
+    0 0 72px color-mix(in srgb, var(--pw-cyan) 48%, transparent);
+  animation: paty-welcome-pulse 3.6s ease-in-out infinite;
+}
+
+.paty-welcome__art-core iconify-icon,
+.paty-welcome__art-core .iconify {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+}
+
+.paty-welcome__orbit {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 14px;
+  color: #e8f7ff;
+  background:
+    linear-gradient(145deg, rgba(15, 28, 48, 0.88), rgba(20, 40, 72, 0.72));
+  border: 1px solid color-mix(in srgb, var(--pw-cyan) 40%, transparent);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.28),
+    0 0 18px color-mix(in srgb, var(--pw-cyan) 28%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+html[data-mui-color-scheme="light"] .paty-welcome__orbit {
+  color: var(--pw-blue);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(232, 244, 255, 0.9));
+}
+
+.paty-welcome__orbit--a { top: 8%; left: 42%; color: var(--pw-cyan); }
+.paty-welcome__orbit--b { top: 38%; right: 2%; color: #a5b4fc; }
+.paty-welcome__orbit--c { bottom: 12%; left: 12%; color: var(--pw-blue); }
+.paty-welcome__orbit--d { bottom: 28%; right: 14%; color: #c084fc; }
 
 .paty-welcome__tools {
-  padding: 0 clamp(1.25rem, 4vw, 3.5rem) clamp(2.5rem, 5vw, 4rem);
-  animation: paty-welcome-in 0.85s 0.12s ease both;
-}
-
-.paty-welcome__section-title {
-  margin: 0 0 0.4rem !important;
-  font-family: "Syne", sans-serif !important;
-  font-weight: 700 !important;
-  font-size: 1.55rem !important;
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  animation: paty-welcome-in 0.7s 0.08s ease both;
 }
 
 .paty-welcome__section-lead {
-  margin: 0 0 1.5rem !important;
-  color: var(--pw-muted) !important;
-  max-width: 36rem;
+  margin: 0 0 1.25rem !important;
+  opacity: 0.75;
+  max-width: 40rem;
+  font-size: 0.95rem !important;
+  line-height: 1.45 !important;
 }
 
 .paty-welcome__tool-grid {
@@ -228,59 +303,55 @@ html[data-mui-color-scheme="dark"] .paty-welcome {
 }
 
 .paty-welcome__tool {
-  appearance: none;
-  border: 1px solid var(--pw-line);
-  border-radius: 16px;
-  padding: 1.15rem 1.2rem 1.25rem;
-  text-align: left;
-  cursor: pointer;
-  background: var(--pw-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 10px 30px rgba(14, 40, 80, 0.06);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  display: flex;
+  position: relative;
+  display: flex !important;
   flex-direction: column;
   gap: 0.45rem;
-  color: inherit;
-  font: inherit;
-}
-
-.paty-welcome__tool:hover {
-  transform: translateY(-3px);
-  border-color: rgba(30, 144, 255, 0.55);
-  box-shadow: 0 16px 36px rgba(30, 144, 255, 0.14);
-}
-
-.paty-welcome__tool:focus-visible {
-  outline: 2px solid var(--pw-blue);
-  outline-offset: 2px;
+  min-height: 10.5rem;
 }
 
 .paty-welcome__tool-icon {
-  color: var(--pw-blue);
-  margin-bottom: 0.2rem;
+  display: grid;
+  place-items: center;
+  width: 3.15rem;
+  height: 3.15rem;
+  border-radius: 14px;
+  margin-bottom: 0.35rem;
+  color: var(--pw-tool-accent, var(--pw-cyan));
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--pw-tool-accent, var(--pw-cyan)) 32%, transparent), transparent 72%),
+    color-mix(in srgb, var(--pw-tool-accent, var(--pw-cyan)) 10%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pw-tool-accent, var(--pw-cyan)) 32%, transparent),
+    0 10px 22px color-mix(in srgb, var(--pw-tool-accent, var(--pw-cyan)) 18%, transparent);
 }
 
 .paty-welcome__tool-title {
-  font-family: "Syne", sans-serif;
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-weight: 700 !important;
+  font-size: 1.12rem !important;
+  letter-spacing: -0.01em;
 }
 
 .paty-welcome__tool-blurb {
-  font-size: 0.92rem;
-  line-height: 1.4;
-  color: var(--pw-muted);
+  font-size: 0.9rem !important;
+  line-height: 1.4 !important;
+  opacity: 0.72;
+  padding-right: 1.5rem;
 }
 
-.paty-welcome__foot {
-  padding: 0 clamp(1.25rem, 4vw, 3.5rem) 2rem;
-  color: var(--pw-muted);
+.paty-welcome__tool-go {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  opacity: 0.55;
+  color: var(--pw-tool-accent, var(--pw-cyan));
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
-.paty-welcome__foot code {
-  font-size: 0.85em;
+.paty-welcome__tool:hover .paty-welcome__tool-go,
+.paty-welcome__tool:focus-visible .paty-welcome__tool-go {
+  opacity: 1;
+  transform: translateX(3px);
 }
 
 @keyframes paty-welcome-in {
@@ -288,10 +359,33 @@ html[data-mui-color-scheme="dark"] .paty-welcome {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes paty-welcome-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes paty-welcome-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.04); filter: brightness(1.08); }
+}
+
+@media (max-width: 900px) {
+  .paty-welcome__hero-grid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .paty-welcome__hero-art {
+    order: -1;
+    width: min(100%, 260px);
+    margin-bottom: 0.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .paty-welcome__hero-inner,
+  .paty-welcome__hero,
   .paty-welcome__tools,
-  .paty-welcome__tool {
+  .paty-welcome__art-ring,
+  .paty-welcome__art-core,
+  .paty-welcome__tool-go {
     animation: none !important;
     transition: none !important;
   }
