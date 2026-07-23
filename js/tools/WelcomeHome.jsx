@@ -149,7 +149,7 @@ export function WelcomeHome({ onOpenTool }) {
       orbs
       sx={{ px: 0, pt: 0, pb: { xs: 1.5, sm: 2, md: 3 }, height: "100%", minHeight: 0 }}
     >
-      <GlassHero className="paty-welcome__hero" sx={{ mb: 2.5, borderRadius: 0, width: "100%" }}>
+      <GlassHero className="paty-welcome__hero" sx={{ mb: 2.5, borderRadius: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }}>
         <Box className="paty-welcome__hero-grid">
           <Box className="paty-welcome__hero-copy">
             <Typography className="paty-welcome__eyebrow" component="p">
@@ -252,6 +252,7 @@ export function WelcomeHome({ onOpenTool }) {
         accent={NEON_COLORS.cyan}
         icon={<Icon icon="solar:widget-4-bold-duotone" size={18} />}
         bodySx={{ pt: 2 }}
+        sx={{ mt: 0, pt: 0, borderColor: "color-mix(in srgb, currentColor 60%, transparent)", boxShadow: "none" }}
       >
         <Typography className="paty-welcome__section-lead" component="p">
           Un solo shell. Elige el panel; el chip de entorno decide el ISS (local, staging o producción).
