@@ -28,26 +28,26 @@ const DEVFLOW_NAV_ENABLED = false;
 /** Tools del nav primario — Prompts y Logs viven como sub-tabs.
  * Nav siempre navegable; permisos restringen acciones/inputs dentro de cada panel. */
 const ALL_TOOLS = [
-  { id: "chat", label: "Chat", icon: "mdi:chat-outline" },
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column", devflow: true },
-  { id: "config", label: "Config", icon: "mdi:cog-outline" },
+  { id: "chat", label: "Chat", icon: "solar:chat-round-line-bold-duotone" },
+  { id: "todos", label: "DevFlow", icon: "solar:widget-4-bold-duotone", devflow: true },
+  { id: "config", label: "Config", icon: "solar:settings-bold-duotone" },
 ];
 
 /** Sub-nav de Chat: conversaciones a la izquierda, logs a la derecha. */
 const CHAT_PANES = [
-  { id: "conv", label: "Conversaciones", icon: "mdi:forum-outline" },
-  { id: "logs", label: "Logs", icon: "mdi:clipboard-text-clock-outline" },
+  { id: "conv", label: "Conversaciones", icon: "solar:users-group-rounded-bold-duotone" },
+  { id: "logs", label: "Logs", icon: "solar:clipboard-list-bold-duotone" },
 ];
 
 /** Sub-nav de Config: prompts, sistema, permisos. */
 const CONFIG_PANES = [
-  { id: "prompts", label: "Prompts", icon: "mdi:database-export" },
-  { id: "sistema", label: "Sistema", icon: "mdi:tune-vertical" },
-  { id: "permisos", label: "Permisos", icon: "mdi:shield-key-outline" },
+  { id: "prompts", label: "Prompts", icon: "solar:database-bold-duotone" },
+  { id: "sistema", label: "Sistema", icon: "solar:tuning-2-bold-duotone" },
+  { id: "permisos", label: "Permisos", icon: "solar:shield-keyhole-bold-duotone" },
 ];
 
 const PUBLIC_SCRUM_TOOLS = [
-  { id: "todos", label: "DevFlow", icon: "mdi:view-column" },
+  { id: "todos", label: "DevFlow", icon: "solar:widget-4-bold-duotone" },
 ];
 
 function navTabs(tabs) {
